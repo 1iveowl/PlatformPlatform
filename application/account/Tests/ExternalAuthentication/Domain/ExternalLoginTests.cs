@@ -49,6 +49,21 @@ public sealed class ExternalLoginTests
     }
 
     [Fact]
+    public void MarkCompleted_WhenEmailIsNull_ShouldSetLoginResultToSuccessWithoutEmail()
+    {
+        // Arrange
+        var externalLogin = CreateExternalLogin();
+
+        // Act
+        externalLogin.MarkCompleted(null);
+
+        // Assert
+        externalLogin.Email.Should().BeNull();
+        externalLogin.LoginResult.Should().Be(ExternalLoginResult.Success);
+        externalLogin.IsConsumed.Should().BeTrue();
+    }
+
+    [Fact]
     public void MarkCompleted_WhenAlreadyCompleted_ShouldThrowUnreachableException()
     {
         // Arrange

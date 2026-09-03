@@ -6,7 +6,7 @@ using SharedKernel.Persistence;
 
 namespace Account.Features.ExternalAuthentication.Domain;
 
-public interface IExternalIdentityRepository : IAppendRepository<ExternalIdentity, ExternalIdentityId>
+public interface IExternalIdentityRepository : ICrudRepository<ExternalIdentity, ExternalIdentityId>
 {
     /// <summary>
     ///     Retrieves every external identity for the given provider and provider user id without applying the tenant
@@ -14,6 +14,13 @@ public interface IExternalIdentityRepository : IAppendRepository<ExternalIdentit
     ///     same way the cross-tenant email lookup on users does. Ordered by id so callers can rely on the first match.
     /// </summary>
     Task<ExternalIdentity[]> GetByProviderUserIdUnfilteredAsync(ExternalProviderType provider, string providerUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Retrieves the external identity a user holds for the given provider without applying the tenant query
+    ///     filter. The external login callback runs without a tenant context, so the user's own tenant is not the
+    ///     current one. Ordered by id so the first row wins if a user ever holds several identities for one provider.
+    /// </summary>
+    Task<ExternalIdentity?> GetByUserIdAndProviderUnfilteredAsync(UserId userId, ExternalProviderType provider, CancellationToken cancellationToken);
 }
 
 public sealed class ExternalIdentityRepository(AccountDbContext accountDbContext)
@@ -26,5 +33,14 @@ public sealed class ExternalIdentityRepository(AccountDbContext accountDbContext
             .Where(ei => ei.Provider == provider && ei.ProviderUserId == providerUserId)
             .OrderBy(ei => ei.Id)
             .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<ExternalIdentity?> GetByUserIdAndProviderUnfilteredAsync(UserId userId, ExternalProviderType provider, CancellationToken cancellationToken)
+    {
+        return await DbSet
+            .IgnoreQueryFilters([QueryFilterNames.Tenant])
+            .Where(ei => ei.UserId == userId && ei.Provider == provider)
+            .OrderBy(ei => ei.Id)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 }

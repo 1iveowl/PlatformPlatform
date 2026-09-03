@@ -63,7 +63,7 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
         return new ExternalLogin(type, providerType, codeVerifier, nonce, browserFingerprint);
     }
 
-    public void MarkCompleted(string email)
+    public void MarkCompleted(string? email)
     {
         if (LoginResult is not null)
         {

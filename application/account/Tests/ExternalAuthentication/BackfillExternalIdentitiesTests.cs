@@ -1,7 +1,5 @@
 using Account.Database.DataMigrations;
 using Account.Features.ExternalAuthentication.Domain;
-using Account.Features.Subscriptions.Domain;
-using Account.Features.Tenants.Domain;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using SharedKernel.Domain;
@@ -71,23 +69,6 @@ public sealed class BackfillExternalIdentitiesTests : ExternalAuthenticationTest
         using var scope = WebApplicationServices.CreateScope();
         var dataMigration = ActivatorUtilities.CreateInstance<BackfillExternalIdentities>(scope.ServiceProvider);
         return await dataMigration.ExecuteAsync(CancellationToken.None);
-    }
-
-    private TenantId InsertTenant()
-    {
-        var tenantId = TenantId.NewId();
-        Connection.Insert("tenants", [
-                ("id", tenantId.Value),
-                ("created_at", TimeProvider.GetUtcNow()),
-                ("modified_at", null),
-                ("name", Faker.Company.CompanyName()),
-                ("state", nameof(TenantState.Active)),
-                ("plan", nameof(SubscriptionPlan.Basis)),
-                ("logo", """{"Url":null,"Version":0}"""),
-                ("rollout_bucket", 0)
-            ]
-        );
-        return tenantId;
     }
 
     private void AssertLoginIdentity(UserId userId, TenantId tenantId, string providerUserId)

@@ -38,6 +38,14 @@ public enum ExternalLoginResult
 }
 
 [PublicAPI]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ExternalLoginLookup
+{
+    Identity,
+    Email
+}
+
+[PublicAPI]
 [Flags]
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ExternalIdentityCapabilities

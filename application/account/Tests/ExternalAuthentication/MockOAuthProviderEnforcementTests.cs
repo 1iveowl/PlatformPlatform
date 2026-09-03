@@ -1,3 +1,4 @@
+using Account.Features.ExternalAuthentication.Domain;
 using Account.Integrations.OAuth;
 using Account.Integrations.OAuth.Mock;
 using FluentAssertions;
@@ -70,16 +71,20 @@ public sealed class MockOAuthProviderEnforcementTests
     }
 
     [Fact]
-    public async Task GetUserProfileAsync_ShouldAlwaysReturnMockLocalhostEmail()
+    public void ProviderType_WhenCreatedForProvider_ShouldReturnThatProvider()
     {
         // Arrange
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["OAuth:AllowMockProvider"] = "true" })
-            .Build();
-        var httpContext = new DefaultHttpContext();
-        httpContext.Request.Headers.Append("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}=true");
-        var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
-        var mockProvider = new MockOAuthProvider(configuration, httpContextAccessor);
+        var mockProvider = CreateMockProvider("true");
+
+        // Assert
+        mockProvider.ProviderType.Should().Be(ExternalProviderType.Google);
+    }
+
+    [Fact]
+    public async Task GetUserProfileAsync_WhenTrueValue_ShouldReturnDefaultProfile()
+    {
+        // Arrange
+        var mockProvider = CreateMockProvider("true");
         var tokenResponse = new OAuthTokenResponse("mock-access-token", "mock-id-token:test-nonce", 3600);
 
         // Act
@@ -88,19 +93,15 @@ public sealed class MockOAuthProviderEnforcementTests
         // Assert
         profile.Should().NotBeNull();
         profile.Email.Should().EndWith(OAuthProviderFactory.MockEmailDomain);
+        profile.EmailVerified.Should().BeTrue();
+        profile.ProviderUserId.Should().Be(MockOAuthProvider.MockProviderUserId);
     }
 
     [Fact]
     public async Task GetUserProfileAsync_WhenCustomEmailPrefix_ShouldReturnMockLocalhostEmail()
     {
         // Arrange
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["OAuth:AllowMockProvider"] = "true" })
-            .Build();
-        var httpContext = new DefaultHttpContext();
-        httpContext.Request.Headers.Append("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}=customuser");
-        var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
-        var mockProvider = new MockOAuthProvider(configuration, httpContextAccessor);
+        var mockProvider = CreateMockProvider("customuser");
         var tokenResponse = new OAuthTokenResponse("mock-access-token", "mock-id-token:test-nonce", 3600);
 
         // Act
@@ -109,5 +110,68 @@ public sealed class MockOAuthProviderEnforcementTests
         // Assert
         profile.Should().NotBeNull();
         profile.Email.Should().Be($"customuser{OAuthProviderFactory.MockEmailDomain}");
+        profile.ProviderUserId.Should().Be("mock-google-customuser");
+    }
+
+    [Fact]
+    public async Task GetUserProfileAsync_WhenNoEmailValue_ShouldReturnProfileWithoutEmail()
+    {
+        // Arrange
+        var mockProvider = CreateMockProvider(MockOAuthProvider.NoEmailValue);
+        var tokenResponse = new OAuthTokenResponse("mock-access-token", "mock-id-token:test-nonce", 3600);
+
+        // Act
+        var profile = await mockProvider.GetUserProfileAsync(tokenResponse, CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.Email.Should().BeNull();
+        profile.EmailVerified.Should().BeFalse();
+        profile.ProviderUserId.Should().Be(MockOAuthProvider.MockProviderUserId);
+    }
+
+    [Fact]
+    public async Task GetUserProfileAsync_WhenIdentityValueWithEmailPrefix_ShouldFixProviderUserIdAndUseEmailPrefix()
+    {
+        // Arrange
+        var mockProvider = CreateMockProvider($"{MockOAuthProvider.IdentityPrefix}stableidentity:changedemail");
+        var tokenResponse = new OAuthTokenResponse("mock-access-token", "mock-id-token:test-nonce", 3600);
+
+        // Act
+        var profile = await mockProvider.GetUserProfileAsync(tokenResponse, CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.ProviderUserId.Should().Be("mock-google-stableidentity");
+        profile.Email.Should().Be($"changedemail{OAuthProviderFactory.MockEmailDomain}");
+        profile.EmailVerified.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetUserProfileAsync_WhenIdentityValueWithoutEmailPrefix_ShouldReturnProfileWithoutEmail()
+    {
+        // Arrange
+        var mockProvider = CreateMockProvider($"{MockOAuthProvider.IdentityPrefix}stableidentity");
+        var tokenResponse = new OAuthTokenResponse("mock-access-token", "mock-id-token:test-nonce", 3600);
+
+        // Act
+        var profile = await mockProvider.GetUserProfileAsync(tokenResponse, CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.ProviderUserId.Should().Be("mock-google-stableidentity");
+        profile.Email.Should().BeNull();
+        profile.EmailVerified.Should().BeFalse();
+    }
+
+    private static MockOAuthProvider CreateMockProvider(string cookieValue)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["OAuth:AllowMockProvider"] = "true" })
+            .Build();
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers.Append("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}={cookieValue}");
+        var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
+        return new MockOAuthProvider(ExternalProviderType.Google, configuration, httpContextAccessor);
     }
 }

@@ -134,7 +134,7 @@ public sealed class ExternalAuthenticationHelper(
             return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
         }
 
-        if (!userProfile.EmailVerified)
+        if (userProfile.Email is not null && !userProfile.EmailVerified)
         {
             logger.LogWarning("Email not verified for external login '{ExternalLoginId}'", externalLogin.Id);
             return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
