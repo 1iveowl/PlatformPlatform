@@ -804,4 +804,138 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
         TelemetryEventsCollectorSpy.CollectedEvents[1].GetType().Name.Should().Be("ExternalLoginCompleted");
         TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.user_id"].Should().Be(userId);
     }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenIdentityInOtherTenantAndPreferredTenantUserMatchesByEmail_ShouldLoginToPreferredTenantAndLinkIdentity()
+    {
+        // Arrange
+        var tenant2Id = InsertTenant();
+        var user1Id = InsertUser(Faker.Internet.Email(), tenant2Id);
+        InsertExternalIdentity(user1Id, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenant2Id);
+        var user2Id = InsertUser(MockOAuthProvider.MockEmail);
+        var (callbackUrl, cookies) = await StartLoginFlow(preferredTenantId: DatabaseSeeder.Tenant1.Id);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Be("/");
+
+        GetSessionTenantId(user2Id).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(1);
+        GetExternalIdentityUserId(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(user2Id.ToString());
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenant2Id).Should().Be(1);
+        GetExternalIdentityUserId(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenant2Id).Should().Be(user1Id.ToString());
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(2);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("SessionCreated");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].GetType().Name.Should().Be("ExternalLoginCompleted");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.user_id"].Should().Be(user2Id);
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.lookup"].Should().Be(nameof(ExternalLoginLookup.Email));
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenIdentityInOtherTenantAndPreferredTenantUserHasDifferentIdentity_ShouldRedirectToErrorPage()
+    {
+        // Arrange
+        var tenant2Id = InsertTenant();
+        var user1Id = InsertUser(Faker.Internet.Email(), tenant2Id);
+        InsertExternalIdentity(user1Id, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenant2Id);
+        var user2Id = InsertUser(MockOAuthProvider.MockEmail);
+        InsertExternalIdentity(user2Id, ExternalProviderType.Google, "different-provider-user-id");
+        var (callbackUrl, cookies) = await StartLoginFlow(preferredTenantId: DatabaseSeeder.Tenant1.Id);
+        var externalLoginId = GetExternalLoginIdFromUrl(callbackUrl);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Contain("/error?error=authentication_failed");
+
+        var loginResult = Connection.ExecuteScalar<string>(
+            "SELECT login_result FROM external_logins WHERE id = @id", [new { id = externalLoginId }]
+        );
+        loginResult.Should().Be(nameof(ExternalLoginResult.IdentityMismatch));
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(0);
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenant2Id).Should().Be(1);
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE user_id = @userId", [new { userId = user2Id.ToString() }]).Should().Be(0);
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(1);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("ExternalLoginFailed");
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenProfileHasNoEmailAndPreferredTenantHasNoIdentity_ShouldLoginToIdentityTenant()
+    {
+        // Arrange
+        var tenant2Id = InsertTenant();
+        var user1Id = InsertUser(Faker.Internet.Email(), tenant2Id);
+        InsertExternalIdentity(user1Id, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenant2Id);
+        InsertUser(MockOAuthProvider.MockEmail);
+        var (callbackUrl, cookies) = await StartLoginFlow(preferredTenantId: DatabaseSeeder.Tenant1.Id);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies, mockProviderCookieValue: MockOAuthProvider.NoEmailValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Be("/");
+
+        GetSessionTenantId(user1Id).Should().Be(tenant2Id.Value);
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(0);
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(2);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("SessionCreated");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].GetType().Name.Should().Be("ExternalLoginCompleted");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.user_id"].Should().Be(user1Id);
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.lookup"].Should().Be(nameof(ExternalLoginLookup.Identity));
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenIdentityHasNoLoginCapabilityAndEmailMatches_ShouldAddLoginCapabilityAndLogin()
+    {
+        // Arrange
+        var userId = InsertUser(MockOAuthProvider.MockEmail);
+        var externalIdentityId = InsertExternalIdentity(userId, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId);
+        Connection.Update("external_identities", "id", externalIdentityId.ToString(), [("capabilities", nameof(ExternalIdentityCapabilities.Verification))]);
+        var (callbackUrl, cookies) = await StartLoginFlow();
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Be("/");
+
+        GetSessionTenantId(userId).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(1);
+        GetExternalIdentityUserId(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(userId.ToString());
+        Connection.ExecuteScalar<string>("SELECT capabilities FROM external_identities WHERE id = @id", [new { id = externalIdentityId.ToString() }])
+            .Should().Be($"{nameof(ExternalIdentityCapabilities.Login)}, {nameof(ExternalIdentityCapabilities.Verification)}");
+
+        // The surviving row must be the original one, because a delete followed by an insert would be a replace
+        // rather than the upgrade this test is named for. The capabilities assertion above happens to key on id, so
+        // it would catch that too, but only incidentally: the looser form keyed on user_id, as used at line 412,
+        // would not. This assertion makes the protection deliberate and keeps it if that query is ever loosened.
+        Connection.ExecuteScalar<string>(
+            "SELECT id FROM external_identities WHERE provider = @provider AND provider_user_id = @providerUserId AND tenant_id = @tenantId",
+            [new { provider = nameof(ExternalProviderType.Google), providerUserId = MockOAuthProvider.MockProviderUserId, tenantId = DatabaseSeeder.Tenant1.Id.Value }]
+        ).Should().Be(externalIdentityId.ToString());
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(2);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("SessionCreated");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].GetType().Name.Should().Be("ExternalLoginCompleted");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.user_id"].Should().Be(userId);
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.lookup"].Should().Be(nameof(ExternalLoginLookup.Email));
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
 }

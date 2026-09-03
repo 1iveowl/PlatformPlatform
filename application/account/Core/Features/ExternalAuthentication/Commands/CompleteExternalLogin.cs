@@ -9,6 +9,7 @@ using JetBrains.Annotations;
 using Microsoft.AspNetCore.Http;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Cqrs;
+using SharedKernel.Domain;
 using SharedKernel.ExecutionContext;
 using SharedKernel.OpenIdConnect;
 using SharedKernel.Telemetry;
@@ -61,28 +62,27 @@ public sealed class CompleteExternalLoginHandler(
             var externalIdentities = (await externalIdentityRepository.GetByProviderUserIdUnfilteredAsync(externalLogin.ProviderType, userProfile.ProviderUserId, cancellationToken))
                 .Where(ei => ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Login))
                 .ToArray();
-            var activeUsers = await GetUsersByIdentities(externalIdentities, cancellationToken);
-            var lookup = ExternalLoginLookup.Identity;
+            var identityCandidates = await GetUsersByIdentities(externalIdentities, cancellationToken);
 
-            if (activeUsers.Length == 0 && userProfile.Email is not null)
-            {
-                var usersByEmail = await userRepository.GetUsersByEmailUnfilteredAsync(userProfile.Email, cancellationToken);
-                activeUsers = await GetUsersInActiveTenants(usersByEmail, cancellationToken);
-                lookup = ExternalLoginLookup.Email;
-            }
+            // The email candidates are loaded alongside the identity candidates instead of only when the identity
+            // lookup came up empty. A person invited by email to a second tenant has no identity row there, and
+            // without this the preferred tenant could never be honoured and they would land in the other tenant.
+            var emailCandidates = userProfile.Email is null
+                ? []
+                : await GetUsersInActiveTenants(await userRepository.GetUsersByEmailUnfilteredAsync(userProfile.Email, cancellationToken), cancellationToken);
 
-            if (activeUsers.Length == 0)
+            var (user, lookup) = SelectUser(identityCandidates, emailCandidates, externalLoginCookie.PreferredTenantId);
+
+            if (user is null)
             {
                 logger.LogWarning("No active users found for external login '{ExternalLoginId}'", externalLogin.Id);
                 return LoginFailedRedirect(externalLogin, ExternalLoginResult.UserNotFound);
             }
 
-            var user = externalLoginCookie.PreferredTenantId is not null
-                ? activeUsers.SingleOrDefault(u => u.TenantId == externalLoginCookie.PreferredTenantId) ?? activeUsers[0]
-                : activeUsers[0];
-
             if (lookup == ExternalLoginLookup.Email)
             {
+                // The capability is deliberately not part of this lookup: filtering it out here would hide a
+                // verification-only row and make the insert below violate the unique index on user and provider.
                 var existingIdentity = await externalIdentityRepository.GetByUserIdAndProviderUnfilteredAsync(user.Id, externalLogin.ProviderType, cancellationToken);
                 if (existingIdentity is not null && existingIdentity.ProviderUserId != userProfile.ProviderUserId)
                 {
@@ -102,6 +102,14 @@ public sealed class CompleteExternalLoginHandler(
 
                     var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
                     await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
+                }
+                else if (!existingIdentity.Capabilities.HasFlag(ExternalIdentityCapabilities.Login))
+                {
+                    // The row already holds this exact identity, and the provider verified an email that matches the
+                    // user's own. That is the same evidence the branch above accepts to create a new Login row, so the
+                    // verification-only row is upgraded; the unique index leaves no room for a second row anyway.
+                    existingIdentity.AddCapability(ExternalIdentityCapabilities.Login);
+                    externalIdentityRepository.Update(existingIdentity);
                 }
             }
 
@@ -160,6 +168,37 @@ public sealed class CompleteExternalLoginHandler(
             externalAuthenticationService.ClearExternalLoginCookie();
             externalAuthenticationService.ClearLocaleCookie();
         }
+    }
+
+    /// <summary>
+    ///     Picks the user to log in and reports which of the two candidate lists it came from. A preferred tenant from
+    ///     the login cookie wins, by identity first and by email second, and falls through to the first candidate by
+    ///     user id when neither list covers that tenant. Both lists arrive ordered by user id, so the positional
+    ///     fall-through below is deterministic; why the two preferred-tenant lookups use different operators is a
+    ///     separate question, answered at those two lines.
+    /// </summary>
+    private static (User? User, ExternalLoginLookup Lookup) SelectUser(User[] identityCandidates, User[] emailCandidates, TenantId? preferredTenantId)
+    {
+        if (preferredTenantId is not null)
+        {
+            // The two operators differ because the two lists are guaranteed differently. Two identity candidates in
+            // one tenant require a row whose tenant differs from its user's tenant, which no index can forbid: users
+            // carries no unique index on tenant id and id for a composite foreign key to target, so only the writer
+            // convention holds it. Throwing there turns logging someone into the wrong account in their preferred
+            // tenant, which is silent and undetectable, into a visible failure.
+            var preferredIdentityUser = identityCandidates.SingleOrDefault(u => u.TenantId == preferredTenantId);
+            if (preferredIdentityUser is not null) return (preferredIdentityUser, ExternalLoginLookup.Identity);
+
+            // The email list needs no such guard: the unique index on tenant id and email, filtered to live users,
+            // makes a second candidate in one tenant impossible.
+            var preferredEmailUser = emailCandidates.FirstOrDefault(u => u.TenantId == preferredTenantId);
+            if (preferredEmailUser is not null) return (preferredEmailUser, ExternalLoginLookup.Email);
+        }
+
+        if (identityCandidates.Length > 0) return (identityCandidates[0], ExternalLoginLookup.Identity);
+        if (emailCandidates.Length > 0) return (emailCandidates[0], ExternalLoginLookup.Email);
+
+        return (null, ExternalLoginLookup.Identity);
     }
 
     private async Task<User[]> GetUsersByIdentities(ExternalIdentity[] externalIdentities, CancellationToken cancellationToken)
