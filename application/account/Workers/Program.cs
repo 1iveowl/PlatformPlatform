@@ -36,8 +36,14 @@ if (!SharedInfrastructureConfiguration.IsRunningInAzure)
     migrationService.ApplyMigrations();
 }
 
-var dataMigrationRunner = scope.ServiceProvider.GetRequiredService<DataMigrationRunner<AccountDbContext>>();
-await dataMigrationRunner.RunMigrationsAsync(lifetime.ApplicationStopping);
+// The runner takes its advisory lock on the DbContext's own connection and disposes it whenever no
+// NpgsqlDataSource is registered, which is the case everywhere except Azure. That leaves its DbContext unusable,
+// so it gets a scope of its own that is discarded immediately rather than poisoning the one below.
+using (var dataMigrationScope = host.Services.CreateScope())
+{
+    var dataMigrationRunner = dataMigrationScope.ServiceProvider.GetRequiredService<DataMigrationRunner<AccountDbContext>>();
+    await dataMigrationRunner.RunMigrationsAsync(lifetime.ApplicationStopping);
+}
 
 // Converge the feature_flags table to the C# definitions on every Worker startup. Must complete
 // successfully before the worker accepts traffic - if reconciliation throws, the process exits

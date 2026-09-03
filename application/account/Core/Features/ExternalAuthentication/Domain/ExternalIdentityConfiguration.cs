@@ -14,10 +14,16 @@ public sealed class ExternalIdentityConfiguration : IEntityTypeConfiguration<Ext
         builder.MapStronglyTypedLongId<ExternalIdentity, TenantId>(ei => ei.TenantId);
         builder.MapStronglyTypedUuid<ExternalIdentity, UserId>(ei => ei.UserId);
 
-        // Identities belong to their user and are removed with it when the user is hard-deleted
+        // Identities belong to their user and are removed with it when the user is hard-deleted. The key is
+        // composite because two independent foreign keys, one on tenant_id and one on user_id, permit a row whose
+        // tenant names one tenant while its user belongs to another, and this table decides which account a person
+        // is logged into. Pointing (tenant_id, user_id) at the user's own (TenantId, Id) makes that row
+        // unrepresentable instead of merely unwritten by the current writers. The user keeps Id as its primary
+        // key; (TenantId, Id) is an alternate key, which restricts no existing data because Id is already unique.
         builder.HasOne<User>()
             .WithMany()
-            .HasForeignKey(ei => ei.UserId)
+            .HasPrincipalKey(u => new { u.TenantId, u.Id })
+            .HasForeignKey(ei => new { ei.TenantId, ei.UserId })
             .OnDelete(DeleteBehavior.Cascade);
 
         // Unique indexes are normally left to the migration, but Entity Framework needs these two at runtime: it

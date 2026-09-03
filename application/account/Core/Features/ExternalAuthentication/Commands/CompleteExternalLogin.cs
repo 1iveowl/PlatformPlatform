@@ -182,10 +182,11 @@ public sealed class CompleteExternalLoginHandler(
         if (preferredTenantId is not null)
         {
             // The two operators differ because the two lists are guaranteed differently. Two identity candidates in
-            // one tenant require a row whose tenant differs from its user's tenant, which no index can forbid: users
-            // carries no unique index on tenant id and id for a composite foreign key to target, so only the writer
-            // convention holds it. Throwing there turns logging someone into the wrong account in their preferred
-            // tenant, which is silent and undetectable, into a visible failure.
+            // one tenant are impossible: the unique index on provider, provider user id and tenant allows one row
+            // per tenant for this identity, and the composite foreign key on tenant id and user id ties that row to
+            // a user in the same tenant. SingleOrDefault keeps that as an assertion rather than a comment, so a
+            // schema change that drops either half fails visibly instead of silently logging someone into the wrong
+            // account in their preferred tenant.
             var preferredIdentityUser = identityCandidates.SingleOrDefault(u => u.TenantId == preferredTenantId);
             if (preferredIdentityUser is not null) return (preferredIdentityUser, ExternalLoginLookup.Identity);
 
