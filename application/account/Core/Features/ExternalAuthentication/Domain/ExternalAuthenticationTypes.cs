@@ -54,12 +54,3 @@ public enum ExternalIdentityCapabilities
     Login = 1,
     Verification = 2
 }
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum ExternalIdentityAssuranceLevel
-{
-    Low,
-    Substantial,
-    High
-}

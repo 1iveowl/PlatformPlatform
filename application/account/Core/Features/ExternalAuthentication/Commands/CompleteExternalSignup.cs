@@ -85,7 +85,7 @@ public sealed class CompleteExternalSignupHandler(
                 return SignupFailedRedirect(externalLogin, ExternalLoginResult.CodeExchangeFailed);
             }
 
-            var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId);
+            var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
             await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
 
             if (userProfile.FirstName is not null || userProfile.LastName is not null)

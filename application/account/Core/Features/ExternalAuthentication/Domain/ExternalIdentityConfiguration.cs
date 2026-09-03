@@ -19,5 +19,13 @@ public sealed class ExternalIdentityConfiguration : IEntityTypeConfiguration<Ext
             .WithMany()
             .HasForeignKey(ei => ei.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Unique indexes are normally left to the migration, but Entity Framework needs these two at runtime: it
+        // orders a delete before an insert that reuses the same unique values only when the model declares the
+        // index as unique, and the login handler recycles a soft-deleted user's row that way. Declaring them also
+        // puts them in the SQLite schema the tests build from this model. The one remaining non-unique index, on
+        // tenant_id, stays migration-only.
+        builder.HasIndex(ei => new { ei.UserId, ei.Provider }).IsUnique();
+        builder.HasIndex(ei => new { ei.Provider, ei.ProviderUserId, ei.TenantId }).IsUnique();
     }
 }

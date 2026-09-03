@@ -18,7 +18,8 @@ public interface IExternalIdentityRepository : ICrudRepository<ExternalIdentity,
     /// <summary>
     ///     Retrieves the external identity a user holds for the given provider without applying the tenant query
     ///     filter. The external login callback runs without a tenant context, so the user's own tenant is not the
-    ///     current one. Ordered by id so the first row wins if a user ever holds several identities for one provider.
+    ///     current one. A user holds at most one identity per provider, enforced by the unique index on (user_id,
+    ///     provider).
     /// </summary>
     Task<ExternalIdentity?> GetByUserIdAndProviderUnfilteredAsync(UserId userId, ExternalProviderType provider, CancellationToken cancellationToken);
 }

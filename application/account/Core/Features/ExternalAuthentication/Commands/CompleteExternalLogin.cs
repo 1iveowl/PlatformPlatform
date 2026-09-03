@@ -100,7 +100,7 @@ public sealed class CompleteExternalLoginHandler(
                         externalIdentityRepository.Remove(recycledIdentity);
                     }
 
-                    var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId);
+                    var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
                     await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
                 }
             }

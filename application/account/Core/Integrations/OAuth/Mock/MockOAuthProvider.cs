@@ -7,8 +7,9 @@ namespace Account.Integrations.OAuth.Mock;
 /// <summary>
 ///     Stands in for a real provider when OAuth:AllowMockProvider is true and the __Test_Use_Mock_Provider cookie is
 ///     present. One instance is registered per provider type under the key "mock-{provider}" with the provider in
-///     lower case, and every provider user id it returns has the shape "mock-{provider}-{suffix}". The cookie value
-///     shapes the returned profile:
+///     lower case, and every provider user id it returns has the shape "mock-{provider}-{suffix}". Every profile
+///     carries the issuer "https://mock.localhost/{provider}" and the provider user id as its subject. The cookie
+///     value shapes the returned profile:
 ///     "true" returns the default profile with MockEmail and MockProviderUserId.
 ///     "fail:{mode}" returns the default profile and simulates the failure {mode}, one of access_denied,
 ///     token_exchange or email_not_verified.
@@ -96,7 +97,9 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
                 MockLastName,
                 null,
                 "en",
-                nonce
+                nonce,
+                BuildIssuer(providerType),
+                providerUserId
             )
         );
     }
@@ -126,6 +129,11 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
     private static string BuildProviderUserId(ExternalProviderType providerType, string suffix)
     {
         return $"mock-{providerType.ToString().ToLowerInvariant()}-{suffix}";
+    }
+
+    private static string BuildIssuer(ExternalProviderType providerType)
+    {
+        return $"https://mock.localhost/{providerType.ToString().ToLowerInvariant()}";
     }
 
     private static string BuildEmail(string emailPrefix)

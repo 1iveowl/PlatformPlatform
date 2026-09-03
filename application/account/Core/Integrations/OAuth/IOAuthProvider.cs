@@ -23,5 +23,7 @@ public sealed record OAuthUserProfile(
     string? LastName,
     string? AvatarUrl,
     string? Locale,
-    string? Nonce
+    string? Nonce,
+    string Issuer,
+    string Subject
 );

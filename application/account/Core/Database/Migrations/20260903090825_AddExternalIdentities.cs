@@ -21,11 +21,8 @@ public sealed class AddExternalIdentities : Migration
                 provider = table.Column<string>("text", nullable: false),
                 provider_user_id = table.Column<string>("text", nullable: false),
                 capabilities = table.Column<string>("text", nullable: false),
-                assurance_level = table.Column<string>("text", nullable: true),
-                verified_at = table.Column<DateTimeOffset>("timestamptz", nullable: true),
                 issuer = table.Column<string>("text", nullable: false),
-                subject = table.Column<string>("text", nullable: false),
-                evidence_reference = table.Column<string>("text", nullable: true)
+                subject = table.Column<string>("text", nullable: false)
             },
             constraints: table =>
             {
@@ -36,7 +33,7 @@ public sealed class AddExternalIdentities : Migration
         );
 
         migrationBuilder.CreateIndex("ix_external_identities_tenant_id", "external_identities", "tenant_id");
-        migrationBuilder.CreateIndex("ix_external_identities_user_id", "external_identities", "user_id");
+        migrationBuilder.CreateIndex("ix_external_identities_user_id_provider", "external_identities", ["user_id", "provider"], unique: true);
         migrationBuilder.CreateIndex("ix_external_identities_provider_provider_user_id_tenant_id", "external_identities", ["provider", "provider_user_id", "tenant_id"], unique: true);
     }
 }

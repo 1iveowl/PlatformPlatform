@@ -303,7 +303,8 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
 
     protected ExternalIdentityId InsertExternalIdentity(UserId userId, ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
     {
-        var externalIdentity = ExternalIdentity.Create(tenantId ?? DatabaseSeeder.Tenant1.Id, userId, providerType, providerUserId);
+        var issuer = $"https://mock.localhost/{providerType.ToString().ToLowerInvariant()}";
+        var externalIdentity = ExternalIdentity.Create(tenantId ?? DatabaseSeeder.Tenant1.Id, userId, providerType, providerUserId, issuer, providerUserId);
         Connection.Insert("external_identities", [
                 ("tenant_id", externalIdentity.TenantId.ToString()),
                 ("id", externalIdentity.Id.ToString()),
@@ -313,11 +314,8 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
                 ("provider", externalIdentity.Provider.ToString()),
                 ("provider_user_id", externalIdentity.ProviderUserId),
                 ("capabilities", externalIdentity.Capabilities.ToString()),
-                ("assurance_level", null),
-                ("verified_at", null),
                 ("issuer", externalIdentity.Issuer),
-                ("subject", externalIdentity.Subject),
-                ("evidence_reference", null)
+                ("subject", externalIdentity.Subject)
             ]
         );
         return externalIdentity.Id;

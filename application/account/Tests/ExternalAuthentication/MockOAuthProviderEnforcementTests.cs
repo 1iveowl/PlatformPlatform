@@ -95,6 +95,8 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.Email.Should().EndWith(OAuthProviderFactory.MockEmailDomain);
         profile.EmailVerified.Should().BeTrue();
         profile.ProviderUserId.Should().Be(MockOAuthProvider.MockProviderUserId);
+        profile.Issuer.Should().Be("https://mock.localhost/google");
+        profile.Subject.Should().Be(MockOAuthProvider.MockProviderUserId);
     }
 
     [Fact]
@@ -111,6 +113,8 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.Should().NotBeNull();
         profile.Email.Should().Be($"customuser{OAuthProviderFactory.MockEmailDomain}");
         profile.ProviderUserId.Should().Be("mock-google-customuser");
+        profile.Issuer.Should().Be("https://mock.localhost/google");
+        profile.Subject.Should().Be("mock-google-customuser");
     }
 
     [Fact]
@@ -128,6 +132,8 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.Email.Should().BeNull();
         profile.EmailVerified.Should().BeFalse();
         profile.ProviderUserId.Should().Be(MockOAuthProvider.MockProviderUserId);
+        profile.Issuer.Should().Be("https://mock.localhost/google");
+        profile.Subject.Should().Be(MockOAuthProvider.MockProviderUserId);
     }
 
     [Fact]
@@ -145,6 +151,8 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.ProviderUserId.Should().Be("mock-google-stableidentity");
         profile.Email.Should().Be($"changedemail{OAuthProviderFactory.MockEmailDomain}");
         profile.EmailVerified.Should().BeTrue();
+        profile.Issuer.Should().Be("https://mock.localhost/google");
+        profile.Subject.Should().Be("mock-google-stableidentity");
     }
 
     [Fact]
@@ -162,6 +170,8 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.ProviderUserId.Should().Be("mock-google-stableidentity");
         profile.Email.Should().BeNull();
         profile.EmailVerified.Should().BeFalse();
+        profile.Issuer.Should().Be("https://mock.localhost/google");
+        profile.Subject.Should().Be("mock-google-stableidentity");
     }
 
     private static MockOAuthProvider CreateMockProvider(string cookieValue)
