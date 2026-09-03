@@ -25,6 +25,7 @@ using SharedKernel.SinglePageApp;
 using SharedKernel.Telemetry;
 using SharedKernel.Tests.Persistence;
 using SharedKernel.Tests.Telemetry;
+using ExternalIdentity = Account.Features.ExternalAuthentication.Domain.ExternalIdentity;
 
 namespace Account.Tests.ExternalAuthentication;
 
@@ -34,9 +35,9 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     // SinglePageAppConfiguration only consumes this as a URI.
     protected const string PublicUrl = "https://localhost";
     protected readonly Faker Faker = new();
+    protected readonly TelemetryEventsCollectorSpy TelemetryEventsCollectorSpy;
     protected readonly TimeProvider TimeProvider;
     private readonly WebApplicationFactory<Program> _webApplicationFactory;
-    protected readonly TelemetryEventsCollectorSpy TelemetryEventsCollectorSpy;
 
     protected ExternalAuthenticationTestBase()
     {
@@ -115,6 +116,8 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     protected DatabaseSeeder DatabaseSeeder { get; }
 
     protected HttpClient NoRedirectHttpClient { get; }
+
+    protected IServiceProvider WebApplicationServices => _webApplicationFactory.Services;
 
     public void Dispose()
     {
@@ -200,12 +203,12 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         Connection.Update("external_logins", "id", externalLoginId, [("nonce", "tampered-nonce-value")]);
     }
 
-    protected UserId InsertUserWithExternalIdentity(string email, ExternalProviderType providerType, string providerUserId)
+    protected UserId InsertUserWithExternalIdentity(string email, ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
     {
         var userId = UserId.NewId();
         var identities = JsonSerializer.Serialize(new[] { new { Provider = providerType.ToString(), ProviderUserId = providerUserId } });
         Connection.Insert("users", [
-                ("tenant_id", DatabaseSeeder.Tenant1.Id.ToString()),
+                ("tenant_id", (tenantId ?? DatabaseSeeder.Tenant1.Id).ToString()),
                 ("id", userId.ToString()),
                 ("created_at", TimeProvider.GetUtcNow()),
                 ("modified_at", null),
@@ -222,6 +225,28 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
             ]
         );
         return userId;
+    }
+
+    protected ExternalIdentityId InsertExternalIdentity(UserId userId, ExternalProviderType providerType, string providerUserId)
+    {
+        var externalIdentity = ExternalIdentity.Create(DatabaseSeeder.Tenant1.Id, userId, providerType, providerUserId);
+        Connection.Insert("external_identities", [
+                ("tenant_id", externalIdentity.TenantId.ToString()),
+                ("id", externalIdentity.Id.ToString()),
+                ("user_id", externalIdentity.UserId.ToString()),
+                ("created_at", TimeProvider.GetUtcNow()),
+                ("modified_at", null),
+                ("provider", externalIdentity.Provider.ToString()),
+                ("provider_user_id", externalIdentity.ProviderUserId),
+                ("capabilities", externalIdentity.Capabilities.ToString()),
+                ("assurance_level", null),
+                ("verified_at", null),
+                ("issuer", externalIdentity.Issuer),
+                ("subject", externalIdentity.Subject),
+                ("evidence_reference", null)
+            ]
+        );
+        return externalIdentity.Id;
     }
 
     [UsedImplicitly]

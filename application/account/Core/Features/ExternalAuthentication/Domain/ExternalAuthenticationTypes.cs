@@ -36,3 +36,22 @@ public enum ExternalLoginResult
     UserNotFound,
     AccountAlreadyExists
 }
+
+[PublicAPI]
+[Flags]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ExternalIdentityCapabilities
+{
+    None = 0,
+    Login = 1,
+    Verification = 2
+}
+
+[PublicAPI]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ExternalIdentityAssuranceLevel
+{
+    Low,
+    Substantial,
+    High
+}
