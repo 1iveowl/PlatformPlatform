@@ -24,6 +24,13 @@ async function setMockProviderCookie(page: Page, value: string): Promise<void> {
   ]);
 }
 
+async function readTenantId(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const metaTag = document.head.getElementsByTagName("meta").namedItem("userInfoEnv") as HTMLMetaElement;
+    return JSON.parse(metaTag.content).tenantId;
+  });
+}
+
 test.describe("@smoke", () => {
   /**
    * Tests Google OAuth authentication flows including:
@@ -34,10 +41,13 @@ test.describe("@smoke", () => {
    * 5. Logout via menu and verify redirect
    * 6. Attempt signup as existing user - verify account already exists error page
    * 7. Navigate to login from error page and complete login
+   * 8. Login with a changed provider email - verify the same account is resolved by provider identity alone
    *
    * Note: Uses mock OAuth provider with unique email per test run to avoid conflicts.
    */
-  test("should handle Google OAuth signup, login, and existing user signup redirect flow", async ({ page }) => {
+  test("should handle Google OAuth signup, login, existing user signup redirect, and changed provider email login flow", async ({
+    page
+  }) => {
     const context = createTestContext(page);
     const emailPrefix = faker.string.alphanumeric(10);
     const mockUserEmail = `${emailPrefix}@mock.localhost`;
@@ -129,6 +139,43 @@ test.describe("@smoke", () => {
 
       await expect(page).toHaveURL("/dashboard");
       await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+    })();
+
+    // === CHANGED PROVIDER EMAIL: Login by provider identity alone ===
+
+    let tenantId: string;
+
+    await step("Read tenant ID from user info & log out")(async () => {
+      tenantId = await readTenantId(page);
+      expect(tenantId).toBeTruthy();
+
+      context.monitoring.expectedStatusCodes.push(401);
+      await page.getByRole("button", { name: "User menu" }).dispatchEvent("click");
+      const menu = page.getByRole("menu");
+      await expect(menu).toBeVisible();
+      const logoutMenuItem = page.getByRole("menuitem", { name: "Log out" });
+      await expect(logoutMenuItem).toBeVisible();
+      await logoutMenuItem.dispatchEvent("click");
+
+      await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
+    })();
+
+    await step("Log in with Google using a changed provider email & verify the same account is resolved")(async () => {
+      const changedEmailPrefix = faker.string.alphanumeric(10);
+      const changedEmail = `${changedEmailPrefix}@mock.localhost`;
+      await setMockProviderCookie(page, `identity:${emailPrefix}:${changedEmailPrefix}`);
+      await page.getByRole("button", { name: "Log in with Google" }).click();
+
+      await expect(page).toHaveURL("/dashboard");
+      await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+      expect(await readTenantId(page)).toBe(tenantId);
+
+      await page.getByRole("button", { name: "User menu" }).dispatchEvent("click");
+      const menu = page.getByRole("menu");
+      await expect(menu).toBeVisible();
+
+      await expect(menu).toContainText(mockUserEmail.toLowerCase());
+      await expect(menu).not.toContainText(changedEmail.toLowerCase());
     })();
   });
 });
