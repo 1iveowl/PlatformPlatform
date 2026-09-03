@@ -174,8 +174,7 @@ public sealed class CompleteExternalLoginHandler(
     ///     Picks the user to log in and reports which of the two candidate lists it came from. A preferred tenant from
     ///     the login cookie wins, by identity first and by email second, and falls through to the first candidate by
     ///     user id when neither list covers that tenant. Both lists arrive ordered by user id, so the positional
-    ///     fall-through below is deterministic; why the two preferred-tenant lookups use different operators is a
-    ///     separate question, answered at those two lines.
+    ///     fall-through below is deterministic.
     /// </summary>
     private static (User? User, ExternalLoginLookup Lookup) SelectUser(User[] identityCandidates, User[] emailCandidates, TenantId? preferredTenantId)
     {

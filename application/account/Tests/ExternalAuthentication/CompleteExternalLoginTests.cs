@@ -1,7 +1,5 @@
 using System.Net;
-using System.Text.Json;
 using Account.Features.ExternalAuthentication.Domain;
-using Account.Features.Users.Domain;
 using Account.Integrations.OAuth.Mock;
 using FluentAssertions;
 using SharedKernel.Domain;
@@ -484,23 +482,8 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
     public async Task CompleteExternalLogin_WhenInvitedUserHasNoName_ShouldUpdateNameFromGoogleProfile()
     {
         // Arrange
-        Connection.Insert("users", [
-                ("tenant_id", DatabaseSeeder.Tenant1.Id.ToString()),
-                ("id", UserId.NewId().ToString()),
-                ("created_at", TimeProvider.GetUtcNow()),
-                ("modified_at", null),
-                ("email", MockOAuthProvider.MockEmail),
-                ("email_confirmed", false),
-                ("first_name", null),
-                ("last_name", null),
-                ("title", null),
-                ("avatar", JsonSerializer.Serialize(new Avatar())),
-                ("role", nameof(UserRole.Member)),
-                ("locale", "en-US"),
-                ("external_identities", "[]"),
-                ("rollout_bucket", 42)
-            ]
-        );
+        var invitedUserId = InsertUser(MockOAuthProvider.MockEmail, emailConfirmed: false);
+        Connection.Update("users", "id", invitedUserId.ToString(), [("first_name", null), ("last_name", null)]);
         var (callbackUrl, cookies) = await StartLoginFlow();
         TelemetryEventsCollectorSpy.Reset();
 
@@ -528,23 +511,8 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
         // Arrange
         var existingFirstName = Faker.Name.FirstName();
         var existingLastName = Faker.Name.LastName();
-        Connection.Insert("users", [
-                ("tenant_id", DatabaseSeeder.Tenant1.Id.ToString()),
-                ("id", UserId.NewId().ToString()),
-                ("created_at", TimeProvider.GetUtcNow()),
-                ("modified_at", null),
-                ("email", MockOAuthProvider.MockEmail),
-                ("email_confirmed", true),
-                ("first_name", existingFirstName),
-                ("last_name", existingLastName),
-                ("title", null),
-                ("avatar", JsonSerializer.Serialize(new Avatar())),
-                ("role", nameof(UserRole.Member)),
-                ("locale", "en-US"),
-                ("external_identities", "[]"),
-                ("rollout_bucket", 42)
-            ]
-        );
+        var existingUserId = InsertUser(MockOAuthProvider.MockEmail);
+        Connection.Update("users", "id", existingUserId.ToString(), [("first_name", existingFirstName), ("last_name", existingLastName)]);
         var (callbackUrl, cookies) = await StartLoginFlow();
         TelemetryEventsCollectorSpy.Reset();
 
@@ -676,6 +644,7 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
         InsertExternalIdentity(user1Id, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId);
         var user2Id = InsertUser(Faker.Internet.Email(), tenant2Id);
         InsertExternalIdentity(user2Id, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenant2Id);
+        // Ids minted in the same millisecond have no creation order, so the expected first by id is computed
         var expectedUserId = string.CompareOrdinal(user1Id.Value, user2Id.Value) < 0 ? user1Id : user2Id;
         var (callbackUrl, cookies) = await StartLoginFlow();
         TelemetryEventsCollectorSpy.Reset();
@@ -923,9 +892,8 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
             .Should().Be($"{nameof(ExternalIdentityCapabilities.Login)}, {nameof(ExternalIdentityCapabilities.Verification)}");
 
         // The surviving row must be the original one, because a delete followed by an insert would be a replace
-        // rather than the upgrade this test is named for. The capabilities assertion above happens to key on id, so
-        // it would catch that too, but only incidentally: the looser form keyed on user_id, as used at line 412,
-        // would not. This assertion makes the protection deliberate and keeps it if that query is ever loosened.
+        // rather than the upgrade this test is named for. Keyed on the unique index rather than on user_id, so it
+        // holds even if the capabilities assertion above is ever loosened to key on user_id.
         Connection.ExecuteScalar<string>(
             "SELECT id FROM external_identities WHERE provider = @provider AND provider_user_id = @providerUserId AND tenant_id = @tenantId",
             [new { provider = nameof(ExternalProviderType.Google), providerUserId = MockOAuthProvider.MockProviderUserId, tenantId = DatabaseSeeder.Tenant1.Id.Value }]

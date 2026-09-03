@@ -10,8 +10,9 @@ namespace Account.Database.DataMigrations;
 ///     Copies the identities stored in the users.external_identities jsonb column into the external_identities table.
 ///     Every jsonb entry becomes a login identity with the canonical Google issuer and the provider user id as
 ///     subject, which is all the column can yield and matches what the token would have said. The table is unique on
-///     tenant, provider and provider user id, so entries that already have such a row are skipped and the migration
-///     can run again without duplicating rows. Entries are grouped by tenant, provider and provider user id before
+///     tenant, provider and provider user id and on user and provider, so an entry whose key or whose holder already
+///     has a row is skipped and the migration can run again without duplicating rows. Entries are grouped by tenant,
+///     provider and provider user id before
 ///     anything is inserted, so every holder of a key is known before it is assigned: a key held by one live user
 ///     goes to that user even when soft-deleted users hold it too, a key held only by soft-deleted users goes to the
 ///     soft-deleted user with the lowest id, and a key held by two or more live users in the same tenant gets no row
@@ -30,20 +31,21 @@ public sealed class BackfillExternalIdentities(AccountDbContext accountDbContext
     {
         var existingIdentities = await accountDbContext.Set<ExternalIdentity>()
             .IgnoreQueryFilters([QueryFilterNames.Tenant])
-            .Select(ei => new { ei.TenantId, ei.Provider, ei.ProviderUserId })
+            .Select(ei => new { ei.TenantId, ei.Provider, ei.ProviderUserId, ei.UserId })
             .ToArrayAsync(cancellationToken);
-        // The idempotency check keys on tenant, provider and provider user id, while the table is also unique on
-        // (user_id, provider). A table row for a provider under one provider user id plus a jsonb entry for the same
-        // provider under another would abort the migration on the insert. It cannot happen: the jsonb store allowed
-        // one entry per provider per user, and a deployment creates the table in the same run, so this set starts empty.
+        // The table is unique on (tenant, provider, provider user id) and on (user, provider), and a row can exist
+        // under either before this runs: a login on the new API between the schema migration and this run links
+        // the user under the provider user id the token carried, which differs from the jsonb entry when the
+        // account changed at the provider. Both keys are skipped rather than inserted, so that login can never
+        // abort the migration.
         var existingKeys = existingIdentities.Select(ei => (ei.TenantId, ei.Provider, ei.ProviderUserId)).ToHashSet();
+        var existingHolders = existingIdentities.Select(ei => (ei.UserId, ei.Provider)).ToHashSet();
 
         // The jsonb column is mapped through a value converter and cannot be filtered in SQL, so every user is
         // projected and the entries are read in memory. Soft-deleted users are included so a restored user keeps
         // the identity it had.
         var users = await accountDbContext.Set<User>()
             .IgnoreQueryFilters([QueryFilterNames.Tenant, QueryFilterNames.SoftDelete])
-            .OrderBy(u => u.Id)
             .Select(u => new { u.Id, u.TenantId, u.DeletedAt, u.ExternalIdentities })
             .ToArrayAsync(cancellationToken);
 
@@ -79,6 +81,12 @@ public sealed class BackfillExternalIdentities(AccountDbContext accountDbContext
             }
 
             var holder = liveHolders.SingleOrDefault() ?? holders.OrderBy(entry => entry.Id.Value).First();
+            if (existingHolders.Contains((holder.Id, provider)))
+            {
+                alreadyMigratedCount++;
+                continue;
+            }
+
             if (liveHolders.Length == 1 && holders.Length > 1)
             {
                 preferredLiveUserCount++;

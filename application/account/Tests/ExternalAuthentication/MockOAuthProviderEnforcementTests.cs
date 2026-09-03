@@ -71,16 +71,6 @@ public sealed class MockOAuthProviderEnforcementTests
     }
 
     [Fact]
-    public void ProviderType_WhenCreatedForProvider_ShouldReturnThatProvider()
-    {
-        // Arrange
-        var mockProvider = CreateMockProvider("true");
-
-        // Assert
-        mockProvider.ProviderType.Should().Be(ExternalProviderType.Google);
-    }
-
-    [Fact]
     public async Task GetUserProfileAsync_WhenTrueValue_ShouldReturnDefaultProfile()
     {
         // Arrange

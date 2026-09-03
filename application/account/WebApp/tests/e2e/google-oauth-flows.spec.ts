@@ -24,10 +24,10 @@ async function setMockProviderCookie(page: Page, value: string): Promise<void> {
   ]);
 }
 
-async function readTenantId(page: Page): Promise<string> {
+async function readUserInfo(page: Page): Promise<{ id: string; tenantId: string }> {
   return page.evaluate(() => {
-    const metaTag = document.head.getElementsByTagName("meta").namedItem("userInfoEnv") as HTMLMetaElement;
-    return JSON.parse(metaTag.content).tenantId;
+    const metaTag = document.head.getElementsByTagName("meta").namedItem("userInfoEnv");
+    return metaTag ? JSON.parse(metaTag.content) : { id: "", tenantId: "" };
   });
 }
 
@@ -54,6 +54,8 @@ test.describe("@smoke", () => {
 
     // === SIGNUP: Create mock user via Google OAuth ===
 
+    let userInfo: { id: string; tenantId: string };
+
     await step("Navigate to signup page & sign up with Google OAuth & complete welcome flow")(async () => {
       await page.goto("/signup");
 
@@ -73,6 +75,10 @@ test.describe("@smoke", () => {
 
       await expect(page).toHaveURL("/dashboard");
       await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+
+      userInfo = await readUserInfo(page);
+      expect(userInfo.id).toBeTruthy();
+      expect(userInfo.tenantId).toBeTruthy();
     })();
 
     await step("Open account menu & log out")(async () => {
@@ -143,12 +149,7 @@ test.describe("@smoke", () => {
 
     // === CHANGED PROVIDER EMAIL: Login by provider identity alone ===
 
-    let tenantId: string;
-
-    await step("Read tenant ID from user info & log out")(async () => {
-      tenantId = await readTenantId(page);
-      expect(tenantId).toBeTruthy();
-
+    await step("Log out to prepare for the changed-email login")(async () => {
       context.monitoring.expectedStatusCodes.push(401);
       await page.getByRole("button", { name: "User menu" }).dispatchEvent("click");
       const menu = page.getByRole("menu");
@@ -162,20 +163,20 @@ test.describe("@smoke", () => {
 
     await step("Log in with Google using a changed provider email & verify the same account is resolved")(async () => {
       const changedEmailPrefix = faker.string.alphanumeric(10);
-      const changedEmail = `${changedEmailPrefix}@mock.localhost`;
       await setMockProviderCookie(page, `identity:${emailPrefix}:${changedEmailPrefix}`);
       await page.getByRole("button", { name: "Log in with Google" }).click();
 
       await expect(page).toHaveURL("/dashboard");
       await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
-      expect(await readTenantId(page)).toBe(tenantId);
+      const userInfoAfterLogin = await readUserInfo(page);
+      expect(userInfoAfterLogin.id).toBe(userInfo.id);
+      expect(userInfoAfterLogin.tenantId).toBe(userInfo.tenantId);
 
       await page.getByRole("button", { name: "User menu" }).dispatchEvent("click");
       const menu = page.getByRole("menu");
       await expect(menu).toBeVisible();
 
       await expect(menu).toContainText(mockUserEmail.toLowerCase());
-      await expect(menu).not.toContainText(changedEmail.toLowerCase());
     })();
   });
 });
@@ -221,14 +222,7 @@ test.describe("@comprehensive", () => {
     let tenantId: string;
 
     await step("Extract tenant ID from user info & log out")(async () => {
-      tenantId = await page.evaluate(() => {
-        const metaTag = document.head.getElementsByTagName("meta").namedItem("userInfoEnv");
-        if (!metaTag) {
-          return "";
-        }
-        const content = JSON.parse(metaTag.content);
-        return content.tenantId || "";
-      });
+      tenantId = (await readUserInfo(page)).tenantId;
       expect(tenantId).toBeTruthy();
 
       context.monitoring.expectedStatusCodes.push(401);

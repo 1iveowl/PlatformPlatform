@@ -105,6 +105,28 @@ public sealed class BackfillExternalIdentitiesTests : ExternalAuthenticationTest
         ).Should().Be(0);
     }
 
+    // A login on the new API between the schema migration and the backfill links the user under the provider user id
+    // the token carried. When the account changed at the provider that is a different key from the jsonb entry, and
+    // the (user_id, provider) unique index would abort the whole migration on the insert.
+    [Fact]
+    public async Task ExecuteAsync_WhenHolderAlreadyHasRowForProviderUnderAnotherKey_ShouldSkipLegacyEntry()
+    {
+        // Arrange
+        var legacyProviderUserId = Faker.Random.AlphaNumeric(21);
+        var currentProviderUserId = Faker.Random.AlphaNumeric(21);
+        var userId = InsertUserWithExternalIdentity(Faker.Internet.Email(), ExternalProviderType.Google, legacyProviderUserId);
+        InsertExternalIdentity(userId, ExternalProviderType.Google, currentProviderUserId);
+
+        // Act
+        var summary = await RunBackfillExternalIdentities();
+
+        // Assert
+        summary.Should().Be("Inserted 0 external identities, skipped 1 that already had a row, gave 0 to a live user over a soft-deleted one and skipped 0 contested between live users in the same tenant");
+        object[] parameters = [new { user_id = userId.ToString() }];
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM external_identities WHERE user_id = @user_id", parameters).Should().Be(1);
+        Connection.ExecuteScalar<string>("SELECT provider_user_id FROM external_identities WHERE user_id = @user_id", parameters).Should().Be(currentProviderUserId);
+    }
+
     private async Task<string> RunBackfillExternalIdentities()
     {
         using var scope = WebApplicationServices.CreateScope();

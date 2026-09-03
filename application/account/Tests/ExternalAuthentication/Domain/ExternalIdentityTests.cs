@@ -36,12 +36,12 @@ public sealed class ExternalIdentityTests
         var userId = UserId.NewId();
 
         // Act
-        var externalIdentity = ExternalIdentity.Create(tenantId, userId, ExternalProviderType.Google, "tenant-id:object-id", "https://login.microsoftonline.com/tenant-id/v2.0", "pairwise-subject");
+        var externalIdentity = ExternalIdentity.Create(tenantId, userId, ExternalProviderType.Google, "provider-user-id-123", "https://issuer.example.com", "pairwise-subject-456");
 
         // Assert
-        externalIdentity.ProviderUserId.Should().Be("tenant-id:object-id");
-        externalIdentity.Issuer.Should().Be("https://login.microsoftonline.com/tenant-id/v2.0");
-        externalIdentity.Subject.Should().Be("pairwise-subject");
+        externalIdentity.ProviderUserId.Should().Be("provider-user-id-123");
+        externalIdentity.Issuer.Should().Be("https://issuer.example.com");
+        externalIdentity.Subject.Should().Be("pairwise-subject-456");
         externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login);
     }
 

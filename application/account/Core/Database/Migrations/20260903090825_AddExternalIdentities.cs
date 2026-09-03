@@ -9,14 +9,11 @@ public sealed class AddExternalIdentities : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        // The composite foreign key below needs a unique constraint or a non-partial unique index over exactly the
-        // columns it references, so users gains one first. It restricts no existing data, because id is already the
-        // primary key and therefore globally unique, which makes every (tenant_id, id) pair unique too. It is
-        // created without CONCURRENTLY although users is a large table: the deployment generates the script with
-        // `dotnet ef migrations script --idempotent`, which wraps every statement, transaction-suppressed ones
-        // included, in a `DO $EF$ ... END $EF$;` block, and PostgreSQL refuses CREATE INDEX CONCURRENTLY inside
-        // one. The build takes a SHARE lock on users, blocking writes but not reads, and the foreign key below
-        // needs a lock on users in any case.
+        // The composite foreign key below needs a unique index over exactly the columns it references, so users
+        // gains one first. Not CONCURRENTLY: the deployment generates the script with --idempotent, which wraps
+        // every statement in a DO $EF$ ... END $EF$; block, and PostgreSQL refuses CREATE INDEX CONCURRENTLY
+        // inside one. The SHARE lock the build takes blocks writes but not reads, and the foreign key below
+        // locks users anyway.
         migrationBuilder.CreateIndex("ix_users_tenant_id_id", "users", ["tenant_id", "id"], unique: true);
 
         migrationBuilder.CreateTable(
@@ -37,11 +34,8 @@ public sealed class AddExternalIdentities : Migration
             constraints: table =>
             {
                 table.PrimaryKey("pk_external_identities", x => x.id);
-                // Redundant for integrity once the composite key below is in place: it validates tenant_id against
-                // users, and fk_users_tenants_tenant_id validates that against tenants. It is kept because every
-                // tenant-scoped table in this schema carries this foreign key, and dropping it here alone would be
-                // an unexplained deviation; the cost is one index probe per insert on a table written about once
-                // per signup or identity link.
+                // Redundant for integrity once the composite key below validates tenant_id through users; kept
+                // because every tenant-scoped table in this schema carries it, see sessions in the initial migration
                 table.ForeignKey("fk_external_identities_tenants_tenant_id", x => x.tenant_id, "tenants", "id");
                 // Composite, so a row's tenant must be the tenant of its own user. See ExternalIdentityConfiguration
                 table.ForeignKey(

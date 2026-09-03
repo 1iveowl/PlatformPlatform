@@ -16,7 +16,8 @@ namespace Account.Integrations.OAuth.Mock;
 ///     "noemail" returns the default provider user id and a profile without an email.
 ///     "identity:{identityPrefix}:{emailPrefix}" fixes the provider user id to "mock-{provider}-{identityPrefix}" and
 ///     sets the email to "{emailPrefix}@mock.localhost", so a changed email at the provider can be simulated.
-///     "identity:{identityPrefix}" without the email part returns the same provider user id and no email.
+///     "identity:{identityPrefix}" without the email part returns the same provider user id as above,
+///     "mock-{provider}-{identityPrefix}", and no email.
 ///     Any other value "{emailPrefix}" gives the email "{emailPrefix}@mock.localhost" and the provider user id
 ///     "mock-{provider}-{emailPrefix}".
 /// </summary>

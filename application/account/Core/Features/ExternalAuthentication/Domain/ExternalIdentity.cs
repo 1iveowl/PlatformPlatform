@@ -23,8 +23,8 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
     public ExternalProviderType Provider { get; private init; }
 
     /// <summary>
-    ///     The durable provider-specific lookup key, and the only member the unique index on (provider,
-    ///     provider_user_id, tenant_id) and the login lookup use. Per provider: Google uses the <c>sub</c> claim;
+    ///     The durable provider-specific lookup key, and the only provider-supplied value the unique index on
+    ///     (provider, provider_user_id, tenant_id) and the login lookup use. Per provider: Google uses the <c>sub</c> claim;
     ///     Entra uses <c>{tid}:{oid}</c> in lower case with a colon separator, because an <c>oid</c> is unique only
     ///     within its directory; MitID through Idura uses the MitID <c>uuid</c>, which is broker independent. The
     ///     Entra <c>tid</c> is the directory the identity came from and is never the Platform TenantId, which scopes
@@ -32,6 +32,10 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
     /// </summary>
     public string ProviderUserId { get; private init; }
 
+    /// <summary>
+    ///     What this identity may be used for, stored as the flag names joined by a comma. Only a row with Login
+    ///     resolves a returning user at login.
+    /// </summary>
     public ExternalIdentityCapabilities Capabilities { get; private set; }
 
     /// <summary>

@@ -279,25 +279,9 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
 
     protected UserId InsertUserWithExternalIdentity(string email, ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
     {
-        var userId = UserId.NewId();
+        var userId = InsertUser(email, tenantId);
         var identities = JsonSerializer.Serialize(new[] { new { Provider = providerType.ToString(), ProviderUserId = providerUserId } });
-        Connection.Insert("users", [
-                ("tenant_id", (tenantId ?? DatabaseSeeder.Tenant1.Id).ToString()),
-                ("id", userId.ToString()),
-                ("created_at", TimeProvider.GetUtcNow()),
-                ("modified_at", null),
-                ("email", email.ToLower()),
-                ("email_confirmed", true),
-                ("first_name", Faker.Name.FirstName()),
-                ("last_name", Faker.Name.LastName()),
-                ("title", null),
-                ("avatar", JsonSerializer.Serialize(new Avatar())),
-                ("role", nameof(UserRole.Member)),
-                ("locale", "en-US"),
-                ("external_identities", identities),
-                ("rollout_bucket", 42)
-            ]
-        );
+        Connection.Update("users", "id", userId.ToString(), [("external_identities", identities)]);
         return userId;
     }
 
