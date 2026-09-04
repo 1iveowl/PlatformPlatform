@@ -11,7 +11,7 @@ public sealed class OAuthProviderFactory(IServiceProvider serviceProvider, IConf
     public const string UseMockProviderCookieName = "__Test_Use_Mock_Provider";
     public const string MockEmailDomain = "@mock.localhost";
 
-    // The value the AppHost passes for OAuth__Entra__ClientId while the Entra parameters are left disabled
+    // The value the AppHost passes for the Entra client id and client secret while those parameters are left disabled
     private const string NotConfiguredPlaceholder = "not-configured";
 
     private readonly bool _allowMockProvider = GetAllowMockProvider(configuration);
@@ -48,10 +48,16 @@ public sealed class OAuthProviderFactory(IServiceProvider serviceProvider, IConf
         return serviceProvider.GetKeyedService<IOAuthProvider>(serviceKey);
     }
 
+    // Both values are required, because the token exchange sends the client secret in a form body where a missing
+    // value throws instead of failing cleanly, which is exactly what this guard exists to prevent
     private static bool IsEntraConfigured(IConfiguration configuration)
     {
-        var clientId = configuration["OAuth:Entra:ClientId"];
-        return !string.IsNullOrWhiteSpace(clientId) && clientId != NotConfiguredPlaceholder;
+        return IsConfigured(configuration["OAuth:Entra:ClientId"]) && IsConfigured(configuration["OAuth:Entra:ClientSecret"]);
+    }
+
+    private static bool IsConfigured(string? configurationValue)
+    {
+        return !string.IsNullOrWhiteSpace(configurationValue) && configurationValue != NotConfiguredPlaceholder;
     }
 
     private static bool GetAllowMockProvider(IConfiguration configuration)

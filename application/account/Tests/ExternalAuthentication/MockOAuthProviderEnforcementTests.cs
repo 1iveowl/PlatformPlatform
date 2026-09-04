@@ -12,6 +12,10 @@ namespace Account.Tests.ExternalAuthentication;
 
 public sealed class MockOAuthProviderEnforcementTests
 {
+    private const string ConfiguredClientId = "11111111-1111-1111-1111-111111111111";
+    private const string ConfiguredClientSecret = "entra-client-secret";
+    private const string NotConfiguredPlaceholder = "not-configured";
+
     [Fact]
     public void MockEmail_ShouldEndWithMockLocalhostDomain()
     {
@@ -88,7 +92,7 @@ public sealed class MockOAuthProviderEnforcementTests
     public void GetProvider_WhenEntraClientIdIsTheAspirePlaceholder_ShouldReturnNull()
     {
         // Arrange
-        var factory = CreateProviderFactory("not-configured");
+        var factory = CreateProviderFactory(NotConfiguredPlaceholder);
 
         // Act
         var provider = factory.GetProvider(ExternalProviderType.Entra, false);
@@ -111,10 +115,10 @@ public sealed class MockOAuthProviderEnforcementTests
     }
 
     [Fact]
-    public void GetProvider_WhenEntraClientIdIsConfigured_ShouldResolveTheKeyedProvider()
+    public void GetProvider_WhenEntraClientIdAndClientSecretAreConfigured_ShouldResolveTheKeyedProvider()
     {
         // Arrange
-        var factory = CreateProviderFactory("11111111-1111-1111-1111-111111111111");
+        var factory = CreateProviderFactory(ConfiguredClientId);
 
         // Act
         var provider = factory.GetProvider(ExternalProviderType.Entra, false);
@@ -124,10 +128,49 @@ public sealed class MockOAuthProviderEnforcementTests
     }
 
     [Fact]
-    public void GetProvider_WhenEntraClientIdIsMissingAndMockIsUsed_ShouldResolveTheMockProvider()
+    public void GetProvider_WhenEntraClientSecretIsMissing_ShouldReturnNull()
     {
         // Arrange
-        var factory = CreateProviderFactory(null, true);
+        var factory = CreateProviderFactory(ConfiguredClientId, null);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientSecretIsWhitespace_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(ConfiguredClientId, "   ");
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientSecretIsTheAspirePlaceholder_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(ConfiguredClientId, NotConfiguredPlaceholder);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraIsNotConfiguredAndMockIsUsed_ShouldResolveTheMockProvider()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(null, null, true);
 
         // Act
         var provider = factory.GetProvider(ExternalProviderType.Entra, true);
@@ -140,7 +183,7 @@ public sealed class MockOAuthProviderEnforcementTests
     public void GetProvider_WhenGoogleClientIdIsMissing_ShouldStillResolveTheKeyedProvider()
     {
         // Arrange
-        var factory = CreateProviderFactory(null);
+        var factory = CreateProviderFactory(null, null);
 
         // Act
         var provider = factory.GetProvider(ExternalProviderType.Google, false);
@@ -280,13 +323,14 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.Email.Should().BeNull();
     }
 
-    private static OAuthProviderFactory CreateProviderFactory(string? entraClientId, bool allowMockProvider = false)
+    private static OAuthProviderFactory CreateProviderFactory(string? entraClientId, string? entraClientSecret = ConfiguredClientSecret, bool allowMockProvider = false)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["OAuth:AllowMockProvider"] = allowMockProvider.ToString().ToLowerInvariant(),
-                    ["OAuth:Entra:ClientId"] = entraClientId
+                    ["OAuth:Entra:ClientId"] = entraClientId,
+                    ["OAuth:Entra:ClientSecret"] = entraClientSecret
                 }
             )
             .Build();
