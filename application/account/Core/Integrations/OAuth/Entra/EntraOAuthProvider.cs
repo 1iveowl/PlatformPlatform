@@ -199,18 +199,31 @@ public sealed class EntraOAuthProvider(HttpClient httpClient, IConfiguration con
     ///     token also carries xms_edov, Microsoft's attestation that the email's domain is verified for the user's own
     ///     directory or that this is a personal Microsoft account. Without it no email is reported at all, because the
     ///     callback validator rejects an unverified email before the identity lookup runs.
+    ///     Entra emits the claim as a JSON boolean for work and school accounts but as a JSON string for personal
+    ///     Microsoft accounts, where the observed value is "1". The boolean is read first because the token handler
+    ///     coerces a boolean claim to the string "True", so a string-first read cannot tell the two shapes apart.
     /// </summary>
     private static (string? Email, bool EmailVerified) GetVerifiedEmail(JsonWebToken token)
     {
         var email = token.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
         if (string.IsNullOrEmpty(email)) return (null, false);
 
-        if (!token.TryGetPayloadValue<bool>("xms_edov", out var emailDomainOwnerVerified) || !emailDomainOwnerVerified)
+        return IsEmailDomainOwnerVerified(token) ? (email, true) : (null, false);
+    }
+
+    private static bool IsEmailDomainOwnerVerified(JsonWebToken token)
+    {
+        if (token.TryGetPayloadValue<bool>("xms_edov", out var emailDomainOwnerVerified))
         {
-            return (null, false);
+            return emailDomainOwnerVerified;
         }
 
-        return (email, true);
+        if (!token.TryGetPayloadValue<string>("xms_edov", out var emailDomainOwnerVerifiedValue))
+        {
+            return false;
+        }
+
+        return emailDomainOwnerVerifiedValue == "1" || emailDomainOwnerVerifiedValue.Equals("true", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

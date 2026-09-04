@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Account.Integrations.OAuth;
 using Account.Integrations.OAuth.Entra;
 using FluentAssertions;
@@ -365,6 +366,82 @@ public sealed class EntraOAuthProviderTests : IDisposable
         profile.EmailVerified.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("1")]
+    [InlineData("true")]
+    [InlineData("True")]
+    [InlineData("TRUE")]
+    public async Task GetUserProfileAsync_WhenEmailDomainOwnerVerificationIsAPositiveString_ShouldReturnVerifiedEmail(string claimValue)
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims["email"] = "verified@contoso.com";
+        claims["xms_edov"] = claimValue;
+        var idToken = CreateIdToken(claims);
+
+        // Act
+        var profile = await CreateProvider().GetUserProfileAsync(new OAuthTokenResponse(AccessToken, idToken, 3600), CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.Email.Should().Be("verified@contoso.com");
+        profile.EmailVerified.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("false")]
+    [InlineData("False")]
+    [InlineData("yes")]
+    public async Task GetUserProfileAsync_WhenEmailDomainOwnerVerificationIsANegativeString_ShouldReturnProfileWithoutEmail(string claimValue)
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims["email"] = "unverified@contoso.com";
+        claims["xms_edov"] = claimValue;
+        var idToken = CreateIdToken(claims);
+
+        // Act
+        var profile = await CreateProvider().GetUserProfileAsync(new OAuthTokenResponse(AccessToken, idToken, 3600), CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.Email.Should().BeNull();
+        profile.EmailVerified.Should().BeFalse();
+    }
+
+    // Entra emits xms_edov as a boolean for work and school accounts and as a string for personal Microsoft accounts.
+    // These two cases pin the minted tokens to those shapes, so the cases above exercise the string path for real
+    // rather than a boolean the handler happened to coerce.
+    [Fact]
+    public void CreateIdToken_WhenEmailDomainOwnerVerificationIsABoolean_ShouldWriteAJsonBoolean()
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims["xms_edov"] = true;
+
+        // Act
+        var claim = ReadPayloadClaim(CreateIdToken(claims), "xms_edov");
+
+        // Assert
+        claim.ValueKind.Should().Be(JsonValueKind.True);
+    }
+
+    [Fact]
+    public void CreateIdToken_WhenEmailDomainOwnerVerificationIsAString_ShouldWriteAJsonString()
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims["xms_edov"] = "1";
+
+        // Act
+        var claim = ReadPayloadClaim(CreateIdToken(claims), "xms_edov");
+
+        // Assert
+        claim.ValueKind.Should().Be(JsonValueKind.String);
+        claim.Value.Should().Be("1");
+    }
+
     [Fact]
     public async Task GetUserProfileAsync_WhenOnlyPreferredUsernameIsPresent_ShouldReturnProfileWithoutEmail()
     {
@@ -502,6 +579,14 @@ public sealed class EntraOAuthProviderTests : IDisposable
         };
 
         return new JsonWebTokenHandler().CreateToken(tokenDescriptor);
+    }
+
+    private static (JsonValueKind ValueKind, string? Value) ReadPayloadClaim(string idToken, string claimType)
+    {
+        var payloadSegment = idToken.Split('.')[1];
+        using var payload = JsonDocument.Parse(Base64UrlEncoder.DecodeBytes(payloadSegment));
+        var claim = payload.RootElement.GetProperty(claimType);
+        return (claim.ValueKind, claim.ValueKind == JsonValueKind.String ? claim.GetString() : null);
     }
 
     private static string ComputeAccessTokenHash(string accessToken)
