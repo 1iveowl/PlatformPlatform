@@ -48,8 +48,8 @@ public sealed class EmailLoginCompleted(UserId userId, int loginTimeInSeconds)
 public sealed class EmailLoginStarted(UserId userId)
     : TelemetryEvent(("user_id", userId));
 
-public sealed class ExternalLoginCompleted(UserId userId, ExternalProviderType providerType, int loginTimeInSeconds)
-    : TelemetryEvent(("user_id", userId), ("provider_type", providerType), ("login_time_in_seconds", loginTimeInSeconds));
+public sealed class ExternalLoginCompleted(UserId userId, ExternalProviderType providerType, ExternalLoginLookup lookup, int loginTimeInSeconds)
+    : TelemetryEvent(("user_id", userId), ("provider_type", providerType), ("lookup", lookup), ("login_time_in_seconds", loginTimeInSeconds));
 
 public sealed class ExternalLoginFailed(ExternalLoginId? externalLoginId, ExternalLoginResult loginResult, int timeInSeconds, string? oauthError = null)
     : TelemetryEvent(("external_login_id", externalLoginId as object ?? "unknown"), ("login_result", loginResult), ("time_in_seconds", timeInSeconds), ("oauth_error", oauthError as object ?? "none"));

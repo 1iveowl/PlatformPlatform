@@ -134,7 +134,8 @@ public sealed class ExternalAuthenticationHelper(
             return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
         }
 
-        if (!userProfile.EmailVerified)
+        // A profile without an email has nothing to verify; the login handler resolves such a user by identity alone
+        if (userProfile.Email is not null && !userProfile.EmailVerified)
         {
             logger.LogWarning("Email not verified for external login '{ExternalLoginId}'", externalLogin.Id);
             return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);

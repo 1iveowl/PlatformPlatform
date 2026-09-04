@@ -4,6 +4,8 @@ using System.Web;
 using Account.Database;
 using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.Subscriptions.Domain;
+using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
 using Account.Integrations.OAuth;
 using Bogus;
@@ -25,6 +27,7 @@ using SharedKernel.SinglePageApp;
 using SharedKernel.Telemetry;
 using SharedKernel.Tests.Persistence;
 using SharedKernel.Tests.Telemetry;
+using ExternalIdentity = Account.Features.ExternalAuthentication.Domain.ExternalIdentity;
 
 namespace Account.Tests.ExternalAuthentication;
 
@@ -34,9 +37,9 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     // SinglePageAppConfiguration only consumes this as a URI.
     protected const string PublicUrl = "https://localhost";
     protected readonly Faker Faker = new();
+    protected readonly TelemetryEventsCollectorSpy TelemetryEventsCollectorSpy;
     protected readonly TimeProvider TimeProvider;
     private readonly WebApplicationFactory<Program> _webApplicationFactory;
-    protected readonly TelemetryEventsCollectorSpy TelemetryEventsCollectorSpy;
 
     protected ExternalAuthenticationTestBase()
     {
@@ -116,6 +119,8 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
 
     protected HttpClient NoRedirectHttpClient { get; }
 
+    protected IServiceProvider WebApplicationServices => _webApplicationFactory.Services;
+
     public void Dispose()
     {
         Dispose(true);
@@ -138,13 +143,13 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         return (response.Headers.Location!.ToString(), ExtractSetCookieHeaders(response));
     }
 
-    protected async Task<HttpResponseMessage> CallCallback(string callbackUrl, IEnumerable<string> cookies, string flowType = "login")
+    protected async Task<HttpResponseMessage> CallCallback(string callbackUrl, IEnumerable<string> cookies, string flowType = "login", string mockProviderCookieValue = "true")
     {
         var uri = ToAbsoluteUri(callbackUrl);
         var queryParams = HttpUtility.ParseQueryString(uri.Query);
 
         var requestUrl = $"{uri.AbsolutePath}?code={Uri.EscapeDataString(queryParams["code"]!)}&state={Uri.EscapeDataString(queryParams["state"]!)}";
-        var request = CreateRequestWithCookies(HttpMethod.Get, requestUrl, cookies);
+        var request = CreateRequestWithCookies(HttpMethod.Get, requestUrl, cookies, mockProviderCookieValue);
 
         return await NoRedirectHttpClient.SendAsync(request);
     }
@@ -200,28 +205,127 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         Connection.Update("external_logins", "id", externalLoginId, [("nonce", "tampered-nonce-value")]);
     }
 
-    protected UserId InsertUserWithExternalIdentity(string email, ExternalProviderType providerType, string providerUserId)
+    protected TenantId InsertTenant()
+    {
+        var tenantId = TenantId.NewId();
+        Connection.Insert("tenants", [
+                ("id", tenantId.Value),
+                ("created_at", TimeProvider.GetUtcNow()),
+                ("modified_at", null),
+                ("name", Faker.Company.CompanyName()),
+                ("state", nameof(TenantState.Active)),
+                ("logo", """{"Url":null,"Version":0}"""),
+                ("plan", nameof(SubscriptionPlan.Basis)),
+                ("rollout_bucket", 42)
+            ]
+        );
+
+        Connection.Insert("subscriptions", [
+                ("tenant_id", tenantId.Value),
+                ("id", SubscriptionId.NewId().ToString()),
+                ("created_at", TimeProvider.GetUtcNow()),
+                ("modified_at", null),
+                ("plan", nameof(SubscriptionPlan.Basis)),
+                ("scheduled_plan", null),
+                ("stripe_customer_id", null),
+                ("stripe_subscription_id", null),
+                ("current_price_amount", null),
+                ("current_price_currency", null),
+                ("current_period_end", null),
+                ("cancel_at_period_end", false),
+                ("first_payment_failed_at", null),
+                ("cancellation_reason", null),
+                ("cancellation_feedback", null),
+                ("payment_transactions", "[]"),
+                ("payment_method", null),
+                ("billing_info", null),
+                ("has_drift_detected", false),
+                ("drift_checked_at", null),
+                ("drift_discrepancies", "[]")
+            ]
+        );
+        return tenantId;
+    }
+
+    protected UserId InsertUser(string email, TenantId? tenantId = null, bool emailConfirmed = true)
     {
         var userId = UserId.NewId();
-        var identities = JsonSerializer.Serialize(new[] { new { Provider = providerType.ToString(), ProviderUserId = providerUserId } });
         Connection.Insert("users", [
-                ("tenant_id", DatabaseSeeder.Tenant1.Id.ToString()),
+                ("tenant_id", (tenantId ?? DatabaseSeeder.Tenant1.Id).ToString()),
                 ("id", userId.ToString()),
                 ("created_at", TimeProvider.GetUtcNow()),
                 ("modified_at", null),
                 ("email", email.ToLower()),
-                ("email_confirmed", true),
+                ("email_confirmed", emailConfirmed),
                 ("first_name", Faker.Name.FirstName()),
                 ("last_name", Faker.Name.LastName()),
                 ("title", null),
                 ("avatar", JsonSerializer.Serialize(new Avatar())),
                 ("role", nameof(UserRole.Member)),
                 ("locale", "en-US"),
-                ("external_identities", identities),
+                ("external_identities", "[]"),
                 ("rollout_bucket", 42)
             ]
         );
         return userId;
+    }
+
+    protected UserId InsertDeletedUser(string email, TenantId? tenantId = null)
+    {
+        var userId = InsertUser(email, tenantId);
+        Connection.Update("users", "id", userId.ToString(), [("deleted_at", TimeProvider.GetUtcNow())]);
+        return userId;
+    }
+
+    protected UserId InsertUserWithExternalIdentity(string email, ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
+    {
+        var userId = InsertUser(email, tenantId);
+        var identities = JsonSerializer.Serialize(new[] { new { Provider = providerType.ToString(), ProviderUserId = providerUserId } });
+        Connection.Update("users", "id", userId.ToString(), [("external_identities", identities)]);
+        return userId;
+    }
+
+    protected ExternalIdentityId InsertExternalIdentity(UserId userId, ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
+    {
+        var issuer = $"https://mock.localhost/{providerType.ToString().ToLowerInvariant()}";
+        var externalIdentity = ExternalIdentity.Create(tenantId ?? DatabaseSeeder.Tenant1.Id, userId, providerType, providerUserId, issuer, providerUserId);
+        Connection.Insert("external_identities", [
+                ("tenant_id", externalIdentity.TenantId.ToString()),
+                ("id", externalIdentity.Id.ToString()),
+                ("user_id", externalIdentity.UserId.ToString()),
+                ("created_at", TimeProvider.GetUtcNow()),
+                ("modified_at", null),
+                ("provider", externalIdentity.Provider.ToString()),
+                ("provider_user_id", externalIdentity.ProviderUserId),
+                ("capabilities", externalIdentity.Capabilities.ToString()),
+                ("issuer", externalIdentity.Issuer),
+                ("subject", externalIdentity.Subject)
+            ]
+        );
+        return externalIdentity.Id;
+    }
+
+    protected long CountExternalIdentities(ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
+    {
+        return Connection.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM external_identities WHERE provider = @provider AND provider_user_id = @providerUserId AND tenant_id = @tenantId",
+            [new { provider = providerType.ToString(), providerUserId, tenantId = (tenantId ?? DatabaseSeeder.Tenant1.Id).Value }]
+        );
+    }
+
+    protected string GetExternalIdentityUserId(ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
+    {
+        return Connection.ExecuteScalar<string>(
+            "SELECT user_id FROM external_identities WHERE provider = @provider AND provider_user_id = @providerUserId AND tenant_id = @tenantId",
+            [new { provider = providerType.ToString(), providerUserId, tenantId = (tenantId ?? DatabaseSeeder.Tenant1.Id).Value }]
+        );
+    }
+
+    protected long GetSessionTenantId(UserId userId)
+    {
+        return Connection.ExecuteScalar<long>(
+            "SELECT tenant_id FROM sessions WHERE user_id = @userId ORDER BY created_at DESC LIMIT 1", [new { userId = userId.ToString() }]
+        );
     }
 
     [UsedImplicitly]
@@ -286,7 +390,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         return await NoRedirectHttpClient.SendAsync(request);
     }
 
-    private static HttpRequestMessage CreateRequestWithCookies(HttpMethod method, string requestUrl, IEnumerable<string> cookies)
+    private static HttpRequestMessage CreateRequestWithCookies(HttpMethod method, string requestUrl, IEnumerable<string> cookies, string mockProviderCookieValue = "true")
     {
         var request = new HttpRequestMessage(method, requestUrl);
         foreach (var cookie in cookies)
@@ -295,7 +399,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
             request.Headers.TryAddWithoutValidation("Cookie", cookieParts);
         }
 
-        request.Headers.TryAddWithoutValidation("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}=true");
+        request.Headers.TryAddWithoutValidation("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}={mockProviderCookieValue}");
         return request;
     }
 }

@@ -45,6 +45,11 @@ public sealed class User : SoftDeletableAggregateRoot<UserId>, ITenantScopedEnti
 
     public DateTimeOffset? LastSeenAt { get; private set; }
 
+    /// <summary>
+    ///     The deprecated jsonb store of external identities. The external_identities table is the source of truth,
+    ///     and this column is read only by the BackfillExternalIdentities data migration. It is never updated after
+    ///     that migration and is removed in a later pull request.
+    /// </summary>
     public ImmutableArray<ExternalIdentity> ExternalIdentities { get; private set; }
 
     public int RolloutBucket { get; private set; }
@@ -100,6 +105,10 @@ public sealed class User : SoftDeletableAggregateRoot<UserId>, ITenantScopedEnti
         LastSeenAt = lastSeenAt;
     }
 
+    /// <summary>
+    ///     Writes to the deprecated jsonb store. No production code calls it any more; identities are added to the
+    ///     external_identities table instead. It is removed in a later pull request.
+    /// </summary>
     public void AddExternalIdentity(ExternalProviderType provider, string providerUserId)
     {
         if (ExternalIdentities.Any(e => e.Provider == provider))
@@ -110,6 +119,10 @@ public sealed class User : SoftDeletableAggregateRoot<UserId>, ITenantScopedEnti
         ExternalIdentities = ExternalIdentities.Add(new ExternalIdentity(provider, providerUserId));
     }
 
+    /// <summary>
+    ///     Reads the deprecated jsonb store. No production code calls it any more; identities are read from the
+    ///     external_identities table instead. It is removed in a later pull request.
+    /// </summary>
     public ExternalIdentity? GetExternalIdentity(ExternalProviderType provider)
     {
         return ExternalIdentities.FirstOrDefault(e => e.Provider == provider);
@@ -123,4 +136,9 @@ public sealed class User : SoftDeletableAggregateRoot<UserId>, ITenantScopedEnti
 
 public sealed record Avatar(string? Url = null, int Version = 0, bool IsGravatar = false);
 
+/// <summary>
+///     The entry shape of the deprecated jsonb store on <see cref="User.ExternalIdentities" />. The
+///     Account.Features.ExternalAuthentication.Domain.ExternalIdentity aggregate is the source of truth. This record
+///     is read only by the BackfillExternalIdentities data migration and is removed in a later pull request.
+/// </summary>
 public sealed record ExternalIdentity(ExternalProviderType Provider, string ProviderUserId);

@@ -12,6 +12,7 @@ using SharedKernel.Cqrs;
 using SharedKernel.ExecutionContext;
 using SharedKernel.OpenIdConnect;
 using SharedKernel.Telemetry;
+using ExternalIdentity = Account.Features.ExternalAuthentication.Domain.ExternalIdentity;
 
 namespace Account.Features.ExternalAuthentication.Commands;
 
@@ -25,6 +26,7 @@ public sealed record CompleteExternalSignupCommand(string? Code, string? State, 
 
 public sealed class CompleteExternalSignupHandler(
     IExternalLoginRepository externalLoginRepository,
+    IExternalIdentityRepository externalIdentityRepository,
     IUserRepository userRepository,
     ISessionRepository sessionRepository,
     UserInfoFactory userInfoFactory,
@@ -54,6 +56,12 @@ public sealed class CompleteExternalSignupHandler(
             var externalLogin = validationResult.ExternalLogin;
             var userProfile = validationResult.UserProfile!;
 
+            if (userProfile.Email is null)
+            {
+                logger.LogWarning("Profile without an email cannot sign up for external login '{ExternalLoginId}'", externalLogin.Id);
+                return SignupFailedRedirect(externalLogin, ExternalLoginResult.CodeExchangeFailed);
+            }
+
             var existingUser = await userRepository.GetUserByEmailUnfilteredAsync(userProfile.Email, cancellationToken);
             if (existingUser is not null)
             {
@@ -77,7 +85,8 @@ public sealed class CompleteExternalSignupHandler(
                 return SignupFailedRedirect(externalLogin, ExternalLoginResult.CodeExchangeFailed);
             }
 
-            user.AddExternalIdentity(externalLogin.ProviderType, userProfile.ProviderUserId);
+            var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
+            await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
 
             if (userProfile.FirstName is not null || userProfile.LastName is not null)
             {
