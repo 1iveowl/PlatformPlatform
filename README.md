@@ -60,6 +60,7 @@ Production-ready end-user surfaces — fully localized, accessible, and ready to
 * **Signup** - Tenant signup with email one-time password, Google OAuth or Microsoft Entra ID (OpenID Connect with PKCE)
 * **Login** - Same OTP, Google and Microsoft sign-in flows, with `UNLOCK` shortcut on localhost so dev mail is optional
 * **Welcome** - First-run guided flow for naming the account, uploading a logo, and inviting colleagues
+* **Identity verification** - A signed-in user proves who they are with Danish MitID through the Idura broker, bound to their account with evidence
 * **Account settings** - Owner-editable account name, logo, and danger-zone account deletion
 * **User management** - Invite users, change roles (Owner/Admin/Member), bulk delete, and recycle-bin restore
 * **Subscription & billing** - Embedded Stripe Checkout & Payment Element, prorated upgrades/downgrades, billing-info editing, scheduled-downgrade banner, dunning, and payment history with invoices and credit notes
@@ -405,6 +406,33 @@ PlatformPlatform supports authentication via Microsoft Entra ID using OpenID Con
 
 All values are stored securely in .NET user secrets and persist across restarts. Work accounts and personal Microsoft accounts sign in through the same registration. An account is only created at signup when the token carries a verified email (the `xms_edov` claim); otherwise the person is asked to sign up with email instead.
 
+### 3.4 (Optional) Set up MitID identity verification on localhost
+
+PlatformPlatform lets a signed-in user prove who they are with Danish MitID through the [Idura](https://idura.eu) broker. This is verification only: MitID cannot be used to log in or to sign up, and the backend rejects those flows even if a request reaches them directly. It is optional for local development. The Aspire dashboard prompts whether to enable MitID verification on first startup.
+
+<details>
+
+<summary>Idura dashboard setup</summary>
+
+1. Sign up at the [Idura dashboard](https://dashboard.idura.app) and pick a tenant subdomain. Your broker domain becomes `{subdomain}.idura.broker`, or `{subdomain}.test.idura.broker` for a test tenant
+2. Enable **Danish MitID** as an identity source
+3. Leave the **Add CPR for MitID logins** toggle off. PlatformPlatform requests only the `openid` scope and never reads or stores a CPR number, and leaving the toggle off means the broker never issues one in the first place
+4. Add a login application and register this redirect URI:
+   - `https://localhost:9000/api/account/authentication/MitId/verification/callback`
+5. Note the **Client ID/Realm** of the login application. It is not a GUID: Idura auto-generates it in the form `urn:my:application:identifier:123`, and it is scoped to the one domain the application was created against
+6. Generate a **Client Secret** under the application's **OpenID Connect** settings and copy it immediately, because it is shown only once. The application must be a confidential, server-side type; PlatformPlatform authenticates the token exchange with a client secret, so a public PKCE-only application will not work
+7. On the application's **OpenID Connect** tab, enable **OAuth2 Code Flow**, which is what issues the client secret for the back-channel exchange, and set **JWT property format** to `compact`. The default format returns some claims under partial URIs rather than short names, and PlatformPlatform reads the MitID `uuid` claim by its short name
+8. Create a MitID test user at [pp.mitid.dk/test-tool/frontend](https://pp.mitid.dk/test-tool/frontend) to try the flow
+
+</details>
+
+**Aspire parameter configuration** (two restarts required):
+
+1. **First restart**: Aspire prompts whether to enable MitID verification. Enter `true` to enable or `false` to skip. Once entered, restart Aspire.
+2. **Second restart**: Aspire prompts for the **domain**, **Client ID** and **Client Secret**. Enter the domain without a scheme, for example `your-tenant.test.idura.broker`, then restart Aspire to apply the configuration.
+
+All values are stored securely in .NET user secrets and persist across restarts. Verification is requested at the substantial level of assurance and forces a fresh authentication, so a cached broker session cannot satisfy it. The MitID identifier is bound to the signed-in account together with the assurance level and when the person authenticated; no name, birth date or CPR number is stored. A user who verifies with the wrong identity cannot rebind it themselves; a back-office administrator revokes the verification so they can try again.
+
 ## 4. Set up CI/CD with passwordless deployments from GitHub to Azure
 
 Run this command to automate Azure Subscription configuration and set up [GitHub Workflows](https://github.com/platformplatform/PlatformPlatform/actions) for deploying [Azure Infrastructure](./cloud-infrastructure) (using Bicep) and compiling [application code](./application) to Docker images deployed to Azure Container Apps:
@@ -453,6 +481,18 @@ Remember to add redirect URIs for each environment to the app registration in th
 - `https://staging.yourproduct.com/api/account/authentication/Entra/signup/callback`
 - `https://app.yourproduct.com/api/account/authentication/Entra/login/callback`
 - `https://app.yourproduct.com/api/account/authentication/Entra/signup/callback`
+
+### (Optional) Configure MitID verification for staging and production
+
+If you set up MitID verification locally, use the Developer CLI to store your Idura credentials as GitHub secrets for deployment to Azure Key Vault:
+
+```bash
+pp github-config
+```
+
+Remember to add a redirect URI for each environment to the login application in the Idura dashboard, e.g.:
+- `https://staging.yourproduct.com/api/account/authentication/MitId/verification/callback`
+- `https://app.yourproduct.com/api/account/authentication/MitId/verification/callback`
 
 ### (Optional) Configure Stripe for staging and production
 

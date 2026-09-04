@@ -86,6 +86,9 @@ msgstr "Increase"
 msgid "Leave"
 msgstr "Leave"
 
+msgid "Let a signed-in user prove their identity with MitID"
+msgstr "Let a signed-in user prove their identity with MitID"
+
 msgid "Loading"
 msgstr "Loading"
 
@@ -97,6 +100,9 @@ msgstr "Manual override"
 
 msgid "Microsoft Entra ID"
 msgstr "Microsoft Entra ID"
+
+msgid "MitID identity verification"
+msgstr "MitID identity verification"
 
 msgid "Mobile navigation menu"
 msgstr "Mobile navigation menu"

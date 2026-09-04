@@ -35,6 +35,13 @@ param entraOAuthClientId string
 param entraOAuthClientSecret string
 
 @secure()
+param mitIdDomain string
+@secure()
+param mitIdClientId string
+@secure()
+param mitIdClientSecret string
+
+@secure()
 param stripePublishableKey string
 @secure()
 param stripeApiKey string
@@ -140,6 +147,19 @@ module entraOAuthSecrets '../modules/key-vault-secrets.bicep' = if (!empty(entra
     secrets: {
       'OAuth--Entra--ClientId': entraOAuthClientId
       'OAuth--Entra--ClientSecret': entraOAuthClientSecret
+    }
+  }
+}
+
+module mitIdSecrets '../modules/key-vault-secrets.bicep' = if (!empty(mitIdDomain) && !empty(mitIdClientId) && !empty(mitIdClientSecret)) {
+  scope: clusterResourceGroup
+  name: '${clusterResourceGroupName}-mitid-secrets'
+  params: {
+    keyVaultName: keyVault.outputs.name
+    secrets: {
+      'OAuth--MitId--Domain': mitIdDomain
+      'OAuth--MitId--ClientId': mitIdClientId
+      'OAuth--MitId--ClientSecret': mitIdClientSecret
     }
   }
 }
@@ -323,6 +343,10 @@ var accountEnvironmentVariables = [
   {
     name: 'PUBLIC_ENTRA_OAUTH_ENABLED'
     value: !empty(entraOAuthClientId) && !empty(entraOAuthClientSecret) ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_MITID_VERIFICATION_ENABLED'
+    value: !empty(mitIdDomain) && !empty(mitIdClientId) && !empty(mitIdClientSecret) ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'
@@ -510,6 +534,10 @@ var mainEnvironmentVariables = [
   {
     name: 'PUBLIC_ENTRA_OAUTH_ENABLED'
     value: !empty(entraOAuthClientId) && !empty(entraOAuthClientSecret) ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_MITID_VERIFICATION_ENABLED'
+    value: !empty(mitIdDomain) && !empty(mitIdClientId) && !empty(mitIdClientSecret) ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'
