@@ -41,10 +41,13 @@ public sealed class BackfillExternalIdentities(AccountDbContext accountDbContext
         var existingKeys = existingIdentities.Select(ei => (ei.TenantId, ei.Provider, ei.ProviderUserId)).ToHashSet();
         var existingHolders = existingIdentities.Select(ei => (ei.UserId, ei.Provider)).ToHashSet();
 
-        // The jsonb column is mapped through a value converter and cannot be filtered in SQL, so every user is
-        // projected and the entries are read in memory. Soft-deleted users are included so a restored user keeps
-        // the identity it had.
+        // The jsonb column is mapped through a value converter, so LINQ cannot look inside it; the one filter that
+        // matters, leaving out the users who hold no legacy identity at all, is a plain SQL comparison that
+        // PostgreSQL evaluates as jsonb and SQLite as text. Only those users are projected, four columns each, and
+        // their entries are grouped in memory because the contested-key policy below needs every holder of a key
+        // before it can decide. Soft-deleted users are included so a restored user keeps the identity it had.
         var users = await accountDbContext.Set<User>()
+            .FromSqlRaw("SELECT * FROM users WHERE external_identities <> '[]'")
             .IgnoreQueryFilters([QueryFilterNames.Tenant, QueryFilterNames.SoftDelete])
             .Select(u => new { u.Id, u.TenantId, u.DeletedAt, u.ExternalIdentities })
             .ToArrayAsync(cancellationToken);
