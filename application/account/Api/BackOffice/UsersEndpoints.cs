@@ -1,3 +1,4 @@
+using Account.Features.ExternalAuthentication.BackOffice.Commands;
 using Account.Features.FeatureFlags.Queries;
 using Account.Features.Users.BackOffice.Commands;
 using Account.Features.Users.BackOffice.Queries;
@@ -47,6 +48,10 @@ public sealed class UsersEndpoints : IEndpoints
 
         group.MapPut("/{id}/ab-inclusion-pin", async Task<ApiResult> (UserId id, SetUserAbInclusionPinCommand command, IMediator mediator)
             => await mediator.Send(command with { UserId = id })
+        ).RequireAuthorization(BackOfficeIdentityDefaults.AdminPolicyName);
+
+        group.MapDelete("/{id}/identity-verification", async Task<ApiResult> (UserId id, IMediator mediator)
+            => await mediator.Send(new RevokeExternalVerificationCommand { Id = id })
         ).RequireAuthorization(BackOfficeIdentityDefaults.AdminPolicyName);
     }
 }

@@ -15,7 +15,8 @@ export const Route = createFileRoute("/error")({
     return {
       error: params.error,
       returnPath: params.returnPath && isValidReturnPath(params.returnPath) ? params.returnPath : undefined,
-      id: params.id && /^[a-zA-Z0-9-]+$/.test(params.id) ? params.id : undefined
+      // An external login id carries an underscore after its prefix, and it is the reference support looks up
+      id: params.id && /^[a-zA-Z0-9_-]+$/.test(params.id) ? params.id : undefined
     };
   },
   component: ErrorPage
@@ -46,6 +47,10 @@ function ErrorPage() {
     navigate({ to: signUpPath });
   };
 
+  const handleReturnToProfile = () => {
+    navigate({ to: "/user/profile" });
+  };
+
   return (
     <main style={{ minHeight: "100vh" }} className="flex w-full flex-col bg-background">
       <ErrorNavigation />
@@ -67,6 +72,7 @@ function ErrorPage() {
               variant="default"
               onLogIn={handleLogIn}
               onSignUp={handleSignUp}
+              onReturnToProfile={handleReturnToProfile}
             />
             {errorDisplay.secondaryAction && (
               <ActionButton
@@ -74,6 +80,7 @@ function ErrorPage() {
                 variant="outline"
                 onLogIn={handleLogIn}
                 onSignUp={handleSignUp}
+                onReturnToProfile={handleReturnToProfile}
               />
             )}
           </div>

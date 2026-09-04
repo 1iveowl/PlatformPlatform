@@ -10,6 +10,7 @@ using Account.Integrations.Gravatar;
 using Account.Integrations.OAuth;
 using Account.Integrations.OAuth.Entra;
 using Account.Integrations.OAuth.Google;
+using Account.Integrations.OAuth.MitId;
 using Account.Integrations.OAuth.Mock;
 using Account.Integrations.Stripe;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,6 +58,9 @@ public static class Configuration
             services.AddHttpClient<EntraOAuthProvider>(client => { client.Timeout = TimeSpan.FromSeconds(10); });
             services.AddKeyedScoped<IOAuthProvider, EntraOAuthProvider>("entra");
             services.AddKeyedScoped<IOAuthProvider>("mock-entra", (serviceProvider, _) => ActivatorUtilities.CreateInstance<MockOAuthProvider>(serviceProvider, ExternalProviderType.Entra));
+            services.AddHttpClient<MitIdOAuthProvider>(client => { client.Timeout = TimeSpan.FromSeconds(10); });
+            services.AddKeyedScoped<IOAuthProvider, MitIdOAuthProvider>("mitid");
+            services.AddKeyedScoped<IOAuthProvider>("mock-mitid", (serviceProvider, _) => ActivatorUtilities.CreateInstance<MockOAuthProvider>(serviceProvider, ExternalProviderType.MitId));
             services.AddScoped<OAuthProviderFactory>();
 
             services.AddEmailRendering("WebApp");

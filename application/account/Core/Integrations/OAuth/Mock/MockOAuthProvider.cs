@@ -1,4 +1,5 @@
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Integrations.OAuth.MitId;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
@@ -20,8 +21,12 @@ namespace Account.Integrations.OAuth.Mock;
 ///     "mock-{provider}-{identityPrefix}", and no email.
 ///     Any other value "{emailPrefix}" gives the email "{emailPrefix}@mock.localhost" and the provider user id
 ///     "mock-{provider}-{emailPrefix}".
+///     A verification-only provider never reports an email whatever the cookie says, and carries the assurance level
+///     and authentication instant that a real verification would. "staleauthentication" makes it report an
+///     authentication from an hour ago, which stands in for a provider replaying a cached session, and
+///     "futureauthentication" one an hour from now, which stands in for a provider whose clock is wrong.
 /// </summary>
-public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfiguration configuration, IHttpContextAccessor httpContextAccessor) : IOAuthProvider
+public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider) : IOAuthProvider
 {
     public const string MockEmail = $"mockuser{OAuthProviderFactory.MockEmailDomain}";
     public const string MockFirstName = "Mock";
@@ -29,6 +34,8 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
     public const string FailurePrefix = "fail:";
     public const string NoEmailValue = "noemail";
     public const string IdentityPrefix = "identity:";
+    public const string StaleAuthenticationValue = "staleauthentication";
+    public const string FutureAuthenticationValue = "futureauthentication";
     private const string DefaultProviderUserIdSuffix = "user-id-12345";
 
     // The default provider user id of the Google mock, which the API tests drive through the Google endpoints
@@ -87,6 +94,8 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
         var cookieValue = GetCookieValue();
         var failureMode = GetFailureMode(cookieValue);
         var (providerUserId, email) = GetProviderUserIdAndEmail(cookieValue);
+        var isVerificationOnly = !ExternalAuthenticationPolicy.IsFlowSupported(providerType, ExternalLoginType.Login);
+        if (isVerificationOnly) email = null;
         var emailVerified = email is not null && failureMode != "email_not_verified";
         var nonce = ExtractNonceFromMockIdToken(tokenResponse.IdToken);
 
@@ -94,15 +103,28 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
                 providerUserId,
                 email,
                 emailVerified,
-                MockFirstName,
-                MockLastName,
+                isVerificationOnly ? null : MockFirstName,
+                isVerificationOnly ? null : MockLastName,
                 null,
-                "en",
+                isVerificationOnly ? null : "en",
                 nonce,
                 BuildIssuer(providerType),
-                providerUserId
+                providerUserId,
+                isVerificationOnly ? MitIdOAuthProvider.RequestedAssuranceLevel : null,
+                isVerificationOnly ? GetAuthenticationInstant(cookieValue) : null
             )
         );
+    }
+
+    private DateTimeOffset GetAuthenticationInstant(string? cookieValue)
+    {
+        var now = timeProvider.GetUtcNow();
+        return cookieValue switch
+        {
+            StaleAuthenticationValue => now.AddHours(-1),
+            FutureAuthenticationValue => now.AddHours(1),
+            _ => now
+        };
     }
 
     private (string ProviderUserId, string? Email) GetProviderUserIdAndEmail(string? cookieValue)

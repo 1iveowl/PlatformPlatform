@@ -27,6 +27,10 @@ function getKnownFeatureFlagLabels(): Record<string, FeatureFlagLabel> {
       name: t`Microsoft Entra ID`,
       description: t`Sign in with Microsoft using OpenID Connect`
     },
+    "mitid-verification": {
+      name: t`MitID identity verification`,
+      description: t`Let a signed-in user prove their identity with MitID`
+    },
     "subscriptions": {
       name: t`Subscriptions`,
       description: t`Stripe-powered subscription billing and plan management`

@@ -21,8 +21,8 @@ namespace Account.Features.ExternalAuthentication.Commands;
 public sealed record CompleteExternalLoginCommand(string? Code, string? State, string? Error, string? ErrorDescription)
     : ICommand, IRequest<Result<string>>
 {
-    [JsonIgnore]
-    public string? Provider { get; init; }
+    [JsonIgnore] // Removes from API contract
+    public ExternalProviderType ProviderType { get; init; }
 }
 
 public sealed class CompleteExternalLoginHandler(
@@ -49,7 +49,7 @@ public sealed class CompleteExternalLoginHandler(
         try
         {
             var validationResult = await externalAuthenticationHelper.ValidateCallback(
-                command.Code, command.State, command.Error, command.ErrorDescription, ExternalLoginType.Login, cancellationToken
+                command.Code, command.State, command.Error, command.ErrorDescription, command.ProviderType, ExternalLoginType.Login, cancellationToken
             );
 
             if (!validationResult.IsSuccess) return validationResult.ErrorResult!;
@@ -58,11 +58,13 @@ public sealed class CompleteExternalLoginHandler(
             var externalLoginCookie = validationResult.Cookie;
             var userProfile = validationResult.UserProfile!;
 
-            // Only identities with the Login capability may log in; a verification-only identity is not a match
-            var externalIdentities = (await externalIdentityRepository.GetByProviderUserIdUnfilteredAsync(externalLogin.ProviderType, userProfile.ProviderUserId, cancellationToken))
-                .Where(ei => ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Login))
-                .ToArray();
-            var identityCandidates = await GetUsersByIdentities(externalIdentities, cancellationToken);
+            var identitiesForProviderUserId = await externalIdentityRepository.GetByProviderUserIdUnfilteredAsync(externalLogin.ProviderType, userProfile.ProviderUserId, cancellationToken);
+
+            // Only identities with the Login capability may log in; a verification-only identity is not a match. The
+            // unfiltered array is kept as well, because a row that cannot log in still occupies the unique index on
+            // provider, provider user id and tenant.
+            var loginCapableIdentities = identitiesForProviderUserId.Where(ei => ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Login)).ToArray();
+            var identityCandidates = await GetUsersByIdentities(loginCapableIdentities, cancellationToken);
 
             // The email candidates are loaded alongside the identity candidates instead of only when the identity
             // lookup came up empty. A person invited by email to a second tenant has no identity row there, and
@@ -92,13 +94,8 @@ public sealed class CompleteExternalLoginHandler(
 
                 if (existingIdentity is null)
                 {
-                    // The identity lookup matched no live user, so a row for this identity in the user's tenant belongs
-                    // to a soft-deleted user. It is removed so the re-invited user can take the identity over without
-                    // violating the unique index on provider, provider user id and tenant.
-                    foreach (var recycledIdentity in externalIdentities.Where(ei => ei.TenantId == user.TenantId))
-                    {
-                        externalIdentityRepository.Remove(recycledIdentity);
-                    }
+                    var conflictResult = await ResolveIdentityHeldByAnotherUser(externalLogin, identitiesForProviderUserId, user.TenantId, cancellationToken);
+                    if (conflictResult is not null) return conflictResult;
 
                     var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
                     await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
@@ -108,7 +105,7 @@ public sealed class CompleteExternalLoginHandler(
                     // The row already holds this exact identity, and the provider verified an email that matches the
                     // user's own. That is the same evidence the branch above accepts to create a new Login row, so the
                     // verification-only row is upgraded; the unique index leaves no room for a second row anyway.
-                    existingIdentity.AddCapability(ExternalIdentityCapabilities.Login);
+                    existingIdentity.AddLoginCapability();
                     externalIdentityRepository.Update(existingIdentity);
                 }
             }
@@ -199,6 +196,37 @@ public sealed class CompleteExternalLoginHandler(
         if (emailCandidates.Length > 0) return (emailCandidates[0], ExternalLoginLookup.Email);
 
         return (null, ExternalLoginLookup.Identity);
+    }
+
+    /// <summary>
+    ///     The unique index on provider, provider user id and tenant allows one holder of an identity per tenant, so a
+    ///     row already in the chosen user's tenant has to be dealt with before inserting. A row left behind by a
+    ///     soft-deleted user is freed, which is how a re-invited person takes their identity back. A row held by a live
+    ///     user is refused with a distinct result: it can only be a verification-only row, invisible to the login
+    ///     lookup, and inserting anyway would violate the index and surface as a server error. Removing it instead is
+    ///     not an option, because that would destroy another person's verification evidence as a side effect of a
+    ///     login.
+    /// </summary>
+    private async Task<Result<string>?> ResolveIdentityHeldByAnotherUser(ExternalLogin externalLogin, ExternalIdentity[] identitiesForProviderUserId, TenantId tenantId, CancellationToken cancellationToken)
+    {
+        var identitiesInTenant = identitiesForProviderUserId.Where(ei => ei.TenantId == tenantId).ToArray();
+        if (identitiesInTenant.Length == 0) return null;
+
+        var liveUserIds = (await userRepository.GetByIdsUnfilteredAsync(identitiesInTenant.Select(ei => ei.UserId).ToArray(), cancellationToken))
+            .Select(u => u.Id).ToHashSet();
+
+        if (identitiesInTenant.Any(ei => liveUserIds.Contains(ei.UserId)))
+        {
+            logger.LogWarning("The '{ProviderType}' identity presented for external login '{ExternalLoginId}' is already held by another user in the tenant", externalLogin.ProviderType, externalLogin.Id);
+            return LoginFailedRedirect(externalLogin, ExternalLoginResult.IdentityHeldByAnotherUser);
+        }
+
+        foreach (var recycledIdentity in identitiesInTenant)
+        {
+            externalIdentityRepository.Remove(recycledIdentity);
+        }
+
+        return null;
     }
 
     private async Task<User[]> GetUsersByIdentities(ExternalIdentity[] externalIdentities, CancellationToken cancellationToken)

@@ -33,6 +33,24 @@ public sealed class GithubConfigCommand : Command
             "your-client-secret-value",
             "Entra ID OAuth"
         ),
+        ["MITID_DOMAIN"] = new GithubConfig(
+            "Idura broker domain for MitID, without a scheme",
+            GithubType.Variable,
+            "your-tenant.idura.broker",
+            "MitID verification"
+        ),
+        ["MITID_CLIENT_ID"] = new GithubConfig(
+            "Client ID of the MitID login application from the Idura dashboard",
+            GithubType.Variable,
+            "urn:my:application:identifier:123456",
+            "MitID verification"
+        ),
+        ["MITID_CLIENT_SECRET"] = new GithubConfig(
+            "Client secret of the MitID login application from the Idura dashboard",
+            GithubType.Secret,
+            "your-client-secret-value",
+            "MitID verification"
+        ),
         ["STRIPE_PUBLISHABLE_KEY"] = new GithubConfig(
             "Stripe Publishable Key from the Stripe Dashboard API keys page",
             GithubType.Variable,
@@ -53,7 +71,7 @@ public sealed class GithubConfigCommand : Command
         )
     };
 
-    public GithubConfigCommand() : base("github-config", "Configure GitHub repository variables and secrets for external integrations like Google OAuth, Microsoft Entra ID and Stripe")
+    public GithubConfigCommand() : base("github-config", "Configure GitHub repository variables and secrets for external integrations like Google OAuth, Microsoft Entra ID, MitID and Stripe")
     {
         SetAction(_ => Execute());
     }

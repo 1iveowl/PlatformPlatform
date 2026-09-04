@@ -20,8 +20,8 @@ namespace Account.Features.ExternalAuthentication.Commands;
 public sealed record CompleteExternalSignupCommand(string? Code, string? State, string? Error, string? ErrorDescription)
     : ICommand, IRequest<Result<string>>
 {
-    [JsonIgnore]
-    public string? Provider { get; init; }
+    [JsonIgnore] // Removes from API contract
+    public ExternalProviderType ProviderType { get; init; }
 }
 
 public sealed class CompleteExternalSignupHandler(
@@ -48,7 +48,7 @@ public sealed class CompleteExternalSignupHandler(
         try
         {
             var validationResult = await externalAuthenticationHelper.ValidateCallback(
-                command.Code, command.State, command.Error, command.ErrorDescription, ExternalLoginType.Signup, cancellationToken
+                command.Code, command.State, command.Error, command.ErrorDescription, command.ProviderType, ExternalLoginType.Signup, cancellationToken
             );
 
             if (!validationResult.IsSuccess) return validationResult.ErrorResult!;

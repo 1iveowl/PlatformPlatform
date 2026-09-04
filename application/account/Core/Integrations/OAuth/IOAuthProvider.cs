@@ -25,5 +25,7 @@ public sealed record OAuthUserProfile(
     string? Locale,
     string? Nonce,
     string Issuer,
-    string Subject
+    string Subject,
+    IdentityAssuranceLevel? AssuranceLevel = null,
+    DateTimeOffset? AuthenticationInstant = null
 );
