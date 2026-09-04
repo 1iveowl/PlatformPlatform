@@ -11,12 +11,21 @@ public sealed class OAuthProviderFactory(IServiceProvider serviceProvider, IConf
     public const string UseMockProviderCookieName = "__Test_Use_Mock_Provider";
     public const string MockEmailDomain = "@mock.localhost";
 
-    // The value the AppHost passes for the Entra client id and client secret while those parameters are left disabled
+    // The value the AppHost passes for a provider's settings while its parameters are left disabled
     private const string NotConfiguredPlaceholder = "not-configured";
 
     private readonly bool _allowMockProvider = GetAllowMockProvider(configuration);
 
-    private readonly bool _isEntraConfigured = IsEntraConfigured(configuration);
+    /// <summary>
+    ///     Which providers have enough configuration to be constructed at all. Google is absent on purpose: it predates
+    ///     this guard and throws from its own field initializer when its section is missing. Every provider added since
+    ///     is resolved through here first, so an unconfigured one is refused rather than constructed.
+    /// </summary>
+    private readonly Dictionary<ExternalProviderType, bool> _isProviderConfigured = new()
+    {
+        [ExternalProviderType.Entra] = IsConfigured(configuration, "OAuth:Entra:ClientId", "OAuth:Entra:ClientSecret"),
+        [ExternalProviderType.MitId] = IsConfigured(configuration, "OAuth:MitId:Domain", "OAuth:MitId:ClientId", "OAuth:MitId:ClientSecret")
+    };
 
     public bool ShouldUseMockProvider(HttpContext httpContext)
     {
@@ -35,8 +44,8 @@ public sealed class OAuthProviderFactory(IServiceProvider serviceProvider, IConf
             return null;
         }
 
-        // Resolved before the keyed service so an unconfigured Entra provider is never constructed
-        if (!useMock && providerType == ExternalProviderType.Entra && !_isEntraConfigured)
+        // Resolved before the keyed service so an unconfigured provider is never constructed
+        if (!useMock && _isProviderConfigured.TryGetValue(providerType, out var isConfigured) && !isConfigured)
         {
             return null;
         }
@@ -48,11 +57,11 @@ public sealed class OAuthProviderFactory(IServiceProvider serviceProvider, IConf
         return serviceProvider.GetKeyedService<IOAuthProvider>(serviceKey);
     }
 
-    // Both values are required, because the token exchange sends the client secret in a form body where a missing
+    // Every value is required, because the token exchange sends the client secret in a form body where a missing
     // value throws instead of failing cleanly, which is exactly what this guard exists to prevent
-    private static bool IsEntraConfigured(IConfiguration configuration)
+    private static bool IsConfigured(IConfiguration configuration, params string[] configurationKeys)
     {
-        return IsConfigured(configuration["OAuth:Entra:ClientId"]) && IsConfigured(configuration["OAuth:Entra:ClientSecret"]);
+        return configurationKeys.All(configurationKey => IsConfigured(configuration[configurationKey]));
     }
 
     private static bool IsConfigured(string? configurationValue)

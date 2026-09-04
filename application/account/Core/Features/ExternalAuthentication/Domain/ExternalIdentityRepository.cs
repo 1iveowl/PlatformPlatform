@@ -22,6 +22,12 @@ public interface IExternalIdentityRepository : ICrudRepository<ExternalIdentity,
     ///     provider).
     /// </summary>
     Task<ExternalIdentity?> GetByUserIdAndProviderUnfilteredAsync(UserId userId, ExternalProviderType provider, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Retrieves every external identity a user holds without applying the tenant query filter. The back office
+    ///     runs without a tenant context, and a user's own identities are already scoped by the user id.
+    /// </summary>
+    Task<ExternalIdentity[]> GetByUserIdUnfilteredAsync(UserId userId, CancellationToken cancellationToken);
 }
 
 public sealed class ExternalIdentityRepository(AccountDbContext accountDbContext)
@@ -41,5 +47,13 @@ public sealed class ExternalIdentityRepository(AccountDbContext accountDbContext
             .IgnoreQueryFilters([QueryFilterNames.Tenant])
             .Where(ei => ei.UserId == userId && ei.Provider == provider)
             .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<ExternalIdentity[]> GetByUserIdUnfilteredAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return await DbSet
+            .IgnoreQueryFilters([QueryFilterNames.Tenant])
+            .Where(ei => ei.UserId == userId)
+            .ToArrayAsync(cancellationToken);
     }
 }

@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
 using Account.Database;
@@ -20,6 +22,8 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using SharedKernel.Authentication;
+using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
 using SharedKernel.ExecutionContext;
 using SharedKernel.Integrations.Email;
@@ -107,10 +111,20 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
             }
         );
 
-        NoRedirectHttpClient = _webApplicationFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        NoRedirectHttpClient.DefaultRequestHeaders.Add("User-Agent", "TestBrowser/1.0");
-        NoRedirectHttpClient.DefaultRequestHeaders.Add("Accept-Language", "en-US");
-        NoRedirectHttpClient.DefaultRequestHeaders.Add("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}=true");
+        NoRedirectHttpClient = CreateBrowserLikeClient();
+
+        using var serviceScope = _webApplicationFactory.Services.CreateScope();
+        var accessTokenGenerator = serviceScope.ServiceProvider.GetRequiredService<AccessTokenGenerator>();
+
+        AuthenticatedOwnerHttpClient = CreateBrowserLikeClient();
+        AuthenticatedOwnerHttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", accessTokenGenerator.Generate(CreateUserInfo(DatabaseSeeder.Tenant1Owner, DatabaseSeeder.Tenant1OwnerSession.Id))
+        );
+
+        AuthenticatedMemberHttpClient = CreateBrowserLikeClient();
+        AuthenticatedMemberHttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", accessTokenGenerator.Generate(CreateUserInfo(DatabaseSeeder.Tenant1Member, DatabaseSeeder.Tenant1MemberSession.Id))
+        );
     }
 
     protected SqliteConnection Connection { get; }
@@ -118,6 +132,10 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     protected DatabaseSeeder DatabaseSeeder { get; }
 
     protected HttpClient NoRedirectHttpClient { get; }
+
+    protected HttpClient AuthenticatedOwnerHttpClient { get; }
+
+    protected HttpClient AuthenticatedMemberHttpClient { get; }
 
     protected IServiceProvider WebApplicationServices => _webApplicationFactory.Services;
 
@@ -144,6 +162,50 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     }
 
     /// <summary>
+    ///     Starts a verification flow as the given signed-in user and returns the callback URL the mock provider would
+    ///     redirect the browser to, together with the cookies to replay into the callback.
+    /// </summary>
+    protected async Task<(string CallbackUrl, string[] Cookies)> StartVerificationFlow(HttpClient authenticatedHttpClient, ExternalProviderType providerType = ExternalProviderType.MitId, string mockProviderCookieValue = "true", string? returnPath = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/account/authentication/{providerType}/verification/start")
+        {
+            Content = JsonContent.Create(new { ReturnPath = returnPath })
+        };
+        request.Headers.TryAddWithoutValidation("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}={mockProviderCookieValue}");
+
+        var response = await authenticatedHttpClient.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var startResponse = await response.Content.ReadFromJsonAsync<StartVerificationResponseBody>();
+        return (startResponse!.AuthorizationUrl, ExtractSetCookieHeaders(response));
+    }
+
+    /// <summary>
+    ///     Presents a verification callback as the given signed-in user, so a test can prove that a flow started by one
+    ///     person cannot be completed by another.
+    /// </summary>
+    protected async Task<HttpResponseMessage> CallVerificationCallback(HttpClient authenticatedHttpClient, string callbackUrl, IEnumerable<string> cookies, ExternalProviderType providerType = ExternalProviderType.MitId, string mockProviderCookieValue = "true")
+    {
+        var uri = ToAbsoluteUri(callbackUrl);
+        var queryParams = HttpUtility.ParseQueryString(uri.Query);
+
+        var requestUrl = $"/api/account/authentication/{providerType}/verification/callback?code={Uri.EscapeDataString(queryParams["code"]!)}&state={Uri.EscapeDataString(queryParams["state"]!)}";
+        var request = CreateRequestWithCookies(HttpMethod.Get, requestUrl, cookies, mockProviderCookieValue);
+
+        return await authenticatedHttpClient.SendAsync(request);
+    }
+
+    protected ExternalIdentity? GetVerifiedIdentity(UserId userId)
+    {
+        using var scope = _webApplicationFactory.Services.CreateScope();
+        var accountDbContext = scope.ServiceProvider.GetRequiredService<AccountDbContext>();
+        return accountDbContext.Set<ExternalIdentity>()
+            .IgnoreQueryFilters()
+            .AsEnumerable()
+            .FirstOrDefault(ei => ei.UserId == userId && ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Verification));
+    }
+
+    /// <summary>
     ///     Starts a flow without the mock provider, which the shared client sends on every request by default. Setting
     ///     any Cookie header on the request stops HttpClient from adding its own default Cookie header.
     /// </summary>
@@ -161,6 +223,29 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
 
         var requestUrl = $"{uri.AbsolutePath}?code={Uri.EscapeDataString(queryParams["code"]!)}&state={Uri.EscapeDataString(queryParams["state"]!)}";
         var request = CreateRequestWithCookies(HttpMethod.Get, requestUrl, cookies, mockProviderCookieValue);
+
+        return await NoRedirectHttpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    ///     Presents a flow's code and state to a callback route it was not started for, so the tests can prove that the
+    ///     route only decides which handler runs and that every decision is made on the persisted flow.
+    /// </summary>
+    protected async Task<HttpResponseMessage> CallCallbackAtRoute(string callbackUrl, IEnumerable<string> cookies, ExternalProviderType providerType, string flowType, bool useMockProvider = true)
+    {
+        var uri = ToAbsoluteUri(callbackUrl);
+        var queryParams = HttpUtility.ParseQueryString(uri.Query);
+
+        var requestUrl = $"/api/account/authentication/{providerType}/{flowType}/callback?code={Uri.EscapeDataString(queryParams["code"]!)}&state={Uri.EscapeDataString(queryParams["state"]!)}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+        foreach (var cookie in cookies)
+        {
+            request.Headers.TryAddWithoutValidation("Cookie", cookie.Split(';')[0]);
+        }
+
+        // Setting any Cookie header stops HttpClient adding its own default, so the mock provider is opt in here
+        request.Headers.TryAddWithoutValidation("Cookie", useMockProvider ? $"{OAuthProviderFactory.UseMockProviderCookieName}=true" : "unrelated-cookie=value");
 
         return await NoRedirectHttpClient.SendAsync(request);
     }
@@ -401,6 +486,33 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         return await NoRedirectHttpClient.SendAsync(request);
     }
 
+    private HttpClient CreateBrowserLikeClient()
+    {
+        var httpClient = _webApplicationFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        httpClient.DefaultRequestHeaders.Add("User-Agent", "TestBrowser/1.0");
+        httpClient.DefaultRequestHeaders.Add("Accept-Language", "en-US");
+        httpClient.DefaultRequestHeaders.Add("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}=true");
+        return httpClient;
+    }
+
+    private static UserInfo CreateUserInfo(User user, SessionId sessionId)
+    {
+        return new UserInfo
+        {
+            IsAuthenticated = true,
+            Id = user.Id,
+            TenantId = user.TenantId,
+            SessionId = sessionId,
+            Role = user.Role.ToString(),
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Title = user.Title,
+            AvatarUrl = user.Avatar.Url,
+            Locale = user.Locale
+        };
+    }
+
     private static HttpRequestMessage CreateRequestWithCookies(HttpMethod method, string requestUrl, IEnumerable<string> cookies, string mockProviderCookieValue = "true")
     {
         var request = new HttpRequestMessage(method, requestUrl);
@@ -413,4 +525,6 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         request.Headers.TryAddWithoutValidation("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}={mockProviderCookieValue}");
         return request;
     }
+
+    private sealed record StartVerificationResponseBody(string AuthorizationUrl);
 }

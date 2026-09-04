@@ -74,7 +74,8 @@ public sealed class EndpointMetadataTests : IDisposable
         "POST:/api/back-office/tenants/{id}/replay-archived-stripe-events",
         "POST:/api/back-office/tenants/{id}/drift/acknowledge",
         "PUT:/api/back-office/tenants/{id}/ab-inclusion-pin",
-        "PUT:/api/back-office/users/{id}/ab-inclusion-pin"
+        "PUT:/api/back-office/users/{id}/ab-inclusion-pin",
+        "DELETE:/api/back-office/users/{id}/identity-verification"
     ];
 
     private readonly WebApplicationFactory<Program> _webApplicationFactory;

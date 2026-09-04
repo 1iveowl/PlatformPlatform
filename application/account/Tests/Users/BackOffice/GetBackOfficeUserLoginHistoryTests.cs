@@ -134,7 +134,8 @@ public sealed class GetBackOfficeUserLoginHistoryTests(BackOfficeWebApplicationF
                 ("code_verifier", "code-verifier"),
                 ("nonce", "nonce"),
                 ("browser_fingerprint", "fingerprint"),
-                ("login_result", result?.ToString())
+                ("login_result", result?.ToString()),
+                ("used_mock_provider", false)
             ]
         );
     }

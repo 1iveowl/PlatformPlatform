@@ -902,6 +902,41 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
     }
 
     [Fact]
+    public async Task CompleteExternalLogin_WhenAnotherLiveUserInTheTenantHoldsTheIdentityForVerificationOnly_ShouldRedirectToError()
+    {
+        // A verification-only row is invisible to the login lookup but still occupies the unique index on provider,
+        // provider user id and tenant. Before this was handled the insert below failed in the database and surfaced as
+        // a server error. Removing the row instead is not an option: it would destroy another person's verification
+        // evidence as a side effect of an unrelated login.
+
+        // Arrange
+        var verifiedUserId = InsertUser(Faker.Internet.Email());
+        var externalIdentityId = InsertExternalIdentity(verifiedUserId, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId);
+        Connection.Update("external_identities", "id", externalIdentityId.ToString(), [("capabilities", nameof(ExternalIdentityCapabilities.Verification))]);
+
+        const string emailPrefix = "another-person";
+        var loggingInUserId = InsertUser($"{emailPrefix}{OAuthProviderFactory.MockEmailDomain}");
+        var mockProviderCookieValue = $"identity:user-id-12345:{emailPrefix}";
+        var (callbackUrl, cookies) = await StartLoginFlow();
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies, mockProviderCookieValue: mockProviderCookieValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().StartWith("/error?error=identity_already_linked");
+
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE user_id = @userId", [new { userId = loggingInUserId.ToString() }]).Should().Be(0);
+
+        // The verification evidence of the other user survives untouched
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(1);
+        GetExternalIdentityUserId(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(verifiedUserId.ToString());
+        Connection.ExecuteScalar<string>("SELECT capabilities FROM external_identities WHERE id = @id", [new { id = externalIdentityId.ToString() }])
+            .Should().Be(nameof(ExternalIdentityCapabilities.Verification));
+    }
+
+    [Fact]
     public async Task CompleteExternalLogin_WhenIdentityHasNoLoginCapabilityAndEmailMatches_ShouldAddLoginCapabilityAndLogin()
     {
         // Arrange

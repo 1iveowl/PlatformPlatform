@@ -10,7 +10,7 @@ using SharedKernel.SinglePageApp;
 
 namespace Account.Features.ExternalAuthentication;
 
-public sealed record ExternalLoginCookie(ExternalLoginId ExternalLoginId, string FingerprintHash, TenantId? PreferredTenantId);
+public sealed record ExternalLoginCookie(ExternalLoginId ExternalLoginId, string FingerprintHash, TenantId? PreferredTenantId, UserId? UserId);
 
 public sealed class ExternalAuthenticationService(IHttpContextAccessor httpContextAccessor, IDataProtectionProvider dataProtectionProvider, OAuthProviderFactory oauthProviderFactory, ILogger<ExternalAuthenticationService> logger)
 {
@@ -18,18 +18,45 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
     private const string ExternalLoginCookieName = "__Host-external-login";
     private const string LocaleCookieName = "__Host-external-login-locale";
 
+    /// <summary>
+    ///     How much longer the flow cookie lives than the flow itself. The two used to expire together, so somebody
+    ///     who took longer than the flow's lifetime to authenticate came back with no cookie at all, and the callback,
+    ///     unable to identify the flow, told them a replay attack had been detected when all that had happened was
+    ///     that they were slow. With the margin the callback still finds the cookie, loads the flow and reports it as
+    ///     expired. Nothing is loosened: the flow's own expiry is still what decides, so a cookie that is missing now
+    ///     means something genuinely anomalous rather than merely late.
+    /// </summary>
+    private const int CookieGracePeriodSeconds = 600;
+
+    private static readonly TimeSpan ExternalLoginCookieLifetime = TimeSpan.FromSeconds(ExternalLogin.ValidForSeconds + CookieGracePeriodSeconds);
+
     private static readonly string PublicUrl = Environment.GetEnvironmentVariable("OAUTH_PUBLIC_URL")
                                                ?? Environment.GetEnvironmentVariable(SinglePageAppConfiguration.PublicUrlKey)
                                                ?? throw new InvalidOperationException($"'{SinglePageAppConfiguration.PublicUrlKey}' environment variable is not configured.");
 
     private readonly IDataProtector _dataProtector = dataProtectionProvider.CreateProtector(DataProtectionPurpose);
 
-    public void SetExternalLoginCookie(ExternalLoginId externalLoginId, TenantId? preferredTenantId = null)
+    /// <summary>
+    ///     Writes the data protected flow cookie. The payload is pipe delimited and grows to the right, so a cookie
+    ///     minted before a deploy still parses. The user id is carried here rather than read from the session at the
+    ///     callback, because the access token cookie is SameSite=Strict and is not sent when the identity provider
+    ///     redirects the browser back; this cookie is SameSite=Lax and encrypted, so it is the only binding that does
+    ///     not depend on the gateway re-minting a token.
+    /// </summary>
+    public void SetExternalLoginCookie(ExternalLoginId externalLoginId, TenantId? preferredTenantId = null, UserId? userId = null)
     {
         var fingerprintHash = GenerateBrowserFingerprintHash();
-        var rawValue = preferredTenantId is not null
-            ? $"{externalLoginId}|{fingerprintHash}|{preferredTenantId}"
-            : $"{externalLoginId}|{fingerprintHash}";
+        var rawValue = $"{externalLoginId}|{fingerprintHash}";
+        if (preferredTenantId is not null || userId is not null)
+        {
+            rawValue += $"|{preferredTenantId}";
+        }
+
+        if (userId is not null)
+        {
+            rawValue += $"|{userId}";
+        }
+
         var cookieValue = _dataProtector.Protect(rawValue);
         httpContextAccessor.HttpContext!.Response.Cookies.Append(
             ExternalLoginCookieName,
@@ -41,7 +68,7 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
                 SameSite = SameSiteMode.Lax,
                 Path = "/",
                 IsEssential = true,
-                MaxAge = TimeSpan.FromSeconds(ExternalLogin.ValidForSeconds)
+                MaxAge = ExternalLoginCookieLifetime
             }
         );
     }
@@ -56,15 +83,19 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
             var decryptedValue = _dataProtector.Unprotect(cookieValue);
 
             var parts = decryptedValue.Split('|');
-            if (parts.Length is not (2 or 3)) return null;
+            if (parts.Length is not (2 or 3 or 4)) return null;
 
             if (!ExternalLoginId.TryParse(parts[0], out var externalLoginId)) return null;
 
-            var preferredTenantId = parts.Length == 3 && TenantId.TryParse(parts[2], out var parsedTenantId)
+            var preferredTenantId = parts.Length >= 3 && TenantId.TryParse(parts[2], out var parsedTenantId)
                 ? parsedTenantId
                 : null;
 
-            return new ExternalLoginCookie(externalLoginId, parts[1], preferredTenantId);
+            var userId = parts.Length == 4 && UserId.TryParse(parts[3], out var parsedUserId)
+                ? parsedUserId
+                : null;
+
+            return new ExternalLoginCookie(externalLoginId, parts[1], preferredTenantId, userId);
         }
         catch (Exception ex)
         {
@@ -160,7 +191,16 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
 
     public static string GetRedirectUri(ExternalProviderType providerType, ExternalLoginType loginType)
     {
-        var loginTypeSegment = loginType == ExternalLoginType.Login ? "login" : "signup";
+        // The segment is baked into the PKCE exchange, so a wrong one fails at the provider rather than here. It must
+        // stay exhaustive: a fallback would silently send one flow to another flow's callback.
+        var loginTypeSegment = loginType switch
+        {
+            ExternalLoginType.Login => "login",
+            ExternalLoginType.Signup => "signup",
+            ExternalLoginType.Verification => "verification",
+            _ => throw new UnreachableException()
+        };
+
         return $"{PublicUrl}/api/account/authentication/{providerType}/{loginTypeSegment}/callback";
     }
 
@@ -192,6 +232,12 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
             ExternalLoginResult.IdentityProviderError => "authentication_failed",
             ExternalLoginResult.UserNotFound => "user_not_found",
             ExternalLoginResult.AccountAlreadyExists => "account_already_exists",
+            ExternalLoginResult.FlowNotSupported => "invalid_request",
+            ExternalLoginResult.VerificationSessionLost => "session_expired",
+            ExternalLoginResult.VerificationUserMismatch => "authentication_failed",
+            ExternalLoginResult.IdentityHeldByAnotherUser => "identity_already_linked",
+            ExternalLoginResult.AssuranceLevelInsufficient => "assurance_level_insufficient",
+            ExternalLoginResult.StaleAuthentication => "authentication_failed",
             _ => "server_error"
         };
     }
