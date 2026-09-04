@@ -25,6 +25,8 @@ namespace Account.Integrations.OAuth.Mock;
 ///     and authentication instant that a real verification would. "staleauthentication" makes it report an
 ///     authentication from an hour ago, which stands in for a provider replaying a cached session, and
 ///     "futureauthentication" one an hour from now, which stands in for a provider whose clock is wrong.
+///     "lowassurance" makes it report a low level of assurance, which stands in for a provider that satisfied the
+///     authorization request at a lower level than the one it asked for.
 /// </summary>
 public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider) : IOAuthProvider
 {
@@ -36,6 +38,7 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
     public const string IdentityPrefix = "identity:";
     public const string StaleAuthenticationValue = "staleauthentication";
     public const string FutureAuthenticationValue = "futureauthentication";
+    public const string LowAssuranceValue = "lowassurance";
     private const string DefaultProviderUserIdSuffix = "user-id-12345";
 
     // The default provider user id of the Google mock, which the API tests drive through the Google endpoints
@@ -110,10 +113,15 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
                 nonce,
                 BuildIssuer(providerType),
                 providerUserId,
-                isVerificationOnly ? MitIdOAuthProvider.RequestedAssuranceLevel : null,
+                isVerificationOnly ? GetAssuranceLevel(cookieValue) : null,
                 isVerificationOnly ? GetAuthenticationInstant(cookieValue) : null
             )
         );
+    }
+
+    private static IdentityAssuranceLevel GetAssuranceLevel(string? cookieValue)
+    {
+        return cookieValue == LowAssuranceValue ? IdentityAssuranceLevel.Low : MitIdOAuthProvider.RequestedAssuranceLevel;
     }
 
     private DateTimeOffset GetAuthenticationInstant(string? cookieValue)

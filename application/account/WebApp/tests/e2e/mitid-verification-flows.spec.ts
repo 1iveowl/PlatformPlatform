@@ -85,14 +85,15 @@ test.describe("@comprehensive", () => {
    * Tests the MitID verification refusal surfaces as a signed-in user, which is the only kind of user who can be
    * refused, including:
    * 1. A verification whose authentication predates the flow is refused and lands on the authentication failed page
-   * 2. The identity-already-linked error page renders with its own copy and its action
-   * 3. The assurance-level error page renders with its own copy and its action
+   * 2. A verification at a lower assurance level than required is refused, lands on its own error page, and the
+   *    page's action returns to the profile
+   * 3. The identity-already-linked error page renders with its own copy and its action
    * 4. Every page carries the reference id, so a person can quote it to support
    *
-   * Note: The mock provider always reports the requested assurance level, and a linked identity needs two users
-   * in one account, so those two refusals are proved by the API tests and their pages are rendered directly here.
+   * Note: A linked identity needs two users in one account, so that refusal is proved by the API tests and its
+   * page is rendered directly here.
    */
-  test("should refuse a stale authentication and render the MitID refusal error pages", async ({ ownerPage }) => {
+  test("should refuse a stale or weak authentication and render the MitID refusal error pages", async ({ ownerPage }) => {
     createTestContext(ownerPage);
 
     // === STALE AUTHENTICATION THROUGH THE PROFILE ===
@@ -110,6 +111,29 @@ test.describe("@comprehensive", () => {
       await expect(ownerPage.getByText("Reference ID:")).toBeVisible();
     })();
 
+    // === LOW ASSURANCE LEVEL THROUGH THE PROFILE ===
+
+    await step("Verify with MitID at a low assurance level & land on the verification not strong enough page")(
+      async () => {
+        await ownerPage.goto("/user/profile");
+
+        await expect(ownerPage.getByRole("heading", { name: "Identity verification" })).toBeVisible();
+        await setMockProviderCookie(ownerPage, "lowassurance");
+        await ownerPage.getByRole("button", { name: "Verify with MitID" }).click();
+
+        await expect(ownerPage.getByRole("heading", { name: "Verification not strong enough" })).toBeVisible();
+        await expect(ownerPage.getByText("Your identity could not be verified at the required level.")).toBeVisible();
+        await expect(ownerPage.getByText("Reference ID:")).toBeVisible();
+      }
+    )();
+
+    await step("Click back to profile & return to the profile page still offering verification")(async () => {
+      await ownerPage.getByRole("button", { name: "Back to profile" }).click();
+
+      await expect(ownerPage).toHaveURL("/user/profile");
+      await expect(ownerPage.getByRole("button", { name: "Verify with MitID" })).toBeVisible();
+    })();
+
     // === DIRECT ERROR PAGE RENDERING ===
 
     await step("Navigate to identity_already_linked error page & read content, action and reference id")(async () => {
@@ -121,15 +145,5 @@ test.describe("@comprehensive", () => {
       await expect(ownerPage.getByText("Reference ID: test-ref-101")).toBeVisible();
     })();
 
-    await step("Navigate to assurance_level_insufficient error page & read content, action and reference id")(
-      async () => {
-        await ownerPage.goto("/error?error=assurance_level_insufficient&id=test-ref-102");
-
-        await expect(ownerPage.getByRole("heading", { name: "Verification not strong enough" })).toBeVisible();
-        await expect(ownerPage.getByText("Your identity could not be verified at the required level.")).toBeVisible();
-        await expect(ownerPage.getByRole("button", { name: "Back to profile" })).toBeVisible();
-        await expect(ownerPage.getByText("Reference ID: test-ref-102")).toBeVisible();
-      }
-    )();
   });
 });
