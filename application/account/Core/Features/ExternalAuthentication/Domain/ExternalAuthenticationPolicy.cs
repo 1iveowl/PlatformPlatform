@@ -10,6 +10,15 @@ namespace Account.Features.ExternalAuthentication.Domain;
 /// </summary>
 public static class ExternalAuthenticationPolicy
 {
+    /// <summary>
+    ///     The level of assurance a verification must reach. The provider requests it and the verification handler
+    ///     enforces it, because acr_values is a hint in OpenID Connect rather than a requirement: a provider is free to
+    ///     satisfy the request at a lower level, and without the check a weaker authentication would be recorded as
+    ///     substantial, which is the one claim the whole feature rests on. Enforcing it in the handler rather than in
+    ///     the provider gives the person the specific outcome instead of a generic authentication failure.
+    /// </summary>
+    public const IdentityAssuranceLevel RequiredAssuranceLevel = IdentityAssuranceLevel.Substantial;
+
     public static bool IsFlowSupported(ExternalProviderType providerType, ExternalLoginType loginType)
     {
         return providerType switch

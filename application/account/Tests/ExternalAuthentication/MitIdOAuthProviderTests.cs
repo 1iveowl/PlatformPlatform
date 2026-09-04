@@ -126,8 +126,11 @@ public sealed class MitIdOAuthProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task GetUserProfileAsync_WhenAssuranceLevelIsBelowRequested_ShouldReturnNull()
+    public async Task GetUserProfileAsync_WhenAssuranceLevelIsBelowRequested_ShouldReturnTheProfileWithTheLevelReached()
     {
+        // The verification handler refuses a level below the requirement with its own outcome, so the provider must
+        // hand it the level rather than fail the whole profile, which would surface as a generic authentication error
+
         // Arrange
         var claims = CreateValidClaims();
         claims["acr"] = "urn:grn:authn:dk:mitid:low";
@@ -137,7 +140,8 @@ public sealed class MitIdOAuthProviderTests : IDisposable
         var profile = await CreateProvider().GetUserProfileAsync(new OAuthTokenResponse(AccessToken, idToken, 3600), CancellationToken.None);
 
         // Assert
-        profile.Should().BeNull();
+        profile.Should().NotBeNull();
+        profile.AssuranceLevel.Should().Be(IdentityAssuranceLevel.Low);
     }
 
     [Fact]

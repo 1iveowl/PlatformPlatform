@@ -28,7 +28,7 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
     ///     The level of assurance requested for every MitID authentication. Substantial is the level MitID issues to an
     ///     ordinary citizen authenticating with the MitID app, and it is the level the identity row records.
     /// </summary>
-    public const IdentityAssuranceLevel RequestedAssuranceLevel = IdentityAssuranceLevel.Substantial;
+    public const IdentityAssuranceLevel RequestedAssuranceLevel = ExternalAuthenticationPolicy.RequiredAssuranceLevel;
 
     private const string AssuranceLevelUrnPrefix = "urn:grn:authn:dk:mitid:";
 
@@ -196,13 +196,9 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
         }
 
         // acr_values is a hint in OpenID Connect rather than a requirement, so a provider is free to satisfy an
-        // authorization request at a lower level. Without this check a weaker authentication would be recorded as
-        // substantial, which is the one claim the whole feature rests on.
-        if (assuranceLevel < RequestedAssuranceLevel)
-        {
-            logger.LogWarning("MitID token validation failed: the authentication was performed at '{AssuranceLevel}' but '{RequestedAssuranceLevel}' was requested", assuranceLevel, RequestedAssuranceLevel);
-            return null;
-        }
+        // authorization request at a lower level. That is not refused here: the profile carries the level actually
+        // reached, and the verification handler refuses anything below the requirement with its own outcome, so the
+        // person is told the verification was not strong enough rather than that authentication failed.
 
         var authenticationInstant = ReadAuthenticationInstant(token);
         if (authenticationInstant is null)

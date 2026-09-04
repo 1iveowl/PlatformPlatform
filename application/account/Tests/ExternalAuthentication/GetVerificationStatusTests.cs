@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Queries;
 using FluentAssertions;

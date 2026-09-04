@@ -67,6 +67,12 @@ public sealed class CompleteExternalVerificationHandler(
                 return VerificationFailedRedirect(externalLogin, ExternalLoginResult.StaleAuthentication);
             }
 
+            if (userProfile.AssuranceLevel < ExternalAuthenticationPolicy.RequiredAssuranceLevel)
+            {
+                logger.LogWarning("Provider '{ProviderType}' authenticated at '{AssuranceLevel}' for external login '{ExternalLoginId}', below the required '{RequiredAssuranceLevel}'", externalLogin.ProviderType, userProfile.AssuranceLevel, externalLogin.Id, ExternalAuthenticationPolicy.RequiredAssuranceLevel);
+                return VerificationFailedRedirect(externalLogin, ExternalLoginResult.AssuranceLevelInsufficient);
+            }
+
             var existingIdentity = await externalIdentityRepository.GetByUserIdAndProviderUnfilteredAsync(userId, externalLogin.ProviderType, cancellationToken);
 
             if (existingIdentity is not null && existingIdentity.ProviderUserId != userProfile.ProviderUserId)
