@@ -317,16 +317,43 @@ public sealed class CompleteExternalSignupTests : ExternalAuthenticationTestBase
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
-        response.Headers.Location!.ToString().Should().Contain("/error?error=authentication_failed");
+        response.Headers.Location!.ToString().Should().Contain("/error?error=email_not_provided");
 
         var loginResult = Connection.ExecuteScalar<string>(
             "SELECT login_result FROM external_logins WHERE id = @id", [new { id = externalLoginId }]
         );
-        loginResult.Should().Be(nameof(ExternalLoginResult.CodeExchangeFailed));
+        loginResult.Should().Be(nameof(ExternalLoginResult.EmailNotProvided));
         Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM users WHERE email = @email", [new { email = MockOAuthProvider.MockEmail }]).Should().Be(0);
 
         TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(1);
         TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("ExternalSignupFailed");
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CompleteExternalSignup_WhenEntraProfileHasNoEmail_ShouldRecordEmailNotProvidedAndRedirectToErrorPage()
+    {
+        // Arrange
+        var (callbackUrl, cookies) = await StartSignupFlow(providerType: ExternalProviderType.Entra);
+        var externalLoginId = GetExternalLoginIdFromUrl(callbackUrl);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies, "signup", MockOAuthProvider.NoEmailValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Be($"/error?error=email_not_provided&id={externalLoginId}");
+
+        var loginResult = Connection.ExecuteScalar<string>(
+            "SELECT login_result FROM external_logins WHERE id = @id", [new { id = externalLoginId }]
+        );
+        loginResult.Should().Be(nameof(ExternalLoginResult.EmailNotProvided));
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM external_identities WHERE provider = @provider", [new { provider = nameof(ExternalProviderType.Entra) }]).Should().Be(0);
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(1);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("ExternalSignupFailed");
+        TelemetryEventsCollectorSpy.CollectedEvents[0].Properties["event.login_result"].Should().Be(nameof(ExternalLoginResult.EmailNotProvided));
         TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
     }
 

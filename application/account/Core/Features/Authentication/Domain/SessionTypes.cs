@@ -18,7 +18,8 @@ public enum DeviceType
 public enum LoginMethod
 {
     OneTimePassword,
-    Google
+    Google,
+    Entra
 }
 
 /// <summary>

@@ -169,6 +169,7 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
         return providerType switch
         {
             ExternalProviderType.Google => LoginMethod.Google,
+            ExternalProviderType.Entra => LoginMethod.Entra,
             _ => throw new UnreachableException()
         };
     }
@@ -183,6 +184,7 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
             ExternalLoginResult.LoginAlreadyCompleted => "authentication_failed",
             ExternalLoginResult.InvalidState => "invalid_request",
             ExternalLoginResult.CodeExchangeFailed => "authentication_failed",
+            ExternalLoginResult.EmailNotProvided => "email_not_provided",
             ExternalLoginResult.NonceMismatch => "authentication_failed",
             ExternalLoginResult.SessionNotFound => "session_expired",
             ExternalLoginResult.LoginExpired => "session_expired",

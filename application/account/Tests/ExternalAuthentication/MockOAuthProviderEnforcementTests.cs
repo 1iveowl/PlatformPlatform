@@ -5,12 +5,17 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using Xunit;
 
 namespace Account.Tests.ExternalAuthentication;
 
 public sealed class MockOAuthProviderEnforcementTests
 {
+    private const string ConfiguredClientId = "11111111-1111-1111-1111-111111111111";
+    private const string ConfiguredClientSecret = "entra-client-secret";
+    private const string NotConfiguredPlaceholder = "not-configured";
+
     [Fact]
     public void MockEmail_ShouldEndWithMockLocalhostDomain()
     {
@@ -68,6 +73,123 @@ public sealed class MockOAuthProviderEnforcementTests
 
         // Assert
         result.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientIdIsMissing_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(null);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientIdIsTheAspirePlaceholder_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(NotConfiguredPlaceholder);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientIdIsWhitespace_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory("   ");
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientIdAndClientSecretAreConfigured_ShouldResolveTheKeyedProvider()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(ConfiguredClientId);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientSecretIsMissing_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(ConfiguredClientId, null);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientSecretIsWhitespace_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(ConfiguredClientId, "   ");
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraClientSecretIsTheAspirePlaceholder_ShouldReturnNull()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(ConfiguredClientId, NotConfiguredPlaceholder);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, false);
+
+        // Assert
+        provider.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenEntraIsNotConfiguredAndMockIsUsed_ShouldResolveTheMockProvider()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(null, null, true);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Entra, true);
+
+        // Assert
+        provider.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void GetProvider_WhenGoogleClientIdIsMissing_ShouldStillResolveTheKeyedProvider()
+    {
+        // Arrange
+        var factory = CreateProviderFactory(null, null);
+
+        // Act
+        var provider = factory.GetProvider(ExternalProviderType.Google, false);
+
+        // Assert
+        provider.Should().NotBeNull();
     }
 
     [Fact]
@@ -164,7 +286,64 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.Subject.Should().Be("mock-google-stableidentity");
     }
 
-    private static MockOAuthProvider CreateMockProvider(string cookieValue)
+    [Fact]
+    public async Task GetUserProfileAsync_WhenEntraProvider_ShouldReturnEntraIdentityAndIssuer()
+    {
+        // Arrange
+        var mockProvider = CreateMockProvider("true", ExternalProviderType.Entra);
+        var tokenResponse = new OAuthTokenResponse("mock-access-token", "mock-id-token:test-nonce", 3600);
+
+        // Act
+        var profile = await mockProvider.GetUserProfileAsync(tokenResponse, CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.ProviderUserId.Should().StartWith("mock-entra-");
+        profile.Subject.Should().StartWith("mock-entra-");
+        profile.Issuer.Should().Be("https://mock.localhost/entra");
+        profile.Email.Should().EndWith(OAuthProviderFactory.MockEmailDomain);
+        profile.EmailVerified.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetUserProfileAsync_WhenEntraProviderWithIdentityValue_ShouldReturnEntraIdentity()
+    {
+        // Arrange
+        var mockProvider = CreateMockProvider($"{MockOAuthProvider.IdentityPrefix}entrauser", ExternalProviderType.Entra);
+        var tokenResponse = new OAuthTokenResponse("mock-access-token", "mock-id-token:test-nonce", 3600);
+
+        // Act
+        var profile = await mockProvider.GetUserProfileAsync(tokenResponse, CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.ProviderUserId.Should().Be("mock-entra-entrauser");
+        profile.Subject.Should().Be("mock-entra-entrauser");
+        profile.Issuer.Should().Be("https://mock.localhost/entra");
+        profile.Email.Should().BeNull();
+    }
+
+    private static OAuthProviderFactory CreateProviderFactory(string? entraClientId, string? entraClientSecret = ConfiguredClientSecret, bool allowMockProvider = false)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OAuth:AllowMockProvider"] = allowMockProvider.ToString().ToLowerInvariant(),
+                    ["OAuth:Entra:ClientId"] = entraClientId,
+                    ["OAuth:Entra:ClientSecret"] = entraClientSecret
+                }
+            )
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddKeyedSingleton<IOAuthProvider>("google", (_, _) => Substitute.For<IOAuthProvider>());
+        services.AddKeyedSingleton<IOAuthProvider>("entra", (_, _) => Substitute.For<IOAuthProvider>());
+        services.AddKeyedSingleton<IOAuthProvider>("mock-entra", (_, _) => Substitute.For<IOAuthProvider>());
+
+        return new OAuthProviderFactory(services.BuildServiceProvider(), configuration);
+    }
+
+    private static MockOAuthProvider CreateMockProvider(string cookieValue, ExternalProviderType providerType = ExternalProviderType.Google)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["OAuth:AllowMockProvider"] = "true" })
@@ -172,6 +351,6 @@ public sealed class MockOAuthProviderEnforcementTests
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Headers.Append("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}={cookieValue}");
         var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
-        return new MockOAuthProvider(ExternalProviderType.Google, configuration, httpContextAccessor);
+        return new MockOAuthProvider(providerType, configuration, httpContextAccessor);
     }
 }

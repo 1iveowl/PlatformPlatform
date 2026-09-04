@@ -17,6 +17,7 @@ builder.Services
     .AddSinglePageAppFallback(new Dictionary<string, string>
         {
             ["PUBLIC_GOOGLE_OAUTH_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_GOOGLE_OAUTH_ENABLED") ?? "false",
+            ["PUBLIC_ENTRA_OAUTH_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_ENTRA_OAUTH_ENABLED") ?? "false",
             ["PUBLIC_SUBSCRIPTION_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_SUBSCRIPTION_ENABLED") ?? "false"
         }
     );

@@ -557,6 +557,9 @@ msgstr "Edit user profile"
 msgid "Email"
 msgstr "Email"
 
+msgid "Email address required"
+msgstr "Email address required"
+
 msgid "Email support"
 msgstr "Email support"
 
@@ -767,6 +770,9 @@ msgstr "Log in with email"
 msgid "Log in with Google"
 msgstr "Log in with Google"
 
+msgid "Log in with Microsoft"
+msgstr "Log in with Microsoft"
+
 msgid "Log out"
 msgstr "Log out"
 
@@ -805,6 +811,9 @@ msgstr "Managed identities"
 
 msgid "Member"
 msgstr "Member"
+
+msgid "Microsoft"
+msgstr "Microsoft"
 
 msgid "Microsoft Azure"
 msgstr "Microsoft Azure"
@@ -1167,6 +1176,9 @@ msgstr "Sign up with email"
 msgid "Sign up with Google"
 msgstr "Sign up with Google"
 
+msgid "Sign up with Microsoft"
+msgstr "Sign up with Microsoft"
+
 msgid "Signup verification code"
 msgstr "Signup verification code"
 
@@ -1264,6 +1276,9 @@ msgstr "The agreement governing your use of our Service, including acceptable us
 msgid "The authentication request was invalid. Please try again."
 msgstr "The authentication request was invalid. Please try again."
 
+msgid "The identity provider did not share a verified email address, which is needed to create an account. Sign up with your email instead."
+msgstr "The identity provider did not share a verified email address, which is needed to create an account. Sign up with your email instead."
+
 msgid "The name of your account, shown to users and in email notifications"
 msgstr "The name of your account, shown to users and in email notifications"
 
@@ -1273,8 +1288,8 @@ msgstr "The page you are looking for does not exist or was moved."
 msgid "Theme"
 msgstr "Theme"
 
-msgid "This account is linked to a different Google identity."
-msgstr "This account is linked to a different Google identity."
+msgid "This account is linked to a different sign-in identity."
+msgstr "This account is linked to a different sign-in identity."
 
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."

@@ -35,6 +35,8 @@ SecretManagerHelper.GenerateAuthenticationTokenSigningKey("authentication-token-
 
 var (googleOAuthConfigured, googleOAuthClientId, googleOAuthClientSecret) = ConfigureGoogleOAuthParameters();
 
+var (entraOAuthConfigured, entraOAuthClientId, entraOAuthClientSecret) = ConfigureEntraOAuthParameters();
+
 var (stripeConfigured, stripePublishableKey, stripeApiKey, stripeWebhookSecret) = ConfigureStripeParameters();
 var stripeFullyConfigured = stripeConfigured && builder.Configuration["Parameters:stripe-webhook-secret"] is not null and not "not-configured";
 
@@ -121,6 +123,8 @@ var accountApi = builder
     .WithReference(azureStorage)
     .WithEnvironment("OAuth__Google__ClientId", googleOAuthClientId)
     .WithEnvironment("OAuth__Google__ClientSecret", googleOAuthClientSecret)
+    .WithEnvironment("OAuth__Entra__ClientId", entraOAuthClientId)
+    .WithEnvironment("OAuth__Entra__ClientSecret", entraOAuthClientSecret)
     .WithEnvironment("OAuth__AllowMockProvider", "true")
     .WithEnvironment("Stripe__SubscriptionEnabled", stripeFullyConfigured ? "true" : "false")
     .WithEnvironment("Stripe__ApiKey", stripeApiKey)
@@ -128,6 +132,7 @@ var accountApi = builder
     .WithEnvironment("Stripe__PublishableKey", stripePublishableKey)
     .WithEnvironment("Stripe__AllowMockProvider", "true")
     .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
     // Force-on so newcomers see the back-office billing UI without Stripe configured. Set to "false" (or
     // change back to `stripeFullyConfigured ? "true" : "false"`) to hide all billing/revenue/Stripe data.
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", "true")
@@ -150,6 +155,7 @@ var mainApi = builder
     .WithReference(mainDatabase)
     .WithReference(azureStorage)
     .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
     .WaitFor(mainWorkers);
 
@@ -237,6 +243,54 @@ void AddStripeCliContainer()
         configured,
         builder.CreateResourceBuilder(new ParameterResource("google-oauth-client-id", _ => "not-configured", true)),
         builder.CreateResourceBuilder(new ParameterResource("google-oauth-client-secret", _ => "not-configured", true))
+    );
+}
+
+(bool Configured, IResourceBuilder<ParameterResource> ClientId, IResourceBuilder<ParameterResource> ClientSecret) ConfigureEntraOAuthParameters()
+{
+    _ = builder.AddParameter("entra-oauth-enabled")
+        .WithDescription("""
+                         **Microsoft Entra ID** -- Enables "Sign in with Microsoft" for login and signup using OpenID Connect with PKCE.
+
+                         **Important**: Register a multi-tenant application in the [Microsoft Entra admin center](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) and configure it according to the guide in README.md **before** enabling this.
+
+                         - Enter `true` to enable Microsoft Entra ID, or `false` to skip. This can be changed later.
+                         - After enabling, **restart Aspire** to be prompted for the Client ID and Client Secret.
+
+                         See **README.md** for full setup instructions.
+                         """, true
+        );
+
+    var configured = builder.Configuration["Parameters:entra-oauth-enabled"] == "true";
+
+    if (configured)
+    {
+        var clientId = builder.AddParameter("entra-oauth-client-id", true)
+            .WithDescription("""
+                             Application (client) ID of the app registration from the [Microsoft Entra admin center](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade). The format is a GUID.
+
+                             **After entering this and the Client Secret, restart Aspire** to apply the configuration.
+
+                             See **README.md** for full setup instructions.
+                             """, true
+            );
+        var clientSecret = builder.AddParameter("entra-oauth-client-secret", true)
+            .WithDescription("""
+                             Client secret value of the app registration from the [Microsoft Entra admin center](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade).
+
+                             **After entering this and the Client ID, restart Aspire** to apply the configuration.
+
+                             See **README.md** for full setup instructions.
+                             """, true
+            );
+
+        return (configured, clientId, clientSecret);
+    }
+
+    return (
+        configured,
+        builder.CreateResourceBuilder(new ParameterResource("entra-oauth-client-id", _ => "not-configured", true)),
+        builder.CreateResourceBuilder(new ParameterResource("entra-oauth-client-secret", _ => "not-configured", true))
     );
 }
 

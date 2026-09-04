@@ -95,6 +95,9 @@ msgstr "Hovedindhold"
 msgid "Manual override"
 msgstr "Manuel tilsidesættelse"
 
+msgid "Microsoft Entra ID"
+msgstr "Microsoft Entra ID"
+
 msgid "Mobile navigation menu"
 msgstr "Mobilnavigationsmenu"
 
@@ -142,6 +145,9 @@ msgstr "Vis kontooversigten med brugerstatistik på /account. Når deaktiveret, 
 
 msgid "Sign in with Google using OpenID Connect"
 msgstr "Log ind med Google via OpenID Connect"
+
+msgid "Sign in with Microsoft using OpenID Connect"
+msgstr "Log ind med Microsoft via OpenID Connect"
 
 msgid "Single sign-on"
 msgstr "Single sign-on"

@@ -29,6 +29,15 @@ public static partial class FeatureFlags
         false
     );
 
+    public static readonly FeatureFlagDefinition EntraOauth = new SystemFeatureFlag(
+        "entra-oauth",
+        "Microsoft Entra ID",
+        "Sign in with Microsoft using OpenID Connect",
+        "OAuth:Entra:ClientId",
+        "PUBLIC_ENTRA_OAUTH_ENABLED",
+        false
+    );
+
     public static readonly FeatureFlagDefinition Subscriptions = new SystemFeatureFlag(
         "subscriptions",
         "Subscriptions",

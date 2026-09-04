@@ -22,7 +22,7 @@
 
 Kick-start building top-tier B2B & B2C cloud SaaS products with sleek design, fully localized and accessible, vertical slice architecture, automated and fast DevOps, and top-notch security.
 
-Ships with signup and login via Google or email one-time password, Stripe-powered subscription and payment management with plan upgrades, downgrades, and invoicing, feature flags with A/B-rollout, plan-gating, and per-user/tenant overrides, and a back-office dashboard with MRR and revenue trends, plan distribution, and tenant growth.
+Ships with signup and login via Google, Microsoft or email one-time password, Stripe-powered subscription and payment management with plan upgrades, downgrades, and invoicing, feature flags with A/B-rollout, plan-gating, and per-user/tenant overrides, and a back-office dashboard with MRR and revenue trends, plan distribution, and tenant growth.
 
 Built to demonstrate seamless flow: backend contracts feed a fully-typed React UI, pipelines make fully automated deployments to Azure, and a multi-agent workflow built on Claude Code's native [Agent Teams](https://code.claude.com/docs/en/agent-teams) where PlatformPlatform-expert agents collaborate to deliver complete features following the opinionated architecture. Think of it as a ready-made blueprint, not a pile of parts to assemble.
 
@@ -57,8 +57,8 @@ Operate the platform from a dedicated SPA on its own hostname, secured by Entra 
 
 Production-ready end-user surfaces — fully localized, accessible, and ready to brand as your own product:
 
-* **Signup** - Tenant signup with email one-time password or Google OAuth (OpenID Connect with PKCE)
-* **Login** - Same OTP and Google sign-in flows, with `UNLOCK` shortcut on localhost so dev mail is optional
+* **Signup** - Tenant signup with email one-time password, Google OAuth or Microsoft Entra ID (OpenID Connect with PKCE)
+* **Login** - Same OTP, Google and Microsoft sign-in flows, with `UNLOCK` shortcut on localhost so dev mail is optional
 * **Welcome** - First-run guided flow for naming the account, uploading a logo, and inviting colleagues
 * **Account settings** - Owner-editable account name, logo, and danger-zone account deletion
 * **User management** - Invite users, change roles (Owner/Admin/Member), bulk delete, and recycle-bin restore
@@ -377,6 +377,34 @@ Each developer needs their own Stripe sandbox. The local database stays in sync 
 
 All values are stored securely in .NET user secrets and persist across restarts.
 
+### 3.3 (Optional) Set up Microsoft Entra ID for "Sign in with Microsoft" on localhost
+
+PlatformPlatform supports authentication via Microsoft Entra ID using OpenID Connect with PKCE, for work or school accounts in any organization and for personal Microsoft accounts through one multi-tenant app registration. This is optional for local development since email-based one-time passwords work without any configuration. The Aspire dashboard prompts whether to enable Microsoft Entra ID on first startup.
+
+<details>
+
+<summary>Microsoft Entra admin center setup</summary>
+
+1. Go to the [Microsoft Entra admin center](https://entra.microsoft.com/)
+2. Navigate to **Identity** > **Applications** > **App registrations** and select **New registration**
+3. Name: "YourProduct Localhost"
+4. Supported account types: **Any Entra ID Tenant + Personal Microsoft accounts** (older portals label it "Accounts in any organizational directory (Any Microsoft Entra directory - Multitenant) and personal Microsoft accounts")
+5. Redirect URI, platform **Web**, add both (Microsoft Entra ID accepts https://localhost:9000/ for local development):
+   - `https://localhost:9000/api/account/authentication/Entra/login/callback`
+   - `https://localhost:9000/api/account/authentication/Entra/signup/callback`
+6. Under **Certificates & secrets**, create a client secret and note its value
+7. Under **Token configuration**, select **Add optional claim**, token type **ID**, and add `email`, `family_name`, `given_name` and `xms_edov` (accept adding the `email` and `profile` permissions when prompted). If `xms_edov` is not offered in the list, add `{ "name": "xms_edov" }` to `optionalClaims.idToken` in the app manifest instead
+8. Note the **Application (client) ID** from the overview page
+
+</details>
+
+**Aspire parameter configuration** (two restarts required):
+
+1. **First restart**: Aspire prompts whether to enable Microsoft Entra ID. Enter `true` to enable or `false` to skip. Once entered, restart Aspire.
+2. **Second restart**: Aspire prompts for the **Client ID** and **Client Secret**. Enter the values from the Microsoft Entra admin center, then restart Aspire to apply the configuration.
+
+All values are stored securely in .NET user secrets and persist across restarts. Work accounts and personal Microsoft accounts sign in through the same registration. An account is only created at signup when the token carries a verified email (the `xms_edov` claim); otherwise the person is asked to sign up with email instead.
+
 ## 4. Set up CI/CD with passwordless deployments from GitHub to Azure
 
 Run this command to automate Azure Subscription configuration and set up [GitHub Workflows](https://github.com/platformplatform/PlatformPlatform/actions) for deploying [Azure Infrastructure](./cloud-infrastructure) (using Bicep) and compiling [application code](./application) to Docker images deployed to Azure Container Apps:
@@ -411,6 +439,20 @@ Remember to add redirect URIs for each environment in your Google Cloud Console 
 - `https://staging.yourproduct.com/api/account/authentication/Google/signup/callback`
 - `https://app.yourproduct.com/api/account/authentication/Google/login/callback`
 - `https://app.yourproduct.com/api/account/authentication/Google/signup/callback`
+
+### (Optional) Configure Microsoft Entra ID for staging and production
+
+If you set up Microsoft Entra ID locally, use the Developer CLI to store your Entra ID credentials as GitHub secrets for deployment to Azure Key Vault:
+
+```bash
+pp github-config
+```
+
+Remember to add redirect URIs for each environment to the app registration in the Microsoft Entra admin center, e.g.:
+- `https://staging.yourproduct.com/api/account/authentication/Entra/login/callback`
+- `https://staging.yourproduct.com/api/account/authentication/Entra/signup/callback`
+- `https://app.yourproduct.com/api/account/authentication/Entra/login/callback`
+- `https://app.yourproduct.com/api/account/authentication/Entra/signup/callback`
 
 ### (Optional) Configure Stripe for staging and production
 
