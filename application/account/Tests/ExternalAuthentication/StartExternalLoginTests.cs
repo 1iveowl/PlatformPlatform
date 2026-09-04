@@ -1,6 +1,7 @@
 using System.Net;
 using Account.Features.ExternalAuthentication.Domain;
 using FluentAssertions;
+using SharedKernel.Tests;
 using SharedKernel.Tests.Persistence;
 using Xunit;
 
@@ -52,5 +53,44 @@ public sealed class StartExternalLoginTests : ExternalAuthenticationTestBase
         TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(1);
         TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("ExternalLoginStarted");
         TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task StartExternalLogin_WhenEntraProviderWithMockProvider_ShouldRedirectToAuthorizationUrl()
+    {
+        // Act
+        var response = await NoRedirectHttpClient.GetAsync(
+            "/api/account/authentication/Entra/login/start"
+        );
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        var location = response.Headers.Location!.ToString();
+        location.Should().Contain("/api/account/authentication/Entra/login/callback");
+        location.Should().Contain("code=mock-authorization-code");
+        location.Should().Contain("state=");
+
+        var externalLoginId = GetExternalLoginIdFromResponse(response);
+        Connection.RowExists("external_logins", externalLoginId).Should().BeTrue();
+
+        var providerType = Connection.ExecuteScalar<string>(
+            "SELECT provider_type FROM external_logins WHERE id = @id", [new { id = externalLoginId }]
+        );
+        providerType.Should().Be(nameof(ExternalProviderType.Entra));
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(1);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("ExternalLoginStarted");
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task StartExternalLogin_WhenEntraProviderIsNotConfigured_ShouldReturnBadRequest()
+    {
+        // Act
+        var response = await StartFlowWithoutMockProvider(ExternalProviderType.Entra, "login");
+
+        // Assert
+        await response.ShouldHaveErrorStatusCode(HttpStatusCode.BadRequest, "Provider 'Entra' is not configured.");
+        TelemetryEventsCollectorSpy.CollectedEvents.Should().BeEmpty();
     }
 }

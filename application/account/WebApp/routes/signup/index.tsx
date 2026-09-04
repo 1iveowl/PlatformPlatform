@@ -17,8 +17,9 @@ import { useEffect, useState } from "react";
 import ErrorPage from "@/federated-modules/errorPages/ErrorPage";
 import { useMainNavigation } from "@/shared/hooks/useMainNavigation";
 import googleIconUrl from "@/shared/images/google-icon.svg";
+import microsoftIconUrl from "@/shared/images/microsoft-icon.svg";
 import { HorizontalHeroLayout } from "@/shared/layouts/HorizontalHeroLayout";
-import { api } from "@/shared/lib/api/client";
+import { api, ExternalProviderType } from "@/shared/lib/api/client";
 
 import { getLoginState } from "../login/-shared/loginState";
 import { clearSignupState, getSignupState, setSignupState } from "./-shared/signupState";
@@ -54,19 +55,20 @@ export function StartSignupForm() {
   const { email: loginEmail } = getLoginState(); // Prefill from login page if user navigated here
   const [email, setEmail] = useState(savedEmail || loginEmail || "");
   const { enabled: isGoogleOAuthEnabled } = useFeatureFlag("google-oauth");
+  const { enabled: isEntraOAuthEnabled } = useFeatureFlag("entra-oauth");
 
   const startSignupMutation = api.useMutation("post", "/api/account/authentication/email/signup/start");
-  const [isGoogleSignupPending, setIsGoogleSignupPending] = useState(false);
+  const [pendingProvider, setPendingProvider] = useState<ExternalProviderType | null>(null);
 
-  const handleGoogleSignup = () => {
-    setIsGoogleSignupPending(true);
+  const handleExternalSignup = (provider: ExternalProviderType) => {
+    setPendingProvider(provider);
     const locale = localStorage.getItem(preferredLocaleKey);
     const params = new URLSearchParams();
     if (locale) {
       params.set("Locale", locale);
     }
     const queryString = params.toString();
-    window.location.href = `/api/account/authentication/Google/signup/start${queryString ? `?${queryString}` : ""}`;
+    window.location.href = `/api/account/authentication/${provider}/signup/start${queryString ? `?${queryString}` : ""}`;
   };
 
   if (startSignupMutation.isSuccess) {
@@ -82,7 +84,7 @@ export function StartSignupForm() {
     return <Navigate to="/signup/verify" />;
   }
 
-  const isPending = startSignupMutation.isPending || isGoogleSignupPending;
+  const isPending = startSignupMutation.isPending || pendingProvider !== null;
 
   return (
     <Form
@@ -125,7 +127,7 @@ export function StartSignupForm() {
           <Trans>Sign up with email</Trans>
         )}
       </Button>
-      {isGoogleOAuthEnabled && (
+      {(isGoogleOAuthEnabled || isEntraOAuthEnabled) && (
         <>
           <div className="flex w-full items-center gap-4">
             <div className="h-px flex-1 bg-border" />
@@ -134,17 +136,44 @@ export function StartSignupForm() {
             </span>
             <div className="h-px flex-1 bg-border" />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleSignup}
-            isPending={isGoogleSignupPending}
-            disabled={isPending}
-          >
-            {!isGoogleSignupPending && <img src={googleIconUrl} alt="" aria-hidden="true" className="size-5" />}
-            {isGoogleSignupPending ? <Trans>Redirecting...</Trans> : <Trans>Sign up with Google</Trans>}
-          </Button>
+          {isGoogleOAuthEnabled && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleExternalSignup(ExternalProviderType.Google)}
+              isPending={pendingProvider === ExternalProviderType.Google}
+              disabled={isPending}
+            >
+              {pendingProvider !== ExternalProviderType.Google && (
+                <img src={googleIconUrl} alt="" aria-hidden="true" className="size-5" />
+              )}
+              {pendingProvider === ExternalProviderType.Google ? (
+                <Trans>Redirecting...</Trans>
+              ) : (
+                <Trans>Sign up with Google</Trans>
+              )}
+            </Button>
+          )}
+          {isEntraOAuthEnabled && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleExternalSignup(ExternalProviderType.Entra)}
+              isPending={pendingProvider === ExternalProviderType.Entra}
+              disabled={isPending}
+            >
+              {pendingProvider !== ExternalProviderType.Entra && (
+                <img src={microsoftIconUrl} alt="" aria-hidden="true" className="size-5" />
+              )}
+              {pendingProvider === ExternalProviderType.Entra ? (
+                <Trans>Redirecting...</Trans>
+              ) : (
+                <Trans>Sign up with Microsoft</Trans>
+              )}
+            </Button>
+          )}
         </>
       )}
       <p className="text-sm text-muted-foreground">

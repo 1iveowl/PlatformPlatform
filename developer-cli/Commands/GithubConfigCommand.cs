@@ -21,6 +21,18 @@ public sealed class GithubConfigCommand : Command
             "GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxxxx",
             "Google OAuth"
         ),
+        ["ENTRA_OAUTH_CLIENT_ID"] = new GithubConfig(
+            "Microsoft Entra ID Application (client) ID from the Microsoft Entra admin center",
+            GithubType.Variable,
+            "00000000-0000-0000-0000-000000000000",
+            "Entra ID OAuth"
+        ),
+        ["ENTRA_OAUTH_CLIENT_SECRET"] = new GithubConfig(
+            "Microsoft Entra ID client secret value from the Microsoft Entra admin center",
+            GithubType.Secret,
+            "your-client-secret-value",
+            "Entra ID OAuth"
+        ),
         ["STRIPE_PUBLISHABLE_KEY"] = new GithubConfig(
             "Stripe Publishable Key from the Stripe Dashboard API keys page",
             GithubType.Variable,
@@ -41,7 +53,7 @@ public sealed class GithubConfigCommand : Command
         )
     };
 
-    public GithubConfigCommand() : base("github-config", "Configure GitHub repository variables and secrets for external integrations like Google OAuth")
+    public GithubConfigCommand() : base("github-config", "Configure GitHub repository variables and secrets for external integrations like Google OAuth, Microsoft Entra ID and Stripe")
     {
         SetAction(_ => Execute());
     }

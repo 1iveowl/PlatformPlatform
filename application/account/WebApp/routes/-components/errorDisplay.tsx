@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { Trans } from "@lingui/react/macro";
 import { ErrorCode } from "@repo/infrastructure/auth/AuthenticationMiddleware";
-import { AlertCircle, Building2, LogOut, ShieldAlert, UserX } from "lucide-react";
+import { AlertCircle, Building2, LogOut, MailX, ShieldAlert, UserX } from "lucide-react";
 
 export type ErrorAction = "login" | "signup" | "contact";
 
@@ -21,6 +21,7 @@ export const errorLabelMap: Record<string, string> = {
   [ErrorCode.SessionExpired]: "Session expired",
   [ErrorCode.UserNotFound]: "Account not found",
   [ErrorCode.AccountAlreadyExists]: "Account already exists",
+  [ErrorCode.EmailNotProvided]: "Email address required",
   [ErrorCode.IdentityMismatch]: "Identity mismatch",
   [ErrorCode.AuthenticationFailed]: "Authentication failed",
   [ErrorCode.InvalidRequest]: "Invalid request",
@@ -81,6 +82,21 @@ export function getErrorDisplay(error: string): ErrorDisplay {
         secondaryAction: "signup"
       };
 
+    case ErrorCode.EmailNotProvided:
+      return {
+        icon: <MailX className="size-10 text-muted-foreground" />,
+        iconBackground: "bg-muted",
+        title: <Trans>Email address required</Trans>,
+        message: (
+          <Trans>
+            The identity provider did not share a verified email address, which is needed to create an account. Sign up
+            with your email instead.
+          </Trans>
+        ),
+        action: "signup",
+        secondaryAction: "login"
+      };
+
     case ErrorCode.IdentityMismatch:
       return {
         icon: <ShieldAlert className="size-10 text-destructive" />,
@@ -88,7 +104,7 @@ export function getErrorDisplay(error: string): ErrorDisplay {
         title: <Trans>Identity mismatch</Trans>,
         message: (
           <>
-            <Trans>This account is linked to a different Google identity.</Trans>
+            <Trans>This account is linked to a different sign-in identity.</Trans>
             <br />
             <Trans>This can happen when email ownership has changed. Contact your account administrator.</Trans>
           </>

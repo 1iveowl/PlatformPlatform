@@ -46,6 +46,28 @@ public sealed class ExternalIdentityTests
     }
 
     [Fact]
+    public void Create_WhenEntraValues_ShouldStoreDirectoryAndObjectKeyIssuerAndSubjectVerbatim()
+    {
+        // Arrange
+        var tenantId = TenantId.NewId();
+        var userId = UserId.NewId();
+        const string directoryId = "22222222-2222-2222-2222-222222222222";
+        const string objectId = "33333333-3333-3333-3333-333333333333";
+
+        // Act
+        var externalIdentity = ExternalIdentity.Create(
+            tenantId, userId, ExternalProviderType.Entra, $"{directoryId}:{objectId}", $"https://login.microsoftonline.com/{directoryId}/v2.0", "pairwise-subject-value"
+        );
+
+        // Assert
+        externalIdentity.Provider.Should().Be(ExternalProviderType.Entra);
+        externalIdentity.ProviderUserId.Should().Be($"{directoryId}:{objectId}");
+        externalIdentity.Issuer.Should().Be($"https://login.microsoftonline.com/{directoryId}/v2.0");
+        externalIdentity.Subject.Should().Be("pairwise-subject-value");
+        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login);
+    }
+
+    [Fact]
     public void AddCapability_WhenCapabilityIsMissing_ShouldAddItToTheExistingCapabilities()
     {
         // Arrange

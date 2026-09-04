@@ -95,6 +95,9 @@ msgstr "Main content"
 msgid "Manual override"
 msgstr "Manual override"
 
+msgid "Microsoft Entra ID"
+msgstr "Microsoft Entra ID"
+
 msgid "Mobile navigation menu"
 msgstr "Mobile navigation menu"
 
@@ -142,6 +145,9 @@ msgstr "Show the account overview dashboard with user statistics at /account. Wh
 
 msgid "Sign in with Google using OpenID Connect"
 msgstr "Sign in with Google using OpenID Connect"
+
+msgid "Sign in with Microsoft using OpenID Connect"
+msgstr "Sign in with Microsoft using OpenID Connect"
 
 msgid "Single sign-on"
 msgstr "Single sign-on"

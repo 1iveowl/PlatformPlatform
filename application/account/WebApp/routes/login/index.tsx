@@ -15,8 +15,9 @@ import { useEffect, useState } from "react";
 import ErrorPage from "@/federated-modules/errorPages/ErrorPage";
 import { useMainNavigation } from "@/shared/hooks/useMainNavigation";
 import googleIconUrl from "@/shared/images/google-icon.svg";
+import microsoftIconUrl from "@/shared/images/microsoft-icon.svg";
 import { HorizontalHeroLayout } from "@/shared/layouts/HorizontalHeroLayout";
-import { api } from "@/shared/lib/api/client";
+import { api, ExternalProviderType } from "@/shared/lib/api/client";
 
 import { getSignupState } from "../signup/-shared/signupState";
 import { clearLoginState, getLoginState, setLoginState } from "./-shared/loginState";
@@ -59,12 +60,13 @@ export function LoginForm() {
   const [email, setEmail] = useState(savedEmail || signupEmail || "");
   const { returnPath } = Route.useSearch();
   const { enabled: isGoogleOAuthEnabled } = useFeatureFlag("google-oauth");
+  const { enabled: isEntraOAuthEnabled } = useFeatureFlag("entra-oauth");
 
   const startLoginMutation = api.useMutation("post", "/api/account/authentication/email/login/start");
-  const [isGoogleLoginPending, setIsGoogleLoginPending] = useState(false);
+  const [pendingProvider, setPendingProvider] = useState<ExternalProviderType | null>(null);
 
-  const handleGoogleLogin = () => {
-    setIsGoogleLoginPending(true);
+  const handleExternalLogin = (provider: ExternalProviderType) => {
+    setPendingProvider(provider);
     const params = new URLSearchParams();
     if (returnPath) {
       params.set("ReturnPath", returnPath);
@@ -78,7 +80,7 @@ export function LoginForm() {
       // Ignore localStorage errors
     }
     const queryString = params.toString();
-    window.location.href = `/api/account/authentication/Google/login/start${queryString ? `?${queryString}` : ""}`;
+    window.location.href = `/api/account/authentication/${provider}/login/start${queryString ? `?${queryString}` : ""}`;
   };
 
   if (startLoginMutation.isSuccess) {
@@ -94,7 +96,7 @@ export function LoginForm() {
     return <Navigate to="/login/verify" search={{ returnPath }} />;
   }
 
-  const isPending = startLoginMutation.isPending || isGoogleLoginPending;
+  const isPending = startLoginMutation.isPending || pendingProvider !== null;
 
   return (
     <Form
@@ -133,7 +135,7 @@ export function LoginForm() {
       >
         {startLoginMutation.isPending ? <Trans>Sending verification code...</Trans> : <Trans>Log in with email</Trans>}
       </Button>
-      {isGoogleOAuthEnabled && (
+      {(isGoogleOAuthEnabled || isEntraOAuthEnabled) && (
         <>
           <div className="flex w-full items-center gap-4">
             <div className="h-px flex-1 bg-border" />
@@ -142,17 +144,44 @@ export function LoginForm() {
             </span>
             <div className="h-px flex-1 bg-border" />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleLogin}
-            isPending={isGoogleLoginPending}
-            disabled={isPending}
-          >
-            {!isGoogleLoginPending && <img src={googleIconUrl} alt="" aria-hidden="true" className="size-5" />}
-            {isGoogleLoginPending ? <Trans>Redirecting...</Trans> : <Trans>Log in with Google</Trans>}
-          </Button>
+          {isGoogleOAuthEnabled && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleExternalLogin(ExternalProviderType.Google)}
+              isPending={pendingProvider === ExternalProviderType.Google}
+              disabled={isPending}
+            >
+              {pendingProvider !== ExternalProviderType.Google && (
+                <img src={googleIconUrl} alt="" aria-hidden="true" className="size-5" />
+              )}
+              {pendingProvider === ExternalProviderType.Google ? (
+                <Trans>Redirecting...</Trans>
+              ) : (
+                <Trans>Log in with Google</Trans>
+              )}
+            </Button>
+          )}
+          {isEntraOAuthEnabled && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleExternalLogin(ExternalProviderType.Entra)}
+              isPending={pendingProvider === ExternalProviderType.Entra}
+              disabled={isPending}
+            >
+              {pendingProvider !== ExternalProviderType.Entra && (
+                <img src={microsoftIconUrl} alt="" aria-hidden="true" className="size-5" />
+              )}
+              {pendingProvider === ExternalProviderType.Entra ? (
+                <Trans>Redirecting...</Trans>
+              ) : (
+                <Trans>Log in with Microsoft</Trans>
+              )}
+            </Button>
+          )}
         </>
       )}
       <p className="text-sm text-muted-foreground">
