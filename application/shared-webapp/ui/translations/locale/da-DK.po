@@ -87,7 +87,7 @@ msgid "Leave"
 msgstr "Forlad"
 
 msgid "Let a signed-in user prove their identity with MitID"
-msgstr "Lad en logget ind bruger bekræfte sin identitet med MitID"
+msgstr "Lad en bruger, der er logget ind, bekræfte sin identitet med MitID"
 
 msgid "Loading"
 msgstr "Indlæser"
@@ -102,7 +102,7 @@ msgid "Microsoft Entra ID"
 msgstr "Microsoft Entra ID"
 
 msgid "MitID identity verification"
-msgstr "MitID identitetsbekræftelse"
+msgstr "MitID-identitetsbekræftelse"
 
 msgid "Mobile navigation menu"
 msgstr "Mobilnavigationsmenu"

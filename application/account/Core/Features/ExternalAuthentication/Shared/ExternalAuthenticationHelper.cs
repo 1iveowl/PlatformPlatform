@@ -194,13 +194,25 @@ public sealed class ExternalAuthenticationHelper(
         // A provider that reports when the person authenticated must report an authentication that happened during
         // this flow. Otherwise a cached single sign-on session would satisfy a verification with an authentication
         // from weeks ago, which is exactly what the freshness of a verification is supposed to exclude.
-        if (userProfile.AuthenticationInstant is not null && userProfile.AuthenticationInstant < externalLogin.CreatedAt.AddSeconds(-AuthenticationInstantClockSkewSeconds))
+        if (userProfile.AuthenticationInstant is not null && !IsWithinFlowWindow(userProfile.AuthenticationInstant.Value, externalLogin))
         {
-            logger.LogWarning("Stale authentication for external login '{ExternalLoginId}': the provider reports an authentication that predates the flow", externalLogin.Id);
+            logger.LogWarning("Stale authentication for external login '{ExternalLoginId}': the provider reports an authentication outside this flow's window", externalLogin.Id);
             return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.StaleAuthentication, loginType);
         }
 
         return CallbackValidationResult.Success(externalLogin, externalLoginCookie, userProfile);
+    }
+
+    /// <summary>
+    ///     An authentication belongs to this flow when it happened between the flow's start and now, each side widened
+    ///     by a small clock skew. The upper bound matters too: an instant in the future would be persisted as evidence
+    ///     and make the verification look fresh for longer than it is.
+    /// </summary>
+    private bool IsWithinFlowWindow(DateTimeOffset authenticationInstant, ExternalLogin externalLogin)
+    {
+        var earliest = externalLogin.CreatedAt.AddSeconds(-AuthenticationInstantClockSkewSeconds);
+        var latest = timeProvider.GetUtcNow().AddSeconds(AuthenticationInstantClockSkewSeconds);
+        return authenticationInstant >= earliest && authenticationInstant <= latest;
     }
 
     /// <summary>
@@ -218,6 +230,11 @@ public sealed class ExternalAuthenticationHelper(
             return FailedRedirect(externalLogin, cookie, ExternalLoginResult.VerificationUserMismatch, loginType);
         }
 
+        // The cookie has already matched, so this gate buys no identification and costs availability: a callback whose
+        // session cannot be re-established is refused even though the person did authenticate. That is deliberate. A
+        // session revoked while the flow was in progress, say by the account's real owner, must not be able to finish
+        // an action that changes who the account belongs to, and the profile page the flow returns to needs the session
+        // anyway. Refresh tokens outlive the five-minute flow by days, so the cost is a rare retry.
         if (!executionContext.UserInfo.IsAuthenticated)
         {
             logger.LogWarning("No authenticated session on the callback for external login '{ExternalLoginId}'", externalLogin.Id);

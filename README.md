@@ -414,15 +414,33 @@ PlatformPlatform lets a signed-in user prove who they are with Danish MitID thro
 
 <summary>Idura dashboard setup</summary>
 
-1. Sign up at the [Idura dashboard](https://dashboard.idura.app) and pick a tenant subdomain. Your broker domain becomes `{subdomain}.idura.broker`, or `{subdomain}.test.idura.broker` for a test tenant
+1. Sign up at the [Idura dashboard](https://dashboard.idura.app) and pick a tenant subdomain. Your broker domain becomes `{subdomain}.idura.broker`, or `{subdomain}.test.idura.broker` for a test tenant. A test tenant talks to MitID's pre-production environment, so the flow can be tried end to end with synthetic test identities and no real MitID
 2. Enable **Danish MitID** as an identity source
 3. Leave the **Add CPR for MitID logins** toggle off. PlatformPlatform requests only the `openid` scope and never reads or stores a CPR number, and leaving the toggle off means the broker never issues one in the first place
-4. Add a login application and register this redirect URI:
+4. Add a Verify application (Idura's OpenID Connect product) for the domain from step 1 and register this callback URL:
    - `https://localhost:9000/api/account/authentication/MitId/verification/callback`
-5. Note the **Client ID/Realm** of the login application. It is not a GUID: Idura auto-generates it in the form `urn:my:application:identifier:123`, and it is scoped to the one domain the application was created against
-6. Generate a **Client Secret** under the application's **OpenID Connect** settings and copy it immediately, because it is shown only once. The application must be a confidential, server-side type; PlatformPlatform authenticates the token exchange with a client secret, so a public PKCE-only application will not work
-7. On the application's **OpenID Connect** tab, enable **OAuth2 Code Flow**, which is what issues the client secret for the back-channel exchange, and set **JWT property format** to `compact`. The default format returns some claims under partial URIs rather than short names, and PlatformPlatform reads the MitID `uuid` claim by its short name
-8. Create a MitID test user at [pp.mitid.dk/test-tool/frontend](https://pp.mitid.dk/test-tool/frontend) to try the flow
+5. Note the **Client ID/Realm** of the application. It is not a GUID: Idura auto-generates it in the form `urn:my:application:identifier:123`, and it is scoped to the one domain the application was created against
+6. On the application's **OpenID Connect** tab, set the following and save. The first two change the application from Idura's default; the rest are the defaults as of September 2026 and are listed so a changed default is caught rather than discovered from a failed token exchange:
+   - **Enable OAuth2 Code Flow**: on. This makes the application a confidential client and issues the **Client Secret** that PlatformPlatform uses for the back-channel token exchange. Copy the secret immediately, because Idura stores only a hash and shows it once. A public, PKCE-only application fails the token exchange with a client authentication error
+   - **JWT property format**: `compact`. The default is a mix of compact names and partial URIs, and PlatformPlatform reads the MitID `uuid` claim by its short name
+   - **Require PKCE**: on. PlatformPlatform always sends an S256 code challenge, so this only refuses requests that do not come from it
+   - **User info response strategy**: `fromTokenEndpoint`, and **id_token response strategy**: `signedJwt`. PlatformPlatform reads every claim from the signed ID token; it never calls the userinfo endpoint and does not decrypt tokens
+   - **Callback on location hash**: off, **Require PAR**: off, **Client JWKS**: empty. These are for browser-based clients, pushed authorization requests and `private_key_jwt` client authentication, none of which PlatformPlatform uses
+
+</details>
+
+<details>
+
+<summary>Try the flow with a MitID test identity</summary>
+
+MitID's pre-production environment has a test tool that creates synthetic identities and an app simulator that approves authentications, so no real MitID is involved.
+
+1. Open the [MitID test tool](https://pp.mitid.dk/test-tool/frontend/#/create-identity), click **AUTOFILL** to fill the identity with synthetic data, and click **CREATE IDENTITY**. Do not enter a real email address or other real data; nothing from the identity reaches PlatformPlatform except the MitID `uuid`
+2. Copy the **Identity Claim** shown on the identity page. That is the **USER ID** the MitID login page asks for
+3. Open the test tool's **app simulator** and keep it open. It plays the role of the MitID app on the phone. The MitID test app from [pp.mitid.dk/mitid-app](https://pp.mitid.dk/mitid-app/index.html) works too, but on Android it cannot be installed next to the real MitID app
+4. Sign in to PlatformPlatform with email, open **User profile**, click **Verify with MitID**, enter the Identity Claim as the user ID, and approve the authentication in the simulator
+5. Finish within five minutes of clicking **Verify with MitID**. A verification flow expires after `ExternalLogin.ValidForSeconds`, and a late return from the broker shows "Your session has expired" and writes nothing, so create the identity and open the simulator first and start the flow last
+6. The profile page then shows **Verified with MitID** with a "Substantial assurance" badge. Verifying again with the same test identity refreshes the evidence. To verify with a different identity, a back-office administrator first revokes the current one with `DELETE /api/back-office/users/{id}/identity-verification`; the user cannot rebind it themselves
 
 </details>
 

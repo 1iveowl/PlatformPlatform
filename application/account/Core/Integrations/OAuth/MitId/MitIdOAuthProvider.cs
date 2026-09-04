@@ -39,8 +39,7 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
 
     private static readonly JsonWebTokenHandler TokenHandler = new();
 
-    private readonly MitIdOAuthConfiguration _configuration = configuration.GetSection("OAuth:MitId").Get<MitIdOAuthConfiguration>()
-                                                              ?? throw new InvalidOperationException("OAuth:MitId configuration is missing.");
+    private readonly MitIdOAuthConfiguration _configuration = ReadConfiguration(configuration);
 
     private string Issuer => $"https://{_configuration.Domain}";
 
@@ -259,6 +258,8 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
                 return assuranceLevel;
             }
 
+            // The value is one of the broker's assurance level identifiers, not something that identifies a person, and
+            // an unrecognised level is exactly the case where the value is needed to see what changed
             logger.LogWarning("MitID token validation failed: the '{ClaimType}' claim carries the unrecognised value '{ClaimValue}'", claimType, claimValue);
             return null;
         }
@@ -272,7 +273,9 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
     ///     The authorization request sends max_age=0, which under the OpenID Connect specification obliges a provider
     ///     to emit auth_time. Observed against the sandbox on 2026-09-04: this broker does not, and the value arrives
     ///     in the ISO 8601 <c>authenticationinstant</c> claim instead, so the fallback is the live path. The standard
-    ///     name is still read first, so a broker that later conforms needs no change here.
+    ///     name is still read first, so a broker that later conforms needs no change here. A legacy value without an
+    ///     offset is read as UTC, which is what the broker documents; reading it as host local time would shift the
+    ///     instant by the host's offset and either refuse every verification as stale or record one in the future.
     /// </summary>
     private DateTimeOffset? ReadAuthenticationInstant(JsonWebToken token)
     {
@@ -282,13 +285,30 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
         }
 
         var legacyValue = token.Claims.FirstOrDefault(c => c.Type == LegacyAuthenticationTimeClaim)?.Value;
-        if (!string.IsNullOrEmpty(legacyValue) && DateTimeOffset.TryParse(legacyValue, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var legacyInstant))
+        if (!string.IsNullOrEmpty(legacyValue) && DateTimeOffset.TryParse(legacyValue, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var legacyInstant))
         {
             return legacyInstant;
         }
 
         logger.LogWarning("MitID token validation failed: no authentication time claim was found even though max_age was requested");
         return null;
+    }
+
+    /// <summary>
+    ///     The domain is a bare host name such as <c>tenant.idura.broker</c>, because the issuer and every endpoint are
+    ///     built from it. A scheme or path would only surface later as an opaque discovery failure, so it is refused here.
+    /// </summary>
+    private static MitIdOAuthConfiguration ReadConfiguration(IConfiguration configuration)
+    {
+        var mitIdConfiguration = configuration.GetSection("OAuth:MitId").Get<MitIdOAuthConfiguration>()
+                                 ?? throw new InvalidOperationException("OAuth:MitId configuration is missing.");
+
+        if (string.IsNullOrWhiteSpace(mitIdConfiguration.Domain) || mitIdConfiguration.Domain.Contains("://", StringComparison.Ordinal) || mitIdConfiguration.Domain.Contains('/'))
+        {
+            throw new InvalidOperationException("OAuth:MitId:Domain must be a host name without a scheme or path, for example 'tenant.idura.broker'.");
+        }
+
+        return mitIdConfiguration;
     }
 
     /// <summary>

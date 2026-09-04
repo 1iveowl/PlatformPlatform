@@ -25,6 +25,7 @@ using NSubstitute;
 using SharedKernel.Authentication;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
+using SharedKernel.EntityFramework;
 using SharedKernel.ExecutionContext;
 using SharedKernel.Integrations.Email;
 using SharedKernel.SinglePageApp;
@@ -200,7 +201,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         using var scope = _webApplicationFactory.Services.CreateScope();
         var accountDbContext = scope.ServiceProvider.GetRequiredService<AccountDbContext>();
         return accountDbContext.Set<ExternalIdentity>()
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters([QueryFilterNames.Tenant])
             .AsEnumerable()
             .FirstOrDefault(ei => ei.UserId == userId && ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Verification));
     }

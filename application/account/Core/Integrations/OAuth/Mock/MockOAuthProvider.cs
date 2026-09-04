@@ -23,7 +23,8 @@ namespace Account.Integrations.OAuth.Mock;
 ///     "mock-{provider}-{emailPrefix}".
 ///     A verification-only provider never reports an email whatever the cookie says, and carries the assurance level
 ///     and authentication instant that a real verification would. "staleauthentication" makes it report an
-///     authentication from an hour ago, which stands in for a provider replaying a cached session.
+///     authentication from an hour ago, which stands in for a provider replaying a cached session, and
+///     "futureauthentication" one an hour from now, which stands in for a provider whose clock is wrong.
 /// </summary>
 public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider) : IOAuthProvider
 {
@@ -34,6 +35,7 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
     public const string NoEmailValue = "noemail";
     public const string IdentityPrefix = "identity:";
     public const string StaleAuthenticationValue = "staleauthentication";
+    public const string FutureAuthenticationValue = "futureauthentication";
     private const string DefaultProviderUserIdSuffix = "user-id-12345";
 
     // The default provider user id of the Google mock, which the API tests drive through the Google endpoints
@@ -117,7 +119,12 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
     private DateTimeOffset GetAuthenticationInstant(string? cookieValue)
     {
         var now = timeProvider.GetUtcNow();
-        return cookieValue == StaleAuthenticationValue ? now.AddHours(-1) : now;
+        return cookieValue switch
+        {
+            StaleAuthenticationValue => now.AddHours(-1),
+            FutureAuthenticationValue => now.AddHours(1),
+            _ => now
+        };
     }
 
     private (string ProviderUserId, string? Email) GetProviderUserIdAndEmail(string? cookieValue)

@@ -14,10 +14,11 @@ import { HashIcon } from "lucide-react";
 import { useContext, useState } from "react";
 import { toast } from "sonner";
 
-import { MitIdVerificationSection } from "@/routes/user/profile/-components/MitIdVerificationSection";
 import { UnsavedChangesDialog } from "@/shared/components/UnsavedChangesDialog";
 import { UserProfileFields } from "@/shared/components/UserProfileFields";
 import { api, type Schemas } from "@/shared/lib/api/client";
+
+import { MitIdVerificationSection } from "./-components/MitIdVerificationSection";
 
 export const Route = createFileRoute("/user/profile/")({
   staticData: { trackingTitle: "User profile" },

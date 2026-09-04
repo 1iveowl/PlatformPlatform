@@ -217,6 +217,26 @@ public sealed class CompleteExternalVerificationTests : ExternalAuthenticationTe
     }
 
     [Fact]
+    public async Task CompleteExternalVerification_WhenTheAuthenticationIsInTheFuture_ShouldRedirectToErrorWithoutVerifying()
+    {
+        // Arrange
+        var (callbackUrl, cookies) = await StartVerificationFlow(AuthenticatedOwnerHttpClient, mockProviderCookieValue: MockOAuthProvider.FutureAuthenticationValue);
+        var externalLoginId = GetExternalLoginIdFromUrl(callbackUrl);
+
+        // Act
+        var response = await CallVerificationCallback(AuthenticatedOwnerHttpClient, callbackUrl, cookies, mockProviderCookieValue: MockOAuthProvider.FutureAuthenticationValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().StartWith("/error?error=authentication_failed");
+
+        Connection.ExecuteScalar<string>("SELECT login_result FROM external_logins WHERE id = @id", [new { id = externalLoginId }])
+            .Should().Be(nameof(ExternalLoginResult.StaleAuthentication));
+
+        GetVerifiedIdentity(DatabaseSeeder.Tenant1Owner.Id).Should().BeNull();
+    }
+
+    [Fact]
     public async Task CompleteExternalVerification_WhenPresentedToTheLoginCallback_ShouldRedirectToErrorWithoutVerifying()
     {
         // Arrange

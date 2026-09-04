@@ -53,10 +53,18 @@ public sealed class CompleteExternalVerificationHandler(
             var userId = externalLogin.UserId!;
             var tenantId = externalLogin.TenantId!;
 
-            if (userProfile.AssuranceLevel is null || userProfile.AuthenticationInstant is null)
+            if (userProfile.AssuranceLevel is null)
             {
-                logger.LogWarning("Provider '{ProviderType}' returned no assurance level or authentication time for external login '{ExternalLoginId}'", externalLogin.ProviderType, externalLogin.Id);
+                logger.LogWarning("Provider '{ProviderType}' returned no assurance level for external login '{ExternalLoginId}'", externalLogin.ProviderType, externalLogin.Id);
                 return VerificationFailedRedirect(externalLogin, ExternalLoginResult.AssuranceLevelInsufficient);
+            }
+
+            if (userProfile.AuthenticationInstant is null)
+            {
+                // Without an authentication time the freshness of the verification cannot be established, which is
+                // the property StaleAuthentication guards, so that is the honest result rather than the assurance level
+                logger.LogWarning("Provider '{ProviderType}' returned no authentication time for external login '{ExternalLoginId}'", externalLogin.ProviderType, externalLogin.Id);
+                return VerificationFailedRedirect(externalLogin, ExternalLoginResult.StaleAuthentication);
             }
 
             var existingIdentity = await externalIdentityRepository.GetByUserIdAndProviderUnfilteredAsync(userId, externalLogin.ProviderType, cancellationToken);

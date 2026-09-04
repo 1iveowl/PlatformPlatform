@@ -8,7 +8,9 @@ import { useFormatDate } from "@repo/ui/hooks/useSmartDate";
 import { ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
 
-import { api, ExternalProviderType, IdentityAssuranceLevel } from "@/shared/lib/api/client";
+import { api, ExternalProviderType, IdentityAssuranceLevel, type Schemas } from "@/shared/lib/api/client";
+
+const profilePath = "/user/profile";
 
 export function MitIdVerificationSection() {
   const { enabled: isMitIdVerificationEnabled } = useFeatureFlag("mitid-verification");
@@ -23,7 +25,11 @@ export function MitIdVerificationSection() {
 function VerificationSection() {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const { data: verificationStatus, isLoading } = api.useQuery("get", "/api/account/authentication/verification");
+  const {
+    data: verificationStatus,
+    isLoading,
+    isError
+  } = api.useQuery("get", "/api/account/authentication/verification");
 
   const startVerificationMutation = api.useMutation(
     "post",
@@ -41,9 +47,15 @@ function VerificationSection() {
     setIsRedirecting(true);
     startVerificationMutation.mutate({
       params: { path: { provider: ExternalProviderType.MitId } },
-      body: { returnPath: "/user/profile" }
+      body: { returnPath: profilePath }
     });
   };
+
+  // The status covers every provider that can verify an identity, and this section only speaks for MitID
+  const mitIdVerification =
+    verificationStatus?.isVerified && verificationStatus.provider === ExternalProviderType.MitId
+      ? verificationStatus
+      : undefined;
 
   return (
     <div className="mt-12 flex flex-col gap-4">
@@ -55,34 +67,23 @@ function VerificationSection() {
         <Trans>Prove who you are with MitID. Your name and personal identification number are not stored.</Trans>
       </p>
 
-      {isLoading && <Skeleton className="h-10 w-40" />}
+      {isLoading && <Skeleton className="h-[var(--control-height)] w-44" />}
 
-      {!isLoading && verificationStatus?.isVerified && (
-        <VerifiedState assuranceLevel={verificationStatus.assuranceLevel} verifiedAt={verificationStatus.verifiedAt} />
+      {mitIdVerification && (
+        <VerifiedState assuranceLevel={mitIdVerification.assuranceLevel} verifiedAt={mitIdVerification.verifiedAt} />
       )}
 
-      {!isLoading && !verificationStatus?.isVerified && (
-        <div className="flex sm:justify-start">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleVerify}
-            isPending={isRedirecting}
-            disabled={isRedirecting}
-          >
-            {!isRedirecting && <ShieldCheckIcon className="size-5" aria-hidden={true} />}
-            {isRedirecting ? <Trans>Redirecting...</Trans> : <Trans>Verify with MitID</Trans>}
-          </Button>
-        </div>
+      {!isLoading && !isError && !mitIdVerification && (
+        <Button type="button" variant="outline" onClick={handleVerify} isPending={isRedirecting}>
+          {!isRedirecting && <ShieldCheckIcon className="size-5" aria-hidden={true} />}
+          {isRedirecting ? <Trans>Redirecting...</Trans> : <Trans>Verify with MitID</Trans>}
+        </Button>
       )}
     </div>
   );
 }
 
-type VerifiedStateProps = {
-  assuranceLevel: IdentityAssuranceLevel | null;
-  verifiedAt: string | null;
-};
+type VerifiedStateProps = Pick<Schemas["VerificationStatusResponse"], "assuranceLevel" | "verifiedAt">;
 
 function VerifiedState({ assuranceLevel, verifiedAt }: Readonly<VerifiedStateProps>) {
   const formatDate = useFormatDate();

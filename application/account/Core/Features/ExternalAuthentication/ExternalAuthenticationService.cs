@@ -120,7 +120,7 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
                 Secure = true,
                 SameSite = SameSiteMode.Lax,
                 IsEssential = true,
-                MaxAge = TimeSpan.FromSeconds(ExternalLogin.ValidForSeconds)
+                MaxAge = ExternalLoginCookieLifetime
             }
         );
     }

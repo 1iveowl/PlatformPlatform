@@ -4,7 +4,7 @@ import { Trans } from "@lingui/react/macro";
 import { ErrorCode } from "@repo/infrastructure/auth/AuthenticationMiddleware";
 import { AlertCircle, Building2, LogOut, MailX, ShieldAlert, UserX } from "lucide-react";
 
-export type ErrorAction = "login" | "signup" | "contact";
+export type ErrorAction = "login" | "signup" | "contact" | "profile";
 
 export type ErrorDisplay = {
   icon: ReactNode;
@@ -31,7 +31,8 @@ export const errorLabelMap: Record<string, string> = {
   [ErrorCode.TenantDeleted]: "Account deleted"
 };
 
-/// The identity outcomes share an icon and an action, and keeping them here keeps the main switch readable.
+// The identity outcomes share an icon, and keeping them here keeps the main switch readable. The two that can only
+// happen to a signed-in user send them back to the profile page, where the retry lives, rather than to login.
 function getIdentityErrorDisplay(error: string): ErrorDisplay {
   const identityErrorDisplay = {
     icon: <ShieldAlert className="size-10 text-destructive" />,
@@ -42,6 +43,7 @@ function getIdentityErrorDisplay(error: string): ErrorDisplay {
   if (error === ErrorCode.IdentityAlreadyLinked) {
     return {
       ...identityErrorDisplay,
+      action: "profile",
       title: <Trans>Identity already in use</Trans>,
       message: (
         <>
@@ -56,6 +58,7 @@ function getIdentityErrorDisplay(error: string): ErrorDisplay {
   if (error === ErrorCode.AssuranceLevelInsufficient) {
     return {
       ...identityErrorDisplay,
+      action: "profile",
       title: <Trans>Verification not strong enough</Trans>,
       message: (
         <>

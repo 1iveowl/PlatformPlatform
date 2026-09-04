@@ -256,6 +256,9 @@ msgstr "Back to app"
 msgid "Back to login"
 msgstr "Back to login"
 
+msgid "Back to profile"
+msgstr "Back to profile"
+
 msgid "Back to signup"
 msgstr "Back to signup"
 

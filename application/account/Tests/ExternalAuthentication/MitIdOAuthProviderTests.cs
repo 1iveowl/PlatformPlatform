@@ -220,6 +220,46 @@ public sealed class MitIdOAuthProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task GetUserProfileAsync_WhenTheBrokerLegacyClaimCarriesNoOffset_ShouldReadItAsUtc()
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims.Remove("auth_time");
+        claims["authenticationinstant"] = "2026-09-04T10:30:00";
+        var idToken = CreateIdToken(claims);
+
+        // Act
+        var profile = await CreateProvider().GetUserProfileAsync(new OAuthTokenResponse(AccessToken, idToken, 3600), CancellationToken.None);
+
+        // Assert
+        profile.Should().NotBeNull();
+        profile.AuthenticationInstant.Should().Be(AuthenticationInstant);
+    }
+
+    [Fact]
+    public void Constructor_WhenTheDomainCarriesAScheme_ShouldThrow()
+    {
+        // Arrange
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OAuth:MitId:Domain"] = $"https://{Domain}",
+                    ["OAuth:MitId:ClientId"] = ClientId,
+                    ["OAuth:MitId:ClientSecret"] = "mitid-client-secret"
+                }
+            )
+            .Build();
+        var httpClient = new HttpClient(new OpenIdConnectStubHandler(BuildDiscoveryDocument(), BuildJsonWebKeySet(_rsa), true));
+        _httpClients.Add(httpClient);
+
+        // Act
+        var createProvider = () => new MitIdOAuthProvider(httpClient, configuration, new OpenIdConnectConfigurationManagerFactory(httpClient), NullLogger<MitIdOAuthProvider>.Instance);
+
+        // Assert
+        createProvider.Should().Throw<InvalidOperationException>().WithMessage("*without a scheme or path*");
+    }
+
+    [Fact]
     public async Task GetUserProfileAsync_WhenNoAuthenticationTimeClaimIsPresent_ShouldReturnNull()
     {
         // Arrange
