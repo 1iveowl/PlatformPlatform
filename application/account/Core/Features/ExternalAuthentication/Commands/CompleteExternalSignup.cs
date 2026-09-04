@@ -59,7 +59,7 @@ public sealed class CompleteExternalSignupHandler(
             if (userProfile.Email is null)
             {
                 logger.LogWarning("Profile without an email cannot sign up for external login '{ExternalLoginId}'", externalLogin.Id);
-                return SignupFailedRedirect(externalLogin, ExternalLoginResult.CodeExchangeFailed);
+                return SignupFailedRedirect(externalLogin, ExternalLoginResult.EmailNotProvided);
             }
 
             var existingUser = await userRepository.GetUserByEmailUnfilteredAsync(userProfile.Email, cancellationToken);

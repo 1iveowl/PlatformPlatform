@@ -6,7 +6,8 @@ namespace Account.Features.ExternalAuthentication.Domain;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ExternalProviderType
 {
-    Google
+    Google,
+    Entra
 }
 
 [PublicAPI]
@@ -31,6 +32,7 @@ public enum ExternalLoginResult
     LoginExpired,
     LoginAlreadyCompleted,
     CodeExchangeFailed,
+    EmailNotProvided,
     NonceMismatch,
     IdentityMismatch,
     UserNotFound,

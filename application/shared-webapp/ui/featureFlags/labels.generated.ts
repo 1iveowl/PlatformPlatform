@@ -23,6 +23,10 @@ function getKnownFeatureFlagLabels(): Record<string, FeatureFlagLabel> {
       name: t`Google OAuth`,
       description: t`Sign in with Google using OpenID Connect`
     },
+    "entra-oauth": {
+      name: t`Microsoft Entra ID`,
+      description: t`Sign in with Microsoft using OpenID Connect`
+    },
     "subscriptions": {
       name: t`Subscriptions`,
       description: t`Stripe-powered subscription billing and plan management`

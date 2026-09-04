@@ -125,6 +125,7 @@ public sealed class GetBackOfficeUserLoginHistoryHandler(
         return providerType switch
         {
             ExternalProviderType.Google => LoginMethod.Google,
+            ExternalProviderType.Entra => LoginMethod.Entra,
             _ => throw new UnreachableException($"Unknown external provider type '{providerType}'.")
         };
     }

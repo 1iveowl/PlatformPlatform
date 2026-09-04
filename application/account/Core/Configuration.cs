@@ -8,6 +8,7 @@ using Account.Features.Subscriptions.Shared;
 using Account.Features.Users.Shared;
 using Account.Integrations.Gravatar;
 using Account.Integrations.OAuth;
+using Account.Integrations.OAuth.Entra;
 using Account.Integrations.OAuth.Google;
 using Account.Integrations.OAuth.Mock;
 using Account.Integrations.Stripe;
@@ -53,6 +54,9 @@ public static class Configuration
             services.AddHttpClient<GoogleOAuthProvider>(client => { client.Timeout = TimeSpan.FromSeconds(10); });
             services.AddKeyedScoped<IOAuthProvider, GoogleOAuthProvider>("google");
             services.AddKeyedScoped<IOAuthProvider>("mock-google", (serviceProvider, _) => ActivatorUtilities.CreateInstance<MockOAuthProvider>(serviceProvider, ExternalProviderType.Google));
+            services.AddHttpClient<EntraOAuthProvider>(client => { client.Timeout = TimeSpan.FromSeconds(10); });
+            services.AddKeyedScoped<IOAuthProvider, EntraOAuthProvider>("entra");
+            services.AddKeyedScoped<IOAuthProvider>("mock-entra", (serviceProvider, _) => ActivatorUtilities.CreateInstance<MockOAuthProvider>(serviceProvider, ExternalProviderType.Entra));
             services.AddScoped<OAuthProviderFactory>();
 
             services.AddEmailRendering("WebApp");

@@ -28,6 +28,7 @@ public sealed class SinglePageAppConfigurationTests
         var environmentVariables = new Dictionary<string, string>
         {
             ["PUBLIC_GOOGLE_OAUTH_ENABLED"] = "false",
+            ["PUBLIC_ENTRA_OAUTH_ENABLED"] = "false",
             ["PUBLIC_SUBSCRIPTION_ENABLED"] = "false"
         };
 
@@ -38,6 +39,7 @@ public sealed class SinglePageAppConfigurationTests
 
         // Assert
         configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_GOOGLE_OAUTH_ENABLED", "false");
+        configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_ENTRA_OAUTH_ENABLED", "false");
         configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_SUBSCRIPTION_ENABLED", "false");
     }
 }
