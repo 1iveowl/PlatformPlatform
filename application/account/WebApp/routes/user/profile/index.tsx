@@ -14,6 +14,7 @@ import { HashIcon } from "lucide-react";
 import { useContext, useState } from "react";
 import { toast } from "sonner";
 
+import { MitIdVerificationSection } from "@/routes/user/profile/-components/MitIdVerificationSection";
 import { UnsavedChangesDialog } from "@/shared/components/UnsavedChangesDialog";
 import { UserProfileFields } from "@/shared/components/UserProfileFields";
 import { api, type Schemas } from "@/shared/lib/api/client";
@@ -144,6 +145,8 @@ function ProfilePage() {
             </div>
           </div>
         </Form>
+
+        <MitIdVerificationSection />
       </AppLayout>
 
       <UnsavedChangesDialog
