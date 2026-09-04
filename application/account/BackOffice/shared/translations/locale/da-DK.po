@@ -1390,6 +1390,9 @@ msgstr "Metode"
 msgid "Mexican"
 msgstr "Mexicansk"
 
+msgid "Microsoft"
+msgstr "Microsoft"
+
 msgid "Middle"
 msgstr "Midte"
 

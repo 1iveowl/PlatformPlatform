@@ -360,7 +360,7 @@ test.describe("@comprehensive", () => {
       await page.goto("/error?error=identity_mismatch&id=test-ref-005");
 
       await expect(page.getByRole("heading", { name: "Identity mismatch" })).toBeVisible();
-      await expect(page.getByText("This account is linked to a different Google identity.")).toBeVisible();
+      await expect(page.getByText("This account is linked to a different sign-in identity.")).toBeVisible();
       await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
       await expect(page.getByText("Reference ID: test-ref-005")).toBeVisible();
     })();
