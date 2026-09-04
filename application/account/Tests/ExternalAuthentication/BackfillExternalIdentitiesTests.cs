@@ -105,6 +105,20 @@ public sealed class BackfillExternalIdentitiesTests : ExternalAuthenticationTest
         ).Should().Be(0);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenNoUserHoldsALegacyIdentity_ShouldInsertNothing()
+    {
+        // Arrange
+        InsertUser(Faker.Internet.Email());
+
+        // Act
+        var summary = await RunBackfillExternalIdentities();
+
+        // Assert
+        summary.Should().Be("Inserted 0 external identities, skipped 0 that already had a row, gave 0 to a live user over a soft-deleted one and skipped 0 contested between live users in the same tenant");
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM external_identities", []).Should().Be(0);
+    }
+
     // A login on the new API between the schema migration and the backfill links the user under the provider user id
     // the token carried. When the account changed at the provider that is a different key from the jsonb entry, and
     // the (user_id, provider) unique index would abort the whole migration on the insert.
