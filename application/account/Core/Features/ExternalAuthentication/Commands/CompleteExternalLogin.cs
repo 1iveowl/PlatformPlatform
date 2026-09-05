@@ -66,9 +66,7 @@ public sealed class CompleteExternalLoginHandler(
             var loginCapableIdentities = identitiesForProviderUserId.Where(ei => ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Login)).ToArray();
             var identityCandidates = await GetUsersByIdentities(loginCapableIdentities, cancellationToken);
 
-            // The email candidates are loaded alongside the identity candidates instead of only when the identity
-            // lookup came up empty. A person invited by email to a second tenant has no identity row there, and
-            // without this the preferred tenant could never be honoured and they would land in the other tenant.
+            // An invitation in the preferred tenant can match by email even when another tenant holds the identity.
             var emailCandidates = userProfile.Email is null
                 ? []
                 : await GetUsersInActiveTenants(await userRepository.GetUsersByEmailUnfilteredAsync(userProfile.Email, cancellationToken), cancellationToken);
@@ -134,6 +132,7 @@ public sealed class CompleteExternalLoginHandler(
             }
 
             externalLogin.MarkCompleted(userProfile.Email);
+            externalLogin.RecordResolvedUser(user.Id, user.TenantId);
             externalLoginRepository.Update(externalLogin);
 
             var httpContext = httpContextAccessor.HttpContext!;
@@ -167,27 +166,15 @@ public sealed class CompleteExternalLoginHandler(
         }
     }
 
-    /// <summary>
-    ///     Picks the user to log in and reports which of the two candidate lists it came from. A preferred tenant from
-    ///     the login cookie wins, by identity first and by email second, and falls through to the first candidate by
-    ///     user id when neither list covers that tenant. Both lists arrive ordered by user id, so the positional
-    ///     fall-through below is deterministic.
-    /// </summary>
+    /// <summary>Prefers the requested tenant, then identity over email. Both candidate arrays are ordered by user ID.</summary>
     private static (User? User, ExternalLoginLookup Lookup) SelectUser(User[] identityCandidates, User[] emailCandidates, TenantId? preferredTenantId)
     {
         if (preferredTenantId is not null)
         {
-            // The two operators differ because the two lists are guaranteed differently. Two identity candidates in
-            // one tenant are impossible: the unique index on provider, provider user id and tenant allows one row
-            // per tenant for this identity, and the composite foreign key on tenant id and user id ties that row to
-            // a user in the same tenant. SingleOrDefault keeps that as an assertion rather than a comment, so a
-            // schema change that drops either half fails visibly instead of silently logging someone into the wrong
-            // account in their preferred tenant.
+            // The identity key and composite user foreign key guarantee at most one candidate per tenant.
             var preferredIdentityUser = identityCandidates.SingleOrDefault(u => u.TenantId == preferredTenantId);
             if (preferredIdentityUser is not null) return (preferredIdentityUser, ExternalLoginLookup.Identity);
 
-            // The email list needs no such guard: the unique index on tenant id and email, filtered to live users,
-            // makes a second candidate in one tenant impossible.
             var preferredEmailUser = emailCandidates.FirstOrDefault(u => u.TenantId == preferredTenantId);
             if (preferredEmailUser is not null) return (preferredEmailUser, ExternalLoginLookup.Email);
         }

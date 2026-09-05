@@ -56,12 +56,12 @@ public sealed class GetDashboardRecentLoginsHandler(
         var externalLogins = await externalLoginRepository.GetSucceededSinceAsync(since, cancellationToken);
 
         var externalEntries = externalLogins
-            .Where(e => e.Email is not null)
-            .Select(e => new { Email = e.Email!, Method = MapExternalMethod(e.ProviderType), e.CreatedAt })
+            .Where(e => e.Email is not null || e.UserId is not null)
+            .Select(e => new { e.Email, e.UserId, Method = MapExternalMethod(e.ProviderType), e.CreatedAt })
             .Where(e => e.Method is not null)
-            .Select(e => new LoginEntry(e.Email, e.Method!.Value, e.CreatedAt));
+            .Select(e => new LoginEntry(e.Email, e.UserId, e.Method!.Value, e.CreatedAt));
 
-        var entries = emailLogins.Select(e => new LoginEntry(e.Email, LoginMethod.OneTimePassword, e.CreatedAt))
+        var entries = emailLogins.Select(e => new LoginEntry(e.Email, null, LoginMethod.OneTimePassword, e.CreatedAt))
             .Concat(externalEntries)
             .OrderByDescending(e => e.OccurredAt)
             .Take(query.Limit)
@@ -69,10 +69,10 @@ public sealed class GetDashboardRecentLoginsHandler(
 
         if (entries.Length == 0) return new BackOfficeDashboardRecentLoginsResponse([]);
 
-        // Login aggregates store email rather than user id (an email can map to multiple users across tenants).
-        // Resolve to the first user per email so the dashboard row can show a name and the tenant context;
-        // operators can still drill into the user/account detail pages for full disambiguation.
-        var distinctEmails = entries.Select(e => e.Email).Distinct().ToArray();
+        var userIds = entries.Where(e => e.UserId is not null).Select(e => e.UserId!).Distinct().ToArray();
+        var resolvedUsers = userIds.Length == 0 ? [] : await userRepository.GetByIdsUnfilteredAsync(userIds, cancellationToken);
+        var usersById = resolvedUsers.ToDictionary(u => u.Id);
+        var distinctEmails = entries.Where(e => e.UserId is null && e.Email is not null).Select(e => e.Email!).Distinct().ToArray();
         var userByEmail = new Dictionary<string, User>();
         foreach (var email in distinctEmails)
         {
@@ -80,7 +80,7 @@ public sealed class GetDashboardRecentLoginsHandler(
             if (users.Length > 0) userByEmail[email] = users[0];
         }
 
-        var tenantIds = userByEmail.Values.Select(u => u.TenantId).Distinct().ToArray();
+        var tenantIds = resolvedUsers.Concat(userByEmail.Values).Select(u => u.TenantId).Distinct().ToArray();
         var tenants = tenantIds.Length == 0
             ? []
             : await tenantRepository.GetByIdsUnfilteredAsync(tenantIds, cancellationToken);
@@ -88,11 +88,13 @@ public sealed class GetDashboardRecentLoginsHandler(
 
         var logins = entries.Select(entry =>
             {
-                var user = userByEmail.GetValueOrDefault(entry.Email);
+                var user = entry.UserId is not null ? usersById.GetValueOrDefault(entry.UserId) : userByEmail.GetValueOrDefault(entry.Email!);
+                var email = entry.Email ?? user?.Email;
+                if (email is null) return null;
                 var tenant = user is not null ? tenantsById.GetValueOrDefault(user.TenantId) : null;
                 return new BackOfficeDashboardLogin(
                     user?.Id,
-                    entry.Email,
+                    email,
                     user?.FirstName,
                     user?.LastName,
                     user?.Avatar.Url,
@@ -103,7 +105,7 @@ public sealed class GetDashboardRecentLoginsHandler(
                     entry.OccurredAt
                 );
             }
-        ).ToArray();
+        ).OfType<BackOfficeDashboardLogin>().ToArray();
 
         return new BackOfficeDashboardRecentLoginsResponse(logins);
     }
@@ -123,5 +125,5 @@ public sealed class GetDashboardRecentLoginsHandler(
         };
     }
 
-    private sealed record LoginEntry(string Email, LoginMethod Method, DateTimeOffset OccurredAt);
+    private sealed record LoginEntry(string? Email, UserId? UserId, LoginMethod Method, DateTimeOffset OccurredAt);
 }

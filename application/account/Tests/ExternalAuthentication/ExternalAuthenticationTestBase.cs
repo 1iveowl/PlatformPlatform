@@ -90,7 +90,8 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
                     {
                         config.AddInMemoryCollection(new Dictionary<string, string?>
                             {
-                                ["OAuth:AllowMockProvider"] = "true"
+                                ["OAuth:AllowMockProvider"] = "true",
+                                ["BackOffice:Host"] = "back-office.test.localhost"
                             }
                         );
                     }

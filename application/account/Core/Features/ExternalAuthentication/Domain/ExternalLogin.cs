@@ -58,16 +58,15 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
     public bool UsedMockProvider { get; private init; }
 
     /// <summary>
-    ///     The user the flow is bound to, set from the execution context when a verification flow starts. Null for
-    ///     login and signup, which resolve an account from the provider's reply instead.
+    ///     The actor at verification start, or the resolved account after a successful login or signup.
     /// </summary>
-    public UserId? UserId { get; private init; }
+    public UserId? UserId { get; private set; }
 
     /// <summary>
     ///     The tenant of <see cref="UserId" />. Deliberately not an <c>ITenantScopedEntity</c>: the callback arrives
     ///     without a tenant context, and the query filter would then hide every row.
     /// </summary>
-    public TenantId? TenantId { get; private init; }
+    public TenantId? TenantId { get; private set; }
 
     /// <summary>
     ///     The session that started the flow. Recorded for forensics; the binding check uses <see cref="UserId" />.
@@ -115,6 +114,17 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
         }
 
         return new ExternalLogin(type, providerType, codeVerifier, nonce, browserFingerprint, usedMockProvider, userId, tenantId, sessionId);
+    }
+
+    public void RecordResolvedUser(UserId userId, TenantId tenantId)
+    {
+        if (UserId is not null && (UserId != userId || TenantId != tenantId))
+        {
+            throw new UnreachableException("The external login cannot resolve to another account.");
+        }
+
+        UserId = userId;
+        TenantId = tenantId;
     }
 
     public void MarkCompleted(string? email)
