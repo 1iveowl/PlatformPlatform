@@ -97,7 +97,11 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
                     {
                         config.AddInMemoryCollection(new Dictionary<string, string?>
                             {
-                                ["OAuth:AllowMockProvider"] = "true"
+                                ["OAuth:AllowMockProvider"] = "true",
+                                // Both MitID purposes are on for the suite. A test that needs one of them off
+                                // overrides the value in its own host rather than relying on the key being absent.
+                                ["OAuth:MitId:VerificationEnabled"] = "true",
+                                ["OAuth:MitId:LoginEnabled"] = "true"
                             }
                         );
                     }

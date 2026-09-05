@@ -37,19 +37,31 @@ public sealed class GithubConfigCommand : Command
             "Idura broker domain for MitID, without a scheme",
             GithubType.Variable,
             "your-tenant.idura.broker",
-            "MitID verification"
+            "MitID"
         ),
         ["MITID_CLIENT_ID"] = new GithubConfig(
             "Client ID/Realm of the Verify application for MitID from the Idura dashboard",
             GithubType.Variable,
             "urn:my:application:identifier:123456",
-            "MitID verification"
+            "MitID"
         ),
         ["MITID_CLIENT_SECRET"] = new GithubConfig(
             "Client secret of the Verify application for MitID from the Idura dashboard",
             GithubType.Secret,
             "your-client-secret-value",
-            "MitID verification"
+            "MitID"
+        ),
+        ["MITID_VERIFICATION_ENABLED"] = new GithubConfig(
+            "Whether a signed-in user may prove their identity with MitID, 'true' or 'false'",
+            GithubType.Variable,
+            "true",
+            "MitID"
+        ),
+        ["MITID_LOGIN_ENABLED"] = new GithubConfig(
+            "Whether a user who has verified with MitID may sign in with it, 'true' or 'false'",
+            GithubType.Variable,
+            "false",
+            "MitID"
         ),
         ["STRIPE_PUBLISHABLE_KEY"] = new GithubConfig(
             "Stripe Publishable Key from the Stripe Dashboard API keys page",

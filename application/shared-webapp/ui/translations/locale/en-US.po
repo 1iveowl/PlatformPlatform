@@ -89,6 +89,9 @@ msgstr "Leave"
 msgid "Let a signed-in user prove their identity with MitID"
 msgstr "Let a signed-in user prove their identity with MitID"
 
+msgid "Let a user who has verified with MitID sign in with it"
+msgstr "Let a user who has verified with MitID sign in with it"
+
 msgid "Loading"
 msgstr "Loading"
 
@@ -103,6 +106,9 @@ msgstr "Microsoft Entra ID"
 
 msgid "MitID identity verification"
 msgstr "MitID identity verification"
+
+msgid "MitID login"
+msgstr "MitID login"
 
 msgid "Mobile navigation menu"
 msgstr "Mobile navigation menu"

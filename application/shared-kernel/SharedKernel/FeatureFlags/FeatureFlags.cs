@@ -38,13 +38,28 @@ public static partial class FeatureFlags
         false
     );
 
+    // MitID serves more than one purpose from one set of credentials, so each purpose is stated by its own
+    // configuration key rather than inferred from the presence of a client id. A deployment that verifies identities
+    // does not necessarily want MitID to be a way in, and the same shape extends to the purposes MitID also offers
+    // but which are not built here, signing and age verification, without revisiting the design.
     public static readonly FeatureFlagDefinition MitIdVerification = new SystemFeatureFlag(
         "mitid-verification",
         "MitID identity verification",
         "Let a signed-in user prove their identity with MitID",
-        "OAuth:MitId:ClientId",
+        "OAuth:MitId:VerificationEnabled",
         "PUBLIC_MITID_VERIFICATION_ENABLED",
-        false
+        false,
+        "true"
+    );
+
+    public static readonly FeatureFlagDefinition MitIdLogin = new SystemFeatureFlag(
+        "mitid-login",
+        "MitID login",
+        "Let a user who has verified with MitID sign in with it",
+        "OAuth:MitId:LoginEnabled",
+        "PUBLIC_MITID_LOGIN_ENABLED",
+        false,
+        "true"
     );
 
     public static readonly FeatureFlagDefinition Subscriptions = new SystemFeatureFlag(

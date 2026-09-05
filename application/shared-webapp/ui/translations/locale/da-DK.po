@@ -89,6 +89,9 @@ msgstr "Forlad"
 msgid "Let a signed-in user prove their identity with MitID"
 msgstr "Lad en bruger, der er logget ind, bekræfte sin identitet med MitID"
 
+msgid "Let a user who has verified with MitID sign in with it"
+msgstr "Lad en bruger, der har bekræftet sin identitet med MitID, logge ind med det"
+
 msgid "Loading"
 msgstr "Indlæser"
 
@@ -103,6 +106,9 @@ msgstr "Microsoft Entra ID"
 
 msgid "MitID identity verification"
 msgstr "MitID-identitetsbekræftelse"
+
+msgid "MitID login"
+msgstr "MitID-login"
 
 msgid "Mobile navigation menu"
 msgstr "Mobilnavigationsmenu"

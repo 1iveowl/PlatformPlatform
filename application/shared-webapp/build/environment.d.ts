@@ -115,6 +115,10 @@ export declare global {
      **/
     PUBLIC_MITID_VERIFICATION_ENABLED: string;
     /**
+     * MitID login enabled
+     **/
+    PUBLIC_MITID_LOGIN_ENABLED: string;
+    /**
      * Whether subscription/billing is enabled (Stripe configured)
      **/
     PUBLIC_SUBSCRIPTION_ENABLED: string;
