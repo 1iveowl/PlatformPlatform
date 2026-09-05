@@ -19,6 +19,9 @@ namespace Account.Integrations.OAuth.Mock;
 ///     sets the email to "{emailPrefix}@mock.localhost", so a changed email at the provider can be simulated.
 ///     "identity:{identityPrefix}" without the email part returns the same provider user id as above,
 ///     "mock-{provider}-{identityPrefix}", and no email.
+///     "unexpectedemail:{identityPrefix}:{emailPrefix}" shapes the profile the same way as "identity:", but the email
+///     survives even for a provider that supplies none. It stands in for a provider that breaks its own contract and
+///     returns an email claim it never promised, so account resolution can be proved to ignore it.
 ///     Any other value "{emailPrefix}" gives the email "{emailPrefix}@mock.localhost" and the provider user id
 ///     "mock-{provider}-{emailPrefix}".
 ///     A provider that supplies no email never reports one whatever the cookie says, and carries nothing but the
@@ -41,6 +44,7 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
     public const string FailurePrefix = "fail:";
     public const string NoEmailValue = "noemail";
     public const string IdentityPrefix = "identity:";
+    public const string UnexpectedEmailPrefix = "unexpectedemail:";
     public const string StaleAuthenticationValue = "staleauthentication";
     public const string FutureAuthenticationValue = "futureauthentication";
     public const string LowAssuranceValue = "lowassurance";
@@ -48,6 +52,9 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
 
     // The default provider user id of the Google mock, which the API tests drive through the Google endpoints
     public static readonly string MockProviderUserId = BuildProviderUserId(ExternalProviderType.Google, DefaultProviderUserIdSuffix);
+
+    // The same for the MitID mock, which the API tests drive through the MitID endpoints
+    public static readonly string MockMitIdProviderUserId = BuildProviderUserId(ExternalProviderType.MitId, DefaultProviderUserIdSuffix);
 
     private readonly bool _isEnabled = configuration.GetValue<bool>("OAuth:AllowMockProvider");
 
@@ -103,7 +110,11 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
         var failureMode = GetFailureMode(cookieValue);
         var (providerUserId, email) = GetProviderUserIdAndEmail(cookieValue);
         var isIdentityOnlyProvider = !ExternalAuthenticationPolicy.SuppliesEmail(providerType);
-        if (isIdentityOnlyProvider) email = null;
+
+        // "unexpectedemail" exists to break the provider's own contract, so it is the one form the suppression does
+        // not apply to. Account resolution must refuse to use the email whatever the provider sends.
+        var suppliesUnexpectedEmail = cookieValue?.StartsWith(UnexpectedEmailPrefix, StringComparison.Ordinal) == true;
+        if (isIdentityOnlyProvider && !suppliesUnexpectedEmail) email = null;
         var emailVerified = email is not null && failureMode != "email_not_verified";
         var nonce = ExtractNonceFromMockIdToken(tokenResponse.IdToken);
 
@@ -150,6 +161,12 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
         if (cookieValue == NoEmailValue)
         {
             return (BuildProviderUserId(providerType, DefaultProviderUserIdSuffix), null);
+        }
+
+        if (cookieValue.StartsWith(UnexpectedEmailPrefix, StringComparison.Ordinal))
+        {
+            var parts = cookieValue[UnexpectedEmailPrefix.Length..].Split(':', 2);
+            return (BuildProviderUserId(providerType, parts[0]), parts.Length == 2 ? BuildEmail(parts[1]) : MockEmail);
         }
 
         if (cookieValue.StartsWith(IdentityPrefix, StringComparison.Ordinal))

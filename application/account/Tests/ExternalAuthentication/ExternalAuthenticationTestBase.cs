@@ -41,6 +41,13 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     // Tests use the in-memory test server (WebApplicationFactory); no real listener is bound.
     // SinglePageAppConfiguration only consumes this as a URI.
     protected const string PublicUrl = "https://localhost";
+
+    // The verification evidence seeded by InsertVerifiedMitIdIdentity. Fixed values so a test can assert that a
+    // login left every one of them untouched, which is what proves a login does not refresh a verification.
+    protected static readonly DateTimeOffset VerifiedAt = new(2026, 9, 1, 10, 0, 0, TimeSpan.Zero);
+    protected static readonly DateTimeOffset AuthenticatedAt = new(2026, 9, 1, 9, 59, 0, TimeSpan.Zero);
+    protected static readonly ExternalLoginId VerifiedByExternalLoginId = ExternalLoginId.NewId();
+
     protected readonly Faker Faker = new();
     protected readonly TelemetryEventsCollectorSpy TelemetryEventsCollectorSpy;
     protected readonly TimeProvider TimeProvider;
@@ -232,7 +239,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     ///     Presents a flow's code and state to a callback route it was not started for, so the tests can prove that the
     ///     route only decides which handler runs and that every decision is made on the persisted flow.
     /// </summary>
-    protected async Task<HttpResponseMessage> CallCallbackAtRoute(string callbackUrl, IEnumerable<string> cookies, ExternalProviderType providerType, string flowType, bool useMockProvider = true)
+    protected async Task<HttpResponseMessage> CallCallbackAtRoute(string callbackUrl, IEnumerable<string> cookies, ExternalProviderType providerType, string flowType, bool useMockProvider = true, string mockProviderCookieValue = "true")
     {
         var uri = ToAbsoluteUri(callbackUrl);
         var queryParams = HttpUtility.ParseQueryString(uri.Query);
@@ -246,7 +253,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         }
 
         // Setting any Cookie header stops HttpClient adding its own default, so the mock provider is opt in here
-        request.Headers.TryAddWithoutValidation("Cookie", useMockProvider ? $"{OAuthProviderFactory.UseMockProviderCookieName}=true" : "unrelated-cookie=value");
+        request.Headers.TryAddWithoutValidation("Cookie", useMockProvider ? $"{OAuthProviderFactory.UseMockProviderCookieName}={mockProviderCookieValue}" : "unrelated-cookie=value");
 
         return await NoRedirectHttpClient.SendAsync(request);
     }
@@ -400,6 +407,25 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
             ]
         );
         return externalIdentity.Id;
+    }
+
+    /// <summary>
+    ///     Seeds an identity that has been verified with MitID and may therefore log in, carrying the evidence a
+    ///     verification callback would have written. Seeded directly rather than by driving a verification flow
+    ///     first, so a login test fails for a reason in the login path.
+    /// </summary>
+    protected ExternalIdentityId InsertVerifiedMitIdIdentity(UserId userId, string providerUserId, TenantId? tenantId = null)
+    {
+        var externalIdentityId = InsertExternalIdentity(userId, ExternalProviderType.MitId, providerUserId, tenantId);
+        Connection.Update("external_identities", "id", externalIdentityId.ToString(), [
+                ("capabilities", $"{nameof(ExternalIdentityCapabilities.Login)}, {nameof(ExternalIdentityCapabilities.Verification)}"),
+                ("assurance_level", nameof(IdentityAssuranceLevel.Substantial)),
+                ("verified_at", VerifiedAt),
+                ("authenticated_at", AuthenticatedAt),
+                ("verified_by_external_login_id", VerifiedByExternalLoginId.ToString())
+            ]
+        );
+        return externalIdentityId;
     }
 
     protected long CountExternalIdentities(ExternalProviderType providerType, string providerUserId, TenantId? tenantId = null)
