@@ -40,13 +40,13 @@ public sealed class GithubConfigCommand : Command
             "MitID verification"
         ),
         ["MITID_CLIENT_ID"] = new GithubConfig(
-            "Client ID of the MitID login application from the Idura dashboard",
+            "Client ID/Realm of the Verify application for MitID from the Idura dashboard",
             GithubType.Variable,
             "urn:my:application:identifier:123456",
             "MitID verification"
         ),
         ["MITID_CLIENT_SECRET"] = new GithubConfig(
-            "Client secret of the MitID login application from the Idura dashboard",
+            "Client secret of the Verify application for MitID from the Idura dashboard",
             GithubType.Secret,
             "your-client-secret-value",
             "MitID verification"
