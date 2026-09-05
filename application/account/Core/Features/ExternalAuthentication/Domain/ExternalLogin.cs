@@ -58,16 +58,19 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
     public bool UsedMockProvider { get; private init; }
 
     /// <summary>
-    ///     The user the flow is bound to, set from the execution context when a verification flow starts. Null for
-    ///     login and signup, which resolve an account from the provider's reply instead.
+    ///     The account this flow belongs to, and the only way a completed flow can be traced back to a person. A
+    ///     verification flow is bound to its user when it starts, because it writes to an account that is known
+    ///     before the provider replies. A login or signup flow starts unbound and records the account it resolved
+    ///     when it completes, which is the only handle the back office has on a flow whose provider supplied no
+    ///     email.
     /// </summary>
-    public UserId? UserId { get; private init; }
+    public UserId? UserId { get; private set; }
 
     /// <summary>
     ///     The tenant of <see cref="UserId" />. Deliberately not an <c>ITenantScopedEntity</c>: the callback arrives
     ///     without a tenant context, and the query filter would then hide every row.
     /// </summary>
-    public TenantId? TenantId { get; private init; }
+    public TenantId? TenantId { get; private set; }
 
     /// <summary>
     ///     The session that started the flow. Recorded for forensics; the binding check uses <see cref="UserId" />.
@@ -115,6 +118,22 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
         }
 
         return new ExternalLogin(type, providerType, codeVerifier, nonce, browserFingerprint, usedMockProvider, userId, tenantId, sessionId);
+    }
+
+    /// <summary>
+    ///     Records the account a login or signup flow resolved, so the flow can be found by user as well as by email.
+    ///     A verification flow was bound at the start and passes the same user again, which changes nothing; a flow
+    ///     that tried to record a different user would mean account resolution had contradicted the binding.
+    /// </summary>
+    public void RecordResolvedUser(UserId userId, TenantId tenantId)
+    {
+        if (UserId is not null && UserId != userId)
+        {
+            throw new UnreachableException($"The external login is bound to user '{UserId}' and cannot resolve to user '{userId}'.");
+        }
+
+        UserId = userId;
+        TenantId = tenantId;
     }
 
     public void MarkCompleted(string? email)

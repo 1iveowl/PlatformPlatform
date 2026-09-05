@@ -851,6 +851,9 @@ msgstr "Microsoft DPA (opens in new window)"
 msgid "Microsoft patches and secures all PaaS infrastructure automatically"
 msgstr "Microsoft patches and secures all PaaS infrastructure automatically"
 
+msgid "MitID"
+msgstr "MitID"
+
 msgid "Mobile"
 msgstr "Mobile"
 

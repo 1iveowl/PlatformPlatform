@@ -141,6 +141,7 @@ public sealed class CompleteExternalLoginHandler(
             }
 
             externalLogin.MarkCompleted(userProfile.Email);
+            externalLogin.RecordResolvedUser(user.Id, user.TenantId);
             externalLoginRepository.Update(externalLogin);
 
             var httpContext = httpContextAccessor.HttpContext!;

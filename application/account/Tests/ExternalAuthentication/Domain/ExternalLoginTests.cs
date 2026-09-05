@@ -283,6 +283,40 @@ public sealed class ExternalLoginTests
     }
 
     [Fact]
+    public void RecordResolvedUser_WhenTheFlowStartedUnbound_ShouldRecordTheAccount()
+    {
+        // Arrange
+        var externalLogin = ExternalLogin.Create(ExternalLoginType.Login, ExternalProviderType.MitId, "code-verifier", "nonce-value", "browser-fingerprint", false);
+        var userId = UserId.NewId();
+        var tenantId = TenantId.NewId();
+
+        // Act
+        externalLogin.RecordResolvedUser(userId, tenantId);
+
+        // Assert
+        externalLogin.UserId.Should().Be(userId);
+        externalLogin.TenantId.Should().Be(tenantId);
+    }
+
+    [Fact]
+    public void RecordResolvedUser_WhenTheFlowIsBoundToAnotherUser_ShouldThrow()
+    {
+        // A verification flow is bound to its user before the provider replies, so resolving to a different one would
+        // mean account resolution had contradicted the binding the callback already checked.
+
+        // Arrange
+        var boundUserId = UserId.NewId();
+        var externalLogin = ExternalLogin.Create(ExternalLoginType.Verification, ExternalProviderType.MitId, "code-verifier", "nonce-value", "browser-fingerprint", false, boundUserId, TenantId.NewId());
+
+        // Act
+        var otherUserId = UserId.NewId();
+        var action = () => externalLogin.RecordResolvedUser(otherUserId, TenantId.NewId());
+
+        // Assert
+        action.Should().Throw<UnreachableException>().WithMessage($"The external login is bound to user '{boundUserId}' and cannot resolve to user '{otherUserId}'.");
+    }
+
+    [Fact]
     public void Create_WhenVerificationFlowIsNotBoundToAUser_ShouldThrow()
     {
         // Act

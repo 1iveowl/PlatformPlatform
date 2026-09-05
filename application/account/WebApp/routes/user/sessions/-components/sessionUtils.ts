@@ -77,6 +77,8 @@ export function getLoginMethodLabel(loginMethod: UserSessionInfo["loginMethod"])
       return t`Google`;
     case LoginMethod.Entra:
       return t`Microsoft`;
+    case LoginMethod.MitId:
+      return t`MitID`;
     default:
       return t`Unknown`;
   }

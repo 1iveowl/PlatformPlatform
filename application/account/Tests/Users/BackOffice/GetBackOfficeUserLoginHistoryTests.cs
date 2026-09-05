@@ -44,6 +44,53 @@ public sealed class GetBackOfficeUserLoginHistoryTests(BackOfficeWebApplicationF
     }
 
     [Fact]
+    public async Task GetBackOfficeUserLoginHistory_WhenTheUserHasAMitIdLogin_ShouldReturnItWithoutDuplicatingTheOthers()
+    {
+        // A MitID login carries no email, because the provider vouches for none, so it is found by the account it
+        // resolved instead. Before that lookup existed it was invisible here with no error anywhere.
+
+        // Arrange
+        var user = DatabaseSeeder.Tenant1Owner;
+        SeedExternalLogin(user.Email, ExternalLoginResult.Success, 5);
+        SeedExternalLogin(ExternalProviderType.MitId, null, user.Id, user.TenantId, ExternalLoginResult.Success, 2);
+        var identity = MockEasyAuthIdentities.Default.Single(i => i.Id == "user");
+        using var client = CreateBackOfficeClientForIdentity(identity);
+
+        // Act
+        var response = await client.GetAsync($"/api/back-office/users/{user.Id}/login-history");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<BackOfficeUserLoginHistoryResponse>();
+        payload.Should().NotBeNull();
+        payload.Entries.Should().HaveCount(2);
+        payload.Entries.Should().ContainSingle(e => e.Method == LoginMethod.MitId && e.ExternalProvider == ExternalProviderType.MitId && e.Outcome == LoginEventOutcome.Succeeded);
+        payload.Entries.Should().ContainSingle(e => e.Method == LoginMethod.Google);
+    }
+
+    [Fact]
+    public async Task GetBackOfficeUserLoginHistory_WhenALoginMatchesBothByEmailAndByUser_ShouldReturnItOnce()
+    {
+        // A Google login records the account it resolved as well as the email it carried, so it is found by both
+        // lookups. It must still appear once.
+
+        // Arrange
+        var user = DatabaseSeeder.Tenant1Owner;
+        SeedExternalLogin(ExternalProviderType.Google, user.Email, user.Id, user.TenantId, ExternalLoginResult.Success, 5);
+        var identity = MockEasyAuthIdentities.Default.Single(i => i.Id == "user");
+        using var client = CreateBackOfficeClientForIdentity(identity);
+
+        // Act
+        var response = await client.GetAsync($"/api/back-office/users/{user.Id}/login-history");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<BackOfficeUserLoginHistoryResponse>();
+        payload.Should().NotBeNull();
+        payload.Entries.Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task GetBackOfficeUserLoginHistory_WhenLoginsAreOlderThan30Days_ShouldNotReturnThem()
     {
         // Arrange
@@ -124,18 +171,25 @@ public sealed class GetBackOfficeUserLoginHistoryTests(BackOfficeWebApplicationF
 
     private void SeedExternalLogin(string email, ExternalLoginResult? result, int createdMinutesAgo)
     {
+        SeedExternalLogin(ExternalProviderType.Google, email, null, null, result, createdMinutesAgo);
+    }
+
+    private void SeedExternalLogin(ExternalProviderType providerType, string? email, UserId? userId, TenantId? tenantId, ExternalLoginResult? result, int createdMinutesAgo)
+    {
         Connection.Insert("external_logins", [
                 ("id", ExternalLoginId.NewId().ToString()),
                 ("created_at", DateTimeOffset.UtcNow.AddMinutes(-createdMinutesAgo)),
                 ("modified_at", null),
                 ("type", nameof(ExternalLoginType.Login)),
-                ("provider_type", nameof(ExternalProviderType.Google)),
-                ("email", email.ToLower()),
+                ("provider_type", providerType.ToString()),
+                ("email", email?.ToLower()),
                 ("code_verifier", "code-verifier"),
                 ("nonce", "nonce"),
                 ("browser_fingerprint", "fingerprint"),
                 ("login_result", result?.ToString()),
-                ("used_mock_provider", false)
+                ("used_mock_provider", false),
+                ("user_id", userId?.ToString()),
+                ("tenant_id", tenantId?.ToString())
             ]
         );
     }
