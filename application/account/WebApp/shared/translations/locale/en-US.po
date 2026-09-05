@@ -403,6 +403,9 @@ msgstr "Compliance"
 msgid "Confirm downgrade"
 msgstr "Confirm downgrade"
 
+msgid "Confirm with <0/>"
+msgstr "Confirm with <0/>"
+
 msgid "Contact support"
 msgstr "Contact support"
 
@@ -1501,9 +1504,6 @@ msgstr "Verified with MitID"
 
 msgid "Verify"
 msgstr "Verify"
-
-msgid "Verify with MitID"
-msgstr "Verify with MitID"
 
 msgid "Verifying..."
 msgstr "Verifying..."

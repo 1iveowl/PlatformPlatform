@@ -438,8 +438,8 @@ MitID's pre-production environment has a test tool that creates synthetic identi
 1. Open the [MitID test tool](https://pp.mitid.dk/test-tool/frontend/#/create-identity), click **AUTOFILL** to fill the identity with synthetic data, and click **CREATE IDENTITY**. Do not enter a real email address or other real data; nothing from the identity reaches PlatformPlatform except the MitID `uuid`
 2. Copy the **Identity Claim** shown on the identity page. That is the **USER ID** the MitID login page asks for
 3. Open the test tool's **app simulator** and keep it open. It plays the role of the MitID app on the phone. The MitID test app from [pp.mitid.dk/mitid-app](https://pp.mitid.dk/mitid-app/index.html) works too, but on Android it cannot be installed next to the real MitID app
-4. Sign in to PlatformPlatform with email, open **User profile**, click **Verify with MitID**, enter the Identity Claim as the user ID, and approve the authentication in the simulator
-5. Finish within five minutes of clicking **Verify with MitID**. A verification flow expires after `ExternalLogin.ValidForSeconds`, and a late return from the broker shows "Your session has expired" and writes nothing, so create the identity and open the simulator first and start the flow last
+4. Sign in to PlatformPlatform with email, open **User profile**, click **Confirm with MitID**, enter the Identity Claim as the user ID, and approve the authentication in the simulator
+5. Finish within five minutes of clicking **Confirm with MitID**. A verification flow expires after `ExternalLogin.ValidForSeconds`, and a late return from the broker shows "Your session has expired" and writes nothing, so create the identity and open the simulator first and start the flow last
 6. The profile page then shows **Verified with MitID** with a "Substantial assurance" badge. Verifying again with the same test identity refreshes the evidence. To verify with a different identity, a back-office administrator first revokes the current one with `DELETE /api/back-office/users/{id}/identity-verification`; the user cannot rebind it themselves
 
 </details>

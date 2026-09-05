@@ -63,7 +63,7 @@ test.describe("@smoke", () => {
 
       await expect(page.getByRole("heading", { name: "Identity verification" })).toBeVisible();
       await setMockProviderCookie(page, `identity:${faker.string.alphanumeric(10)}`);
-      await page.getByRole("button", { name: "Verify with MitID" }).click();
+      await page.getByRole("button", { name: "Confirm with MitID" }).click();
 
       await expect(page.getByText("Verified with MitID")).toBeVisible();
       await expect(page).toHaveURL("/user/profile");
@@ -75,7 +75,7 @@ test.describe("@smoke", () => {
       await page.goto("/user/profile");
 
       await expect(page.getByText("Verified with MitID")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Verify with MitID" })).not.toBeVisible();
+      await expect(page.getByRole("button", { name: "Confirm with MitID" })).not.toBeVisible();
     })();
   });
 });
@@ -93,17 +93,19 @@ test.describe("@comprehensive", () => {
    * Note: A linked identity needs two users in one account, so that refusal is proved by the API tests and its
    * page is rendered directly here.
    */
-  test("should refuse a stale or weak authentication and render the MitID refusal error pages", async ({ ownerPage }) => {
+  test("should refuse a stale or weak authentication and render the MitID refusal error pages", async ({
+    ownerPage
+  }) => {
     createTestContext(ownerPage);
 
     // === STALE AUTHENTICATION THROUGH THE PROFILE ===
 
-    await step("Verify with MitID using a stale authentication & land on the authentication failed page")(async () => {
+    await step("Confirm with MitID using a stale authentication & land on the authentication failed page")(async () => {
       await ownerPage.goto("/user/profile");
 
       await expect(ownerPage.getByRole("heading", { name: "Identity verification" })).toBeVisible();
       await setMockProviderCookie(ownerPage, "staleauthentication");
-      await ownerPage.getByRole("button", { name: "Verify with MitID" }).click();
+      await ownerPage.getByRole("button", { name: "Confirm with MitID" }).click();
 
       await expect(ownerPage.getByRole("heading", { name: "Authentication failed" })).toBeVisible();
       await expect(ownerPage.getByText("We detected a security issue with your login attempt.")).toBeVisible();
@@ -113,13 +115,13 @@ test.describe("@comprehensive", () => {
 
     // === LOW ASSURANCE LEVEL THROUGH THE PROFILE ===
 
-    await step("Verify with MitID at a low assurance level & land on the verification not strong enough page")(
+    await step("Confirm with MitID at a low assurance level & land on the verification not strong enough page")(
       async () => {
         await ownerPage.goto("/user/profile");
 
         await expect(ownerPage.getByRole("heading", { name: "Identity verification" })).toBeVisible();
         await setMockProviderCookie(ownerPage, "lowassurance");
-        await ownerPage.getByRole("button", { name: "Verify with MitID" }).click();
+        await ownerPage.getByRole("button", { name: "Confirm with MitID" }).click();
 
         await expect(ownerPage.getByRole("heading", { name: "Verification not strong enough" })).toBeVisible();
         await expect(ownerPage.getByText("Your identity could not be verified at the required level.")).toBeVisible();
@@ -131,7 +133,7 @@ test.describe("@comprehensive", () => {
       await ownerPage.getByRole("button", { name: "Back to profile" }).click();
 
       await expect(ownerPage).toHaveURL("/user/profile");
-      await expect(ownerPage.getByRole("button", { name: "Verify with MitID" })).toBeVisible();
+      await expect(ownerPage.getByRole("button", { name: "Confirm with MitID" })).toBeVisible();
     })();
 
     // === DIRECT ERROR PAGE RENDERING ===
@@ -144,6 +146,5 @@ test.describe("@comprehensive", () => {
       await expect(ownerPage.getByRole("button", { name: "Back to profile" })).toBeVisible();
       await expect(ownerPage.getByText("Reference ID: test-ref-101")).toBeVisible();
     })();
-
   });
 });

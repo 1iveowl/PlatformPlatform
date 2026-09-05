@@ -8,6 +8,7 @@ import { useFormatDate } from "@repo/ui/hooks/useSmartDate";
 import { ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
 
+import mitIdLogoUrl from "@/shared/images/mitid-logo.svg";
 import { api, ExternalProviderType, IdentityAssuranceLevel, type Schemas } from "@/shared/lib/api/client";
 
 const profilePath = "/user/profile";
@@ -67,18 +68,36 @@ function VerificationSection() {
         <Trans>Prove who you are with MitID. Your name and personal identification number are not stored.</Trans>
       </p>
 
-      {isLoading && <Skeleton className="h-[var(--control-height)] w-44" />}
+      {isLoading && <Skeleton className="h-12 w-44" />}
 
       {mitIdVerification && (
         <VerifiedState assuranceLevel={mitIdVerification.assuranceLevel} verifiedAt={mitIdVerification.verifiedAt} />
       )}
 
-      {!isLoading && !isError && !mitIdVerification && (
-        <Button type="button" variant="outline" onClick={handleVerify} isPending={isRedirecting}>
-          {!isRedirecting && <ShieldCheckIcon className="size-5" aria-hidden={true} />}
-          {isRedirecting ? <Trans>Redirecting...</Trans> : <Trans>Verify with MitID</Trans>}
-        </Button>
-      )}
+      {!isLoading &&
+        !isError &&
+        !mitIdVerification && (
+          // MitID prescribes this button's colour, height, corner radius and typeface, and the label must be one of
+          // five approved phrases. Those values are audited by the broker, so they are pinned here as a deliberate
+          // exception to the design system rather than mapped onto the nearest token. The hover and active shades are
+          // opaque rather than an opacity of the resting colour, because a translucent tint composites against the
+          // page and would resolve to a different colour in the light and dark themes.
+          <Button
+            type="button"
+            onClick={handleVerify}
+            isPending={isRedirecting}
+            className="h-12 w-fit rounded-[4px] bg-[#0060e6] py-1 pr-3 pl-4 text-base font-semibold text-white hover:bg-[#0056cf] active:bg-[#004db8]"
+            style={{ fontFamily: '"IBM Plex Sans", Helvetica, Arial, sans-serif' }}
+          >
+            {isRedirecting ? (
+              <Trans>Redirecting...</Trans>
+            ) : (
+              <Trans>
+                Confirm with <img src={mitIdLogoUrl} alt="MitID" className="relative -top-[1.5px] h-4 w-auto" />
+              </Trans>
+            )}
+          </Button>
+        )}
     </div>
   );
 }
