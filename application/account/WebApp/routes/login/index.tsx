@@ -11,10 +11,11 @@ import { mutationSubmitter } from "@repo/ui/forms/mutationSubmitter";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import type { ExternalProviderType } from "@/shared/lib/api/client";
+
 import ErrorPage from "@/federated-modules/errorPages/ErrorPage";
 import { useMainNavigation } from "@/shared/hooks/useMainNavigation";
 import { HorizontalHeroLayout } from "@/shared/layouts/HorizontalHeroLayout";
-import type { ExternalProviderType } from "@/shared/lib/api/client";
 import { api } from "@/shared/lib/api/client";
 
 import { getSignupState } from "../signup/-shared/signupState";
