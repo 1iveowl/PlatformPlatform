@@ -403,6 +403,9 @@ msgstr "Compliance"
 msgid "Confirm downgrade"
 msgstr "Bekræft nedgradering"
 
+msgid "Confirm with <0/>"
+msgstr "Bekræft med <0/>"
+
 msgid "Contact support"
 msgstr "Kontakt support"
 
@@ -1501,9 +1504,6 @@ msgstr "Bekræftet med MitID"
 
 msgid "Verify"
 msgstr "Bekræft"
-
-msgid "Verify with MitID"
-msgstr "Bekræft med MitID"
 
 msgid "Verifying..."
 msgstr "Bekræfter..."
