@@ -1016,6 +1016,30 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
     }
 
     [Fact]
+    public async Task CompleteExternalLogin_WhenMitIdUnexpectedlySuppliesTheUsersEmail_ShouldNotConfirmIt()
+    {
+        // An address is only as confirmed as whoever vouched for it. MitID vouches for no email, so even one that
+        // happens to match the account's must not mark it confirmed.
+
+        // Arrange
+        const string emailPrefix = "unconfirmed-person";
+        var email = $"{emailPrefix}{OAuthProviderFactory.MockEmailDomain}";
+        var userId = InsertUser(email, emailConfirmed: false);
+        InsertVerifiedMitIdIdentity(userId, "mock-mitid-person-1");
+        var mockProviderCookieValue = $"{MockOAuthProvider.UnexpectedEmailPrefix}person-1:{emailPrefix}";
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login", mockProviderCookieValue: mockProviderCookieValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        GetSessionTenantId(userId).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
+        Connection.ExecuteScalar<long>("SELECT email_confirmed FROM users WHERE id = @id", [new { id = userId.ToString() }]).Should().Be(0);
+    }
+
+    [Fact]
     public async Task CompleteExternalLogin_WhenMitIdReportsALowAssuranceLevel_ShouldStillLogInAndLeaveTheEvidenceUntouched()
     {
         // Assurance is established at verification time and nowhere else. Enforcing a level here would hold MitID to a

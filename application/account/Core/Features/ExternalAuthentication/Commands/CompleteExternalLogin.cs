@@ -117,9 +117,11 @@ public sealed class CompleteExternalLoginHandler(
                 }
             }
 
-            // The provider only vouches for its own email, so a stored email is confirmed when it is the one the
-            // provider verified; a profile without an email or with a different email leaves it unconfirmed
-            if (!user.EmailConfirmed && string.Equals(userProfile.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+            // A stored email is confirmed when it is the one the provider verified; a profile without an email or
+            // with a different email leaves it unconfirmed. A provider that vouches for no email confirms nothing,
+            // even if it unexpectedly returns one that matches: an address is only as confirmed as whoever vouched
+            // for it, and MitID never did.
+            if (suppliesEmail && !user.EmailConfirmed && string.Equals(userProfile.Email, user.Email, StringComparison.OrdinalIgnoreCase))
             {
                 user.ConfirmEmail();
                 userRepository.Update(user);
