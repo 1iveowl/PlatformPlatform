@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Integrations.OAuth;
 using Account.Integrations.OAuth.MitId;
@@ -174,6 +175,99 @@ public sealed class MitIdOAuthProviderTests : IDisposable
         // Assert
         profile.Should().NotBeNull();
         profile.AssuranceLevel.Should().Be(IdentityAssuranceLevel.Substantial);
+    }
+
+    [Theory]
+    [InlineData("employee", "true", false)]
+    [InlineData("companySignatory", "true", false)]
+    [InlineData("employee", true, false)]
+    [InlineData("companySignatory", true, false)]
+    [InlineData("employee", "true", true)]
+    [InlineData("companySignatory", "true", true)]
+    [InlineData("employee", false, true)]
+    [InlineData("companySignatory", "unknown", true)]
+    public async Task GetUserProfileAsync_WhenBusinessContextIsPresent_ShouldRejectIndependentlyOfAssurance(string claimName, object claimValue, bool standardClaims)
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims[claimName] = claimValue;
+        if (standardClaims)
+        {
+            claims["acr"] = "urn:grn:authn:dk:mitid:high";
+        }
+        else
+        {
+            claims.Remove("acr");
+            claims.Remove("auth_time");
+            claims["loA"] = "SUBSTANTIAL";
+            claims["authenticationinstant"] = AuthenticationInstant.ToString("O");
+        }
+
+        var idToken = CreateIdToken(claims);
+
+        // Act
+        var profile = await CreateProvider().GetUserProfileAsync(new OAuthTokenResponse(AccessToken, idToken, 3600), CancellationToken.None);
+
+        // Assert
+        using var payload = JsonDocument.Parse(Base64UrlEncoder.Decode(idToken.Split('.')[1]));
+        payload.RootElement.GetProperty(claimName).ValueKind.Should().Be(claimValue is bool value ? value ? JsonValueKind.True : JsonValueKind.False : JsonValueKind.String);
+        profile.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("99")]
+    [InlineData("0")]
+    [InlineData("1")]
+    [InlineData("2")]
+    [InlineData("3")]
+    [InlineData("Low, Substantial")]
+    [InlineData("urn:grn:authn:dk:mitid:99")]
+    [InlineData("urn:other:substantial")]
+    [InlineData("urn:grn:authn:dk:mitid:unknown")]
+    public async Task GetUserProfileAsync_WhenAssuranceIsNotAnExplicitLevel_ShouldReturnNull(string assurance)
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims["acr"] = assurance;
+        claims["loA"] = "SUBSTANTIAL";
+        var idToken = CreateIdToken(claims);
+
+        // Act
+        var profile = await CreateProvider().GetUserProfileAsync(new OAuthTokenResponse(AccessToken, idToken, 3600), CancellationToken.None);
+
+        // Assert
+        profile.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("low", IdentityAssuranceLevel.Low)]
+    [InlineData("SUBSTANTIAL", IdentityAssuranceLevel.Substantial)]
+    [InlineData("High", IdentityAssuranceLevel.High)]
+    [InlineData("urn:grn:authn:dk:mitid:low", IdentityAssuranceLevel.Low)]
+    [InlineData("URN:GRN:AUTHN:DK:MITID:SUBSTANTIAL", IdentityAssuranceLevel.Substantial)]
+    [InlineData("urn:grn:authn:dk:mitid:high", IdentityAssuranceLevel.High)]
+    public async Task GetUserProfileAsync_WhenCitizenUsesObservedLegacyClaims_ShouldPreserveTheExplicitLevel(string assurance, IdentityAssuranceLevel expectedLevel)
+    {
+        // Arrange
+        var claims = CreateValidClaims();
+        claims.Remove("acr");
+        claims.Remove("auth_time");
+        claims["loA"] = assurance;
+        claims["authenticationinstant"] = AuthenticationInstant.ToString("O");
+        var idToken = CreateIdToken(claims);
+
+        // Act
+        var profile = await CreateProvider().GetUserProfileAsync(new OAuthTokenResponse(AccessToken, idToken, 3600), CancellationToken.None);
+
+        // Assert
+        using var payload = JsonDocument.Parse(Base64UrlEncoder.Decode(idToken.Split('.')[1]));
+        payload.RootElement.TryGetProperty("acr", out _).Should().BeFalse();
+        payload.RootElement.TryGetProperty("auth_time", out _).Should().BeFalse();
+        payload.RootElement.GetProperty("loA").ValueKind.Should().Be(JsonValueKind.String);
+        payload.RootElement.GetProperty("authenticationinstant").ValueKind.Should().Be(JsonValueKind.String);
+        profile.Should().NotBeNull();
+        profile.AssuranceLevel.Should().Be(expectedLevel);
+        profile.AuthenticationInstant.Should().Be(AuthenticationInstant);
     }
 
     [Fact]

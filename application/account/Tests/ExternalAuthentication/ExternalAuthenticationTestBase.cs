@@ -46,7 +46,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     protected readonly TimeProvider TimeProvider;
     private readonly WebApplicationFactory<Program> _webApplicationFactory;
 
-    protected ExternalAuthenticationTestBase()
+    protected ExternalAuthenticationTestBase(Action<IServiceCollection>? configureServices = null)
     {
         Environment.SetEnvironmentVariable(SinglePageAppConfiguration.PublicUrlKey, PublicUrl);
         Environment.SetEnvironmentVariable(SinglePageAppConfiguration.CdnUrlKey, $"{PublicUrl}/account");
@@ -108,6 +108,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
                         testServices.AddTransient<IEmailClient>(_ => emailClient);
 
                         testServices.AddScoped<IExecutionContext, HttpExecutionContext>();
+                        configureServices?.Invoke(testServices);
                     }
                 );
             }

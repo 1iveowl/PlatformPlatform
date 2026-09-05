@@ -156,6 +156,13 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
 
         var token = (JsonWebToken)validationResult.SecurityToken;
 
+        // Idura documents private authentication without either business-context claim.
+        if (token.Claims.Any(c => c.Type is "employee" or "companySignatory"))
+        {
+            logger.LogWarning("MitID token validation failed: business identity context is not supported");
+            return null;
+        }
+
         if (!ValidateAccessTokenHash(token, tokenResponse.AccessToken))
         {
             return null;
@@ -195,11 +202,7 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
             return null;
         }
 
-        // acr_values is a hint in OpenID Connect rather than a requirement, so a provider is free to satisfy an
-        // authorization request at a lower level. That is not refused here: the profile carries the level actually
-        // reached, and the verification handler refuses anything below the requirement with its own outcome, so the
-        // person is told the verification was not strong enough rather than that authentication failed.
-
+        // The verification handler applies its minimum to the validated level.
         var authenticationInstant = ReadAuthenticationInstant(token);
         if (authenticationInstant is null)
         {
@@ -227,17 +230,7 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
         return $"{AssuranceLevelUrnPrefix}{assuranceLevel.ToString().ToLowerInvariant()}";
     }
 
-    /// <summary>
-    ///     The broker's public reference lists only the user-specific claims and says the issued token carries further
-    ///     technical fields it does not name, so the standard claim is read first and the broker's own legacy claim
-    ///     second. An unrecognised shape is logged rather than guessed at, because a provider in this system once
-    ///     shipped a claim read against its documented type instead of its observed one and no test could see it.
-    ///     A MitID Erhverv authentication lands here as an unmapped value and is refused, which is intended: business
-    ///     identities return a different uuid for the same person.
-    ///     Observed against the sandbox on 2026-09-04: the broker emits no <c>acr</c> claim and the value arrives in
-    ///     <c>loA</c>, so the fallback is the live path rather than a precaution. The standard name is still read
-    ///     first, so a broker that later adopts it needs no change here.
-    /// </summary>
+    // The sandbox emits loA rather than acr (observed 2026-09-04). Prefer the standard claim when present.
     private IdentityAssuranceLevel? ReadAssuranceLevel(JsonWebToken token)
     {
         foreach (var claimType in (string[])[StandardAssuranceLevelClaim, LegacyAssuranceLevelClaim])
@@ -249,10 +242,14 @@ public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration con
                 ? claimValue[AssuranceLevelUrnPrefix.Length..]
                 : claimValue;
 
-            if (Enum.TryParse<IdentityAssuranceLevel>(levelName, true, out var assuranceLevel))
+            IdentityAssuranceLevel? assuranceLevel = levelName.ToLowerInvariant() switch
             {
-                return assuranceLevel;
-            }
+                "low" => IdentityAssuranceLevel.Low,
+                "substantial" => IdentityAssuranceLevel.Substantial,
+                "high" => IdentityAssuranceLevel.High,
+                _ => null
+            };
+            if (assuranceLevel is not null) return assuranceLevel;
 
             // The value is one of the broker's assurance level identifiers, not something that identifies a person, and
             // an unrecognised level is exactly the case where the value is needed to see what changed

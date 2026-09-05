@@ -26,7 +26,8 @@ public sealed class ExternalLoginRepository(AccountDbContext accountDbContext)
     public async Task<ExternalLogin[]> GetByUserSinceAsync(UserId userId, string email, DateTimeOffset since, CancellationToken cancellationToken)
     {
         var logins = await DbSet.Where(el => (el.Type == ExternalLoginType.Login || el.Type == ExternalLoginType.Signup)
-                && (el.UserId == userId || (el.UserId == null && el.Email == email.ToLowerInvariant())))
+                                             && (el.UserId == userId || (el.UserId == null && el.Email == email.ToLowerInvariant()))
+            )
             .ToArrayAsync(cancellationToken);
         return logins.Where(el => el.CreatedAt >= since).ToArray();
     }
