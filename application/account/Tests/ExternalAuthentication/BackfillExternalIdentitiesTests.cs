@@ -64,9 +64,6 @@ public sealed class BackfillExternalIdentitiesTests : ExternalAuthenticationTest
         Connection.ExecuteScalar<string>("SELECT user_id FROM external_identities WHERE provider_user_id = @provider_user_id", parameters).Should().Be(liveUserId.ToString());
     }
 
-    // The next two tests are the only proof of the contested-key policy. A real-data backfill cannot exercise it,
-    // because no local database holds a key shared by two live users and manufacturing one means writing jsonb into
-    // the users table, so do not remove them without replacing the coverage.
     [Fact]
     public async Task ExecuteAsync_WhenTwoLiveUsersShareIdentityInTenant_ShouldInsertNoRow()
     {
@@ -119,9 +116,6 @@ public sealed class BackfillExternalIdentitiesTests : ExternalAuthenticationTest
         Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM external_identities", []).Should().Be(0);
     }
 
-    // A login on the new API between the schema migration and the backfill links the user under the provider user id
-    // the token carried. When the account changed at the provider that is a different key from the jsonb entry, and
-    // the (user_id, provider) unique index would abort the whole migration on the insert.
     [Fact]
     public async Task ExecuteAsync_WhenHolderAlreadyHasRowForProviderUnderAnotherKey_ShouldSkipLegacyEntry()
     {
