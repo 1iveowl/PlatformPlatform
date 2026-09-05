@@ -1,4 +1,5 @@
 using Account.Features.ExternalAuthentication.BackOffice.Commands;
+using Account.Features.ExternalAuthentication.BackOffice.Queries;
 using Account.Features.FeatureFlags.Queries;
 using Account.Features.Users.BackOffice.Commands;
 using Account.Features.Users.BackOffice.Queries;
@@ -45,6 +46,10 @@ public sealed class UsersEndpoints : IEndpoints
         group.MapGet("/{id}/feature-flags", async Task<ApiResult<GetUserFeatureFlagsResponse>> (UserId id, IMediator mediator)
             => await mediator.Send(new GetUserFeatureFlagsQuery { UserId = id })
         ).Produces<GetUserFeatureFlagsResponse>();
+
+        group.MapGet("/{id}/identity-verification", async Task<ApiResult<BackOfficeUserIdentityVerificationResponse>> (UserId id, IMediator mediator)
+            => await mediator.Send(new GetBackOfficeUserIdentityVerificationQuery(id))
+        ).Produces<BackOfficeUserIdentityVerificationResponse>();
 
         group.MapPut("/{id}/ab-inclusion-pin", async Task<ApiResult> (UserId id, SetUserAbInclusionPinCommand command, IMediator mediator)
             => await mediator.Send(command with { UserId = id })

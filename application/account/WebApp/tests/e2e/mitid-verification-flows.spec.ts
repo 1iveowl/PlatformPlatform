@@ -1,9 +1,9 @@
 import { faker } from "@faker-js/faker";
 import { expect, type Page } from "@playwright/test";
 import { test } from "@shared/e2e/fixtures/page-auth";
-import { getBaseUrl } from "@shared/e2e/utils/constants";
+import { getBackOfficeBaseUrl, getBaseUrl } from "@shared/e2e/utils/constants";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
-import { completeSignupFlow } from "@shared/e2e/utils/test-data";
+import { completeSignupFlow, logInAsAdmin } from "@shared/e2e/utils/test-data";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
 
 const MOCK_PROVIDER_COOKIE = "__Test_Use_Mock_Provider";
@@ -19,6 +19,13 @@ test.beforeEach(async ({ page }) => {
   });
   test.skip(!isMitIdVerificationEnabled, "MitID verification is not enabled");
 });
+
+async function readUserId(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const metaTag = document.head.getElementsByTagName("meta").namedItem("userInfoEnv");
+    return metaTag ? JSON.parse(metaTag.content).id : "";
+  });
+}
 
 async function setMockProviderCookie(page: Page, value: string): Promise<void> {
   await page.context().addCookies([
@@ -91,12 +98,15 @@ test.describe("@comprehensive", () => {
    *    page's action returns to the profile
    * 3. The identity-already-linked error page renders with its own copy and its action
    * 4. Every page carries the reference id, so a person can quote it to support
+   * 5. An administrator can see a verified user in the back office and revoke the verification, after which the
+   *    person can verify again. That is the only recovery path, since rebinding is refused by design.
    *
    * Note: A linked identity needs two users in one account, so that refusal is proved by the API tests and its
    * page is rendered directly here.
    */
-  test("should refuse a stale or weak authentication and render the MitID refusal error pages", async ({
-    ownerPage
+  test("should refuse a stale or weak authentication, render the refusal pages, and let an administrator revoke", async ({
+    ownerPage,
+    browser
   }) => {
     createTestContext(ownerPage);
 
@@ -137,6 +147,57 @@ test.describe("@comprehensive", () => {
       await expect(ownerPage).toHaveURL("/user/profile");
       await expect(ownerPage.getByRole("button", { name: "Confirm with MitID" })).toBeVisible();
     })();
+
+    // === ADMINISTRATOR RECOVERY ===
+
+    // A user who binds the wrong identity cannot rebind it themselves, by design, so revoking in the back office is
+    // the only recovery path. This drives it through the real page rather than the endpoint.
+
+    await step("Verify successfully & confirm the profile shows the verified state")(async () => {
+      await ownerPage.goto("/user/profile");
+
+      await expect(ownerPage.getByRole("heading", { name: "Identity verification" })).toBeVisible();
+      await setMockProviderCookie(ownerPage, `identity:${faker.string.alphanumeric(10)}`);
+      await ownerPage.getByRole("button", { name: "Confirm with MitID" }).click();
+
+      await expect(ownerPage.getByText("Verified with")).toBeVisible();
+    })();
+
+    const userId = await readUserId(ownerPage);
+    const backOfficeBaseUrl = getBackOfficeBaseUrl();
+    const backOfficeContext = await browser.newContext({ baseURL: backOfficeBaseUrl, ignoreHTTPSErrors: true });
+    const backOfficePage = await backOfficeContext.newPage();
+    createTestContext(backOfficePage);
+
+    await step("Log in to the back office as an administrator & open the verified user")(async () => {
+      await backOfficePage.goto(`${backOfficeBaseUrl}/`);
+      await logInAsAdmin(backOfficePage, `${backOfficeBaseUrl}/`);
+
+      await backOfficePage.goto(`${backOfficeBaseUrl}/users/${userId}`);
+      await backOfficePage.getByRole("tab", { name: "Identity" }).click();
+
+      await expect(backOfficePage.getByRole("heading", { name: "Identity verification" })).toBeVisible();
+      await expect(backOfficePage.getByText("Verified with MitID")).toBeVisible();
+      await expect(backOfficePage.getByText("Substantial assurance")).toBeVisible();
+    })();
+
+    await step("Revoke the verification & confirm the section reports the user is no longer verified")(async () => {
+      await backOfficePage.getByRole("button", { name: "Revoke verification" }).click();
+
+      const revokeDialog = backOfficePage.getByRole("alertdialog", { name: "Revoke identity verification" });
+      await expect(revokeDialog).toBeVisible();
+      await revokeDialog.getByRole("button", { name: "Revoke verification" }).click();
+
+      await expect(backOfficePage.getByText("Not verified")).toBeVisible();
+    })();
+
+    await step("Reload the user's profile & confirm they can verify again")(async () => {
+      await ownerPage.goto("/user/profile");
+
+      await expect(ownerPage.getByRole("button", { name: "Confirm with MitID" })).toBeVisible();
+    })();
+
+    await backOfficeContext.close();
 
     // === DIRECT ERROR PAGE RENDERING ===
 
