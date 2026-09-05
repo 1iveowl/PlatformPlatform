@@ -2,6 +2,7 @@ using System.Security;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.Users.Domain;
 using FluentAssertions;
+using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
 using Xunit;
 
@@ -18,7 +19,8 @@ public sealed class ExternalLoginTests
             ExternalProviderType.Google,
             "code-verifier-123",
             "nonce-abc",
-            "browser-fingerprint-abc"
+            "browser-fingerprint-abc",
+            false
         );
 
         // Assert
@@ -267,6 +269,87 @@ public sealed class ExternalLoginTests
         identity.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(ExternalProviderType.Google, ExternalLoginType.Verification)]
+    [InlineData(ExternalProviderType.Entra, ExternalLoginType.Verification)]
+    [InlineData(ExternalProviderType.MitId, ExternalLoginType.Login)]
+    [InlineData(ExternalProviderType.MitId, ExternalLoginType.Signup)]
+    public void Create_WhenProviderDoesNotSupportTheFlow_ShouldThrow(ExternalProviderType providerType, ExternalLoginType loginType)
+    {
+        // Act
+        var action = () => ExternalLogin.Create(loginType, providerType, "code-verifier", "nonce-value", "browser-fingerprint", false, UserId.NewId(), TenantId.NewId());
+
+        // Assert
+        action.Should().Throw<UnreachableException>().WithMessage($"Provider '{providerType}' does not support the '{loginType}' flow.");
+    }
+
+    [Fact]
+    public void Create_WhenVerificationFlowIsNotBoundToAUser_ShouldThrow()
+    {
+        // Act
+        var action = () => ExternalLogin.Create(ExternalLoginType.Verification, ExternalProviderType.MitId, "code-verifier", "nonce-value", "browser-fingerprint", false);
+
+        // Assert
+        action.Should().Throw<UnreachableException>().WithMessage("The 'Verification' flow must be bound to a user and a tenant.");
+    }
+
+    [Fact]
+    public void Create_WhenVerificationFlowHasNoTenant_ShouldThrow()
+    {
+        // Act
+        var action = () => ExternalLogin.Create(ExternalLoginType.Verification, ExternalProviderType.MitId, "code-verifier", "nonce-value", "browser-fingerprint", false, UserId.NewId());
+
+        // Assert
+        action.Should().Throw<UnreachableException>().WithMessage("The 'Verification' flow must be bound to a user and a tenant.");
+    }
+
+    [Theory]
+    [InlineData(ExternalLoginType.Login)]
+    [InlineData(ExternalLoginType.Signup)]
+    public void Create_WhenAnUnboundFlowIsGivenAUser_ShouldThrow(ExternalLoginType loginType)
+    {
+        // Act
+        var action = () => ExternalLogin.Create(loginType, ExternalProviderType.Google, "code-verifier", "nonce-value", "browser-fingerprint", false, UserId.NewId(), TenantId.NewId());
+
+        // Assert
+        action.Should().Throw<UnreachableException>().WithMessage($"The '{loginType}' flow must not be bound to a user.");
+    }
+
+    [Fact]
+    public void Create_WhenVerificationFlowIsBound_ShouldRecordTheActorAndTheProviderSelection()
+    {
+        // Arrange
+        var userId = UserId.NewId();
+        var tenantId = TenantId.NewId();
+        var sessionId = SessionId.NewId();
+
+        // Act
+        var externalLogin = ExternalLogin.Create(
+            ExternalLoginType.Verification, ExternalProviderType.MitId, "code-verifier", "nonce-value", "browser-fingerprint", true, userId, tenantId, sessionId
+        );
+
+        // Assert
+        externalLogin.Type.Should().Be(ExternalLoginType.Verification);
+        externalLogin.ProviderType.Should().Be(ExternalProviderType.MitId);
+        externalLogin.UserId.Should().Be(userId);
+        externalLogin.TenantId.Should().Be(tenantId);
+        externalLogin.SessionId.Should().Be(sessionId);
+        externalLogin.UsedMockProvider.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Create_WhenLoginFlowIsCreated_ShouldLeaveTheActorUnset()
+    {
+        // Act
+        var externalLogin = CreateExternalLogin();
+
+        // Assert
+        externalLogin.UserId.Should().BeNull();
+        externalLogin.TenantId.Should().BeNull();
+        externalLogin.SessionId.Should().BeNull();
+        externalLogin.UsedMockProvider.Should().BeFalse();
+    }
+
     private static ExternalLogin CreateExternalLogin()
     {
         return ExternalLogin.Create(
@@ -274,7 +357,8 @@ public sealed class ExternalLoginTests
             ExternalProviderType.Google,
             "code-verifier",
             "nonce-value",
-            "browser-fingerprint"
+            "browser-fingerprint",
+            false
         );
     }
 }

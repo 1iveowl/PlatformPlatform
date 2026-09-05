@@ -263,6 +263,28 @@ public sealed class ExternalAuthenticationServiceTests
     }
 
     [Fact]
+    public void SetExternalLoginCookie_WhenCalled_ShouldOutliveTheFlowItself()
+    {
+        // The cookie is what lets the callback identify the flow at all. When it expired with the flow, somebody who
+        // took longer than the flow's lifetime to authenticate came back with no cookie and was told a replay attack
+        // had been detected, rather than that their attempt had simply expired.
+
+        // Arrange
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers["User-Agent"] = "TestBrowser/1.0";
+        httpContext.Request.Headers["Accept-Language"] = "en-US";
+        var service = CreateService(httpContext);
+
+        // Act
+        service.SetExternalLoginCookie(ExternalLoginId.NewId());
+
+        // Assert
+        var setCookieHeader = httpContext.Response.Headers["Set-Cookie"].ToString();
+        var maxAge = int.Parse(setCookieHeader.Split("max-age=")[1].Split(';')[0]);
+        maxAge.Should().BeGreaterThan(ExternalLogin.ValidForSeconds);
+    }
+
+    [Fact]
     public void GetExternalLoginCookie_WhenValidCookieWithoutPreferredTenant_ShouldReturnCookie()
     {
         // Arrange

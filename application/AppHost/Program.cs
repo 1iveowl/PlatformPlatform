@@ -37,6 +37,8 @@ var (googleOAuthConfigured, googleOAuthClientId, googleOAuthClientSecret) = Conf
 
 var (entraOAuthConfigured, entraOAuthClientId, entraOAuthClientSecret) = ConfigureEntraOAuthParameters();
 
+var (mitIdConfigured, mitIdDomain, mitIdClientId, mitIdClientSecret) = ConfigureMitIdParameters();
+
 var (stripeConfigured, stripePublishableKey, stripeApiKey, stripeWebhookSecret) = ConfigureStripeParameters();
 var stripeFullyConfigured = stripeConfigured && builder.Configuration["Parameters:stripe-webhook-secret"] is not null and not "not-configured";
 
@@ -125,6 +127,9 @@ var accountApi = builder
     .WithEnvironment("OAuth__Google__ClientSecret", googleOAuthClientSecret)
     .WithEnvironment("OAuth__Entra__ClientId", entraOAuthClientId)
     .WithEnvironment("OAuth__Entra__ClientSecret", entraOAuthClientSecret)
+    .WithEnvironment("OAuth__MitId__Domain", mitIdDomain)
+    .WithEnvironment("OAuth__MitId__ClientId", mitIdClientId)
+    .WithEnvironment("OAuth__MitId__ClientSecret", mitIdClientSecret)
     .WithEnvironment("OAuth__AllowMockProvider", "true")
     .WithEnvironment("Stripe__SubscriptionEnabled", stripeFullyConfigured ? "true" : "false")
     .WithEnvironment("Stripe__ApiKey", stripeApiKey)
@@ -133,6 +138,7 @@ var accountApi = builder
     .WithEnvironment("Stripe__AllowMockProvider", "true")
     .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdConfigured ? "true" : "false")
     // Force-on so newcomers see the back-office billing UI without Stripe configured. Set to "false" (or
     // change back to `stripeFullyConfigured ? "true" : "false"`) to hide all billing/revenue/Stripe data.
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", "true")
@@ -156,6 +162,7 @@ var mainApi = builder
     .WithReference(azureStorage)
     .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
     .WaitFor(mainWorkers);
 
@@ -291,6 +298,64 @@ void AddStripeCliContainer()
         configured,
         builder.CreateResourceBuilder(new ParameterResource("entra-oauth-client-id", _ => "not-configured", true)),
         builder.CreateResourceBuilder(new ParameterResource("entra-oauth-client-secret", _ => "not-configured", true))
+    );
+}
+
+(bool Configured, IResourceBuilder<ParameterResource> Domain, IResourceBuilder<ParameterResource> ClientId, IResourceBuilder<ParameterResource> ClientSecret) ConfigureMitIdParameters()
+{
+    _ = builder.AddParameter("mitid-oauth-enabled")
+        .WithDescription("""
+                         **MitID identity verification** -- Lets a signed-in user prove who they are with Danish MitID through the Idura broker. This is verification only: MitID cannot be used to log in or sign up.
+
+                         **Important**: Create a login application in the [Idura dashboard](https://dashboard.idura.app) and configure it according to the guide in README.md **before** enabling this. Leave the CPR toggle off; this system requests only the `openid` scope and stores no CPR number.
+
+                         - Enter `true` to enable MitID verification, or `false` to skip. This can be changed later.
+                         - After enabling, **restart Aspire** to be prompted for the domain, Client ID and Client Secret.
+
+                         See **README.md** for full setup instructions.
+                         """, true
+        );
+
+    var configured = builder.Configuration["Parameters:mitid-oauth-enabled"] == "true";
+
+    if (configured)
+    {
+        var domain = builder.AddParameter("mitid-oauth-domain", true)
+            .WithDescription("""
+                             The broker domain of your Idura tenant, without a scheme, for example `your-tenant.test.idura.broker`. It is both the issuer and the host every endpoint is derived from.
+
+                             **After entering this, the Client ID and the Client Secret, restart Aspire** to apply the configuration.
+
+                             See **README.md** for full setup instructions.
+                             """, true
+            );
+        var clientId = builder.AddParameter("mitid-oauth-client-id", true)
+            .WithDescription("""
+                             Client ID of the login application from the [Idura dashboard](https://dashboard.idura.app).
+
+                             **After entering this, the domain and the Client Secret, restart Aspire** to apply the configuration.
+
+                             See **README.md** for full setup instructions.
+                             """, true
+            );
+        var clientSecret = builder.AddParameter("mitid-oauth-client-secret", true)
+            .WithDescription("""
+                             Client secret of the login application from the [Idura dashboard](https://dashboard.idura.app).
+
+                             **After entering this, the domain and the Client ID, restart Aspire** to apply the configuration.
+
+                             See **README.md** for full setup instructions.
+                             """, true
+            );
+
+        return (configured, domain, clientId, clientSecret);
+    }
+
+    return (
+        configured,
+        builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-domain", _ => "not-configured", true)),
+        builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-client-id", _ => "not-configured", true)),
+        builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-client-secret", _ => "not-configured", true))
     );
 }
 

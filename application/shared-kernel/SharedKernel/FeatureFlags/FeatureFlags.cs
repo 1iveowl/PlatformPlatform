@@ -38,6 +38,15 @@ public static partial class FeatureFlags
         false
     );
 
+    public static readonly FeatureFlagDefinition MitIdVerification = new SystemFeatureFlag(
+        "mitid-verification",
+        "MitID identity verification",
+        "Let a signed-in user prove their identity with MitID",
+        "OAuth:MitId:ClientId",
+        "PUBLIC_MITID_VERIFICATION_ENABLED",
+        false
+    );
+
     public static readonly FeatureFlagDefinition Subscriptions = new SystemFeatureFlag(
         "subscriptions",
         "Subscriptions",

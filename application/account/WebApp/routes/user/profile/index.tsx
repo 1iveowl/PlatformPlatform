@@ -18,6 +18,8 @@ import { UnsavedChangesDialog } from "@/shared/components/UnsavedChangesDialog";
 import { UserProfileFields } from "@/shared/components/UserProfileFields";
 import { api, type Schemas } from "@/shared/lib/api/client";
 
+import { MitIdVerificationSection } from "./-components/MitIdVerificationSection";
+
 export const Route = createFileRoute("/user/profile/")({
   staticData: { trackingTitle: "User profile" },
   component: ProfilePage
@@ -144,6 +146,8 @@ function ProfilePage() {
             </div>
           </div>
         </Form>
+
+        <MitIdVerificationSection />
       </AppLayout>
 
       <UnsavedChangesDialog

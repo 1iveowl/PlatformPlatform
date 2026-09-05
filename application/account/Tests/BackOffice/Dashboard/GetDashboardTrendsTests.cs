@@ -107,6 +107,30 @@ public sealed class GetDashboardTrendsTests(BackOfficeWebApplicationFactory fact
     }
 
     [Fact]
+    public async Task GetDashboardTrends_WhenMetricIsLoginActivity_ShouldNotCountIdentityVerifications()
+    {
+        // An identity verification completes the same way a login does, but it signs nobody in, so counting it here
+        // would overstate sign-in activity.
+
+        // Arrange
+        var now = DateTimeOffset.UtcNow;
+        SeedExternalLogin("user1@example.com", ExternalLoginResult.Success, now);
+        SeedExternalLogin(null, ExternalLoginResult.Success, now, ExternalLoginType.Verification);
+        SeedExternalLogin(null, ExternalLoginResult.Success, now.AddDays(-2), ExternalLoginType.Verification);
+        var identity = MockEasyAuthIdentities.Default.Single(i => i.Id == "user");
+        using var client = CreateBackOfficeClientForIdentity(identity);
+
+        // Act
+        var response = await client.GetAsync("/api/back-office/dashboard/trends?metric=LoginActivity&period=Last7Days");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<BackOfficeDashboardTrendsResponse>();
+        payload.Should().NotBeNull();
+        payload.Points.Sum(p => p.Value).Should().Be(1);
+    }
+
+    [Fact]
     public async Task GetDashboardTrends_WhenNoEventsInPeriod_ShouldReturnZeroFilledPoints()
     {
         // Arrange
@@ -234,19 +258,20 @@ public sealed class GetDashboardTrendsTests(BackOfficeWebApplicationFactory fact
         );
     }
 
-    private void SeedExternalLogin(string email, ExternalLoginResult result, DateTimeOffset createdAt)
+    private void SeedExternalLogin(string? email, ExternalLoginResult result, DateTimeOffset createdAt, ExternalLoginType type = ExternalLoginType.Login)
     {
         Connection.Insert("external_logins", [
                 ("id", ExternalLoginId.NewId().ToString()),
                 ("created_at", createdAt),
                 ("modified_at", null),
-                ("type", nameof(ExternalLoginType.Login)),
+                ("type", type.ToString()),
                 ("provider_type", nameof(ExternalProviderType.Google)),
-                ("email", email.ToLower()),
+                ("email", email?.ToLower()),
                 ("code_verifier", "code-verifier"),
                 ("nonce", "nonce"),
                 ("browser_fingerprint", "fingerprint"),
-                ("login_result", result.ToString())
+                ("login_result", result.ToString()),
+                ("used_mock_provider", false)
             ]
         );
     }

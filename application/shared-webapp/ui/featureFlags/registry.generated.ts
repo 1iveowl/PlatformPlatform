@@ -9,7 +9,7 @@
 // `useFeatureFlag(deletedKey)` and `getFeatureFlagLabel(deletedKey)` callsite into a TS compile
 // error after the next backend build regenerates this file.
 
-export type FeatureFlagKey = "google-oauth" | "entra-oauth" | "subscriptions" | "beta-features" | "sso" | "account-overview" | "compact-view" | "experimental-ui";
+export type FeatureFlagKey = "google-oauth" | "entra-oauth" | "mitid-verification" | "subscriptions" | "beta-features" | "sso" | "account-overview" | "compact-view" | "experimental-ui";
 
 type FeatureFlagScope = "system" | "tenant" | "user";
 type FeatureFlagAdminLevel = "systemAdmin" | "tenantOwner" | "user";
@@ -49,6 +49,14 @@ const featureFlagRegistry: Record<FeatureFlagKey, FeatureFlagDefinition> = {
       parentDependency: null,
       description: "Sign in with Microsoft using OpenID Connect",
       envVar: "PUBLIC_ENTRA_OAUTH_ENABLED"
+    },
+    "mitid-verification": {
+      key: "mitid-verification",
+      scope: "system",
+      adminLevel: "systemAdmin",
+      parentDependency: null,
+      description: "Let a signed-in user prove their identity with MitID",
+      envVar: "PUBLIC_MITID_VERIFICATION_ENABLED"
     },
     "subscriptions": {
       key: "subscriptions",

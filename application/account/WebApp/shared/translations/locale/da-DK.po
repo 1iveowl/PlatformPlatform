@@ -256,6 +256,9 @@ msgstr "Tilbage til appen"
 msgid "Back to login"
 msgstr "Tilbage til login"
 
+msgid "Back to profile"
+msgstr "Tilbage til profil"
+
 msgid "Back to signup"
 msgstr "Tilbage til tilmelding"
 
@@ -671,11 +674,20 @@ msgstr "Hej! Velkommen tilbage"
 msgid "Hide details"
 msgstr "Skjul detaljer"
 
+msgid "High assurance"
+msgstr "Højt sikringsniveau"
+
 msgid "How we collect, use, and protect your personal data in compliance with GDPR."
 msgstr "Hvordan vi indsamler, bruger og beskytter dine personlige data i overensstemmelse med GDPR."
 
+msgid "Identity already in use"
+msgstr "Identiteten er allerede i brug"
+
 msgid "Identity mismatch"
 msgstr "Identitetsuoverensstemmelse"
+
+msgid "Identity verification"
+msgstr "Identitetsbekræftelse"
 
 msgid "Image must be smaller than 1 MB."
 msgstr "Billedet skal være mindre end 1 MB."
@@ -787,6 +799,9 @@ msgstr "Login-bekræftelseskode"
 
 msgid "Logo"
 msgstr "Logo"
+
+msgid "Low assurance"
+msgstr "Lavt sikringsniveau"
 
 msgid "Main navigation"
 msgstr "Hovednavigation"
@@ -984,6 +999,9 @@ msgstr "Vælg et JPEG-, PNG-, GIF- eller WebP-billede."
 msgid "Please try again or return to the home page."
 msgstr "Prøv venligst igen eller vend tilbage til forsiden."
 
+msgid "Please try again, or contact your account administrator."
+msgstr "Prøv igen, eller kontakt din kontoadministrator."
+
 msgid "Please wait while we confirm your payment. This may take a few moments."
 msgstr "Vent venligst mens vi bekræfter din betaling. Det kan tage et øjeblik."
 
@@ -1031,6 +1049,9 @@ msgstr "Profilbillede"
 
 msgid "Profile updated successfully"
 msgstr "Profil opdateret succesfuldt"
+
+msgid "Prove who you are with MitID. Your name and personal identification number are not stored."
+msgstr "Bekræft din identitet med MitID. Dit navn og CPR-nummer bliver ikke gemt."
 
 msgid "Reactivate"
 msgstr "Fortryd opsigelse"
@@ -1234,6 +1255,9 @@ msgstr "Abonner på {0}"
 msgid "Subscription"
 msgstr "Abonnement"
 
+msgid "Substantial assurance"
+msgstr "Betydeligt sikringsniveau"
+
 msgid "Suspended"
 msgstr "Suspenderet"
 
@@ -1300,6 +1324,9 @@ msgstr "Dette kan ske, når e-mailejerskabet er ændret. Kontakt din kontoadmini
 msgid "This device"
 msgstr "Denne enhed"
 
+msgid "This identity is already linked to another account."
+msgstr "Denne identitet er allerede knyttet til en anden konto."
+
 msgid "This will permanently delete <0>{totalDeletedUsersCount} users</0> in the recycle bin."
 msgstr "Dette vil permanent slette <0>{totalDeletedUsersCount} brugere</0> i papirkurven."
 
@@ -1344,6 +1371,9 @@ msgstr "Kunne ikke indlæse profil"
 
 msgid "Unknown"
 msgstr "Ukendt"
+
+msgid "Unknown assurance"
+msgstr "Ukendt sikringsniveau"
 
 msgid "Unknown state"
 msgstr "Ukendt tilstand"
@@ -1457,11 +1487,23 @@ msgstr "CVR-nummer"
 msgid "Verification code sent"
 msgstr "Bekræftelseskode sendt"
 
+msgid "Verification not strong enough"
+msgstr "Bekræftelsen er ikke stærk nok"
+
 msgid "Verified"
 msgstr "Bekræftet"
 
+msgid "Verified on {verifiedDate}"
+msgstr "Bekræftet den {verifiedDate}"
+
+msgid "Verified with MitID"
+msgstr "Bekræftet med MitID"
+
 msgid "Verify"
 msgstr "Bekræft"
+
+msgid "Verify with MitID"
+msgstr "Bekræft med MitID"
 
 msgid "Verifying..."
 msgstr "Bekræfter..."
@@ -1495,6 +1537,9 @@ msgstr "Du kan ikke ændre din egen rolle"
 
 msgid "You cannot delete yourself"
 msgstr "Du kan ikke slette dig selv"
+
+msgid "You cannot resolve this yourself. Contact your account administrator."
+msgstr "Du kan ikke selv løse dette. Kontakt din kontoadministrator."
 
 msgid "You do not have permission to access this page."
 msgstr "Du har ikke tilladelse til at tilgå denne side."
@@ -1546,6 +1591,9 @@ msgstr "Din nedgradering er blevet planlagt."
 
 msgid "Your email address cannot be changed. An owner must delete your account and reinvite you with the new email address."
 msgstr "Din e-mailadresse kan ikke ændres. En ejer skal slette din konto og invitere dig igen med den nye e-mailadresse."
+
+msgid "Your identity could not be verified at the required level."
+msgstr "Din identitet kunne ikke bekræftes på det krævede niveau."
 
 msgid "Your payment card is expired or expiring soon. Please update your payment method to avoid service interruption."
 msgstr "Dit betalingskort er udløbet eller udløber snart. Opdater venligst din betalingsmetode for at undgå afbrydelse af tjenesten."

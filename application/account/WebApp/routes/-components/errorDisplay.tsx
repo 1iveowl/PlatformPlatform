@@ -4,7 +4,7 @@ import { Trans } from "@lingui/react/macro";
 import { ErrorCode } from "@repo/infrastructure/auth/AuthenticationMiddleware";
 import { AlertCircle, Building2, LogOut, MailX, ShieldAlert, UserX } from "lucide-react";
 
-export type ErrorAction = "login" | "signup" | "contact";
+export type ErrorAction = "login" | "signup" | "contact" | "profile";
 
 export type ErrorDisplay = {
   icon: ReactNode;
@@ -23,11 +23,65 @@ export const errorLabelMap: Record<string, string> = {
   [ErrorCode.AccountAlreadyExists]: "Account already exists",
   [ErrorCode.EmailNotProvided]: "Email address required",
   [ErrorCode.IdentityMismatch]: "Identity mismatch",
+  [ErrorCode.IdentityAlreadyLinked]: "Identity already in use",
+  [ErrorCode.AssuranceLevelInsufficient]: "Verification not strong enough",
   [ErrorCode.AuthenticationFailed]: "Authentication failed",
   [ErrorCode.InvalidRequest]: "Invalid request",
   [ErrorCode.AccessDenied]: "Access denied",
   [ErrorCode.TenantDeleted]: "Account deleted"
 };
+
+// The identity outcomes share an icon, and keeping them here keeps the main switch readable. The two that can only
+// happen to a signed-in user send them back to the profile page, where the retry lives, rather than to login.
+function getIdentityErrorDisplay(error: string): ErrorDisplay {
+  const identityErrorDisplay = {
+    icon: <ShieldAlert className="size-10 text-destructive" />,
+    iconBackground: "bg-destructive/10",
+    action: "contact" as const
+  };
+
+  if (error === ErrorCode.IdentityAlreadyLinked) {
+    return {
+      ...identityErrorDisplay,
+      action: "profile",
+      title: <Trans>Identity already in use</Trans>,
+      message: (
+        <>
+          <Trans>This identity is already linked to another account.</Trans>
+          <br />
+          <Trans>You cannot resolve this yourself. Contact your account administrator.</Trans>
+        </>
+      )
+    };
+  }
+
+  if (error === ErrorCode.AssuranceLevelInsufficient) {
+    return {
+      ...identityErrorDisplay,
+      action: "profile",
+      title: <Trans>Verification not strong enough</Trans>,
+      message: (
+        <>
+          <Trans>Your identity could not be verified at the required level.</Trans>
+          <br />
+          <Trans>Please try again, or contact your account administrator.</Trans>
+        </>
+      )
+    };
+  }
+
+  return {
+    ...identityErrorDisplay,
+    title: <Trans>Identity mismatch</Trans>,
+    message: (
+      <>
+        <Trans>This account is linked to a different sign-in identity.</Trans>
+        <br />
+        <Trans>This can happen when email ownership has changed. Contact your account administrator.</Trans>
+      </>
+    )
+  };
+}
 
 export function getErrorDisplay(error: string): ErrorDisplay {
   switch (error) {
@@ -98,19 +152,9 @@ export function getErrorDisplay(error: string): ErrorDisplay {
       };
 
     case ErrorCode.IdentityMismatch:
-      return {
-        icon: <ShieldAlert className="size-10 text-destructive" />,
-        iconBackground: "bg-destructive/10",
-        title: <Trans>Identity mismatch</Trans>,
-        message: (
-          <>
-            <Trans>This account is linked to a different sign-in identity.</Trans>
-            <br />
-            <Trans>This can happen when email ownership has changed. Contact your account administrator.</Trans>
-          </>
-        ),
-        action: "contact"
-      };
+    case ErrorCode.IdentityAlreadyLinked:
+    case ErrorCode.AssuranceLevelInsufficient:
+      return getIdentityErrorDisplay(error);
 
     case ErrorCode.AuthenticationFailed:
       return {
