@@ -21,10 +21,11 @@ test.beforeEach(async ({ page }) => {
   test.skip(!isMitIdLoginEnabled, "MitID login is not enabled");
 });
 
-async function readUserId(page: Page): Promise<string> {
+async function readUserInfo(page: Page): Promise<{ id: string; tenantId: string }> {
   return page.evaluate(() => {
     const metaTag = document.head.getElementsByTagName("meta").namedItem("userInfoEnv");
-    return metaTag ? JSON.parse(metaTag.content).id : "";
+    const userInfo = metaTag ? JSON.parse(metaTag.content) : {};
+    return { id: userInfo.id ?? "", tenantId: userInfo.tenantId ?? "" };
   });
 }
 
@@ -64,6 +65,9 @@ test.describe("@smoke", () => {
     await step("Sign up with email & complete the welcome flow")(async () => {
       await completeSignupFlow(page, expect, user, context);
     })();
+    const originalAccount = await readUserInfo(page);
+    expect(originalAccount.id).toBeTruthy();
+    expect(originalAccount.tenantId).toBeTruthy();
 
     // === VERIFICATION: the step that turns the identity into a way in ===
 
@@ -101,6 +105,28 @@ test.describe("@smoke", () => {
 
       // The phrase Google and Entra use is not approved for MitID, so its absence is part of the contract
       await expect(page.getByRole("button", { name: "Log in with MitID" })).not.toBeVisible();
+
+      await page.evaluate(() => localStorage.setItem("preferred-locale", "da-DK"));
+      await page.goto("/login");
+      await expect(page.getByRole("button", { name: "Log ind med MitID", exact: true })).toBeVisible();
+      await page.evaluate(() => localStorage.setItem("preferred-locale", "en-US"));
+      await page.route("**/login", async (route) => {
+        const response = await route.fetch();
+        const body = (await response.text()).replace(
+          /(PUBLIC_(?:GOOGLE|ENTRA)_OAUTH_ENABLED&quot;:&quot;)true/g,
+          "$1false"
+        );
+        await route.fulfill({ response, body });
+      });
+      await page.goto("/login");
+      await expect(page.getByRole("button", { name: "Log in with Google" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Log in with Microsoft" })).toHaveCount(0);
+      await expect(page.getByText("or", { exact: true })).toBeVisible();
+      await expect(mitIdButton).toBeVisible();
+      await expect(mitIdButton).toHaveCSS("height", "48px");
+      await expect(mitIdButton).toHaveCSS("border-radius", "4px");
+      await expect(mitIdButton).toHaveCSS("background-color", "rgb(0, 96, 230)");
+      await page.unroute("**/login");
     })();
 
     await step("Log in with MitID & land back on the dashboard as the same person")(async () => {
@@ -109,6 +135,7 @@ test.describe("@smoke", () => {
 
       await expect(page).toHaveURL("/dashboard");
       await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+      expect(await readUserInfo(page)).toMatchObject(originalAccount);
     })();
 
     await step("Open the sessions page & confirm the sign-in was recorded as MitID")(async () => {
@@ -185,7 +212,7 @@ test.describe("@comprehensive", () => {
       await expect(ownerPage.getByText("Verified with")).toBeVisible();
     })();
 
-    const userId = await readUserId(ownerPage);
+    const userId = (await readUserInfo(ownerPage)).id;
     const backOfficeBaseUrl = getBackOfficeBaseUrl();
     const backOfficeContext = await browser.newContext({ baseURL: backOfficeBaseUrl, ignoreHTTPSErrors: true });
     const backOfficePage = await backOfficeContext.newPage();

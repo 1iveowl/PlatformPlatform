@@ -1048,7 +1048,8 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
 
         // Arrange
         var userId = InsertUser(Faker.Internet.Email());
-        var externalIdentityId = InsertVerifiedMitIdIdentity(userId, $"mock-mitid-{MockOAuthProvider.LowAssuranceValue}");
+        InsertVerifiedMitIdIdentity(userId, $"mock-mitid-{MockOAuthProvider.LowAssuranceValue}");
+        var before = GetVerifiedIdentity(userId)!;
         var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
         TelemetryEventsCollectorSpy.Reset();
 
@@ -1060,14 +1061,11 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
         response.Headers.Location!.ToString().Should().Be("/");
         GetSessionTenantId(userId).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
 
-        var evidence = Connection.ExecuteScalar<string>(
-            "SELECT assurance_level || '|' || verified_at || '|' || authenticated_at || '|' || verified_by_external_login_id FROM external_identities WHERE id = @id",
-            [new { id = externalIdentityId.ToString() }]
-        );
-        evidence.Should().StartWith($"{nameof(IdentityAssuranceLevel.Substantial)}|");
-        evidence.Should().EndWith($"|{VerifiedByExternalLoginId}");
-        evidence.Should().Contain(VerifiedAt.ToString("yyyy-MM-dd"));
-        evidence.Should().Contain(AuthenticatedAt.ToString("yyyy-MM-dd"));
+        var after = GetVerifiedIdentity(userId)!;
+        after.AssuranceLevel.Should().Be(before.AssuranceLevel);
+        after.VerifiedAt.Should().Be(before.VerifiedAt);
+        after.AuthenticatedAt.Should().Be(before.AuthenticatedAt);
+        after.VerifiedByExternalLoginId.Should().Be(before.VerifiedByExternalLoginId!);
     }
 
     [Fact]

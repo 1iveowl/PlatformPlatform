@@ -1,5 +1,6 @@
 using Account.Features.Authentication.Domain;
 using Account.Features.EmailAuthentication.Domain;
+using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.Users.Domain;
 using JetBrains.Annotations;
@@ -81,7 +82,7 @@ public sealed class GetBackOfficeUserLoginHistoryHandler(
 
         entries.AddRange(externalLogins.Select(e => new BackOfficeUserLoginEntry(
                     LoginEventKind.External,
-                    MapExternalMethod(e.ProviderType),
+                    ExternalAuthenticationService.GetLoginMethod(e.ProviderType),
                     MapExternalOutcome(e.LoginResult),
                     e.CreatedAt,
                     e.LoginResult is null or ExternalLoginResult.Success ? null : e.LoginResult.ToString(),
@@ -115,17 +116,6 @@ public sealed class GetBackOfficeUserLoginHistoryHandler(
             null => LoginEventOutcome.Pending,
             ExternalLoginResult.Success => LoginEventOutcome.Succeeded,
             _ => LoginEventOutcome.Failed
-        };
-    }
-
-    private static LoginMethod MapExternalMethod(ExternalProviderType providerType)
-    {
-        return providerType switch
-        {
-            ExternalProviderType.Google => LoginMethod.Google,
-            ExternalProviderType.Entra => LoginMethod.Entra,
-            ExternalProviderType.MitId => LoginMethod.MitId,
-            _ => throw new UnreachableException($"Unknown external provider type '{providerType}'.")
         };
     }
 }

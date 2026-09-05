@@ -8,9 +8,7 @@ import mitIdLogoWhiteUrl from "@/shared/images/mitid-logo-white.svg";
 import { ExternalProviderType } from "@/shared/lib/api/client";
 
 type ExternalLoginOptionsProps = {
-  /** The provider a redirect is already under way for, so only that button shows a spinner. */
   pendingProvider: ExternalProviderType | null;
-  /** True while any sign-in attempt is in flight, which disables all of them. */
   isPending: boolean;
   onSelect: (provider: ExternalProviderType) => void;
 };
