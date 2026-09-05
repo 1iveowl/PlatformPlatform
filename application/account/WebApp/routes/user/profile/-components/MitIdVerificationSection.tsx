@@ -26,6 +26,9 @@ export function MitIdVerificationSection() {
 }
 
 function VerificationSection() {
+  // Verifying also makes MitID a way to sign in, so the person is told rather than left to discover it. Gated on the
+  // login purpose, because a deployment can verify identities without offering MitID as a way in.
+  const { enabled: isMitIdLoginEnabled } = useFeatureFlag("mitid-login");
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const {
@@ -68,6 +71,12 @@ function VerificationSection() {
       <Separator />
       <p className="text-sm text-muted-foreground">
         <Trans>Prove who you are with MitID. Your name and personal identification number are not stored.</Trans>
+        {isMitIdLoginEnabled && (
+          <>
+            {" "}
+            <Trans>Once verified, you can also log on with MitID.</Trans>
+          </>
+        )}
       </p>
 
       {isLoading && <Skeleton className="h-12 w-44" />}

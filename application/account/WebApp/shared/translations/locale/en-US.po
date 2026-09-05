@@ -689,6 +689,9 @@ msgstr "Identity already in use"
 msgid "Identity mismatch"
 msgstr "Identity mismatch"
 
+msgid "Identity not verified"
+msgstr "Identity not verified"
+
 msgid "Identity verification"
 msgstr "Identity verification"
 
@@ -779,6 +782,9 @@ msgstr "Loading..."
 msgid "Log in"
 msgstr "Log in"
 
+msgid "Log in another way, then verify your identity from your profile to sign in with MitID."
+msgstr "Log in another way, then verify your identity from your profile to sign in with MitID."
+
 msgid "Log in with email"
 msgstr "Log in with email"
 
@@ -787,6 +793,9 @@ msgstr "Log in with Google"
 
 msgid "Log in with Microsoft"
 msgstr "Log in with Microsoft"
+
+msgid "Log on with <0/>"
+msgstr "Log on with <0/>"
 
 msgid "Log out"
 msgstr "Log out"
@@ -901,6 +910,9 @@ msgstr "No users found"
 
 msgid "OK"
 msgstr "OK"
+
+msgid "Once verified, you can also log on with MitID."
+msgstr "Once verified, you can also log on with MitID."
 
 msgid "One-time password"
 msgstr "One-time password"
@@ -1332,6 +1344,9 @@ msgstr "This device"
 
 msgid "This identity is already linked to another account."
 msgstr "This identity is already linked to another account."
+
+msgid "This MitID has not been used to verify an account."
+msgstr "This MitID has not been used to verify an account."
 
 msgid "This will permanently delete <0>{totalDeletedUsersCount} users</0> in the recycle bin."
 msgstr "This will permanently delete <0>{totalDeletedUsersCount} users</0> in the recycle bin."

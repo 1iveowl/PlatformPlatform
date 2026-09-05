@@ -2,7 +2,6 @@ import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { signUpPath } from "@repo/infrastructure/auth/constants";
 import { isValidReturnPath } from "@repo/infrastructure/auth/util";
-import { useFeatureFlag } from "@repo/infrastructure/featureFlags/useFeatureFlag";
 import { Button } from "@repo/ui/components/Button";
 import { Form } from "@repo/ui/components/Form";
 import { Link } from "@repo/ui/components/Link";
@@ -14,12 +13,12 @@ import { useEffect, useState } from "react";
 
 import ErrorPage from "@/federated-modules/errorPages/ErrorPage";
 import { useMainNavigation } from "@/shared/hooks/useMainNavigation";
-import googleIconUrl from "@/shared/images/google-icon.svg";
-import microsoftIconUrl from "@/shared/images/microsoft-icon.svg";
 import { HorizontalHeroLayout } from "@/shared/layouts/HorizontalHeroLayout";
-import { api, ExternalProviderType } from "@/shared/lib/api/client";
+import type { ExternalProviderType } from "@/shared/lib/api/client";
+import { api } from "@/shared/lib/api/client";
 
 import { getSignupState } from "../signup/-shared/signupState";
+import { ExternalLoginOptions } from "./-components/ExternalLoginOptions";
 import { clearLoginState, getLoginState, setLoginState } from "./-shared/loginState";
 
 export const Route = createFileRoute("/login/")({
@@ -59,8 +58,6 @@ export function LoginForm() {
   const { email: signupEmail } = getSignupState(); // Prefill from signup page if user navigated here
   const [email, setEmail] = useState(savedEmail || signupEmail || "");
   const { returnPath } = Route.useSearch();
-  const { enabled: isGoogleOAuthEnabled } = useFeatureFlag("google-oauth");
-  const { enabled: isEntraOAuthEnabled } = useFeatureFlag("entra-oauth");
 
   const startLoginMutation = api.useMutation("post", "/api/account/authentication/email/login/start");
   const [pendingProvider, setPendingProvider] = useState<ExternalProviderType | null>(null);
@@ -135,55 +132,7 @@ export function LoginForm() {
       >
         {startLoginMutation.isPending ? <Trans>Sending verification code...</Trans> : <Trans>Log in with email</Trans>}
       </Button>
-      {(isGoogleOAuthEnabled || isEntraOAuthEnabled) && (
-        <>
-          <div className="flex w-full items-center gap-4">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-sm text-muted-foreground">
-              <Trans>or</Trans>
-            </span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          {isGoogleOAuthEnabled && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => handleExternalLogin(ExternalProviderType.Google)}
-              isPending={pendingProvider === ExternalProviderType.Google}
-              disabled={isPending}
-            >
-              {pendingProvider !== ExternalProviderType.Google && (
-                <img src={googleIconUrl} alt="" aria-hidden="true" className="size-5" />
-              )}
-              {pendingProvider === ExternalProviderType.Google ? (
-                <Trans>Redirecting...</Trans>
-              ) : (
-                <Trans>Log in with Google</Trans>
-              )}
-            </Button>
-          )}
-          {isEntraOAuthEnabled && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => handleExternalLogin(ExternalProviderType.Entra)}
-              isPending={pendingProvider === ExternalProviderType.Entra}
-              disabled={isPending}
-            >
-              {pendingProvider !== ExternalProviderType.Entra && (
-                <img src={microsoftIconUrl} alt="" aria-hidden="true" className="size-5" />
-              )}
-              {pendingProvider === ExternalProviderType.Entra ? (
-                <Trans>Redirecting...</Trans>
-              ) : (
-                <Trans>Log in with Microsoft</Trans>
-              )}
-            </Button>
-          )}
-        </>
-      )}
+      <ExternalLoginOptions pendingProvider={pendingProvider} isPending={isPending} onSelect={handleExternalLogin} />
       <p className="text-sm text-muted-foreground">
         <Trans>
           Don't have an account?{" "}

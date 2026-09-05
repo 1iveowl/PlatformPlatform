@@ -689,6 +689,9 @@ msgstr "Identiteten er allerede i brug"
 msgid "Identity mismatch"
 msgstr "Identitetsuoverensstemmelse"
 
+msgid "Identity not verified"
+msgstr "Identitet ikke bekræftet"
+
 msgid "Identity verification"
 msgstr "Identitetsbekræftelse"
 
@@ -779,6 +782,9 @@ msgstr "Indlæser..."
 msgid "Log in"
 msgstr "Log ind"
 
+msgid "Log in another way, then verify your identity from your profile to sign in with MitID."
+msgstr "Log ind på en anden måde, og bekræft derefter din identitet fra din profil for at kunne logge ind med MitID."
+
 msgid "Log in with email"
 msgstr "Log ind med e-mail"
 
@@ -787,6 +793,9 @@ msgstr "Log ind med Google"
 
 msgid "Log in with Microsoft"
 msgstr "Log ind med Microsoft"
+
+msgid "Log on with <0/>"
+msgstr "Log ind med <0/>"
 
 msgid "Log out"
 msgstr "Log ud"
@@ -901,6 +910,9 @@ msgstr "Ingen brugere fundet"
 
 msgid "OK"
 msgstr "OK"
+
+msgid "Once verified, you can also log on with MitID."
+msgstr "Når du er bekræftet, kan du også logge ind med MitID."
 
 msgid "One-time password"
 msgstr "Engangskode"
@@ -1332,6 +1344,9 @@ msgstr "Denne enhed"
 
 msgid "This identity is already linked to another account."
 msgstr "Denne identitet er allerede knyttet til en anden konto."
+
+msgid "This MitID has not been used to verify an account."
+msgstr "Dette MitID er ikke blevet brugt til at bekræfte en konto."
 
 msgid "This will permanently delete <0>{totalDeletedUsersCount} users</0> in the recycle bin."
 msgstr "Dette vil permanent slette <0>{totalDeletedUsersCount} brugere</0> i papirkurven."
