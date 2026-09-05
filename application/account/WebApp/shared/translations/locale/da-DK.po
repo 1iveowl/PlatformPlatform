@@ -1499,8 +1499,8 @@ msgstr "Bekræftet"
 msgid "Verified on {verifiedDate}"
 msgstr "Bekræftet den {verifiedDate}"
 
-msgid "Verified with MitID"
-msgstr "Bekræftet med MitID"
+msgid "Verified with <0/>"
+msgstr "Bekræftet med <0/>"
 
 msgid "Verify"
 msgstr "Bekræft"
