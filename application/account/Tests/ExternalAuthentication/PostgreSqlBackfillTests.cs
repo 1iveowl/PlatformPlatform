@@ -59,21 +59,21 @@ public sealed class PostgreSqlBackfillTests
                                                       INSERT INTO tenants VALUES (1);
                                                       """
             );
-            var commands = context.GetService<IMigrationsSqlGenerator>().Generate(new AddExternalIdentities().UpOperations);
+            var commands = context.GetService<IMigrationsSqlGenerator>().Generate(new AddExternalIdentities().UpOperations.Concat(new AddExternalIdentityVerificationEvidence().UpOperations).ToArray());
             foreach (var command in commands)
             {
                 await context.Database.ExecuteSqlRawAsync(command.CommandText);
             }
 
-            var auditCommands = context.GetService<IMigrationsSqlGenerator>().Generate(new AddExternalLoginAuditBinding().UpOperations);
-            foreach (var command in auditCommands)
+            Migration[] bindingMigrations = conflictsOnHolder
+                ? [new AddExternalLoginAuditBinding(), new AddExternalLoginVerificationBinding(), new AddExternalLoginAuditBinding()]
+                : [new AddExternalLoginVerificationBinding(), new AddExternalLoginAuditBinding(), new AddExternalLoginAuditBinding()];
+            foreach (var bindingMigration in bindingMigrations)
             {
-                await context.Database.ExecuteSqlRawAsync(command.CommandText);
-            }
-
-            foreach (var command in auditCommands)
-            {
-                await context.Database.ExecuteSqlRawAsync(command.CommandText);
+                foreach (var command in context.GetService<IMigrationsSqlGenerator>().Generate(bindingMigration.UpOperations))
+                {
+                    await context.Database.ExecuteSqlRawAsync(command.CommandText);
+                }
             }
 
             var legacyJson = JsonSerializer.Serialize(new[] { new LegacyExternalIdentity(ExternalProviderType.Google, "legacy-key") });
