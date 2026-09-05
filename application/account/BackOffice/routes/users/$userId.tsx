@@ -4,7 +4,7 @@ import { AppLayout } from "@repo/ui/components/AppLayout";
 import { SidebarInset, SidebarProvider } from "@repo/ui/components/Sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/Tabs";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Building2Icon, FlagIcon, KeyIcon, MonitorIcon } from "lucide-react";
+import { Building2Icon, FlagIcon, KeyIcon, MonitorIcon, ShieldCheckIcon } from "lucide-react";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -15,14 +15,15 @@ import { UserActivityTiles } from "./-components/UserActivityTiles";
 import { UserDetailHeader } from "./-components/UserDetailHeader";
 import { getUserDisplayName } from "./-components/userDisplay";
 import { UserFeatureFlagsSection } from "./-components/UserFeatureFlagsSection";
+import { UserIdentityVerificationSection } from "./-components/UserIdentityVerificationSection";
 import { UserLoginHistorySection } from "./-components/UserLoginHistorySection";
 import { UserSessionsSection } from "./-components/UserSessionsSection";
 import { UserTenantsSection } from "./-components/UserTenantsSection";
 
-type UserDetailTab = "overview" | "sessions" | "logins" | "feature-flags";
+type UserDetailTab = "overview" | "sessions" | "logins" | "identity" | "feature-flags";
 
 const userDetailSearchSchema = z.object({
-  tab: z.enum(["overview", "sessions", "logins", "feature-flags"]).optional()
+  tab: z.enum(["overview", "sessions", "logins", "identity", "feature-flags"]).optional()
 });
 
 export const Route = createFileRoute("/users/$userId")({
@@ -78,6 +79,10 @@ function UserDetailPage() {
                   <MonitorIcon className="size-4" />
                   <Trans>Sessions</Trans>
                 </TabsTrigger>
+                <TabsTrigger value="identity">
+                  <ShieldCheckIcon className="size-4" />
+                  <Trans>Identity</Trans>
+                </TabsTrigger>
                 <TabsTrigger value="feature-flags">
                   <FlagIcon className="size-4" />
                   <Trans>Feature flags</Trans>
@@ -91,6 +96,9 @@ function UserDetailPage() {
               </TabsContent>
               <TabsContent value="sessions">
                 <UserSessionsSection userId={userId} />
+              </TabsContent>
+              <TabsContent value="identity">
+                <UserIdentityVerificationSection userId={userId} />
               </TabsContent>
               <TabsContent value="feature-flags">
                 <UserFeatureFlagsSection userId={userId} />
