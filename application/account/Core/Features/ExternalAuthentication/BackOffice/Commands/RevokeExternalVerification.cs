@@ -38,18 +38,12 @@ public sealed class RevokeExternalVerificationHandler(IExternalIdentityRepositor
         {
             externalIdentity.RevokeVerification();
 
-            // A row with no capabilities left links a provider identity to a user for no reason, and it still holds
-            // the unique index on user and provider and on provider, provider user id and tenant. Keeping it would
-            // make the next verification with a different identity fail as a mismatch, which is the very lock-out
-            // this command exists to clear. A row that can still log in is kept, because that capability is in use.
-            if (externalIdentity.Capabilities == ExternalIdentityCapabilities.None)
-            {
-                externalIdentityRepository.Remove(externalIdentity);
-            }
-            else
-            {
-                externalIdentityRepository.Update(externalIdentity);
-            }
+            // A verified identity carries the right to log in only because it was verified, so revoking leaves it
+            // with no capabilities at all. Such a row links a provider identity to a user for no reason, and it still
+            // holds the unique index on user and provider and on provider, provider user id and tenant. Keeping it
+            // would make the next verification with a different identity fail as a mismatch, which is the very
+            // lock-out this command exists to clear, so the row goes.
+            externalIdentityRepository.Remove(externalIdentity);
 
             events.CollectEvent(new ExternalVerificationRevoked(command.Id, externalIdentity.Provider));
         }

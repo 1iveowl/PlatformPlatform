@@ -68,33 +68,7 @@ public sealed class ExternalIdentityTests
     }
 
     [Fact]
-    public void AddLoginCapability_WhenTheIdentityIsVerificationOnly_ShouldKeepTheVerificationCapability()
-    {
-        // Arrange
-        var externalIdentity = CreateVerifiedIdentity();
-
-        // Act
-        externalIdentity.AddLoginCapability();
-
-        // Assert
-        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
-    }
-
-    [Fact]
-    public void AddLoginCapability_WhenTheCapabilityIsAlreadyPresent_ShouldLeaveCapabilitiesUnchanged()
-    {
-        // Arrange
-        var externalIdentity = ExternalIdentity.Create(TenantId.NewId(), UserId.NewId(), ExternalProviderType.Google, "google-user-id-123", "https://accounts.google.com", "google-user-id-123");
-
-        // Act
-        externalIdentity.AddLoginCapability();
-
-        // Assert
-        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login);
-    }
-
-    [Fact]
-    public void CreateForVerification_WhenCalled_ShouldRecordTheEvidenceWithoutGrantingLogin()
+    public void CreateForVerification_WhenCalled_ShouldRecordTheEvidenceAndGrantLogin()
     {
         // Arrange
         var verifiedAt = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
@@ -108,8 +82,7 @@ public sealed class ExternalIdentityTests
         );
 
         // Assert
-        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Verification);
-        externalIdentity.Capabilities.HasFlag(ExternalIdentityCapabilities.Login).Should().BeFalse();
+        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
         externalIdentity.AssuranceLevel.Should().Be(IdentityAssuranceLevel.Substantial);
         externalIdentity.VerifiedAt.Should().Be(verifiedAt);
         externalIdentity.AuthenticatedAt.Should().Be(authenticatedAt);
@@ -133,6 +106,7 @@ public sealed class ExternalIdentityTests
         externalIdentity.VerifiedAt.Should().Be(laterVerifiedAt);
         externalIdentity.AuthenticatedAt.Should().Be(laterAuthenticatedAt);
         externalIdentity.VerifiedByExternalLoginId.Should().Be(laterExternalLoginId);
+        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
     }
 
     [Fact]
@@ -166,17 +140,20 @@ public sealed class ExternalIdentityTests
     }
 
     [Fact]
-    public void RevokeVerification_WhenTheIdentityCanAlsoLogIn_ShouldKeepTheLoginCapability()
+    public void RevokeVerification_WhenTheIdentityCouldAlsoLogIn_ShouldClearTheLoginCapabilityAsWell()
     {
+        // The right to log in came from the verification, so withdrawing the verification withdraws it too. Without
+        // this the account would keep a working credential for the identity an administrator had just withdrawn.
+
         // Arrange
         var externalIdentity = CreateVerifiedIdentity();
-        externalIdentity.AddLoginCapability();
+        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
 
         // Act
         externalIdentity.RevokeVerification();
 
         // Assert
-        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Login);
+        externalIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.None);
     }
 
     private static ExternalIdentity CreateVerifiedIdentity()

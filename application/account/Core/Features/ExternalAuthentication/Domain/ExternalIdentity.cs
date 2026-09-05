@@ -87,9 +87,9 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
     }
 
     /// <summary>
-    ///     Creates an identity that has been verified but may not be used to log in. The Login capability is granted by
-    ///     a successful login, never by a verification, so the database never asserts a permission the product has not
-    ///     granted.
+    ///     Creates an identity that has been verified, and which may therefore also be used to log in. Both
+    ///     capabilities are granted here rather than at a first login, because a verified identity is proof of the
+    ///     person from the moment it is bound and waiting for a login would add nothing to that proof.
     /// </summary>
     public static ExternalIdentity CreateForVerification(
         TenantId tenantId,
@@ -112,6 +112,8 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
     /// <summary>
     ///     Records the outcome of a successful identity verification, replacing any earlier one. Re-verifying with the
     ///     same identity is how a verification is kept fresh.
+    ///     It grants the right to log in as well as the verification itself, and verification is the only way a MitID
+    ///     identity can obtain that right. Nothing else in the product turns an identity into a credential.
     /// </summary>
     public void RecordVerification(IdentityAssuranceLevel assuranceLevel, DateTimeOffset verifiedAt, DateTimeOffset authenticatedAt, ExternalLoginId verifiedByExternalLoginId)
     {
@@ -119,14 +121,18 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
         VerifiedAt = verifiedAt;
         AuthenticatedAt = authenticatedAt;
         VerifiedByExternalLoginId = verifiedByExternalLoginId;
-        Capabilities |= ExternalIdentityCapabilities.Verification;
+        Capabilities |= ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification;
 
         AddDomainEvent(new UserIdentityVerifiedEvent(TenantId, UserId, Provider, assuranceLevel));
     }
 
     /// <summary>
-    ///     Clears the verification evidence, leaving the identity in place. Used by the back office when a person has
-    ///     bound the wrong identity, because a different provider user id is otherwise refused forever.
+    ///     Clears the verification evidence. Used by the back office when a person has bound the wrong identity,
+    ///     because a different provider user id is otherwise refused forever.
+    ///     It clears the Login capability as well, and the reason is not incidental: a MitID identity may log in only
+    ///     because it was verified, so removing the verification removes the basis for the login. The row is then left
+    ///     with no capabilities at all, and the handler removes it, which is what lets the person verify again with a
+    ///     different identity.
     /// </summary>
     public void RevokeVerification()
     {
@@ -134,12 +140,7 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
         VerifiedAt = null;
         AuthenticatedAt = null;
         VerifiedByExternalLoginId = null;
-        Capabilities &= ~ExternalIdentityCapabilities.Verification;
-    }
-
-    public void AddLoginCapability()
-    {
-        Capabilities |= ExternalIdentityCapabilities.Login;
+        Capabilities &= ~(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
     }
 }
 
