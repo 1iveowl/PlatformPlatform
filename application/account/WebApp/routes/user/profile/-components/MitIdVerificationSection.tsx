@@ -6,9 +6,11 @@ import { Separator } from "@repo/ui/components/Separator";
 import { Skeleton } from "@repo/ui/components/Skeleton";
 import { useFormatDate } from "@repo/ui/hooks/useSmartDate";
 import { ShieldCheckIcon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useState } from "react";
 
-import mitIdLogoUrl from "@/shared/images/mitid-logo.svg";
+import mitIdLogoBlueUrl from "@/shared/images/mitid-logo-blue.svg";
+import mitIdLogoWhiteUrl from "@/shared/images/mitid-logo-white.svg";
 import { api, ExternalProviderType, IdentityAssuranceLevel, type Schemas } from "@/shared/lib/api/client";
 
 const profilePath = "/user/profile";
@@ -93,12 +95,27 @@ function VerificationSection() {
               <Trans>Redirecting...</Trans>
             ) : (
               <Trans>
-                Confirm with <img src={mitIdLogoUrl} alt="MitID" className="relative -top-[1.5px] h-4 w-auto" />
+                Confirm with <img src={mitIdLogoWhiteUrl} alt="MitID" className="relative -top-[1.5px] h-4 w-auto" />
               </Trans>
             )}
           </Button>
         )}
     </div>
+  );
+}
+
+/**
+ * The MitID wordmark on a page background, which is why it resolves a colour from the theme rather than taking one
+ * from the caller. The button uses the white variant directly, because it always sits on MitID blue.
+ */
+function MitIdWordmark() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme
+    ? resolvedTheme === "dark"
+    : typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
+  return (
+    <img src={isDark ? mitIdLogoWhiteUrl : mitIdLogoBlueUrl} alt="MitID" className="relative -top-px h-3.5 w-auto" />
   );
 }
 
@@ -112,8 +129,10 @@ function VerifiedState({ assuranceLevel, verifiedAt }: Readonly<VerifiedStatePro
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <ShieldCheckIcon className="size-5 text-muted-foreground" aria-hidden={true} />
-        <span className="text-sm">
-          <Trans>Verified with MitID</Trans>
+        <span className="inline-flex items-center gap-1.5 text-sm">
+          <Trans>
+            Verified with <MitIdWordmark />
+          </Trans>
         </span>
         <Badge variant="secondary">{getAssuranceLevelLabel(assuranceLevel)}</Badge>
       </div>

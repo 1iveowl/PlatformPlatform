@@ -65,7 +65,8 @@ test.describe("@smoke", () => {
       await setMockProviderCookie(page, `identity:${faker.string.alphanumeric(10)}`);
       await page.getByRole("button", { name: "Confirm with MitID" }).click();
 
-      await expect(page.getByText("Verified with MitID")).toBeVisible();
+      await expect(page.getByText("Verified with")).toBeVisible();
+      await expect(page.getByRole("img", { name: "MitID" })).toBeVisible();
       await expect(page).toHaveURL("/user/profile");
       await expect(page.getByText("Substantial assurance")).toBeVisible();
       await expect(page.getByText("Verified on")).toBeVisible();
@@ -74,7 +75,8 @@ test.describe("@smoke", () => {
     await step("Reload the profile & read the persisted verified state")(async () => {
       await page.goto("/user/profile");
 
-      await expect(page.getByText("Verified with MitID")).toBeVisible();
+      await expect(page.getByText("Verified with")).toBeVisible();
+      await expect(page.getByRole("img", { name: "MitID" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Confirm with MitID" })).not.toBeVisible();
     })();
   });
