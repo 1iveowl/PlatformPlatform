@@ -38,6 +38,18 @@ jobs:
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18.3
+        env:
+          POSTGRES_PASSWORD: account-tests
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     outputs:
       version: ${{ steps.generate_version.outputs.version }}
       deploy_staging: ${{ steps.determine_deployment.outputs.deploy_staging }}
@@ -119,6 +131,8 @@ jobs:
 
       - name: Run Tests
         working-directory: application
+        env:
+          ACCOUNT_TEST_POSTGRES: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=account-tests
         run: |
           dotnet build account/Account.slnf --no-restore /p:Version=${{ steps.generate_version.outputs.version }} /p:DeploymentCommitHash=${{ github.event.pull_request.head.sha || github.sha }} /p:DeploymentGithubActionId=${{ github.run_id }} &&
           dotnet test account/Account.slnf --no-build
