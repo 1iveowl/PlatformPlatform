@@ -9,12 +9,8 @@ public interface IExternalLoginRepository : IAppendRepository<ExternalLogin, Ext
 {
     void Update(ExternalLogin aggregate);
 
-    /// <summary>
-    ///     Returns every external login for the given email address created at or after <paramref name="since" />.
-    ///     Used by the back-office login history endpoint to surface the full sign-in history (including failed
-    ///     and pending attempts).
-    /// </summary>
-    Task<ExternalLogin[]> GetByEmailSinceAsync(string email, DateTimeOffset since, CancellationToken cancellationToken);
+    /// <summary>Returns attempts bound to this user and unbound legacy attempts matching their email.</summary>
+    Task<ExternalLogin[]> GetByUserSinceAsync(UserId userId, string email, DateTimeOffset since, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Returns every successful external login created at or after <paramref name="since" />. Used by the back-office
@@ -26,16 +22,9 @@ public interface IExternalLoginRepository : IAppendRepository<ExternalLogin, Ext
 public sealed class ExternalLoginRepository(AccountDbContext accountDbContext)
     : RepositoryBase<ExternalLogin, ExternalLoginId>(accountDbContext), IExternalLoginRepository
 {
-    /// <summary>
-    ///     Returns every external login for the given email address created at or after <paramref name="since" />.
-    ///     Used by the back-office login history endpoint to surface the full sign-in history (including failed
-    ///     and pending attempts). SQLite cannot translate DateTimeOffset comparisons, so the time filter runs in
-    ///     memory; the email filter keeps the materialized set bounded.
-    /// </summary>
-    public async Task<ExternalLogin[]> GetByEmailSinceAsync(string email, DateTimeOffset since, CancellationToken cancellationToken)
+    public async Task<ExternalLogin[]> GetByUserSinceAsync(UserId userId, string email, DateTimeOffset since, CancellationToken cancellationToken)
     {
-        var logins = await DbSet
-            .Where(el => el.Email == email.ToLowerInvariant())
+        var logins = await DbSet.Where(el => el.UserId == userId || (el.UserId == null && el.Email == email.ToLowerInvariant()))
             .ToArrayAsync(cancellationToken);
         return logins.Where(el => el.CreatedAt >= since).ToArray();
     }

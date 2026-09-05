@@ -28,6 +28,10 @@ public sealed class CompleteExternalSignupTests : ExternalAuthenticationTestBase
             "SELECT COUNT(*) FROM users WHERE email = @email", [new { email = MockOAuthProvider.MockEmail }]
         );
         userCount.Should().Be(1);
+        Connection.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM external_logins e JOIN users u ON u.id = e.user_id AND u.tenant_id = e.tenant_id WHERE e.id = @id AND u.email = @email",
+            [new { id = GetExternalLoginIdFromUrl(callbackUrl), email = MockOAuthProvider.MockEmail }]
+        ).Should().Be(1);
 
         var tenantCount = Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM tenants", []);
         tenantCount.Should().BeGreaterThan(1);
