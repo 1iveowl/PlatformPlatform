@@ -62,17 +62,9 @@ public sealed class GetBackOfficeUserLoginHistoryHandler(
             return Result<BackOfficeUserLoginHistoryResponse>.NotFound($"User with id '{query.Id}' was not found.");
         }
 
-        // The PRD calls this section "real sign-in attempts" - so we union both authentication aggregates by email.
-        // The aggregates don't track IP or country today; back-office shows only what we have until those columns land.
         var since = timeProvider.GetUtcNow().AddDays(-LookbackDays);
         var emailLogins = await emailLoginRepository.GetByEmailSinceAsync(user.Email, since, cancellationToken);
-
-        // Found by email and by user, then de-duplicated. Neither lookup is sufficient on its own: a provider that
-        // supplies no email leaves a row with none, so only the user lookup finds it, while a flow that failed before
-        // it resolved an account carries an email and no user. A row can legitimately match both.
-        var externalLoginsByEmail = await externalLoginRepository.GetByEmailSinceAsync(user.Email, since, cancellationToken);
-        var externalLoginsByUser = await externalLoginRepository.GetByUserIdSinceAsync(user.Id, since, cancellationToken);
-        var externalLogins = externalLoginsByEmail.Concat(externalLoginsByUser).DistinctBy(e => e.Id).ToArray();
+        var externalLogins = await externalLoginRepository.GetByUserSinceAsync(user.Id, user.Email, since, cancellationToken);
 
         var entries = new List<BackOfficeUserLoginEntry>(emailLogins.Length + externalLogins.Length);
 

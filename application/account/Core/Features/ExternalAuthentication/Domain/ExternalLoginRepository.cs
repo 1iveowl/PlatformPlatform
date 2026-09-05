@@ -9,19 +9,8 @@ public interface IExternalLoginRepository : IAppendRepository<ExternalLogin, Ext
 {
     void Update(ExternalLogin aggregate);
 
-    /// <summary>
-    ///     Returns every external login for the given email address created at or after <paramref name="since" />.
-    ///     Used by the back-office login history endpoint to surface the full sign-in history (including failed
-    ///     and pending attempts).
-    /// </summary>
-    Task<ExternalLogin[]> GetByEmailSinceAsync(string email, DateTimeOffset since, CancellationToken cancellationToken);
-
-    /// <summary>
-    ///     Returns every external login recorded against the given user created at or after <paramref name="since" />.
-    ///     The companion to <see cref="GetByEmailSinceAsync" />: a flow whose provider supplied no email can only be
-    ///     found this way, and the back office needs both to show a complete history.
-    /// </summary>
-    Task<ExternalLogin[]> GetByUserIdSinceAsync(UserId userId, DateTimeOffset since, CancellationToken cancellationToken);
+    /// <summary>Returns attempts bound to this user and unbound legacy attempts matching their email.</summary>
+    Task<ExternalLogin[]> GetByUserSinceAsync(UserId userId, string email, DateTimeOffset since, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Returns every successful login or signup created at or after <paramref name="since" />. Identity
@@ -34,29 +23,10 @@ public interface IExternalLoginRepository : IAppendRepository<ExternalLogin, Ext
 public sealed class ExternalLoginRepository(AccountDbContext accountDbContext)
     : RepositoryBase<ExternalLogin, ExternalLoginId>(accountDbContext), IExternalLoginRepository
 {
-    /// <summary>
-    ///     Returns every external login for the given email address created at or after <paramref name="since" />.
-    ///     Used by the back-office login history endpoint to surface the full sign-in history (including failed
-    ///     and pending attempts). SQLite cannot translate DateTimeOffset comparisons, so the time filter runs in
-    ///     memory; the email filter keeps the materialized set bounded.
-    /// </summary>
-    public async Task<ExternalLogin[]> GetByEmailSinceAsync(string email, DateTimeOffset since, CancellationToken cancellationToken)
+    public async Task<ExternalLogin[]> GetByUserSinceAsync(UserId userId, string email, DateTimeOffset since, CancellationToken cancellationToken)
     {
-        var logins = await DbSet
-            .Where(el => el.Email == email.ToLowerInvariant())
-            .ToArrayAsync(cancellationToken);
-        return logins.Where(el => el.CreatedAt >= since).ToArray();
-    }
-
-    /// <summary>
-    ///     Returns every external login recorded against the given user created at or after <paramref name="since" />.
-    ///     SQLite cannot translate DateTimeOffset comparisons, so the time filter runs in memory; the user filter
-    ///     keeps the materialized set bounded.
-    /// </summary>
-    public async Task<ExternalLogin[]> GetByUserIdSinceAsync(UserId userId, DateTimeOffset since, CancellationToken cancellationToken)
-    {
-        var logins = await DbSet
-            .Where(el => el.UserId == userId)
+        var logins = await DbSet.Where(el => (el.Type == ExternalLoginType.Login || el.Type == ExternalLoginType.Signup)
+                && (el.UserId == userId || (el.UserId == null && el.Email == email.ToLowerInvariant())))
             .ToArrayAsync(cancellationToken);
         return logins.Where(el => el.CreatedAt >= since).ToArray();
     }
