@@ -272,7 +272,6 @@ public sealed class ExternalLoginTests
     [Theory]
     [InlineData(ExternalProviderType.Google, ExternalLoginType.Verification)]
     [InlineData(ExternalProviderType.Entra, ExternalLoginType.Verification)]
-    [InlineData(ExternalProviderType.MitId, ExternalLoginType.Login)]
     [InlineData(ExternalProviderType.MitId, ExternalLoginType.Signup)]
     public void Create_WhenProviderDoesNotSupportTheFlow_ShouldThrow(ExternalProviderType providerType, ExternalLoginType loginType)
     {

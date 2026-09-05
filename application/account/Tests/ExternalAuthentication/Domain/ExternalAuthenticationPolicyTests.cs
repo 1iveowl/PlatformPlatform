@@ -11,6 +11,7 @@ public sealed class ExternalAuthenticationPolicyTests
     [InlineData(ExternalProviderType.Google, ExternalLoginType.Signup)]
     [InlineData(ExternalProviderType.Entra, ExternalLoginType.Login)]
     [InlineData(ExternalProviderType.Entra, ExternalLoginType.Signup)]
+    [InlineData(ExternalProviderType.MitId, ExternalLoginType.Login)]
     [InlineData(ExternalProviderType.MitId, ExternalLoginType.Verification)]
     public void IsFlowSupported_WhenTheCombinationIsAllowed_ShouldReturnTrue(ExternalProviderType providerType, ExternalLoginType loginType)
     {
@@ -24,7 +25,6 @@ public sealed class ExternalAuthenticationPolicyTests
     [Theory]
     [InlineData(ExternalProviderType.Google, ExternalLoginType.Verification)]
     [InlineData(ExternalProviderType.Entra, ExternalLoginType.Verification)]
-    [InlineData(ExternalProviderType.MitId, ExternalLoginType.Login)]
     [InlineData(ExternalProviderType.MitId, ExternalLoginType.Signup)]
     public void IsFlowSupported_WhenTheCombinationIsForbidden_ShouldReturnFalse(ExternalProviderType providerType, ExternalLoginType loginType)
     {
@@ -46,6 +46,32 @@ public sealed class ExternalAuthenticationPolicyTests
 
         // Assert
         supportedFlows.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(ExternalProviderType.Google, true)]
+    [InlineData(ExternalProviderType.Entra, true)]
+    [InlineData(ExternalProviderType.MitId, false)]
+    public void SuppliesEmail_WhenCalled_ShouldOnlyExcludeMitId(ExternalProviderType providerType, bool expected)
+    {
+        // Act
+        var suppliesEmail = ExternalAuthenticationPolicy.SuppliesEmail(providerType);
+
+        // Assert
+        suppliesEmail.Should().Be(expected);
+    }
+
+    [Fact]
+    public void SuppliesEmail_WhenAProviderIsAdded_ShouldReportNoEmailUntilThePolicyNamesIt()
+    {
+        // Arrange
+        var unknownProviderType = (ExternalProviderType)int.MaxValue;
+
+        // Act
+        var suppliesEmail = ExternalAuthenticationPolicy.SuppliesEmail(unknownProviderType);
+
+        // Assert
+        suppliesEmail.Should().BeFalse();
     }
 
     [Theory]
