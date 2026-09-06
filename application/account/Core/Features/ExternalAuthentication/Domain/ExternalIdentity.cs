@@ -18,9 +18,34 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
         Subject = subject;
     }
 
-    public UserId UserId { get; private init; }
+    /// <summary>
+    ///     The level of assurance of the most recent successful identity verification, or null when the identity has
+    ///     never been verified. Only the verification callback writes this and the three fields below.
+    /// </summary>
+    public IdentityAssuranceLevel? AssuranceLevel { get; private set; }
 
-    public ExternalProviderType Provider { get; private init; }
+    /// <summary>
+    ///     When this system recorded the verification.
+    /// </summary>
+    public DateTimeOffset? VerifiedAt { get; private set; }
+
+    /// <summary>
+    ///     When the identity provider reports the person actually authenticated. It answers a different question from
+    ///     <see cref="VerifiedAt" /> and is what the freshness of a verification is measured against, because a
+    ///     provider replaying a cached session would otherwise produce a recent row from an old authentication.
+    /// </summary>
+    public DateTimeOffset? AuthenticatedAt { get; private set; }
+
+    /// <summary>
+    ///     The flow that produced the verification. The broker retains nothing of its own, so the evidence trail has to
+    ///     point at a row this system owns: from here to the external login row, which holds the provider, the flow
+    ///     type, the result and the timestamps, and on to the telemetry event.
+    /// </summary>
+    public ExternalLoginId? VerifiedByExternalLoginId { get; private set; }
+
+    public UserId UserId { get; }
+
+    public ExternalProviderType Provider { get; }
 
     /// <summary>
     ///     The durable provider-specific lookup key, and the only provider-supplied value the unique index on
@@ -61,9 +86,58 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
         return new ExternalIdentity(tenantId, userId, provider, providerUserId, ExternalIdentityCapabilities.Login, issuer, subject);
     }
 
-    public void AddCapability(ExternalIdentityCapabilities capability)
+    /// <summary>
+    ///     Creates an identity that has been verified but may not be used to log in. The Login capability is granted by
+    ///     a successful login, never by a verification, so the database never asserts a permission the product has not
+    ///     granted.
+    /// </summary>
+    public static ExternalIdentity CreateForVerification(
+        TenantId tenantId,
+        UserId userId,
+        ExternalProviderType provider,
+        string providerUserId,
+        string issuer,
+        string subject,
+        IdentityAssuranceLevel assuranceLevel,
+        DateTimeOffset verifiedAt,
+        DateTimeOffset authenticatedAt,
+        ExternalLoginId verifiedByExternalLoginId
+    )
     {
-        Capabilities |= capability;
+        var externalIdentity = new ExternalIdentity(tenantId, userId, provider, providerUserId, ExternalIdentityCapabilities.None, issuer, subject);
+        externalIdentity.RecordVerification(assuranceLevel, verifiedAt, authenticatedAt, verifiedByExternalLoginId);
+        return externalIdentity;
+    }
+
+    /// <summary>
+    ///     Records the outcome of a successful identity verification, replacing any earlier one. Re-verifying with the
+    ///     same identity is how a verification is kept fresh.
+    /// </summary>
+    public void RecordVerification(IdentityAssuranceLevel assuranceLevel, DateTimeOffset verifiedAt, DateTimeOffset authenticatedAt, ExternalLoginId verifiedByExternalLoginId)
+    {
+        AssuranceLevel = assuranceLevel;
+        VerifiedAt = verifiedAt;
+        AuthenticatedAt = authenticatedAt;
+        VerifiedByExternalLoginId = verifiedByExternalLoginId;
+        Capabilities |= ExternalIdentityCapabilities.Verification;
+    }
+
+    /// <summary>
+    ///     Clears the verification evidence, leaving the identity in place. Used by the back office when a person has
+    ///     bound the wrong identity, because a different provider user id is otherwise refused forever.
+    /// </summary>
+    public void RevokeVerification()
+    {
+        AssuranceLevel = null;
+        VerifiedAt = null;
+        AuthenticatedAt = null;
+        VerifiedByExternalLoginId = null;
+        Capabilities &= ~ExternalIdentityCapabilities.Verification;
+    }
+
+    public void AddLoginCapability()
+    {
+        Capabilities |= ExternalIdentityCapabilities.Login;
     }
 }
 

@@ -351,6 +351,6 @@ public sealed class MockOAuthProviderEnforcementTests
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Headers.Append("Cookie", $"{OAuthProviderFactory.UseMockProviderCookieName}={cookieValue}");
         var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
-        return new MockOAuthProvider(providerType, configuration, httpContextAccessor);
+        return new MockOAuthProvider(providerType, configuration, httpContextAccessor, TimeProvider.System);
     }
 }

@@ -338,6 +338,9 @@ msgstr "Area Chart - Interactive"
 msgid "Aspect ratio"
 msgstr "Aspect ratio"
 
+msgid "Authenticated on"
+msgstr "Authenticated on"
+
 msgid "Authoritative log of subscription, payment, and billing transitions across all accounts."
 msgstr "Authoritative log of subscription, payment, and billing transitions across all accounts."
 
@@ -1075,6 +1078,9 @@ msgstr "Has override"
 msgid "Hide details"
 msgstr "Hide details"
 
+msgid "High assurance"
+msgstr "High assurance"
+
 msgid "Home"
 msgstr "Home"
 
@@ -1092,6 +1098,15 @@ msgstr "Icon-only buttons"
 
 msgid "Icons"
 msgstr "Icons"
+
+msgid "Identity"
+msgstr "Identity"
+
+msgid "Identity verification"
+msgstr "Identity verification"
+
+msgid "Identity verification revoked"
+msgstr "Identity verification revoked"
 
 msgid "In the real app the sidebar is fixed-positioned, persists its state and width in localStorage (rem-based, not cookies), and exposes a floating chevron to toggle icon collapse plus drag-to-resize between 14rem and 25rem."
 msgstr "In the real app the sidebar is fixed-positioned, persists its state and width in localStorage (rem-based, not cookies), and exposes a floating chevron to toggle icon collapse plus drag-to-resize between 14rem and 25rem."
@@ -1341,6 +1356,9 @@ msgstr "Logo"
 
 msgid "Long date"
 msgstr "Long date"
+
+msgid "Low assurance"
+msgstr "Low assurance"
 
 msgid "macOS modifier glyphs: ⌃ Control, ⌥ Option, ⇧ Shift, ⌘ Command, fn Function. Use these everywhere shortcuts are surfaced so the chips read the same across menus, palettes, and tooltips."
 msgstr "macOS modifier glyphs: ⌃ Control, ⌥ Option, ⇧ Shift, ⌘ Command, fn Function. Use these everywhere shortcuts are surfaced so the chips read the same across menus, palettes, and tooltips."
@@ -1626,6 +1644,9 @@ msgstr "None"
 
 msgid "Not synced yet"
 msgstr "Not synced yet"
+
+msgid "Not verified"
+msgstr "Not verified"
 
 msgid "Not yet"
 msgstr "Not yet"
@@ -2092,6 +2113,12 @@ msgstr "Restaurant phone"
 msgid "Revenue"
 msgstr "Revenue"
 
+msgid "Revoke identity verification"
+msgstr "Revoke identity verification"
+
+msgid "Revoke verification"
+msgstr "Revoke verification"
+
 msgid "Revoked"
 msgstr "Revoked"
 
@@ -2426,6 +2453,9 @@ msgstr "Subscription, payment, and billing transitions will appear here."
 msgid "Subscriptions, upgrades, and cancellations will appear here."
 msgstr "Subscriptions, upgrades, and cancellations will appear here."
 
+msgid "Substantial assurance"
+msgstr "Substantial assurance"
+
 msgid "Subtle background for grouped rows inside a panel."
 msgstr "Subtle background for grouped rows inside a panel."
 
@@ -2486,6 +2516,9 @@ msgstr "The item will be moved to the archive. You can restore it later from the
 msgid "The page you are looking for does not exist or was moved."
 msgstr "The page you are looking for does not exist or was moved."
 
+msgid "The verification status could not be loaded. Try again."
+msgstr "The verification status could not be loaded. Try again."
+
 msgid "Theme"
 msgstr "Theme"
 
@@ -2500,6 +2533,9 @@ msgstr "This action cannot be undone. The item will be permanently removed."
 
 msgid "This action may have unintended consequences."
 msgstr "This action may have unintended consequences."
+
+msgid "This clears the proof that this person verified their identity, and lets them verify again with a different one. Do this when the wrong identity was bound, for example on a shared device. It cannot be undone, and only the person themselves can verify again."
+msgstr "This clears the proof that this person verified their identity, and lets them verify again with a different one. Do this when the wrong identity was bound, for example on a shared device. It cannot be undone, and only the person themselves can verify again."
 
 msgid "This feature helps you manage your workspace more efficiently. All changes are synced across your team in real time."
 msgstr "This feature helps you manage your workspace more efficiently. All changes are synced across your team in real time."
@@ -2530,6 +2566,9 @@ msgstr "This is an informational message."
 
 msgid "this period"
 msgstr "this period"
+
+msgid "This person has not proven their identity with an electronic ID."
+msgstr "This person has not proven their identity with an electronic ID."
 
 msgid "This rebuilds the billing event ledger from this tenant's archived Stripe payloads. It is a best-effort recovery that may produce incorrect subscription state or billing event rows. Only run it when standard Reconcile with Stripe has been tried and did not clear the drift."
 msgstr "This rebuilds the billing event ledger from this tenant's archived Stripe payloads. It is a best-effort recovery that may produce incorrect subscription state or billing event rows. Only run it when standard Reconcile with Stripe has been tried and did not clear the drift."
@@ -2663,6 +2702,9 @@ msgstr "Underline on hover"
 msgid "Unknown"
 msgstr "Unknown"
 
+msgid "Unknown assurance"
+msgstr "Unknown assurance"
+
 msgid "Update your personal information and profile photo."
 msgstr "Update your personal information and profile photo."
 
@@ -2740,6 +2782,24 @@ msgstr "VAT number"
 
 msgid "Vegetable tempura"
 msgstr "Vegetable tempura"
+
+msgid "Verification status unavailable"
+msgstr "Verification status unavailable"
+
+msgid "Verified"
+msgstr "Verified"
+
+msgid "Verified on"
+msgstr "Verified on"
+
+msgid "Verified with Google"
+msgstr "Verified with Google"
+
+msgid "Verified with Microsoft"
+msgstr "Verified with Microsoft"
+
+msgid "Verified with MitID"
+msgstr "Verified with MitID"
 
 msgid "View accounts"
 msgstr "View accounts"

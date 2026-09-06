@@ -338,6 +338,9 @@ msgstr "Arealdiagram - Interaktivt"
 msgid "Aspect ratio"
 msgstr "Billedformat"
 
+msgid "Authenticated on"
+msgstr "Godkendt den"
+
 msgid "Authoritative log of subscription, payment, and billing transitions across all accounts."
 msgstr "Autoritativ log over abonnements-, betalings- og faktureringsovergange på tværs af alle konti."
 
@@ -1075,6 +1078,9 @@ msgstr "Med tilsidesættelse"
 msgid "Hide details"
 msgstr "Skjul detaljer"
 
+msgid "High assurance"
+msgstr "Højt sikkerhedsniveau"
+
 msgid "Home"
 msgstr "Hjem"
 
@@ -1092,6 +1098,15 @@ msgstr "Knapper kun med ikon"
 
 msgid "Icons"
 msgstr "Ikoner"
+
+msgid "Identity"
+msgstr "Identitet"
+
+msgid "Identity verification"
+msgstr "Identitetsbekræftelse"
+
+msgid "Identity verification revoked"
+msgstr "Identitetsbekræftelse tilbagekaldt"
 
 msgid "In the real app the sidebar is fixed-positioned, persists its state and width in localStorage (rem-based, not cookies), and exposes a floating chevron to toggle icon collapse plus drag-to-resize between 14rem and 25rem."
 msgstr "I selve appen er sidemenuen fixed-positioneret, gemmer sin tilstand og bredde i localStorage (rem-baseret, ikke cookies), og viser en flydende chevron til at skifte til ikon-tilstand samt træk-for-at-ændre-størrelse mellem 14rem og 25rem."
@@ -1341,6 +1356,9 @@ msgstr "Logo"
 
 msgid "Long date"
 msgstr "Lang dato"
+
+msgid "Low assurance"
+msgstr "Lavt sikkerhedsniveau"
 
 msgid "macOS modifier glyphs: ⌃ Control, ⌥ Option, ⇧ Shift, ⌘ Command, fn Function. Use these everywhere shortcuts are surfaced so the chips read the same across menus, palettes, and tooltips."
 msgstr "macOS modifier-glyffer: ⌃ Control, ⌥ Option, ⇧ Shift, ⌘ Command, fn Function. Brug disse alle steder hvor genveje vises, så chipsene læses ens på tværs af menuer, paletter og værktøjstips."
@@ -1626,6 +1644,9 @@ msgstr "Ingen"
 
 msgid "Not synced yet"
 msgstr "Ikke synkroniseret endnu"
+
+msgid "Not verified"
+msgstr "Ikke bekræftet"
 
 msgid "Not yet"
 msgstr "Ikke endnu"
@@ -2092,6 +2113,12 @@ msgstr "Restauranttelefon"
 msgid "Revenue"
 msgstr "Omsætning"
 
+msgid "Revoke identity verification"
+msgstr "Tilbagekald identitetsbekræftelse"
+
+msgid "Revoke verification"
+msgstr "Tilbagekald bekræftelse"
+
 msgid "Revoked"
 msgstr "Tilbagekaldt"
 
@@ -2426,6 +2453,9 @@ msgstr "Abonnements-, betalings- og faktureringsovergange vises her."
 msgid "Subscriptions, upgrades, and cancellations will appear here."
 msgstr "Tilmeldinger, opgraderinger og opsigelser vises her."
 
+msgid "Substantial assurance"
+msgstr "Betydeligt sikkerhedsniveau"
+
 msgid "Subtle background for grouped rows inside a panel."
 msgstr "Diskret baggrund til grupperede rækker i et panel."
 
@@ -2486,6 +2516,9 @@ msgstr "Elementet flyttes til arkivet. Du kan gendanne det senere fra arkivet."
 msgid "The page you are looking for does not exist or was moved."
 msgstr "Siden du leder efter findes ikke eller er blevet flyttet."
 
+msgid "The verification status could not be loaded. Try again."
+msgstr "Bekræftelsesstatus kunne ikke indlæses. Prøv igen."
+
 msgid "Theme"
 msgstr "Tema"
 
@@ -2500,6 +2533,9 @@ msgstr "Denne handling kan ikke fortrydes. Elementet fjernes permanent."
 
 msgid "This action may have unintended consequences."
 msgstr "Denne handling kan have utilsigtede konsekvenser."
+
+msgid "This clears the proof that this person verified their identity, and lets them verify again with a different one. Do this when the wrong identity was bound, for example on a shared device. It cannot be undone, and only the person themselves can verify again."
+msgstr "Dette fjerner beviset for, at personen har bekræftet sin identitet, og gør det muligt at bekræfte igen med en anden. Gør dette, når den forkerte identitet er blevet knyttet, for eksempel på en delt enhed. Det kan ikke fortrydes, og kun personen selv kan bekræfte igen."
 
 msgid "This feature helps you manage your workspace more efficiently. All changes are synced across your team in real time."
 msgstr "Denne funktion hjælper dig med at administrere dit arbejdsområde mere effektivt. Alle ændringer synkroniseres på tværs af dit team i realtid."
@@ -2530,6 +2566,9 @@ msgstr "Dette er en informationsmeddelelse."
 
 msgid "this period"
 msgstr "denne periode"
+
+msgid "This person has not proven their identity with an electronic ID."
+msgstr "Denne person har ikke bekræftet sin identitet med et elektronisk ID."
 
 msgid "This rebuilds the billing event ledger from this tenant's archived Stripe payloads. It is a best-effort recovery that may produce incorrect subscription state or billing event rows. Only run it when standard Reconcile with Stripe has been tried and did not clear the drift."
 msgstr "Dette genopbygger faktureringshændelsesloggen fra denne kontos arkiverede Stripe-payloads. Det er en bedst muligt-gendannelse, der kan producere forkerte abonnementstilstande eller faktureringshændelser. Kør kun denne handling, når standard Afstem med Stripe er forsøgt og ikke ryddede afvigelserne."
@@ -2663,6 +2702,9 @@ msgstr "Understreg ved hover"
 msgid "Unknown"
 msgstr "Ukendt"
 
+msgid "Unknown assurance"
+msgstr "Ukendt sikkerhedsniveau"
+
 msgid "Update your personal information and profile photo."
 msgstr "Opdater dine personlige oplysninger og profilbillede."
 
@@ -2740,6 +2782,24 @@ msgstr "Momsnummer"
 
 msgid "Vegetable tempura"
 msgstr "Grøntsagstempura"
+
+msgid "Verification status unavailable"
+msgstr "Bekræftelsesstatus utilgængelig"
+
+msgid "Verified"
+msgstr "Bekræftet"
+
+msgid "Verified on"
+msgstr "Bekræftet den"
+
+msgid "Verified with Google"
+msgstr "Bekræftet med Google"
+
+msgid "Verified with Microsoft"
+msgstr "Bekræftet med Microsoft"
+
+msgid "Verified with MitID"
+msgstr "Bekræftet med MitID"
 
 msgid "View accounts"
 msgstr "Vis konti"

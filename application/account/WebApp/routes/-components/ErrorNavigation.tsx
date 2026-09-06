@@ -7,7 +7,7 @@ import { productName } from "@repo/infrastructure/branding";
 import { Button } from "@repo/ui/components/Button";
 import { Link } from "@repo/ui/components/Link";
 import { Logo } from "@repo/ui/components/Logo";
-import { LogIn, LogOut, UserPlus } from "lucide-react";
+import { ArrowLeft, LogIn, LogOut, UserPlus } from "lucide-react";
 import { useContext, useState } from "react";
 
 import LocaleSwitcher from "@/federated-modules/common/LocaleSwitcher";
@@ -81,10 +81,18 @@ type ActionButtonProps = {
   variant: "default" | "outline";
   onLogIn: () => void;
   onSignUp: () => void;
+  onReturnToProfile: () => void;
 };
 
-export function ActionButton({ action, variant, onLogIn, onSignUp }: ActionButtonProps) {
+export function ActionButton({ action, variant, onLogIn, onSignUp, onReturnToProfile }: ActionButtonProps) {
   switch (action) {
+    case "profile":
+      return (
+        <Button variant={variant} onClick={onReturnToProfile} aria-label={t`Back to profile`}>
+          <ArrowLeft size={16} />
+          <Trans>Back to profile</Trans>
+        </Button>
+      );
     case "signup":
       return (
         <Button variant={variant} onClick={onSignUp} aria-label={t`Sign up`}>

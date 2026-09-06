@@ -256,6 +256,9 @@ msgstr "Back to app"
 msgid "Back to login"
 msgstr "Back to login"
 
+msgid "Back to profile"
+msgstr "Back to profile"
+
 msgid "Back to signup"
 msgstr "Back to signup"
 
@@ -399,6 +402,9 @@ msgstr "Compliance"
 
 msgid "Confirm downgrade"
 msgstr "Confirm downgrade"
+
+msgid "Confirm with <0/>"
+msgstr "Confirm with <0/>"
 
 msgid "Contact support"
 msgstr "Contact support"
@@ -671,11 +677,20 @@ msgstr "Hi! Welcome back"
 msgid "Hide details"
 msgstr "Hide details"
 
+msgid "High assurance"
+msgstr "High assurance"
+
 msgid "How we collect, use, and protect your personal data in compliance with GDPR."
 msgstr "How we collect, use, and protect your personal data in compliance with GDPR."
 
+msgid "Identity already in use"
+msgstr "Identity already in use"
+
 msgid "Identity mismatch"
 msgstr "Identity mismatch"
+
+msgid "Identity verification"
+msgstr "Identity verification"
 
 msgid "Image must be smaller than 1 MB."
 msgstr "Image must be smaller than 1 MB."
@@ -787,6 +802,9 @@ msgstr "Login verification code"
 
 msgid "Logo"
 msgstr "Logo"
+
+msgid "Low assurance"
+msgstr "Low assurance"
 
 msgid "Main navigation"
 msgstr "Main navigation"
@@ -984,6 +1002,9 @@ msgstr "Please select a JPEG, PNG, GIF, or WebP image."
 msgid "Please try again or return to the home page."
 msgstr "Please try again or return to the home page."
 
+msgid "Please try again, or contact your account administrator."
+msgstr "Please try again, or contact your account administrator."
+
 msgid "Please wait while we confirm your payment. This may take a few moments."
 msgstr "Please wait while we confirm your payment. This may take a few moments."
 
@@ -1031,6 +1052,9 @@ msgstr "Profile photo"
 
 msgid "Profile updated successfully"
 msgstr "Profile updated successfully"
+
+msgid "Prove who you are with MitID. Your name and personal identification number are not stored."
+msgstr "Prove who you are with MitID. Your name and personal identification number are not stored."
 
 msgid "Reactivate"
 msgstr "Reactivate"
@@ -1234,6 +1258,9 @@ msgstr "Subscribe to {0}"
 msgid "Subscription"
 msgstr "Subscription"
 
+msgid "Substantial assurance"
+msgstr "Substantial assurance"
+
 msgid "Suspended"
 msgstr "Suspended"
 
@@ -1300,6 +1327,9 @@ msgstr "This can happen when email ownership has changed. Contact your account a
 msgid "This device"
 msgstr "This device"
 
+msgid "This identity is already linked to another account."
+msgstr "This identity is already linked to another account."
+
 msgid "This will permanently delete <0>{totalDeletedUsersCount} users</0> in the recycle bin."
 msgstr "This will permanently delete <0>{totalDeletedUsersCount} users</0> in the recycle bin."
 
@@ -1344,6 +1374,9 @@ msgstr "Unable to load profile"
 
 msgid "Unknown"
 msgstr "Unknown"
+
+msgid "Unknown assurance"
+msgstr "Unknown assurance"
 
 msgid "Unknown state"
 msgstr "Unknown state"
@@ -1457,8 +1490,17 @@ msgstr "VAT number"
 msgid "Verification code sent"
 msgstr "Verification code sent"
 
+msgid "Verification not strong enough"
+msgstr "Verification not strong enough"
+
 msgid "Verified"
 msgstr "Verified"
+
+msgid "Verified on {verifiedDate}"
+msgstr "Verified on {verifiedDate}"
+
+msgid "Verified with <0/>"
+msgstr "Verified with <0/>"
 
 msgid "Verify"
 msgstr "Verify"
@@ -1495,6 +1537,9 @@ msgstr "You cannot change your own role"
 
 msgid "You cannot delete yourself"
 msgstr "You cannot delete yourself"
+
+msgid "You cannot resolve this yourself. Contact your account administrator."
+msgstr "You cannot resolve this yourself. Contact your account administrator."
 
 msgid "You do not have permission to access this page."
 msgstr "You do not have permission to access this page."
@@ -1546,6 +1591,9 @@ msgstr "Your downgrade has been scheduled."
 
 msgid "Your email address cannot be changed. An owner must delete your account and reinvite you with the new email address."
 msgstr "Your email address cannot be changed. An owner must delete your account and reinvite you with the new email address."
+
+msgid "Your identity could not be verified at the required level."
+msgstr "Your identity could not be verified at the required level."
 
 msgid "Your payment card is expired or expiring soon. Please update your payment method to avoid service interruption."
 msgstr "Your payment card is expired or expiring soon. Please update your payment method to avoid service interruption."

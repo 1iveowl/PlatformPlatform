@@ -55,8 +55,14 @@ public sealed class GetDashboardRecentLoginsHandler(
         var emailLogins = await emailLoginRepository.GetCompletedSinceAsync(since, cancellationToken);
         var externalLogins = await externalLoginRepository.GetSucceededSinceAsync(since, cancellationToken);
 
+        var externalEntries = externalLogins
+            .Where(e => e.Email is not null || e.UserId is not null)
+            .Select(e => new { e.Email, e.UserId, Method = MapExternalMethod(e.ProviderType), e.CreatedAt })
+            .Where(e => e.Method is not null)
+            .Select(e => new LoginEntry(e.Email, e.UserId, e.Method!.Value, e.CreatedAt));
+
         var entries = emailLogins.Select(e => new LoginEntry(e.Email, null, LoginMethod.OneTimePassword, e.CreatedAt))
-            .Concat(externalLogins.Where(e => e.Email is not null || e.UserId is not null).Select(e => new LoginEntry(e.Email, e.UserId, MapExternalMethod(e.ProviderType), e.CreatedAt)))
+            .Concat(externalEntries)
             .OrderByDescending(e => e.OccurredAt)
             .Take(query.Limit)
             .ToArray();
@@ -107,13 +113,18 @@ public sealed class GetDashboardRecentLoginsHandler(
         return new BackOfficeDashboardRecentLoginsResponse(logins);
     }
 
-    private static LoginMethod MapExternalMethod(ExternalProviderType providerType)
+    /// <summary>
+    ///     Null for a provider that cannot sign anyone in, which is why the caller drops those rows rather than
+    ///     throwing. A verification-only provider has no login method by design, and a dashboard is the wrong place to
+    ///     discover that.
+    /// </summary>
+    private static LoginMethod? MapExternalMethod(ExternalProviderType providerType)
     {
         return providerType switch
         {
             ExternalProviderType.Google => LoginMethod.Google,
             ExternalProviderType.Entra => LoginMethod.Entra,
-            _ => throw new UnreachableException($"Unknown external provider type '{providerType}'.")
+            _ => null
         };
     }
 

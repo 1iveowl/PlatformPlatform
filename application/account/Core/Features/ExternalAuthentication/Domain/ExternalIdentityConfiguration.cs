@@ -13,6 +13,7 @@ public sealed class ExternalIdentityConfiguration : IEntityTypeConfiguration<Ext
         builder.MapStronglyTypedUuid<ExternalIdentity, ExternalIdentityId>(ei => ei.Id);
         builder.MapStronglyTypedLongId<ExternalIdentity, TenantId>(ei => ei.TenantId);
         builder.MapStronglyTypedUuid<ExternalIdentity, UserId>(ei => ei.UserId);
+        builder.MapStronglyTypedNullableId<ExternalIdentity, ExternalLoginId, string>(ei => ei.VerifiedByExternalLoginId);
 
         // Identities belong to their user and are removed with it when the user is hard-deleted. The key is
         // composite because two independent foreign keys, one on tenant_id and one on user_id, permit a row whose

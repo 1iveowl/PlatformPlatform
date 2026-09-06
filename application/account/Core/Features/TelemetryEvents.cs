@@ -66,6 +66,18 @@ public sealed class ExternalSignupFailed(ExternalLoginId? externalLoginId, Exter
 public sealed class ExternalSignupStarted(ExternalProviderType providerType)
     : TelemetryEvent(("provider_type", providerType));
 
+public sealed class ExternalVerificationCompleted(UserId userId, ExternalProviderType providerType, IdentityAssuranceLevel assuranceLevel, int verificationTimeInSeconds)
+    : TelemetryEvent(("user_id", userId), ("provider_type", providerType), ("assurance_level", assuranceLevel), ("verification_time_in_seconds", verificationTimeInSeconds));
+
+public sealed class ExternalVerificationFailed(ExternalLoginId? externalLoginId, ExternalLoginResult loginResult, int timeInSeconds, string? oauthError = null)
+    : TelemetryEvent(("external_login_id", externalLoginId as object ?? "unknown"), ("login_result", loginResult), ("time_in_seconds", timeInSeconds), ("oauth_error", oauthError as object ?? "none"));
+
+public sealed class ExternalVerificationRevoked(UserId userId, ExternalProviderType providerType)
+    : TelemetryEvent(("user_id", userId), ("provider_type", providerType));
+
+public sealed class ExternalVerificationStarted(ExternalProviderType providerType)
+    : TelemetryEvent(("provider_type", providerType));
+
 public sealed class FeatureFlagActivated(string flagKey)
     : TelemetryEvent(("flag_key", flagKey));
 
