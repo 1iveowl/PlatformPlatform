@@ -63,6 +63,9 @@ public sealed class GetDashboardRecentLoginsHandler(
 
         if (entries.Length == 0) return new BackOfficeDashboardRecentLoginsResponse([]);
 
+        // Prefer the recorded user ID to identify the account and tenant, even when the provider email changes or is absent.
+        // Entries without a user ID retain the first-user-by-email fallback, which can be ambiguous across tenants.
+        // If a recorded user ID no longer resolves, do not associate the login with another account through its email.
         var userIds = entries.Where(e => e.UserId is not null).Select(e => e.UserId!).Distinct().ToArray();
         var resolvedUsers = userIds.Length == 0 ? [] : await userRepository.GetByIdsUnfilteredAsync(userIds, cancellationToken);
         var usersById = resolvedUsers.ToDictionary(u => u.Id);
