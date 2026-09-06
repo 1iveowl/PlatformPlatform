@@ -30,6 +30,11 @@ param googleOAuthClientId string
 param googleOAuthClientSecret string
 
 @secure()
+param entraOAuthClientId string
+@secure()
+param entraOAuthClientSecret string
+
+@secure()
 param stripePublishableKey string
 @secure()
 param stripeApiKey string
@@ -123,6 +128,18 @@ module googleOAuthSecrets '../modules/key-vault-secrets.bicep' = if (!empty(goog
     secrets: {
       'OAuth--Google--ClientId': googleOAuthClientId
       'OAuth--Google--ClientSecret': googleOAuthClientSecret
+    }
+  }
+}
+
+module entraOAuthSecrets '../modules/key-vault-secrets.bicep' = if (!empty(entraOAuthClientId) && !empty(entraOAuthClientSecret)) {
+  scope: clusterResourceGroup
+  name: '${clusterResourceGroupName}-entra-oauth-secrets'
+  params: {
+    keyVaultName: keyVault.outputs.name
+    secrets: {
+      'OAuth--Entra--ClientId': entraOAuthClientId
+      'OAuth--Entra--ClientSecret': entraOAuthClientSecret
     }
   }
 }
@@ -302,6 +319,10 @@ var accountEnvironmentVariables = [
   {
     name: 'PUBLIC_GOOGLE_OAUTH_ENABLED'
     value: !empty(googleOAuthClientId) && !empty(googleOAuthClientSecret) ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_ENTRA_OAUTH_ENABLED'
+    value: !empty(entraOAuthClientId) && !empty(entraOAuthClientSecret) ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'
@@ -485,6 +506,10 @@ var mainEnvironmentVariables = [
   {
     name: 'PUBLIC_GOOGLE_OAUTH_ENABLED'
     value: !empty(googleOAuthClientId) && !empty(googleOAuthClientSecret) ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_ENTRA_OAUTH_ENABLED'
+    value: !empty(entraOAuthClientId) && !empty(entraOAuthClientSecret) ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'

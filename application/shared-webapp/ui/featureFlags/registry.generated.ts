@@ -9,7 +9,7 @@
 // `useFeatureFlag(deletedKey)` and `getFeatureFlagLabel(deletedKey)` callsite into a TS compile
 // error after the next backend build regenerates this file.
 
-export type FeatureFlagKey = "google-oauth" | "subscriptions" | "beta-features" | "sso" | "account-overview" | "compact-view" | "experimental-ui";
+export type FeatureFlagKey = "google-oauth" | "entra-oauth" | "subscriptions" | "beta-features" | "sso" | "account-overview" | "compact-view" | "experimental-ui";
 
 type FeatureFlagScope = "system" | "tenant" | "user";
 type FeatureFlagAdminLevel = "systemAdmin" | "tenantOwner" | "user";
@@ -41,6 +41,14 @@ const featureFlagRegistry: Record<FeatureFlagKey, FeatureFlagDefinition> = {
       parentDependency: null,
       description: "Sign in with Google using OpenID Connect",
       envVar: "PUBLIC_GOOGLE_OAUTH_ENABLED"
+    },
+    "entra-oauth": {
+      key: "entra-oauth",
+      scope: "system",
+      adminLevel: "systemAdmin",
+      parentDependency: null,
+      description: "Sign in with Microsoft using OpenID Connect",
+      envVar: "PUBLIC_ENTRA_OAUTH_ENABLED"
     },
     "subscriptions": {
       key: "subscriptions",

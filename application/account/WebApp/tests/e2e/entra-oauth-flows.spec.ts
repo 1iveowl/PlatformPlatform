@@ -10,8 +10,8 @@ const MOCK_PROVIDER_COOKIE = "__Test_Use_Mock_Provider";
 test.beforeEach(async ({ page }) => {
   await page.goto("/signup");
   await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
-  const googleButtonCount = await page.getByRole("button", { name: "Sign up with Google" }).count();
-  test.skip(googleButtonCount === 0, "Google OAuth is not enabled");
+  const microsoftButtonCount = await page.getByRole("button", { name: "Sign up with Microsoft" }).count();
+  test.skip(microsoftButtonCount === 0, "Entra OAuth is not enabled");
 });
 
 async function setMockProviderCookie(page: Page, value: string): Promise<void> {
@@ -33,10 +33,10 @@ async function readUserInfo(page: Page): Promise<{ id: string; tenantId: string 
 
 test.describe("@smoke", () => {
   /**
-   * Tests Google OAuth authentication flows including:
-   * 1. Signup with Google OAuth to create new tenant and user
+   * Tests Entra OAuth authentication flows including:
+   * 1. Signup with Microsoft to create new tenant and user
    * 2. Logout and verify redirect to login page
-   * 3. Login with Google OAuth and verify authentication
+   * 3. Login with Microsoft and verify authentication
    * 4. Verify user profile shows correct email
    * 5. Logout via menu and verify redirect
    * 6. Attempt signup as existing user - verify account already exists error page
@@ -45,23 +45,23 @@ test.describe("@smoke", () => {
    *
    * Note: Uses mock OAuth provider with unique email per test run to avoid conflicts.
    */
-  test("should handle Google OAuth signup, login, existing user signup redirect, and changed provider email login flow", async ({
+  test("should handle Entra OAuth signup, login, existing user signup redirect, and changed provider email login flow", async ({
     page
   }) => {
     const context = createTestContext(page);
     const emailPrefix = faker.string.alphanumeric(10);
     const mockUserEmail = `${emailPrefix}@mock.localhost`;
 
-    // === SIGNUP: Create mock user via Google OAuth ===
+    // === SIGNUP: Create mock user via Entra OAuth ===
 
     let userInfo: { id: string; tenantId: string };
 
-    await step("Navigate to signup page & sign up with Google OAuth & complete welcome flow")(async () => {
+    await step("Navigate to signup page & sign up with Microsoft & complete welcome flow")(async () => {
       await page.goto("/signup");
 
       await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
       await setMockProviderCookie(page, emailPrefix);
-      await page.getByRole("button", { name: "Sign up with Google" }).click();
+      await page.getByRole("button", { name: "Sign up with Microsoft" }).click();
 
       await expect(page).toHaveURL(/\/welcome/);
       await expect(page.getByRole("heading", { name: "Let's set up your account" })).toBeVisible();
@@ -93,11 +93,11 @@ test.describe("@smoke", () => {
       await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
     })();
 
-    // === LOGIN: Verify Google OAuth login works ===
+    // === LOGIN: Verify Entra OAuth login works ===
 
-    await step("Click Google login button & verify successful authentication")(async () => {
+    await step("Click Microsoft login button & verify successful authentication")(async () => {
       await setMockProviderCookie(page, emailPrefix);
-      await page.getByRole("button", { name: "Log in with Google" }).click();
+      await page.getByRole("button", { name: "Log in with Microsoft" }).click();
 
       await expect(page).toHaveURL("/dashboard");
       await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
@@ -124,24 +124,24 @@ test.describe("@smoke", () => {
 
     // === EXISTING USER SIGNUP: Verify error page with login redirect ===
 
-    await step("Navigate to signup page & attempt Google signup as existing user")(async () => {
+    await step("Navigate to signup page & attempt Microsoft signup as existing user")(async () => {
       await page.goto("/signup");
 
       await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
       await setMockProviderCookie(page, emailPrefix);
-      await page.getByRole("button", { name: "Sign up with Google" }).click();
+      await page.getByRole("button", { name: "Sign up with Microsoft" }).click();
 
       await expect(page.getByRole("heading", { name: "Account already exists" })).toBeVisible();
       await expect(page.getByText("An account with this email already exists.")).toBeVisible();
       await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
     })();
 
-    await step("Click log in button from error page & login with Google")(async () => {
+    await step("Click log in button from error page & login with Microsoft")(async () => {
       await page.getByRole("button", { name: "Log in" }).click();
 
       await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
       await setMockProviderCookie(page, emailPrefix);
-      await page.getByRole("button", { name: "Log in with Google" }).click();
+      await page.getByRole("button", { name: "Log in with Microsoft" }).click();
 
       await expect(page).toHaveURL("/dashboard");
       await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
@@ -161,49 +161,54 @@ test.describe("@smoke", () => {
       await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
     })();
 
-    await step("Log in with Google using a changed provider email & verify the same account is resolved")(async () => {
-      const changedEmailPrefix = faker.string.alphanumeric(10);
-      await setMockProviderCookie(page, `identity:${emailPrefix}:${changedEmailPrefix}`);
-      await page.getByRole("button", { name: "Log in with Google" }).click();
+    await step("Log in with Microsoft using a changed provider email & verify the same account is resolved")(
+      async () => {
+        const changedEmailPrefix = faker.string.alphanumeric(10);
+        await setMockProviderCookie(page, `identity:${emailPrefix}:${changedEmailPrefix}`);
+        await page.getByRole("button", { name: "Log in with Microsoft" }).click();
 
-      await expect(page).toHaveURL("/dashboard");
-      await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
-      const userInfoAfterLogin = await readUserInfo(page);
-      expect(userInfoAfterLogin.id).toBe(userInfo.id);
-      expect(userInfoAfterLogin.tenantId).toBe(userInfo.tenantId);
+        await expect(page).toHaveURL("/dashboard");
+        await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+        const userInfoAfterLogin = await readUserInfo(page);
+        expect(userInfoAfterLogin.id).toBe(userInfo.id);
+        expect(userInfoAfterLogin.tenantId).toBe(userInfo.tenantId);
 
-      await page.getByRole("button", { name: "User menu" }).dispatchEvent("click");
-      const menu = page.getByRole("menu");
-      await expect(menu).toBeVisible();
+        await page.getByRole("button", { name: "User menu" }).dispatchEvent("click");
+        const menu = page.getByRole("menu");
+        await expect(menu).toBeVisible();
 
-      await expect(menu).toContainText(mockUserEmail.toLowerCase());
-    })();
+        await expect(menu).toContainText(mockUserEmail.toLowerCase());
+      }
+    )();
   });
 });
 
 test.describe("@comprehensive", () => {
   /**
-   * Tests Google OAuth error paths, preferred tenant selection, and error page rendering including:
+   * Tests Entra OAuth error paths, preferred tenant selection, and error page rendering including:
    * 1. Preferred tenant - signup, extract tenant ID, set localStorage, re-login and verify PreferredTenantId passed
    * 2. Access denied - user cancels OAuth consent, verify error page
    * 3. Token exchange failure - mock provider returns null tokens, verify error page
    * 4. Email not verified - mock provider returns unverified email, verify error page
-   * 5. User not found on login - login with unknown email, verify error page with signup action
-   * 6. Direct error page rendering for each OAuth error code with reference ID display
+   * 5. User not found on login - login with unknown identity, verify error page with signup action
+   * 6. Email not provided on signup - mock provider returns a profile without an email, verify error page
+   * 7. Direct error page rendering for email not provided and identity mismatch with reference ID display
    */
-  test("should handle preferred tenant selection and OAuth error paths with error page rendering", async ({ page }) => {
+  test("should handle preferred tenant selection and Entra OAuth error paths with error page rendering", async ({
+    page
+  }) => {
     const context = createTestContext(page);
     const emailPrefix = faker.string.alphanumeric(10);
     const mockUserEmail = `${emailPrefix}@mock.localhost`;
 
-    // === PREFERRED TENANT: Verify PreferredTenantId is passed during Google login ===
+    // === PREFERRED TENANT: Verify PreferredTenantId is passed during Entra login ===
 
-    await step("Sign up with Google OAuth & complete welcome flow")(async () => {
+    await step("Sign up with Microsoft & complete welcome flow")(async () => {
       await page.goto("/signup");
 
       await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
       await setMockProviderCookie(page, emailPrefix);
-      await page.getByRole("button", { name: "Sign up with Google" }).click();
+      await page.getByRole("button", { name: "Sign up with Microsoft" }).click();
 
       await expect(page).toHaveURL(/\/welcome/);
       await expect(page.getByRole("heading", { name: "Let's set up your account" })).toBeVisible();
@@ -236,19 +241,19 @@ test.describe("@comprehensive", () => {
       await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
     })();
 
-    await step("Set preferred tenant, enter email & login with Google OAuth verifying query parameter")(async () => {
+    await step("Set preferred tenant, enter email & login with Microsoft verifying query parameter")(async () => {
       await page.evaluate((tid) => localStorage.setItem("preferred-tenant", tid), tenantId);
 
       await page.getByLabel("Email").fill(mockUserEmail);
 
       let capturedUrl = "";
-      await page.route("**/authentication/Google/login/start**", async (route) => {
+      await page.route("**/authentication/Entra/login/start**", async (route) => {
         capturedUrl = route.request().url();
         await route.continue();
       });
 
       await setMockProviderCookie(page, emailPrefix);
-      await page.getByRole("button", { name: "Log in with Google" }).click();
+      await page.getByRole("button", { name: "Log in with Microsoft" }).click();
 
       await expect(page).toHaveURL("/dashboard");
       await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
@@ -275,7 +280,7 @@ test.describe("@comprehensive", () => {
 
       await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
       await setMockProviderCookie(page, "fail:access_denied");
-      await page.getByRole("button", { name: "Log in with Google" }).click();
+      await page.getByRole("button", { name: "Log in with Microsoft" }).click();
 
       await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
       await expect(page.getByText("Authentication was cancelled or denied.")).toBeVisible();
@@ -287,7 +292,7 @@ test.describe("@comprehensive", () => {
 
       await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
       await setMockProviderCookie(page, "fail:token_exchange");
-      await page.getByRole("button", { name: "Sign up with Google" }).click();
+      await page.getByRole("button", { name: "Sign up with Microsoft" }).click();
 
       await expect(page.getByRole("heading", { name: "Authentication failed" })).toBeVisible();
       await expect(page.getByText("We detected a security issue with your login attempt.")).toBeVisible();
@@ -299,94 +304,63 @@ test.describe("@comprehensive", () => {
 
       await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
       await setMockProviderCookie(page, "fail:email_not_verified");
-      await page.getByRole("button", { name: "Sign up with Google" }).click();
+      await page.getByRole("button", { name: "Sign up with Microsoft" }).click();
 
       await expect(page.getByRole("heading", { name: "Authentication failed" })).toBeVisible();
       await expect(page.getByText("We detected a security issue with your login attempt.")).toBeVisible();
     })();
 
-    await step("Navigate to login & trigger user not found error with unknown email")(async () => {
+    await step("Navigate to login & trigger user not found error with an unknown identity")(async () => {
       const unknownPrefix = faker.string.alphanumeric(10);
       await page.goto("/login");
 
       await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
       await setMockProviderCookie(page, unknownPrefix);
-      await page.getByRole("button", { name: "Log in with Google" }).click();
+      await page.getByRole("button", { name: "Log in with Microsoft" }).click();
 
       await expect(page.getByRole("heading", { name: "Account not found" })).toBeVisible();
       await expect(page.getByText("No account found for this email address.")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
+    })();
+
+    await step("Sign up with Microsoft without a shared email & verify the email address required page")(async () => {
+      await page.goto("/signup");
+
+      await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+      await setMockProviderCookie(page, "noemail");
+      await page.getByRole("button", { name: "Sign up with Microsoft" }).click();
+
+      await expect(page.getByRole("heading", { name: "Email address required" })).toBeVisible();
+      await expect(
+        page.getByText(
+          "The identity provider did not share a verified email address, which is needed to create an account."
+        )
+      ).toBeVisible();
       await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
     })();
 
     // === DIRECT ERROR PAGE RENDERING ===
 
-    await step("Navigate to user_not_found error page & verify content and reference ID")(async () => {
-      await page.goto("/error?error=user_not_found&id=test-ref-001");
+    await step("Navigate to email_not_provided error page & verify content and reference ID")(async () => {
+      await page.goto("/error?error=email_not_provided&id=test-ref-101");
 
-      await expect(page.getByRole("heading", { name: "Account not found" })).toBeVisible();
-      await expect(page.getByText("No account found for this email address.")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Email address required" })).toBeVisible();
+      await expect(
+        page.getByText(
+          "The identity provider did not share a verified email address, which is needed to create an account."
+        )
+      ).toBeVisible();
       await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
-      await expect(page.getByText("Reference ID: test-ref-001")).toBeVisible();
+      await expect(page.getByText("Reference ID: test-ref-101")).toBeVisible();
     })();
 
-    await step("Navigate to authentication_failed error page & verify content and reference ID")(async () => {
-      await page.goto("/error?error=authentication_failed&id=test-ref-002");
-
-      await expect(page.getByRole("heading", { name: "Authentication failed" })).toBeVisible();
-      await expect(page.getByText("We detected a security issue with your login attempt.")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
-      await expect(page.getByText("Reference ID: test-ref-002")).toBeVisible();
-    })();
-
-    await step("Navigate to access_denied error page & verify content and reference ID")(async () => {
-      await page.goto("/error?error=access_denied&id=test-ref-003");
-
-      await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
-      await expect(page.getByText("Authentication was cancelled or denied.")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
-      await expect(page.getByText("Reference ID: test-ref-003")).toBeVisible();
-    })();
-
-    await step("Navigate to invalid_request error page & verify content")(async () => {
-      await page.goto("/error?error=invalid_request&id=test-ref-004");
-
-      await expect(page.getByRole("heading", { name: "Invalid request" })).toBeVisible();
-      await expect(page.getByText("The authentication request was invalid.")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
-      await expect(page.getByText("Reference ID: test-ref-004")).toBeVisible();
-    })();
-
-    await step("Navigate to identity_mismatch error page & verify content with back to login button")(async () => {
-      await page.goto("/error?error=identity_mismatch&id=test-ref-005");
+    await step("Navigate to identity_mismatch error page & verify provider neutral content")(async () => {
+      await page.goto("/error?error=identity_mismatch&id=test-ref-102");
 
       await expect(page.getByRole("heading", { name: "Identity mismatch" })).toBeVisible();
       await expect(page.getByText("This account is linked to a different sign-in identity.")).toBeVisible();
       await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
-      await expect(page.getByText("Reference ID: test-ref-005")).toBeVisible();
-    })();
-
-    await step("Navigate to session_expired error page & verify content")(async () => {
-      await page.goto("/error?error=session_expired&id=test-ref-006");
-
-      await expect(page.getByRole("heading", { name: "Session expired" })).toBeVisible();
-      await expect(page.getByText("Your session has expired.")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
-      await expect(page.getByText("Reference ID: test-ref-006")).toBeVisible();
-    })();
-
-    await step("Navigate to unknown error code & verify fallback error page")(async () => {
-      await page.goto("/error?error=some_unknown_error&id=test-ref-007");
-
-      await expect(page.getByRole("heading", { name: "Something went wrong" })).toBeVisible();
-      await expect(page.getByText("An unexpected error occurred.")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
-      await expect(page.getByText("Reference ID: test-ref-007")).toBeVisible();
-    })();
-
-    await step("Navigate to error page without error param & verify redirect to login")(async () => {
-      await page.goto("/error");
-
-      await expect(page).toHaveURL("/login");
+      await expect(page.getByText("Reference ID: test-ref-102")).toBeVisible();
     })();
   });
 });

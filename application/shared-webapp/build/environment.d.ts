@@ -107,6 +107,10 @@ export declare global {
      **/
     PUBLIC_GOOGLE_OAUTH_ENABLED: string;
     /**
+     * Entra ID OAuth enabled
+     **/
+    PUBLIC_ENTRA_OAUTH_ENABLED: string;
+    /**
      * Whether subscription/billing is enabled (Stripe configured)
      **/
     PUBLIC_SUBSCRIPTION_ENABLED: string;

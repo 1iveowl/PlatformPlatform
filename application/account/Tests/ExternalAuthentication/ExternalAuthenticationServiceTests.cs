@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Account.Features.Authentication.Domain;
 using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Integrations.OAuth;
@@ -36,6 +37,46 @@ public sealed class ExternalAuthenticationServiceTests
         var logger = NullLogger<ExternalAuthenticationService>.Instance;
 
         return new ExternalAuthenticationService(httpContextAccessor, dataProtectionProvider, oauthProviderFactory, logger);
+    }
+
+    [Fact]
+    public void GetLoginMethod_WhenGoogle_ShouldReturnGoogle()
+    {
+        // Act
+        var loginMethod = ExternalAuthenticationService.GetLoginMethod(ExternalProviderType.Google);
+
+        // Assert
+        loginMethod.Should().Be(LoginMethod.Google);
+    }
+
+    [Fact]
+    public void GetLoginMethod_WhenEntra_ShouldReturnEntra()
+    {
+        // Act
+        var loginMethod = ExternalAuthenticationService.GetLoginMethod(ExternalProviderType.Entra);
+
+        // Assert
+        loginMethod.Should().Be(LoginMethod.Entra);
+    }
+
+    [Fact]
+    public void MapToOidcError_WhenEmailNotProvided_ShouldReturnEmailNotProvided()
+    {
+        // Act
+        var oidcError = ExternalAuthenticationService.MapToOidcError(ExternalLoginResult.EmailNotProvided);
+
+        // Assert
+        oidcError.Should().Be("email_not_provided");
+    }
+
+    [Fact]
+    public void MapToOidcError_WhenCodeExchangeFailed_ShouldReturnAuthenticationFailed()
+    {
+        // Act
+        var oidcError = ExternalAuthenticationService.MapToOidcError(ExternalLoginResult.CodeExchangeFailed);
+
+        // Assert
+        oidcError.Should().Be("authentication_failed");
     }
 
     [Fact]

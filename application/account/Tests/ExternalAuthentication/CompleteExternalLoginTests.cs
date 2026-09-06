@@ -1,5 +1,7 @@
 using System.Net;
+using Account.Features.Authentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Integrations.OAuth;
 using Account.Integrations.OAuth.Mock;
 using FluentAssertions;
 using SharedKernel.Domain;
@@ -25,6 +27,37 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         response.Headers.Location!.ToString().Should().Be("/dashboard");
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(2);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("SessionCreated");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].GetType().Name.Should().Be("ExternalLoginCompleted");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.user_id"].Should().Be(userId);
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.lookup"].Should().Be(nameof(ExternalLoginLookup.Identity));
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenEntraIdentityExists_ShouldCreateSessionWithEntraLoginMethod()
+    {
+        // Arrange
+        const string entraProviderUserId = "mock-entra-entrauser";
+        var userId = InsertUser($"entrauser{OAuthProviderFactory.MockEmailDomain}");
+        InsertExternalIdentity(userId, ExternalProviderType.Entra, entraProviderUserId);
+        var (callbackUrl, cookies) = await StartLoginFlow("/dashboard", providerType: ExternalProviderType.Entra);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies, mockProviderCookieValue: $"{MockOAuthProvider.IdentityPrefix}entrauser:entrauser");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Be("/dashboard");
+
+        var loginMethod = Connection.ExecuteScalar<string>(
+            "SELECT login_method FROM sessions WHERE user_id = @userId", [new { userId = userId.ToString() }]
+        );
+        loginMethod.Should().Be(nameof(LoginMethod.Entra));
+        CountExternalIdentities(ExternalProviderType.Entra, entraProviderUserId).Should().Be(1);
 
         TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(2);
         TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("SessionCreated");

@@ -26,7 +26,8 @@ export const ErrorCode = {
   InvalidRequest: "invalid_request",
   AccessDenied: "access_denied",
   AccountAlreadyExists: "account_already_exists",
-  TenantDeleted: "tenant_deleted"
+  TenantDeleted: "tenant_deleted",
+  EmailNotProvided: "email_not_provided"
 } as const;
 
 const unauthorizedReasonHeaderKey = "x-unauthorized-reason";

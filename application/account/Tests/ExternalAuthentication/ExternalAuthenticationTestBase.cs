@@ -128,20 +128,31 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    protected async Task<(string CallbackUrl, string[] Cookies)> StartLoginFlow(string? returnPath = null, string? locale = null, TenantId? preferredTenantId = null)
+    protected async Task<(string CallbackUrl, string[] Cookies)> StartLoginFlow(string? returnPath = null, string? locale = null, TenantId? preferredTenantId = null, ExternalProviderType providerType = ExternalProviderType.Google)
     {
-        var url = BuildStartUrl("login", returnPath, locale, preferredTenantId);
+        var url = BuildStartUrl(providerType, "login", returnPath, locale, preferredTenantId);
         var response = await NoRedirectHttpClient.GetAsync(url);
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         return (response.Headers.Location!.ToString(), ExtractSetCookieHeaders(response));
     }
 
-    protected async Task<(string CallbackUrl, string[] Cookies)> StartSignupFlow(string? returnPath = null, string? locale = null)
+    protected async Task<(string CallbackUrl, string[] Cookies)> StartSignupFlow(string? returnPath = null, string? locale = null, ExternalProviderType providerType = ExternalProviderType.Google)
     {
-        var url = BuildStartUrl("signup", returnPath, locale);
+        var url = BuildStartUrl(providerType, "signup", returnPath, locale);
         var response = await NoRedirectHttpClient.GetAsync(url);
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         return (response.Headers.Location!.ToString(), ExtractSetCookieHeaders(response));
+    }
+
+    /// <summary>
+    ///     Starts a flow without the mock provider, which the shared client sends on every request by default. Setting
+    ///     any Cookie header on the request stops HttpClient from adding its own default Cookie header.
+    /// </summary>
+    protected async Task<HttpResponseMessage> StartFlowWithoutMockProvider(ExternalProviderType providerType, string flowType)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/account/authentication/{providerType}/{flowType}/start");
+        request.Headers.TryAddWithoutValidation("Cookie", "unrelated-cookie=value");
+        return await NoRedirectHttpClient.SendAsync(request);
     }
 
     protected async Task<HttpResponseMessage> CallCallback(string callbackUrl, IEnumerable<string> cookies, string flowType = "login", string mockProviderCookieValue = "true")
@@ -337,9 +348,9 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         _webApplicationFactory.Dispose();
     }
 
-    private static string BuildStartUrl(string flowType, string? returnPath, string? locale, TenantId? preferredTenantId = null)
+    private static string BuildStartUrl(ExternalProviderType providerType, string flowType, string? returnPath, string? locale, TenantId? preferredTenantId = null)
     {
-        var url = $"/api/account/authentication/Google/{flowType}/start";
+        var url = $"/api/account/authentication/{providerType}/{flowType}/start";
         var queryParams = new List<string>();
         if (returnPath is not null) queryParams.Add($"returnPath={Uri.EscapeDataString(returnPath)}");
         if (locale is not null) queryParams.Add($"locale={locale}");

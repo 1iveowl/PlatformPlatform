@@ -18,10 +18,13 @@ namespace Account.Tests.ExternalAuthentication;
 public sealed class ExternalLoginAttributionTests : ExternalAuthenticationTestBase
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public async Task CompleteExternalLogin_WhenResolvedByIdentity_ShouldAttributeHistoryToResolvedUser(bool noEmail, bool sameEmailAcrossTenants)
+    [InlineData(ExternalProviderType.Google, false, false)]
+    [InlineData(ExternalProviderType.Entra, false, false)]
+    [InlineData(ExternalProviderType.Google, true, false)]
+    [InlineData(ExternalProviderType.Entra, true, false)]
+    [InlineData(ExternalProviderType.Google, false, true)]
+    [InlineData(ExternalProviderType.Entra, false, true)]
+    public async Task CompleteExternalLogin_WhenResolvedByIdentity_ShouldAttributeHistoryToResolvedUser(ExternalProviderType provider, bool noEmail, bool sameEmailAcrossTenants)
     {
         // Arrange
         var otherUser = DatabaseSeeder.Tenant1Owner;
@@ -29,8 +32,8 @@ public sealed class ExternalLoginAttributionTests : ExternalAuthenticationTestBa
         var tenantId = InsertTenant();
         var storedEmail = sameEmailAcrossTenants ? MockOAuthProvider.MockEmail : Faker.Internet.Email().ToLowerInvariant();
         var userId = InsertUser(storedEmail, tenantId);
-        InsertExternalIdentity(userId, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, tenantId);
-        var (callbackUrl, cookies) = await StartLoginFlow(preferredTenantId: tenantId);
+        InsertExternalIdentity(userId, provider, $"mock-{provider.ToString().ToLowerInvariant()}-user-id-12345", tenantId);
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: provider, preferredTenantId: tenantId);
         var loginId = GetExternalLoginIdFromUrl(callbackUrl);
         using var reportingClient = CreateReportingClient();
         TelemetryEventsCollectorSpy.Reset();

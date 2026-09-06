@@ -129,6 +129,8 @@ jobs:
           BACK_OFFICE_ADMINS_GROUP_ID: ${{ inputs.back_office_admins_group_id }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          ENTRA_OAUTH_CLIENT_ID: ${{ vars.ENTRA_OAUTH_CLIENT_ID }}
+          ENTRA_OAUTH_CLIENT_SECRET: ${{ secrets.ENTRA_OAUTH_CLIENT_SECRET }}
           STRIPE_PUBLISHABLE_KEY: ${{ vars.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -316,6 +318,8 @@ jobs:
           BACK_OFFICE_ADMINS_GROUP_ID: ${{ inputs.back_office_admins_group_id }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          ENTRA_OAUTH_CLIENT_ID: ${{ vars.ENTRA_OAUTH_CLIENT_ID }}
+          ENTRA_OAUTH_CLIENT_SECRET: ${{ secrets.ENTRA_OAUTH_CLIENT_SECRET }}
           STRIPE_PUBLISHABLE_KEY: ${{ vars.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
