@@ -1,5 +1,6 @@
 using Account.Features.Authentication.Domain;
 using Account.Features.EmailAuthentication.Domain;
+using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
@@ -57,9 +58,7 @@ public sealed class GetDashboardRecentLoginsHandler(
 
         var externalEntries = externalLogins
             .Where(e => e.Email is not null || e.UserId is not null)
-            .Select(e => new { e.Email, e.UserId, Method = MapExternalMethod(e.ProviderType), e.CreatedAt })
-            .Where(e => e.Method is not null)
-            .Select(e => new LoginEntry(e.Email, e.UserId, e.Method!.Value, e.CreatedAt));
+            .Select(e => new LoginEntry(e.Email, e.UserId, ExternalAuthenticationService.GetLoginMethod(e.ProviderType), e.CreatedAt));
 
         var entries = emailLogins.Select(e => new LoginEntry(e.Email, null, LoginMethod.OneTimePassword, e.CreatedAt))
             .Concat(externalEntries)
@@ -111,21 +110,6 @@ public sealed class GetDashboardRecentLoginsHandler(
         ).OfType<BackOfficeDashboardLogin>().ToArray();
 
         return new BackOfficeDashboardRecentLoginsResponse(logins);
-    }
-
-    /// <summary>
-    ///     Null for a provider that cannot sign anyone in, which is why the caller drops those rows rather than
-    ///     throwing. A verification-only provider has no login method by design, and a dashboard is the wrong place to
-    ///     discover that.
-    /// </summary>
-    private static LoginMethod? MapExternalMethod(ExternalProviderType providerType)
-    {
-        return providerType switch
-        {
-            ExternalProviderType.Google => LoginMethod.Google,
-            ExternalProviderType.Entra => LoginMethod.Entra,
-            _ => null
-        };
     }
 
     private sealed record LoginEntry(string? Email, UserId? UserId, LoginMethod Method, DateTimeOffset OccurredAt);

@@ -17,6 +17,18 @@ public sealed class OAuthProviderFactory(IServiceProvider serviceProvider, IConf
     private readonly bool _allowMockProvider = GetAllowMockProvider(configuration);
 
     /// <summary>
+    ///     What this deployment uses MitID for. Google and Entra need no such setting, because one set of credentials
+    ///     serves exactly one purpose there and configuring the provider is the same statement as enabling it. MitID
+    ///     verifies and logs in from one client id, so the configuration has to say which of the two is wanted, and
+    ///     saying it only to the user interface would leave the endpoint open in a deployment that switched it off.
+    /// </summary>
+    private readonly Dictionary<ExternalLoginType, bool> _isMitIdFlowEnabled = new()
+    {
+        [ExternalLoginType.Login] = configuration["OAuth:MitId:LoginEnabled"] == "true",
+        [ExternalLoginType.Verification] = configuration["OAuth:MitId:VerificationEnabled"] == "true"
+    };
+
+    /// <summary>
     ///     Which providers have enough configuration to be constructed at all. Google is absent on purpose: it predates
     ///     this guard and throws from its own field initializer when its section is missing. Every provider added since
     ///     is resolved through here first, so an unconfigured one is refused rather than constructed.
@@ -35,6 +47,18 @@ public sealed class OAuthProviderFactory(IServiceProvider serviceProvider, IConf
         }
 
         return httpContext.Request.Cookies.ContainsKey(UseMockProviderCookieName);
+    }
+
+    /// <summary>
+    ///     Whether this deployment permits the flow at all, which is a separate question from whether the product
+    ///     supports it. <see cref="Account.Features.ExternalAuthentication.Domain.ExternalAuthenticationPolicy" />
+    ///     answers the second and stays a constant of the code; this answers the first and comes from configuration.
+    /// </summary>
+    public bool IsFlowEnabled(ExternalProviderType providerType, ExternalLoginType loginType)
+    {
+        if (providerType != ExternalProviderType.MitId) return true;
+
+        return _isMitIdFlowEnabled.GetValueOrDefault(loginType);
     }
 
     public IOAuthProvider? GetProvider(ExternalProviderType providerType, bool useMock)

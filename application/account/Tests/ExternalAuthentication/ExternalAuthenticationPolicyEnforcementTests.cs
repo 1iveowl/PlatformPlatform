@@ -13,13 +13,11 @@ namespace Account.Tests.ExternalAuthentication;
 /// </summary>
 public sealed class ExternalAuthenticationPolicyEnforcementTests : ExternalAuthenticationTestBase
 {
-    [Theory]
-    [InlineData("login")]
-    [InlineData("signup")]
-    public async Task StartExternalAuthentication_WhenProviderIsMitId_ShouldReturnBadRequest(string flowType)
+    [Fact]
+    public async Task StartExternalSignup_WhenProviderIsMitId_ShouldReturnBadRequest()
     {
         // Act
-        var response = await NoRedirectHttpClient.GetAsync($"/api/account/authentication/MitId/{flowType}/start");
+        var response = await NoRedirectHttpClient.GetAsync("/api/account/authentication/MitId/signup/start");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -27,14 +25,23 @@ public sealed class ExternalAuthenticationPolicyEnforcementTests : ExternalAuthe
         TelemetryEventsCollectorSpy.CollectedEvents.Should().BeEmpty();
     }
 
-    [Theory]
-    [InlineData("login")]
-    [InlineData("signup")]
-    public async Task CompleteExternalAuthentication_WhenProviderIsMitIdAndNoFlowExists_ShouldRedirectToError(string flowType)
+    [Fact]
+    public async Task StartExternalLogin_WhenProviderIsMitId_ShouldStartTheFlow()
+    {
+        // Act
+        var response = await NoRedirectHttpClient.GetAsync("/api/account/authentication/MitId/login/start");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM external_logins WHERE type = 'Login' AND provider_type = 'MitId'", []).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CompleteExternalSignup_WhenProviderIsMitIdAndNoFlowExists_ShouldRedirectToError()
     {
         // Act
         var response = await NoRedirectHttpClient.GetAsync(
-            $"/api/account/authentication/MitId/{flowType}/callback?code=any-code&state=any-state"
+            "/api/account/authentication/MitId/signup/callback?code=any-code&state=any-state"
         );
 
         // Assert

@@ -34,8 +34,12 @@ public sealed class RevokeExternalVerificationTests(BackOfficeWebApplicationFact
     }
 
     [Fact]
-    public async Task RevokeExternalVerification_WhenTheIdentityCanAlsoLogIn_ShouldKeepTheLoginCapability()
+    public async Task RevokeExternalVerification_WhenTheIdentityCouldAlsoLogIn_ShouldRemoveTheRowAndEndMitIdLogin()
     {
+        // The right to log in came from the verification, so withdrawing the verification withdraws it too and the
+        // row is left with nothing. Keeping it would leave the account holding a working credential for the identity
+        // an administrator had just withdrawn, and would block the person from ever verifying with a different one.
+
         // Arrange
         var externalIdentityId = SeedVerifiedIdentity(DatabaseSeeder.Tenant1Owner.Id, DatabaseSeeder.Tenant1Owner.TenantId, $"{nameof(ExternalIdentityCapabilities.Login)}, {nameof(ExternalIdentityCapabilities.Verification)}");
         var identity = MockEasyAuthIdentities.Default.Single(i => i.Id == "admin");
@@ -46,29 +50,30 @@ public sealed class RevokeExternalVerificationTests(BackOfficeWebApplicationFact
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        Connection.ExecuteScalar<string>("SELECT capabilities FROM external_identities WHERE id = @id", [new { id = externalIdentityId }])
-            .Should().Be(nameof(ExternalIdentityCapabilities.Login));
+        Connection.RowExists("external_identities", externalIdentityId).Should().BeFalse();
     }
 
     [Fact]
-    public async Task RevokeExternalVerification_WhenTheIdentityCanAlsoLogIn_ShouldKeepTheRowAndClearTheEvidence()
+    public async Task RevokeExternalVerification_WhenTheUserAlsoHasAGoogleIdentity_ShouldLeaveItUntouched()
     {
+        // Revoking withdraws a verification, and only MitID can be verified. An identity the person logs in with for
+        // an unrelated provider is none of this command's business.
+
         // Arrange
-        var externalIdentityId = SeedVerifiedIdentity(DatabaseSeeder.Tenant1Owner.Id, DatabaseSeeder.Tenant1Owner.TenantId, $"{nameof(ExternalIdentityCapabilities.Login)}, {nameof(ExternalIdentityCapabilities.Verification)}");
+        var mitIdIdentityId = SeedVerifiedIdentity(DatabaseSeeder.Tenant1Owner.Id, DatabaseSeeder.Tenant1Owner.TenantId, $"{nameof(ExternalIdentityCapabilities.Login)}, {nameof(ExternalIdentityCapabilities.Verification)}");
+        var googleIdentityId = SeedGoogleLoginIdentity(DatabaseSeeder.Tenant1Owner.Id, DatabaseSeeder.Tenant1Owner.TenantId);
         var identity = MockEasyAuthIdentities.Default.Single(i => i.Id == "admin");
         using var client = CreateBackOfficeClientForIdentity(identity);
 
         // Act
-        await client.DeleteAsync($"/api/back-office/users/{DatabaseSeeder.Tenant1Owner.Id}/identity-verification");
+        var response = await client.DeleteAsync($"/api/back-office/users/{DatabaseSeeder.Tenant1Owner.Id}/identity-verification");
 
         // Assert
-        Connection.RowExists("external_identities", externalIdentityId).Should().BeTrue();
-        Connection.ExecuteScalar<string?>("SELECT assurance_level FROM external_identities WHERE id = @id", [new { id = externalIdentityId }])
-            .Should().BeNull();
-        Connection.ExecuteScalar<string?>("SELECT verified_at FROM external_identities WHERE id = @id", [new { id = externalIdentityId }])
-            .Should().BeNull();
-        Connection.ExecuteScalar<string?>("SELECT verified_by_external_login_id FROM external_identities WHERE id = @id", [new { id = externalIdentityId }])
-            .Should().BeNull();
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        Connection.RowExists("external_identities", mitIdIdentityId).Should().BeFalse();
+        Connection.RowExists("external_identities", googleIdentityId).Should().BeTrue();
+        Connection.ExecuteScalar<string>("SELECT capabilities FROM external_identities WHERE id = @id", [new { id = googleIdentityId }])
+            .Should().Be(nameof(ExternalIdentityCapabilities.Login));
     }
 
     [Fact]
@@ -111,6 +116,27 @@ public sealed class RevokeExternalVerificationTests(BackOfficeWebApplicationFact
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private string SeedGoogleLoginIdentity(UserId userId, TenantId tenantId)
+    {
+        var externalIdentityId = ExternalIdentityId.NewId().ToString();
+
+        Connection.Insert("external_identities", [
+                ("tenant_id", tenantId.ToString()),
+                ("id", externalIdentityId),
+                ("user_id", userId.ToString()),
+                ("created_at", DateTimeOffset.UtcNow.AddDays(-1)),
+                ("modified_at", null),
+                ("provider", nameof(ExternalProviderType.Google)),
+                ("provider_user_id", "google-user-id-123"),
+                ("capabilities", nameof(ExternalIdentityCapabilities.Login)),
+                ("issuer", "https://accounts.google.com"),
+                ("subject", "google-user-id-123")
+            ]
+        );
+
+        return externalIdentityId;
     }
 
     private string SeedVerifiedIdentity(UserId userId, TenantId tenantId, string capabilities = nameof(ExternalIdentityCapabilities.Verification))

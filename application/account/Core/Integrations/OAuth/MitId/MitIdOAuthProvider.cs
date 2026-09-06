@@ -18,9 +18,11 @@ internal sealed record MitIdOAuthConfiguration(string Domain, string ClientId, s
 ///     Danish MitID reached through the Idura broker. Unlike Google, whose issuer is fixed, and Entra, whose issuer is
 ///     derived per directory from a shared discovery document, a broker serves one issuer per customer domain, so the
 ///     issuer and every endpoint come from configuration.
-///     This provider only ever verifies an identity. It returns no email and no profile fields: a MitID token carries
-///     the person's name, birth date and age, and a broker configured to collect it also carries the Danish CPR
-///     number. None of that is read, so none of it can be stored.
+///     This provider verifies an identity, and once an identity is verified it also logs that person in; it never
+///     signs anyone up. It returns no email and no profile fields for either flow: a MitID token carries the
+///     person's name, birth date and age, and a broker configured to collect it also carries the Danish CPR number.
+///     None of that is read, so none of it can be stored. Account resolution therefore has nothing but the MitID
+///     uuid to go on, which is the point.
 /// </summary>
 public sealed class MitIdOAuthProvider(HttpClient httpClient, IConfiguration configuration, OpenIdConnectConfigurationManagerFactory openIdConnectConfigurationManagerFactory, ILogger<MitIdOAuthProvider> logger) : IOAuthProvider
 {

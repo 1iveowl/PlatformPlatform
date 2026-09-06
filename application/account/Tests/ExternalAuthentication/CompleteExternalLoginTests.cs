@@ -902,21 +902,106 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
     }
 
     [Fact]
-    public async Task CompleteExternalLogin_WhenAnotherLiveUserInTheTenantHoldsTheIdentityForVerificationOnly_ShouldRedirectToError()
+    public async Task CompleteExternalLogin_WhenMitIdIdentityIsVerified_ShouldCreateSessionAndRedirect()
     {
-        // A verification-only row is invisible to the login lookup but still occupies the unique index on provider,
-        // provider user id and tenant. Before this was handled the insert below failed in the database and surfaced as
-        // a server error. Removing the row instead is not an option: it would destroy another person's verification
-        // evidence as a side effect of an unrelated login.
+        // Arrange
+        var userId = InsertUser(Faker.Internet.Email());
+        InsertVerifiedMitIdIdentity(userId, MockOAuthProvider.MockMitIdProviderUserId);
+        var (callbackUrl, cookies) = await StartLoginFlow("/dashboard", providerType: ExternalProviderType.MitId);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Be("/dashboard");
+
+        GetSessionTenantId(userId).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(2);
+        TelemetryEventsCollectorSpy.CollectedEvents[1].GetType().Name.Should().Be("ExternalLoginCompleted");
+        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.lookup"].Should().Be(nameof(ExternalLoginLookup.Identity));
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenMitIdIdentityHasNoRow_ShouldRedirectToIdentityNotVerified()
+    {
+        // Arrange
+        InsertUser(Faker.Internet.Email());
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().StartWith("/error?error=identity_not_verified");
+
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE login_method = @loginMethod", [new { loginMethod = nameof(LoginMethod.MitId) }]).Should().Be(0);
+        CountExternalIdentities(ExternalProviderType.MitId, MockOAuthProvider.MockMitIdProviderUserId).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenMitIdIdentityIsVerificationOnly_ShouldRedirectToIdentityNotVerifiedWithoutUpgradingTheRow()
+    {
+        // A row created before MitID login existed carries the Verification capability alone. It must not resolve an
+        // account and must not be quietly upgraded by a login; only a verification grants the right to log in.
 
         // Arrange
-        var verifiedUserId = InsertUser(Faker.Internet.Email());
-        var externalIdentityId = InsertExternalIdentity(verifiedUserId, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId);
+        var userId = InsertUser(Faker.Internet.Email());
+        var externalIdentityId = InsertVerifiedMitIdIdentity(userId, MockOAuthProvider.MockMitIdProviderUserId);
         Connection.Update("external_identities", "id", externalIdentityId.ToString(), [("capabilities", nameof(ExternalIdentityCapabilities.Verification))]);
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
+        TelemetryEventsCollectorSpy.Reset();
 
-        const string emailPrefix = "another-person";
-        var loggingInUserId = InsertUser($"{emailPrefix}{OAuthProviderFactory.MockEmailDomain}");
-        var mockProviderCookieValue = $"identity:user-id-12345:{emailPrefix}";
+        // Act
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().StartWith("/error?error=identity_not_verified");
+
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE user_id = @userId", [new { userId = userId.ToString() }]).Should().Be(0);
+        Connection.ExecuteScalar<string>("SELECT capabilities FROM external_identities WHERE id = @id", [new { id = externalIdentityId.ToString() }])
+            .Should().Be(nameof(ExternalIdentityCapabilities.Verification));
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenMitIdProfileUnexpectedlySuppliesAMatchingEmail_ShouldNotResolveTheAccount()
+    {
+        // MitID vouches for no email, so an email claim must not pick the account even when the provider breaks its
+        // own contract and sends one. Without the guard the person below would be logged in by their email alone.
+
+        // Arrange
+        const string emailPrefix = "mitid-person";
+        InsertUser($"{emailPrefix}{OAuthProviderFactory.MockEmailDomain}");
+        var mockProviderCookieValue = $"{MockOAuthProvider.UnexpectedEmailPrefix}person-1:{emailPrefix}";
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login", mockProviderCookieValue: mockProviderCookieValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().StartWith("/error?error=identity_not_verified");
+
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE login_method = @loginMethod", [new { loginMethod = nameof(LoginMethod.MitId) }]).Should().Be(0);
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM external_identities WHERE provider = 'MitId'", []).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenGoogleProfileSuppliesTheSameEmail_ShouldResolveTheAccount()
+    {
+        // The control for the test above: the same cookie form logs a Google user in by email, so the difference is
+        // the provider rather than the cookie.
+
+        // Arrange
+        const string emailPrefix = "google-person";
+        var userId = InsertUser($"{emailPrefix}{OAuthProviderFactory.MockEmailDomain}");
+        var mockProviderCookieValue = $"{MockOAuthProvider.UnexpectedEmailPrefix}person-1:{emailPrefix}";
         var (callbackUrl, cookies) = await StartLoginFlow();
         TelemetryEventsCollectorSpy.Reset();
 
@@ -925,53 +1010,83 @@ public sealed class CompleteExternalLoginTests : ExternalAuthenticationTestBase
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
-        response.Headers.Location!.ToString().Should().StartWith("/error?error=identity_already_linked");
+        response.Headers.Location!.ToString().Should().Be("/");
 
-        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE user_id = @userId", [new { userId = loggingInUserId.ToString() }]).Should().Be(0);
-
-        // The verification evidence of the other user survives untouched
-        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(1);
-        GetExternalIdentityUserId(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(verifiedUserId.ToString());
-        Connection.ExecuteScalar<string>("SELECT capabilities FROM external_identities WHERE id = @id", [new { id = externalIdentityId.ToString() }])
-            .Should().Be(nameof(ExternalIdentityCapabilities.Verification));
+        GetSessionTenantId(userId).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
     }
 
     [Fact]
-    public async Task CompleteExternalLogin_WhenIdentityHasNoLoginCapabilityAndEmailMatches_ShouldAddLoginCapabilityAndLogin()
+    public async Task CompleteExternalLogin_WhenMitIdUnexpectedlySuppliesTheUsersEmail_ShouldNotConfirmIt()
     {
+        // An address is only as confirmed as whoever vouched for it. MitID vouches for no email, so even one that
+        // happens to match the account's must not mark it confirmed.
+
         // Arrange
-        var userId = InsertUser(MockOAuthProvider.MockEmail);
-        var externalIdentityId = InsertExternalIdentity(userId, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId);
-        Connection.Update("external_identities", "id", externalIdentityId.ToString(), [("capabilities", nameof(ExternalIdentityCapabilities.Verification))]);
-        var (callbackUrl, cookies) = await StartLoginFlow();
+        const string emailPrefix = "unconfirmed-person";
+        var email = $"{emailPrefix}{OAuthProviderFactory.MockEmailDomain}";
+        var userId = InsertUser(email, emailConfirmed: false);
+        InsertVerifiedMitIdIdentity(userId, "mock-mitid-person-1");
+        var mockProviderCookieValue = $"{MockOAuthProvider.UnexpectedEmailPrefix}person-1:{emailPrefix}";
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
         TelemetryEventsCollectorSpy.Reset();
 
         // Act
-        var response = await CallCallback(callbackUrl, cookies);
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login", mockProviderCookieValue: mockProviderCookieValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        GetSessionTenantId(userId).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
+        Connection.ExecuteScalar<long>("SELECT email_confirmed FROM users WHERE id = @id", [new { id = userId.ToString() }]).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CompleteExternalLogin_WhenMitIdReportsALowAssuranceLevel_ShouldStillLogInAndLeaveTheEvidenceUntouched()
+    {
+        // Assurance is established at verification time and nowhere else. Enforcing a level here would hold MitID to a
+        // higher bar than Google and Entra, which carry no assurance level at all and are accepted, and refreshing the
+        // evidence would make a years-old verification look permanently fresh.
+
+        // Arrange
+        var userId = InsertUser(Faker.Internet.Email());
+        InsertVerifiedMitIdIdentity(userId, $"mock-mitid-{MockOAuthProvider.LowAssuranceValue}");
+        var before = GetVerifiedIdentity(userId)!;
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login", mockProviderCookieValue: MockOAuthProvider.LowAssuranceValue);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         response.Headers.Location!.ToString().Should().Be("/");
-
         GetSessionTenantId(userId).Should().Be(DatabaseSeeder.Tenant1.Id.Value);
-        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(1);
-        GetExternalIdentityUserId(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId).Should().Be(userId.ToString());
-        Connection.ExecuteScalar<string>("SELECT capabilities FROM external_identities WHERE id = @id", [new { id = externalIdentityId.ToString() }])
-            .Should().Be($"{nameof(ExternalIdentityCapabilities.Login)}, {nameof(ExternalIdentityCapabilities.Verification)}");
 
-        // The surviving row must be the original one, because a delete followed by an insert would be a replace
-        // rather than the upgrade this test is named for. Keyed on the unique index rather than on user_id, so it
-        // holds even if the capabilities assertion above is ever loosened to key on user_id.
-        Connection.ExecuteScalar<string>(
-            "SELECT id FROM external_identities WHERE provider = @provider AND provider_user_id = @providerUserId AND tenant_id = @tenantId",
-            [new { provider = nameof(ExternalProviderType.Google), providerUserId = MockOAuthProvider.MockProviderUserId, tenantId = DatabaseSeeder.Tenant1.Id.Value }]
-        ).Should().Be(externalIdentityId.ToString());
+        var after = GetVerifiedIdentity(userId)!;
+        after.AssuranceLevel.Should().Be(before.AssuranceLevel);
+        after.VerifiedAt.Should().Be(before.VerifiedAt);
+        after.AuthenticatedAt.Should().Be(before.AuthenticatedAt);
+        after.VerifiedByExternalLoginId.Should().Be(before.VerifiedByExternalLoginId!);
+    }
 
-        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(2);
-        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("SessionCreated");
-        TelemetryEventsCollectorSpy.CollectedEvents[1].GetType().Name.Should().Be("ExternalLoginCompleted");
-        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.user_id"].Should().Be(userId);
-        TelemetryEventsCollectorSpy.CollectedEvents[1].Properties["event.lookup"].Should().Be(nameof(ExternalLoginLookup.Email));
-        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
+    [Fact]
+    public async Task CompleteExternalLogin_WhenMitIdReportsAnAuthenticationOutsideTheFlow_ShouldRedirectToError()
+    {
+        // Not an assurance rule, which login deliberately does not enforce, but the flow's own replay guard: the
+        // provider must have authenticated the person during this login rather than replaying a cached session. It
+        // applies to every flow, so a login is refused on the same terms a verification is.
+
+        // Arrange
+        var userId = InsertUser(Faker.Internet.Email());
+        InsertVerifiedMitIdIdentity(userId, $"mock-mitid-{MockOAuthProvider.StaleAuthenticationValue}");
+        var (callbackUrl, cookies) = await StartLoginFlow(providerType: ExternalProviderType.MitId);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallbackAtRoute(callbackUrl, cookies, ExternalProviderType.MitId, "login", mockProviderCookieValue: MockOAuthProvider.StaleAuthenticationValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().StartWith("/error?error=authentication_failed");
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE user_id = @userId", [new { userId = userId.ToString() }]).Should().Be(0);
     }
 }

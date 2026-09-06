@@ -272,7 +272,6 @@ public sealed class ExternalLoginTests
     [Theory]
     [InlineData(ExternalProviderType.Google, ExternalLoginType.Verification)]
     [InlineData(ExternalProviderType.Entra, ExternalLoginType.Verification)]
-    [InlineData(ExternalProviderType.MitId, ExternalLoginType.Login)]
     [InlineData(ExternalProviderType.MitId, ExternalLoginType.Signup)]
     public void Create_WhenProviderDoesNotSupportTheFlow_ShouldThrow(ExternalProviderType providerType, ExternalLoginType loginType)
     {
@@ -281,6 +280,42 @@ public sealed class ExternalLoginTests
 
         // Assert
         action.Should().Throw<UnreachableException>().WithMessage($"Provider '{providerType}' does not support the '{loginType}' flow.");
+    }
+
+    [Fact]
+    public void RecordResolvedUser_WhenTheFlowStartedUnbound_ShouldRecordTheAccount()
+    {
+        // Arrange
+        var externalLogin = ExternalLogin.Create(ExternalLoginType.Login, ExternalProviderType.MitId, "code-verifier", "nonce-value", "browser-fingerprint", false);
+        var userId = UserId.NewId();
+        var tenantId = TenantId.NewId();
+
+        // Act
+        externalLogin.RecordResolvedUser(userId, tenantId);
+
+        // Assert
+        externalLogin.UserId.Should().Be(userId);
+        externalLogin.TenantId.Should().Be(tenantId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RecordResolvedUser_WhenTheFlowIsBoundToAnotherAccount_ShouldThrow(bool sameUser)
+    {
+        // A verification flow is bound to its user before the provider replies, so resolving to a different one would
+        // mean account resolution had contradicted the binding the callback already checked.
+
+        // Arrange
+        var boundUserId = UserId.NewId();
+        var externalLogin = ExternalLogin.Create(ExternalLoginType.Verification, ExternalProviderType.MitId, "code-verifier", "nonce-value", "browser-fingerprint", false, boundUserId, TenantId.NewId());
+
+        // Act
+        var otherUserId = sameUser ? boundUserId : UserId.NewId();
+        var action = () => externalLogin.RecordResolvedUser(otherUserId, TenantId.NewId());
+
+        // Assert
+        action.Should().Throw<UnreachableException>().WithMessage("The external login cannot resolve to another account.");
     }
 
     [Fact]

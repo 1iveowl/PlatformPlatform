@@ -94,6 +94,13 @@ internal static class StartExternalAuthenticationHelper
             return Result<string>.BadRequest($"Provider '{providerType}' does not support the '{loginType}' flow.");
         }
 
+        // What the product supports and what this deployment permits are different questions, and both are answered
+        // here rather than by hiding a button
+        if (!oauthProviderFactory.IsFlowEnabled(providerType, loginType))
+        {
+            return Result<string>.BadRequest($"Provider '{providerType}' is not enabled for the '{loginType}' flow.");
+        }
+
         var httpContext = httpContextAccessor.HttpContext!;
         var useMockProvider = oauthProviderFactory.ShouldUseMockProvider(httpContext);
 

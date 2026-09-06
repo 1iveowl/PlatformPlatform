@@ -19,14 +19,22 @@ namespace Account.Integrations.OAuth.Mock;
 ///     sets the email to "{emailPrefix}@mock.localhost", so a changed email at the provider can be simulated.
 ///     "identity:{identityPrefix}" without the email part returns the same provider user id as above,
 ///     "mock-{provider}-{identityPrefix}", and no email.
+///     "unexpectedemail:{identityPrefix}:{emailPrefix}" shapes the profile the same way as "identity:", but the email
+///     survives even for a provider that supplies none. It stands in for a provider that breaks its own contract and
+///     returns an email claim it never promised, so account resolution can be proved to ignore it.
 ///     Any other value "{emailPrefix}" gives the email "{emailPrefix}@mock.localhost" and the provider user id
 ///     "mock-{provider}-{emailPrefix}".
-///     A verification-only provider never reports an email whatever the cookie says, and carries the assurance level
-///     and authentication instant that a real verification would. "staleauthentication" makes it report an
-///     authentication from an hour ago, which stands in for a provider replaying a cached session, and
-///     "futureauthentication" one an hour from now, which stands in for a provider whose clock is wrong.
-///     "lowassurance" makes it report a low level of assurance, which stands in for a provider that satisfied the
-///     authorization request at a lower level than the one it asked for.
+///     A provider that supplies no email never reports one whatever the cookie says, and carries nothing but the
+///     identity, the assurance level and the authentication instant, for every flow it runs. That mirrors the real
+///     MitID provider, which requests only the openid scope, and it is deliberately read from the provider rather
+///     than from which flows the provider may run: what a provider replies with does not change because the product
+///     starts letting it log in.
+///     "staleauthentication" makes it report an authentication from an hour ago, which stands in for a provider
+///     replaying a cached session, and "futureauthentication" one an hour from now, which stands in for a provider
+///     whose clock is wrong. "lowassurance" makes it report a low level of assurance, which stands in for a provider
+///     that satisfied the authorization request at a lower level than the one it asked for. All three name an
+///     identity of their own, because the provider user id is derived from the whole cookie value, so none of them
+///     can be combined with an "identity:" prefix.
 /// </summary>
 public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider) : IOAuthProvider
 {
@@ -36,6 +44,7 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
     public const string FailurePrefix = "fail:";
     public const string NoEmailValue = "noemail";
     public const string IdentityPrefix = "identity:";
+    public const string UnexpectedEmailPrefix = "unexpectedemail:";
     public const string StaleAuthenticationValue = "staleauthentication";
     public const string FutureAuthenticationValue = "futureauthentication";
     public const string LowAssuranceValue = "lowassurance";
@@ -43,6 +52,9 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
 
     // The default provider user id of the Google mock, which the API tests drive through the Google endpoints
     public static readonly string MockProviderUserId = BuildProviderUserId(ExternalProviderType.Google, DefaultProviderUserIdSuffix);
+
+    // The same for the MitID mock, which the API tests drive through the MitID endpoints
+    public static readonly string MockMitIdProviderUserId = BuildProviderUserId(ExternalProviderType.MitId, DefaultProviderUserIdSuffix);
 
     private readonly bool _isEnabled = configuration.GetValue<bool>("OAuth:AllowMockProvider");
 
@@ -97,8 +109,12 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
         var cookieValue = GetCookieValue();
         var failureMode = GetFailureMode(cookieValue);
         var (providerUserId, email) = GetProviderUserIdAndEmail(cookieValue);
-        var isVerificationOnly = !ExternalAuthenticationPolicy.IsFlowSupported(providerType, ExternalLoginType.Login);
-        if (isVerificationOnly) email = null;
+        var isIdentityOnlyProvider = !ExternalAuthenticationPolicy.SuppliesEmail(providerType);
+
+        // "unexpectedemail" exists to break the provider's own contract, so it is the one form the suppression does
+        // not apply to. Account resolution must refuse to use the email whatever the provider sends.
+        var suppliesUnexpectedEmail = cookieValue?.StartsWith(UnexpectedEmailPrefix, StringComparison.Ordinal) == true;
+        if (isIdentityOnlyProvider && !suppliesUnexpectedEmail) email = null;
         var emailVerified = email is not null && failureMode != "email_not_verified";
         var nonce = ExtractNonceFromMockIdToken(tokenResponse.IdToken);
 
@@ -106,15 +122,15 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
                 providerUserId,
                 email,
                 emailVerified,
-                isVerificationOnly ? null : MockFirstName,
-                isVerificationOnly ? null : MockLastName,
+                isIdentityOnlyProvider ? null : MockFirstName,
+                isIdentityOnlyProvider ? null : MockLastName,
                 null,
-                isVerificationOnly ? null : "en",
+                isIdentityOnlyProvider ? null : "en",
                 nonce,
                 BuildIssuer(providerType),
                 providerUserId,
-                isVerificationOnly ? GetAssuranceLevel(cookieValue) : null,
-                isVerificationOnly ? GetAuthenticationInstant(cookieValue) : null
+                isIdentityOnlyProvider ? GetAssuranceLevel(cookieValue) : null,
+                isIdentityOnlyProvider ? GetAuthenticationInstant(cookieValue) : null
             )
         );
     }
@@ -145,6 +161,12 @@ public sealed class MockOAuthProvider(ExternalProviderType providerType, IConfig
         if (cookieValue == NoEmailValue)
         {
             return (BuildProviderUserId(providerType, DefaultProviderUserIdSuffix), null);
+        }
+
+        if (cookieValue.StartsWith(UnexpectedEmailPrefix, StringComparison.Ordinal))
+        {
+            var parts = cookieValue[UnexpectedEmailPrefix.Length..].Split(':', 2);
+            return (BuildProviderUserId(providerType, parts[0]), parts.Length == 2 ? BuildEmail(parts[1]) : MockEmail);
         }
 
         if (cookieValue.StartsWith(IdentityPrefix, StringComparison.Ordinal))

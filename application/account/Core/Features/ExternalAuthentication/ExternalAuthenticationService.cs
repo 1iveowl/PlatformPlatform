@@ -210,6 +210,7 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
         {
             ExternalProviderType.Google => LoginMethod.Google,
             ExternalProviderType.Entra => LoginMethod.Entra,
+            ExternalProviderType.MitId => LoginMethod.MitId,
             _ => throw new UnreachableException()
         };
     }
@@ -238,6 +239,7 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
             ExternalLoginResult.IdentityHeldByAnotherUser => "identity_already_linked",
             ExternalLoginResult.AssuranceLevelInsufficient => "assurance_level_insufficient",
             ExternalLoginResult.StaleAuthentication => "authentication_failed",
+            ExternalLoginResult.IdentityNotVerified => "identity_not_verified",
             _ => "server_error"
         };
     }

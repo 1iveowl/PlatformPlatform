@@ -60,6 +60,16 @@ public sealed class ExternalAuthenticationServiceTests
     }
 
     [Fact]
+    public void GetLoginMethod_WhenMitId_ShouldReturnMitId()
+    {
+        // Act
+        var loginMethod = ExternalAuthenticationService.GetLoginMethod(ExternalProviderType.MitId);
+
+        // Assert
+        loginMethod.Should().Be(LoginMethod.MitId);
+    }
+
+    [Fact]
     public void MapToOidcError_WhenEmailNotProvided_ShouldReturnEmailNotProvided()
     {
         // Act

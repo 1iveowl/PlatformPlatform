@@ -40,6 +40,10 @@ param mitIdDomain string
 param mitIdClientId string
 @secure()
 param mitIdClientSecret string
+// Not secrets: they say what this deployment uses MitID for, and one set of credentials serves both purposes, so
+// configuring the provider no longer states the purpose on its own.
+param mitIdVerificationEnabled bool = false
+param mitIdLoginEnabled bool = false
 
 @secure()
 param stripePublishableKey string
@@ -346,7 +350,19 @@ var accountEnvironmentVariables = [
   }
   {
     name: 'PUBLIC_MITID_VERIFICATION_ENABLED'
-    value: !empty(mitIdDomain) && !empty(mitIdClientId) && !empty(mitIdClientSecret) ? 'true' : 'false'
+    value: mitIdVerificationEnabled ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_MITID_LOGIN_ENABLED'
+    value: mitIdLoginEnabled ? 'true' : 'false'
+  }
+  {
+    name: 'OAuth__MitId__VerificationEnabled'
+    value: mitIdVerificationEnabled ? 'true' : 'false'
+  }
+  {
+    name: 'OAuth__MitId__LoginEnabled'
+    value: mitIdLoginEnabled ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'
@@ -537,7 +553,11 @@ var mainEnvironmentVariables = [
   }
   {
     name: 'PUBLIC_MITID_VERIFICATION_ENABLED'
-    value: !empty(mitIdDomain) && !empty(mitIdClientId) && !empty(mitIdClientSecret) ? 'true' : 'false'
+    value: mitIdVerificationEnabled ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_MITID_LOGIN_ENABLED'
+    value: mitIdLoginEnabled ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'

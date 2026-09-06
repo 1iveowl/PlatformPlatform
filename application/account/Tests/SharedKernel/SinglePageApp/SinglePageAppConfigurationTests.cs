@@ -30,6 +30,7 @@ public sealed class SinglePageAppConfigurationTests
             ["PUBLIC_GOOGLE_OAUTH_ENABLED"] = "false",
             ["PUBLIC_ENTRA_OAUTH_ENABLED"] = "false",
             ["PUBLIC_MITID_VERIFICATION_ENABLED"] = "false",
+            ["PUBLIC_MITID_LOGIN_ENABLED"] = "false",
             ["PUBLIC_SUBSCRIPTION_ENABLED"] = "false"
         };
 
@@ -42,6 +43,7 @@ public sealed class SinglePageAppConfigurationTests
         configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_GOOGLE_OAUTH_ENABLED", "false");
         configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_ENTRA_OAUTH_ENABLED", "false");
         configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_MITID_VERIFICATION_ENABLED", "false");
+        configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_MITID_LOGIN_ENABLED", "false");
         configuration.StaticRuntimeEnvironment.Should().Contain("PUBLIC_SUBSCRIPTION_ENABLED", "false");
     }
 }

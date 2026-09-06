@@ -66,8 +66,9 @@ public sealed class CompleteExternalLoginHandler(
             var loginCapableIdentities = identitiesForProviderUserId.Where(ei => ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Login)).ToArray();
             var identityCandidates = await GetUsersByIdentities(loginCapableIdentities, cancellationToken);
 
-            // An invitation in the preferred tenant can match by email even when another tenant holds the identity.
-            var emailCandidates = userProfile.Email is null
+            // MitID cannot select an account by email. Other providers also check email for an invitation in the preferred tenant.
+            var suppliesEmail = ExternalAuthenticationPolicy.SuppliesEmail(externalLogin.ProviderType);
+            var emailCandidates = !suppliesEmail || userProfile.Email is null
                 ? []
                 : await GetUsersInActiveTenants(await userRepository.GetUsersByEmailUnfilteredAsync(userProfile.Email, cancellationToken), cancellationToken);
 
@@ -75,14 +76,23 @@ public sealed class CompleteExternalLoginHandler(
 
             if (user is null)
             {
+                // Without an email there is no second way to find the account, so an empty identity list means the
+                // person never verified rather than that their account is missing. Saying so is the difference
+                // between sending them to verify and telling them they have no account.
+                if (!suppliesEmail && loginCapableIdentities.Length == 0)
+                {
+                    logger.LogWarning("No verified '{ProviderType}' identity for external login '{ExternalLoginId}'", externalLogin.ProviderType, externalLogin.Id);
+                    return LoginFailedRedirect(externalLogin, ExternalLoginResult.IdentityNotVerified);
+                }
+
                 logger.LogWarning("No active users found for external login '{ExternalLoginId}'", externalLogin.Id);
                 return LoginFailedRedirect(externalLogin, ExternalLoginResult.UserNotFound);
             }
 
             if (lookup == ExternalLoginLookup.Email)
             {
-                // The capability is deliberately not part of this lookup: filtering it out here would hide a
-                // verification-only row and make the insert below violate the unique index on user and provider.
+                // Every row this user holds for the provider, whatever it may be used for. The unique index on user
+                // and provider allows only one, so this is the row the insert below would collide with.
                 var existingIdentity = await externalIdentityRepository.GetByUserIdAndProviderUnfilteredAsync(user.Id, externalLogin.ProviderType, cancellationToken);
                 if (existingIdentity is not null && existingIdentity.ProviderUserId != userProfile.ProviderUserId)
                 {
@@ -92,25 +102,18 @@ public sealed class CompleteExternalLoginHandler(
 
                 if (existingIdentity is null)
                 {
-                    var conflictResult = await ResolveIdentityHeldByAnotherUser(externalLogin, identitiesForProviderUserId, user.TenantId, cancellationToken);
-                    if (conflictResult is not null) return conflictResult;
+                    await RemoveDeletedIdentityHolders(externalLogin, identitiesForProviderUserId, user.TenantId, cancellationToken);
 
                     var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
                     await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
                 }
-                else if (!existingIdentity.Capabilities.HasFlag(ExternalIdentityCapabilities.Login))
-                {
-                    // The row already holds this exact identity, and the provider verified an email that matches the
-                    // user's own. That is the same evidence the branch above accepts to create a new Login row, so the
-                    // verification-only row is upgraded; the unique index leaves no room for a second row anyway.
-                    existingIdentity.AddLoginCapability();
-                    externalIdentityRepository.Update(existingIdentity);
-                }
             }
 
-            // The provider only vouches for its own email, so a stored email is confirmed when it is the one the
-            // provider verified; a profile without an email or with a different email leaves it unconfirmed
-            if (!user.EmailConfirmed && string.Equals(userProfile.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+            // A stored email is confirmed when it is the one the provider verified; a profile without an email or
+            // with a different email leaves it unconfirmed. A provider that vouches for no email confirms nothing,
+            // even if it unexpectedly returns one that matches: an address is only as confirmed as whoever vouched
+            // for it, and MitID never did.
+            if (suppliesEmail && !user.EmailConfirmed && string.Equals(userProfile.Email, user.Email, StringComparison.OrdinalIgnoreCase))
             {
                 user.ConfirmEmail();
                 userRepository.Update(user);
@@ -186,34 +189,26 @@ public sealed class CompleteExternalLoginHandler(
     }
 
     /// <summary>
-    ///     The unique index on provider, provider user id and tenant allows one holder of an identity per tenant, so a
-    ///     row already in the chosen user's tenant has to be dealt with before inserting. A row left behind by a
-    ///     soft-deleted user is freed, which is how a re-invited person takes their identity back. A row held by a live
-    ///     user is refused with a distinct result: it can only be a verification-only row, invisible to the login
-    ///     lookup, and inserting anyway would violate the index and surface as a server error. Removing it instead is
-    ///     not an option, because that would destroy another person's verification evidence as a side effect of a
-    ///     login.
+    ///     Remove soft-deleted holders before inserting a replacement identity in the selected tenant. A live holder
+    ///     in this tenant would have won the identity lookup, so finding one here violates the resolution invariant.
     /// </summary>
-    private async Task<Result<string>?> ResolveIdentityHeldByAnotherUser(ExternalLogin externalLogin, ExternalIdentity[] identitiesForProviderUserId, TenantId tenantId, CancellationToken cancellationToken)
+    private async Task RemoveDeletedIdentityHolders(ExternalLogin externalLogin, ExternalIdentity[] identitiesForProviderUserId, TenantId tenantId, CancellationToken cancellationToken)
     {
         var identitiesInTenant = identitiesForProviderUserId.Where(ei => ei.TenantId == tenantId).ToArray();
-        if (identitiesInTenant.Length == 0) return null;
+        if (identitiesInTenant.Length == 0) return;
 
         var liveUserIds = (await userRepository.GetByIdsUnfilteredAsync(identitiesInTenant.Select(ei => ei.UserId).ToArray(), cancellationToken))
             .Select(u => u.Id).ToHashSet();
 
         if (identitiesInTenant.Any(ei => liveUserIds.Contains(ei.UserId)))
         {
-            logger.LogWarning("The '{ProviderType}' identity presented for external login '{ExternalLoginId}' is already held by another user in the tenant", externalLogin.ProviderType, externalLogin.Id);
-            return LoginFailedRedirect(externalLogin, ExternalLoginResult.IdentityHeldByAnotherUser);
+            throw new UnreachableException($"The '{externalLogin.ProviderType}' identity resolved by email for external login '{externalLogin.Id}' is held by a live user in the tenant, who would have been a login candidate.");
         }
 
         foreach (var recycledIdentity in identitiesInTenant)
         {
             externalIdentityRepository.Remove(recycledIdentity);
         }
-
-        return null;
     }
 
     private async Task<User[]> GetUsersByIdentities(ExternalIdentity[] externalIdentities, CancellationToken cancellationToken)

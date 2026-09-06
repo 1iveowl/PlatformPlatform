@@ -1414,6 +1414,9 @@ msgstr "Microsoft"
 msgid "Middle"
 msgstr "Midte"
 
+msgid "MitID"
+msgstr "MitID"
+
 msgid "Mobile"
 msgstr "Mobil"
 

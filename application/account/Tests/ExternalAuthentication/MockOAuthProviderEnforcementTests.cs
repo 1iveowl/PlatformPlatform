@@ -323,6 +323,63 @@ public sealed class MockOAuthProviderEnforcementTests
         profile.Email.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData("true", "true", true, true)]
+    [InlineData("true", "false", true, false)]
+    [InlineData("false", "true", false, true)]
+    [InlineData(null, null, false, false)]
+    public void IsFlowEnabled_WhenMitIdPurposesDiffer_ShouldGateEachFlowSeparately(string? verificationEnabled, string? loginEnabled, bool expectedVerification, bool expectedLogin)
+    {
+        // The deployment says what MitID is for, and the backend enforces it. Without this a deployment that turned
+        // login off would still answer the login endpoints, and the configuration would only be telling the user
+        // interface what to hide.
+
+        // Arrange
+        var factory = CreateMitIdProviderFactory(verificationEnabled, loginEnabled);
+
+        // Act
+        var isVerificationEnabled = factory.IsFlowEnabled(ExternalProviderType.MitId, ExternalLoginType.Verification);
+        var isLoginEnabled = factory.IsFlowEnabled(ExternalProviderType.MitId, ExternalLoginType.Login);
+
+        // Assert
+        isVerificationEnabled.Should().Be(expectedVerification);
+        isLoginEnabled.Should().Be(expectedLogin);
+    }
+
+    [Theory]
+    [InlineData(ExternalProviderType.Google)]
+    [InlineData(ExternalProviderType.Entra)]
+    public void IsFlowEnabled_WhenProviderIsNotMitId_ShouldStayEnabled(ExternalProviderType providerType)
+    {
+        // Google and Entra need no purpose setting: one set of credentials serves one purpose there, so configuring
+        // the provider is the same statement as enabling it.
+
+        // Arrange
+        var factory = CreateMitIdProviderFactory(null, null);
+
+        // Act
+        var isLoginEnabled = factory.IsFlowEnabled(providerType, ExternalLoginType.Login);
+        var isSignupEnabled = factory.IsFlowEnabled(providerType, ExternalLoginType.Signup);
+
+        // Assert
+        isLoginEnabled.Should().BeTrue();
+        isSignupEnabled.Should().BeTrue();
+    }
+
+    private static OAuthProviderFactory CreateMitIdProviderFactory(string? verificationEnabled, string? loginEnabled)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["OAuth:MitId:VerificationEnabled"] = verificationEnabled,
+                    ["OAuth:MitId:LoginEnabled"] = loginEnabled
+                }
+            )
+            .Build();
+
+        return new OAuthProviderFactory(new ServiceCollection().BuildServiceProvider(), configuration);
+    }
+
     private static OAuthProviderFactory CreateProviderFactory(string? entraClientId, string? entraClientSecret = ConfiguredClientSecret, bool allowMockProvider = false)
     {
         var configuration = new ConfigurationBuilder()

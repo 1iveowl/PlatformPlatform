@@ -29,7 +29,8 @@ export const ErrorCode = {
   TenantDeleted: "tenant_deleted",
   EmailNotProvided: "email_not_provided",
   IdentityAlreadyLinked: "identity_already_linked",
-  AssuranceLevelInsufficient: "assurance_level_insufficient"
+  AssuranceLevelInsufficient: "assurance_level_insufficient",
+  IdentityNotVerified: "identity_not_verified"
 } as const;
 
 const unauthorizedReasonHeaderKey = "x-unauthorized-reason";

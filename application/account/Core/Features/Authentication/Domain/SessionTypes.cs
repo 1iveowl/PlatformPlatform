@@ -19,7 +19,8 @@ public enum LoginMethod
 {
     OneTimePassword,
     Google,
-    Entra
+    Entra,
+    MitId
 }
 
 /// <summary>

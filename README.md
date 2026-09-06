@@ -406,9 +406,9 @@ PlatformPlatform supports authentication via Microsoft Entra ID using OpenID Con
 
 All values are stored securely in .NET user secrets and persist across restarts. Work accounts and personal Microsoft accounts sign in through the same registration. An account is only created at signup when the token carries a verified email (the `xms_edov` claim); otherwise the person is asked to sign up with email instead.
 
-### 3.4 (Optional) Set up MitID identity verification on localhost
+### 3.4 (Optional) Set up MitID on localhost
 
-PlatformPlatform lets a signed-in user prove who they are with Danish MitID through the [Idura](https://idura.eu) broker. This is verification only: MitID cannot be used to log in or to sign up, and the backend rejects those flows even if a request reaches them directly. It is optional for local development. The Aspire dashboard prompts whether to enable MitID verification on first startup.
+PlatformPlatform uses Danish MitID through the [Idura](https://idura.eu) broker for two purposes: a signed-in user can prove who they are, and a user who has already verified can sign in with it. MitID can never be used to sign up, and the backend rejects that flow even if a request reaches it directly. Both purposes are optional for local development and are enabled separately, so a deployment can verify identities without offering MitID as a way in. The Aspire dashboard prompts for them on first startup.
 
 <details>
 
@@ -417,8 +417,9 @@ PlatformPlatform lets a signed-in user prove who they are with Danish MitID thro
 1. Sign up at the [Idura dashboard](https://dashboard.idura.app) and pick a tenant subdomain. Your broker domain becomes `{subdomain}.idura.broker`, or `{subdomain}.test.idura.broker` for a test tenant. A test tenant talks to MitID's pre-production environment, so the flow can be tried end to end with synthetic test identities and no real MitID
 2. Enable **Danish MitID** as an identity source
 3. Leave the **Add CPR for MitID logins** toggle off. PlatformPlatform requests only the `openid` scope and never reads or stores a CPR number, and leaving the toggle off means the broker never issues one in the first place
-4. Add a Verify application (Idura's OpenID Connect product) for the domain from step 1 and register this callback URL:
+4. Add a Verify application (Idura's OpenID Connect product) for the domain from step 1 and register the callbacks for each enabled purpose:
    - `https://localhost:9000/api/account/authentication/MitId/verification/callback`
+   - `https://localhost:9000/api/account/authentication/MitId/login/callback`
 5. Note the **Client ID/Realm** of the application. It is not a GUID: Idura auto-generates it in the form `urn:my:application:identifier:123`, and it is scoped to the one domain the application was created against
 6. On the application's **OpenID Connect** tab, set the following and save. The first two change the application from Idura's default; the rest are the defaults as of September 2026 and are listed so a changed default is caught rather than discovered from a failed token exchange:
    - **Enable OAuth2 Code Flow**: on. This makes the application a confidential client and issues the **Client Secret** that PlatformPlatform uses for the back-channel token exchange. Copy the secret immediately, because Idura stores only a hash and shows it once. A public, PKCE-only application fails the token exchange with a client authentication error
@@ -446,10 +447,19 @@ MitID's pre-production environment has a test tool that creates synthetic identi
 
 **Aspire parameter configuration** (two restarts required):
 
-1. **First restart**: Aspire prompts whether to enable MitID verification. Enter `true` to enable or `false` to skip. Once entered, restart Aspire.
-2. **Second restart**: Aspire prompts for the **domain**, **Client ID** and **Client Secret**. Enter the domain without a scheme, for example `your-tenant.test.idura.broker`, then restart Aspire to apply the configuration.
+1. **First restart**: Aspire prompts whether to use MitID at all. Enter `true` to enable or `false` to skip. Once entered, restart Aspire.
+2. **Second restart**: Aspire prompts for the **domain**, **Client ID**, **Client Secret** and the two purposes. Enter the domain without a scheme, for example `your-tenant.test.idura.broker`, then restart Aspire to apply the configuration.
 
-All values are stored securely in .NET user secrets and persist across restarts. Verification is requested at the substantial level of assurance and forces a fresh authentication, so a cached broker session cannot satisfy it. The MitID identifier is bound to the signed-in account together with the assurance level and when the person authenticated; no name, birth date or CPR number is stored. A user who verifies with the wrong identity cannot rebind it themselves; a back-office administrator revokes the verification so they can try again.
+The two purposes are separate settings, both defaulting to `false`, so each is a deliberate choice:
+
+- **`mitid-verification-enabled`**: a signed-in user may prove their identity with MitID.
+- **`mitid-login-enabled`**: a user who has already verified may sign in with MitID. Signing in requires a verification first, so this is only useful alongside the other.
+
+Both govern the backend and not merely the buttons: with a purpose off, its endpoints are refused. Credentials alone enable nothing, so an existing setup that only has a domain, Client ID and Client Secret must now set `mitid-verification-enabled` to `true` to keep offering verification.
+
+All values are stored securely in .NET user secrets and persist across restarts. Verification is requested at the substantial level of assurance and forces a fresh authentication, so a cached broker session cannot satisfy it. The MitID identifier is bound to the signed-in account together with the assurance level and when the person authenticated; no name, birth date or CPR number is stored. A verified identity may then be used to sign in, and revoking the verification withdraws that too. A user who verifies with the wrong identity cannot rebind it themselves; a back-office administrator revokes the verification so they can try again.
+
+MitID login checks that the current authentication belongs to its own flow, but accepts a valid Low level and never refreshes stored verification evidence. The age of that evidence is a separate policy for a future consuming feature. Before upgrading a verification-only deployment, keep login disabled, assess pre-fix bindings, drain old verification writers and run the final reconciliation. Follow the [data-migration rollout sequence](application/account/Core/Database/DataMigrations/README.md#enabling-mitid-login-after-verification-only-deployments); the initial schema UPDATE alone does not cover callbacks completed by old API instances during deployment.
 
 ## 4. Set up CI/CD with passwordless deployments from GitHub to Azure
 
@@ -500,17 +510,19 @@ Remember to add redirect URIs for each environment to the app registration in th
 - `https://app.yourproduct.com/api/account/authentication/Entra/login/callback`
 - `https://app.yourproduct.com/api/account/authentication/Entra/signup/callback`
 
-### (Optional) Configure MitID verification for staging and production
+### (Optional) Configure MitID for staging and production
 
-If you set up MitID verification locally, use the Developer CLI to store your Idura credentials as GitHub secrets for deployment to Azure Key Vault:
+If you set up MitID locally, use the Developer CLI to store your Idura credentials as GitHub secrets and the two purposes as GitHub variables, for deployment to Azure Key Vault:
 
 ```bash
 pp github-config
 ```
 
-Remember to add a redirect URI for each environment to the login application in the Idura dashboard, e.g.:
+Remember to add a redirect URI for each environment and each purpose you enable to the login application in the Idura dashboard, e.g.:
 - `https://staging.yourproduct.com/api/account/authentication/MitId/verification/callback`
 - `https://app.yourproduct.com/api/account/authentication/MitId/verification/callback`
+- `https://staging.yourproduct.com/api/account/authentication/MitId/login/callback`
+- `https://app.yourproduct.com/api/account/authentication/MitId/login/callback`
 
 ### (Optional) Configure Stripe for staging and production
 

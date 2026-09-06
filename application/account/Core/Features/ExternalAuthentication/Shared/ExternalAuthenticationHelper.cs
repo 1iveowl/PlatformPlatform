@@ -127,6 +127,14 @@ public sealed class ExternalAuthenticationHelper(
             return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
         }
 
+        // Checked here as well as at the start, so a flow already in flight cannot be completed after the deployment
+        // stops permitting that use of the provider
+        if (!oauthProviderFactory.IsFlowEnabled(externalLogin.ProviderType, externalLogin.Type))
+        {
+            logger.LogWarning("Provider '{ProviderType}' is not enabled for the '{FlowType}' flow", externalLogin.ProviderType, externalLogin.Type);
+            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
+        }
+
         var httpContext = httpContextAccessor.HttpContext!;
         var useMockProvider = oauthProviderFactory.ShouldUseMockProvider(httpContext);
 

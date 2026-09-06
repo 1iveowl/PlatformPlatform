@@ -31,6 +31,10 @@ function getKnownFeatureFlagLabels(): Record<string, FeatureFlagLabel> {
       name: t`MitID identity verification`,
       description: t`Let a signed-in user prove their identity with MitID`
     },
+    "mitid-login": {
+      name: t`MitID login`,
+      description: t`Let a user who has verified with MitID sign in with it`
+    },
     "subscriptions": {
       name: t`Subscriptions`,
       description: t`Stripe-powered subscription billing and plan management`

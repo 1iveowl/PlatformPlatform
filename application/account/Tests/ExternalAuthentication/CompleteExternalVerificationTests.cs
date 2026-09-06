@@ -54,8 +54,7 @@ public sealed class CompleteExternalVerificationTests : ExternalAuthenticationTe
 
         // Assert
         var verifiedIdentity = GetVerifiedIdentity(userId);
-        verifiedIdentity!.Capabilities.Should().Be(ExternalIdentityCapabilities.Verification);
-        verifiedIdentity.Capabilities.HasFlag(ExternalIdentityCapabilities.Login).Should().BeFalse();
+        verifiedIdentity!.Capabilities.Should().Be(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
 
         Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions WHERE user_id = @userId", [new { userId = userId.ToString() }]).Should().Be(sessionCountBefore);
     }

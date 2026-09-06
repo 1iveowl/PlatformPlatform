@@ -118,6 +118,97 @@ public sealed class PostgreSqlBackfillTests
         }
     }
 
+    [PostgreSqlTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_WhenLegacyVerificationFinishesAfterSchemaUpdate_ShouldReconcileAndPreserveEvidence(bool rollbackFirst)
+    {
+        // Arrange
+        var connectionString = Environment.GetEnvironmentVariable("ACCOUNT_TEST_POSTGRES")!;
+        var schema = $"mitid_rollout_{Guid.NewGuid():N}";
+        await using var administration = new NpgsqlConnection(connectionString);
+        await administration.OpenAsync();
+        await using var schemaCommand = administration.CreateCommand();
+        schemaCommand.CommandText = $"CREATE SCHEMA {schema}";
+        await schemaCommand.ExecuteNonQueryAsync();
+        var scopedConnectionString = new NpgsqlConnectionStringBuilder(connectionString) { SearchPath = schema }.ConnectionString;
+
+        try
+        {
+            await using var context = CreateContext(scopedConnectionString);
+            await context.Database.ExecuteSqlRawAsync("CREATE TABLE tenants (id bigint PRIMARY KEY); CREATE TABLE users (tenant_id bigint NOT NULL, id text PRIMARY KEY); INSERT INTO tenants VALUES (1);");
+            var operations = new AddExternalIdentities().UpOperations.Concat(new AddExternalIdentityVerificationEvidence().UpOperations).ToArray();
+            foreach (var command in context.GetService<IMigrationsSqlGenerator>().Generate(operations))
+            {
+                await context.Database.ExecuteSqlRawAsync(command.CommandText);
+            }
+
+            var tenantId = new TenantId(1);
+            var verifiedAt = new DateTimeOffset(2026, 9, 4, 14, 30, 22, TimeSpan.FromHours(2)).ToUniversalTime();
+            var authenticatedAt = verifiedAt.AddMinutes(-1);
+            var identities = Enumerable.Range(0, 6).Select(index => index < 2
+                ? ExternalIdentity.Create(tenantId, UserId.NewId(), index == 0 ? ExternalProviderType.Google : ExternalProviderType.Entra, $"provider-{index}", "https://issuer.test.localhost", $"subject-{index}")
+                : ExternalIdentity.CreateForVerification(tenantId, UserId.NewId(), ExternalProviderType.MitId, $"citizen-{index}", "https://issuer.test.localhost", $"subject-{index}", IdentityAssuranceLevel.Substantial, verifiedAt, authenticatedAt, ExternalLoginId.NewId())
+            ).ToArray();
+            foreach (var identity in identities)
+            {
+                await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO users (tenant_id, id) VALUES (1, {identity.UserId.Value});");
+            }
+
+            context.AddRange(identities.Take(3));
+            await context.SaveChangesAsync();
+            await context.Database.ExecuteSqlInterpolatedAsync($"UPDATE external_identities SET capabilities = 'Verification' WHERE id = {identities[2].Id.Value};");
+            foreach (var command in context.GetService<IMigrationsSqlGenerator>().Generate(new GrantLoginToVerifiedExternalIdentities().UpOperations))
+            {
+                await context.Database.ExecuteSqlRawAsync(command.CommandText);
+            }
+
+            await using (var oldApi = CreateContext(scopedConnectionString))
+            {
+                oldApi.Add(identities[3]);
+                await oldApi.SaveChangesAsync();
+                await oldApi.Database.ExecuteSqlInterpolatedAsync($"UPDATE external_identities SET capabilities = 'Verification' WHERE id = {identities[3].Id.Value};");
+            }
+
+            context.AddRange(identities.Skip(4));
+            await context.SaveChangesAsync();
+            identities[5].RevokeVerification();
+            context.Remove(identities[5]);
+            await context.SaveChangesAsync();
+            var before = await context.Set<ExternalIdentity>().IgnoreQueryFilters([QueryFilterNames.Tenant]).AsNoTracking().ToArrayAsync();
+            before.Single(e => e.Id == identities[3].Id).Capabilities.Should().Be(ExternalIdentityCapabilities.Verification);
+            before.Single(e => e.Id == identities[2].Id).Capabilities.Should().Be(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
+            before.Single(e => e.Id == identities[4].Id).Capabilities.Should().Be(ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification);
+            var reconciliation = new ReconcileVerifiedMitIdLoginCapabilities(context);
+
+            // Act
+            if (rollbackFirst)
+            {
+                await using var transaction = await context.Database.BeginTransactionAsync();
+                await reconciliation.ExecuteAsync(CancellationToken.None);
+                await transaction.RollbackAsync();
+                var lateIdentity = await context.Set<ExternalIdentity>().IgnoreQueryFilters([QueryFilterNames.Tenant]).AsNoTracking().SingleAsync(e => e.Id == identities[3].Id);
+                lateIdentity.Capabilities.Should().Be(ExternalIdentityCapabilities.Verification);
+            }
+
+            await reconciliation.ExecuteAsync(CancellationToken.None);
+            await reconciliation.ExecuteAsync(CancellationToken.None);
+
+            // Assert
+            var after = await context.Set<ExternalIdentity>().IgnoreQueryFilters([QueryFilterNames.Tenant]).AsNoTracking().ToArrayAsync();
+            after.Should().BeEquivalentTo(before, options => options.Excluding(e => e.Capabilities));
+            after.Should().HaveCount(5);
+            after.Where(e => e.Provider == ExternalProviderType.MitId).Should().OnlyContain(e => e.Capabilities == (ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification));
+            after.Where(e => e.Provider != ExternalProviderType.MitId).Should().OnlyContain(e => e.Capabilities == ExternalIdentityCapabilities.Login);
+            after.Should().NotContain(e => e.Id == identities[5].Id);
+        }
+        finally
+        {
+            schemaCommand.CommandText = $"DROP SCHEMA {schema} CASCADE";
+            await schemaCommand.ExecuteNonQueryAsync();
+        }
+    }
+
     private static AccountDbContext CreateContext(string connectionString, DbCommandInterceptor? interceptor = null)
     {
         var options = new DbContextOptionsBuilder<AccountDbContext>().UseNpgsql(connectionString).UseSnakeCaseNamingConvention();

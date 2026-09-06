@@ -44,7 +44,8 @@ public enum ExternalLoginResult
     VerificationUserMismatch,
     IdentityHeldByAnotherUser,
     AssuranceLevelInsufficient,
-    StaleAuthentication
+    StaleAuthentication,
+    IdentityNotVerified
 }
 
 [PublicAPI]

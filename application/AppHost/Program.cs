@@ -37,7 +37,9 @@ var (googleOAuthConfigured, googleOAuthClientId, googleOAuthClientSecret) = Conf
 
 var (entraOAuthConfigured, entraOAuthClientId, entraOAuthClientSecret) = ConfigureEntraOAuthParameters();
 
-var (mitIdConfigured, mitIdDomain, mitIdClientId, mitIdClientSecret) = ConfigureMitIdParameters();
+var (mitIdConfigured, mitIdDomain, mitIdClientId, mitIdClientSecret, mitIdVerificationEnabled, mitIdLoginEnabled) = ConfigureMitIdParameters();
+var mitIdVerificationConfigured = mitIdConfigured && builder.Configuration["Parameters:mitid-verification-enabled"] == "true";
+var mitIdLoginConfigured = mitIdConfigured && builder.Configuration["Parameters:mitid-login-enabled"] == "true";
 
 var (stripeConfigured, stripePublishableKey, stripeApiKey, stripeWebhookSecret) = ConfigureStripeParameters();
 var stripeFullyConfigured = stripeConfigured && builder.Configuration["Parameters:stripe-webhook-secret"] is not null and not "not-configured";
@@ -130,6 +132,8 @@ var accountApi = builder
     .WithEnvironment("OAuth__MitId__Domain", mitIdDomain)
     .WithEnvironment("OAuth__MitId__ClientId", mitIdClientId)
     .WithEnvironment("OAuth__MitId__ClientSecret", mitIdClientSecret)
+    .WithEnvironment("OAuth__MitId__VerificationEnabled", mitIdVerificationEnabled)
+    .WithEnvironment("OAuth__MitId__LoginEnabled", mitIdLoginEnabled)
     .WithEnvironment("OAuth__AllowMockProvider", "true")
     .WithEnvironment("Stripe__SubscriptionEnabled", stripeFullyConfigured ? "true" : "false")
     .WithEnvironment("Stripe__ApiKey", stripeApiKey)
@@ -138,7 +142,8 @@ var accountApi = builder
     .WithEnvironment("Stripe__AllowMockProvider", "true")
     .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
-    .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
     // Force-on so newcomers see the back-office billing UI without Stripe configured. Set to "false" (or
     // change back to `stripeFullyConfigured ? "true" : "false"`) to hide all billing/revenue/Stripe data.
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", "true")
@@ -162,7 +167,8 @@ var mainApi = builder
     .WithReference(azureStorage)
     .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
-    .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
     .WaitFor(mainWorkers);
 
@@ -301,16 +307,16 @@ void AddStripeCliContainer()
     );
 }
 
-(bool Configured, IResourceBuilder<ParameterResource> Domain, IResourceBuilder<ParameterResource> ClientId, IResourceBuilder<ParameterResource> ClientSecret) ConfigureMitIdParameters()
+(bool Configured, IResourceBuilder<ParameterResource> Domain, IResourceBuilder<ParameterResource> ClientId, IResourceBuilder<ParameterResource> ClientSecret, IResourceBuilder<ParameterResource> VerificationEnabled, IResourceBuilder<ParameterResource> LoginEnabled) ConfigureMitIdParameters()
 {
     _ = builder.AddParameter("mitid-oauth-enabled")
         .WithDescription("""
-                         **MitID identity verification** -- Lets a signed-in user prove who they are with Danish MitID through the Idura broker. This is verification only: MitID cannot be used to log in or sign up.
+                         **MitID** -- Danish MitID through the Idura broker. It can verify who a signed-in user is, and it can sign in a user who has already verified. It can never be used to sign up. Which of the two purposes are wanted is chosen separately, after this.
 
                          **Important**: Create a login application in the [Idura dashboard](https://dashboard.idura.app) and configure it according to the guide in README.md **before** enabling this. Leave the CPR toggle off; this system requests only the `openid` scope and stores no CPR number.
 
-                         - Enter `true` to enable MitID verification, or `false` to skip. This can be changed later.
-                         - After enabling, **restart Aspire** to be prompted for the domain, Client ID and Client Secret.
+                         - Enter `true` to use MitID at all, or `false` to skip. This can be changed later.
+                         - After enabling, **restart Aspire** to be prompted for the domain, Client ID, Client Secret and the purposes.
 
                          See **README.md** for full setup instructions.
                          """, true
@@ -348,14 +354,37 @@ void AddStripeCliContainer()
                              """, true
             );
 
-        return (configured, domain, clientId, clientSecret);
+        // One set of credentials serves both purposes, so configuring the provider no longer says what it is for.
+        // Each purpose is asked for separately and defaults to off, so it is always a deliberate choice.
+        var verificationEnabled = builder.AddParameter("mitid-verification-enabled", true)
+            .WithDescription("""
+                             Enter `true` to let a signed-in user prove their identity with MitID, or `false` to leave that off.
+
+                             This governs the backend as well as the button: with it off, the verification endpoints are refused.
+
+                             See **README.md** for full setup instructions.
+                             """, true
+            );
+        var loginEnabled = builder.AddParameter("mitid-login-enabled", true)
+            .WithDescription("""
+                             Enter `true` to let a user who has already verified with MitID sign in with it, or `false` to leave that off.
+
+                             Signing in requires a verification first, so this is only useful alongside the verification purpose. MitID can never be used to sign up.
+
+                             See **README.md** for full setup instructions.
+                             """, true
+            );
+
+        return (configured, domain, clientId, clientSecret, verificationEnabled, loginEnabled);
     }
 
     return (
         configured,
         builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-domain", _ => "not-configured", true)),
         builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-client-id", _ => "not-configured", true)),
-        builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-client-secret", _ => "not-configured", true))
+        builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-client-secret", _ => "not-configured", true)),
+        builder.CreateResourceBuilder(new ParameterResource("mitid-verification-enabled", _ => "false", true)),
+        builder.CreateResourceBuilder(new ParameterResource("mitid-login-enabled", _ => "false", true))
     );
 }
 
