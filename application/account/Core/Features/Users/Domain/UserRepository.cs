@@ -29,8 +29,10 @@ public interface IUserRepository : ICrudRepository<User, UserId>, IBulkRemoveRep
     Task<User[]> GetByIdsAsync(UserId[] ids, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     Retrieves users by IDs without applying tenant query filters.
-    ///     This method should only be used for internal back-office operations that need cross-tenant access.
+    ///     Retrieves users by IDs without applying the tenant query filter. Permitted for external authentication
+    ///     flows, which resolve candidate users before a Platform tenant context has been established, and for
+    ///     internal back-office operations that need cross-tenant access. Only the tenant filter is disabled, so
+    ///     soft-deleted users remain excluded.
     /// </summary>
     Task<User[]> GetByIdsUnfilteredAsync(UserId[] ids, CancellationToken cancellationToken);
 
@@ -187,8 +189,10 @@ public sealed class UserRepository(AccountDbContext accountDbContext, IExecution
     }
 
     /// <summary>
-    ///     Retrieves users by IDs without applying tenant query filters.
-    ///     This method should only be used for internal back-office operations that need cross-tenant access.
+    ///     Retrieves users by IDs without applying the tenant query filter. Permitted for external authentication
+    ///     flows, which resolve candidate users before a Platform tenant context has been established, and for
+    ///     internal back-office operations that need cross-tenant access. Only the tenant filter is disabled, so
+    ///     soft-deleted users remain excluded.
     /// </summary>
     public async Task<User[]> GetByIdsUnfilteredAsync(UserId[] ids, CancellationToken cancellationToken)
     {

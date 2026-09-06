@@ -40,6 +40,11 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
 
     public ExternalLoginResult? LoginResult { get; private set; }
 
+    public UserId? UserId { get; private set; }
+
+    // Audit rows must survive user deletion and be readable before a tenant context exists.
+    public TenantId? TenantId { get; private set; }
+
     public bool IsConsumed => LoginResult is not null;
 
     public bool IsExpired(DateTimeOffset now)
@@ -63,7 +68,18 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
         return new ExternalLogin(type, providerType, codeVerifier, nonce, browserFingerprint);
     }
 
-    public void MarkCompleted(string email)
+    public void RecordResolvedUser(UserId userId, TenantId tenantId)
+    {
+        if (UserId is not null && (UserId != userId || TenantId != tenantId))
+        {
+            throw new UnreachableException("The external login cannot resolve to another account.");
+        }
+
+        UserId = userId;
+        TenantId = tenantId;
+    }
+
+    public void MarkCompleted(string? email)
     {
         if (LoginResult is not null)
         {

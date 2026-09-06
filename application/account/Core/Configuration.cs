@@ -1,6 +1,7 @@
 using Account.Database;
 using Account.Features.EmailAuthentication.Shared;
 using Account.Features.ExternalAuthentication;
+using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Shared;
 using Account.Features.FeatureFlags.Shared;
 using Account.Features.Subscriptions.Shared;
@@ -51,7 +52,7 @@ public static class Configuration
 
             services.AddHttpClient<GoogleOAuthProvider>(client => { client.Timeout = TimeSpan.FromSeconds(10); });
             services.AddKeyedScoped<IOAuthProvider, GoogleOAuthProvider>("google");
-            services.AddKeyedScoped<IOAuthProvider, MockOAuthProvider>("mock-google");
+            services.AddKeyedScoped<IOAuthProvider>("mock-google", (serviceProvider, _) => ActivatorUtilities.CreateInstance<MockOAuthProvider>(serviceProvider, ExternalProviderType.Google));
             services.AddScoped<OAuthProviderFactory>();
 
             services.AddEmailRendering("WebApp");

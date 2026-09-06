@@ -17,6 +17,7 @@ public sealed class GoogleOAuthProvider(HttpClient httpClient, IConfiguration co
     private const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     private const string GoogleDomain = "accounts.google.com";
+    private const string CanonicalIssuer = $"https://{GoogleDomain}";
     private const string GoogleDiscoveryUrl = $"https://{GoogleDomain}/.well-known/openid-configuration";
     private static readonly JsonWebTokenHandler TokenHandler = new();
 
@@ -93,7 +94,7 @@ public sealed class GoogleOAuthProvider(HttpClient httpClient, IConfiguration co
         {
             ValidateIssuer = true,
             // Google ID tokens may contain either https://accounts.google.com or accounts.google.com as iss claim (see github.com/coreos/go-oidc/issues/125)
-            ValidIssuers = [$"https://{GoogleDomain}", GoogleDomain],
+            ValidIssuers = [CanonicalIssuer, GoogleDomain],
             ValidateAudience = true,
             ValidAudiences = [_configuration.ClientId],
             ValidateLifetime = true,
@@ -138,6 +139,8 @@ public sealed class GoogleOAuthProvider(HttpClient httpClient, IConfiguration co
 
         var emailVerified = emailVerifiedClaim?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
 
+        var issuer = CanonicalizeIssuer(token.Issuer);
+
         return new OAuthUserProfile(
             subject,
             email,
@@ -146,7 +149,9 @@ public sealed class GoogleOAuthProvider(HttpClient httpClient, IConfiguration co
             familyName,
             picture,
             locale,
-            nonce
+            nonce,
+            issuer,
+            subject
         );
     }
 
@@ -184,6 +189,13 @@ public sealed class GoogleOAuthProvider(HttpClient httpClient, IConfiguration co
         var hash = hashAlgorithm.ComputeHash(Encoding.ASCII.GetBytes(accessToken));
         var leftHalf = hash[..(hash.Length / 2)];
         return Base64UrlEncoder.Encode(leftHalf);
+    }
+
+    // Google emits the issuer both as https://accounts.google.com and as accounts.google.com, and token validation
+    // accepts both, so the validated value is canonicalized to the https form before it is stored
+    public static string CanonicalizeIssuer(string issuer)
+    {
+        return issuer == GoogleDomain ? CanonicalIssuer : issuer;
     }
 
     private async Task LogTokenExchangeError(HttpResponseMessage response, CancellationToken cancellationToken)

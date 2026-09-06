@@ -17,11 +17,13 @@ public sealed record OAuthTokenResponse(string AccessToken, string? IdToken, int
 
 public sealed record OAuthUserProfile(
     string ProviderUserId,
-    string Email,
+    string? Email,
     bool EmailVerified,
     string? FirstName,
     string? LastName,
     string? AvatarUrl,
     string? Locale,
-    string? Nonce
+    string? Nonce,
+    string Issuer,
+    string Subject
 );

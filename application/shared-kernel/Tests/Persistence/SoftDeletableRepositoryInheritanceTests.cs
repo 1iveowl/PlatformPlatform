@@ -43,7 +43,7 @@ public sealed class SoftDeletableRepositoryInheritanceTests
     private static string GetRepositoryRoot([CallerFilePath] string callerFilePath = "")
     {
         var directory = Path.GetDirectoryName(callerFilePath)!;
-        while (!string.IsNullOrEmpty(directory) && !Directory.Exists(Path.Combine(directory, ".git")))
+        while (!string.IsNullOrEmpty(directory) && !Directory.Exists(Path.Combine(directory, ".git")) && !File.Exists(Path.Combine(directory, ".git")))
         {
             directory = Path.GetDirectoryName(directory)!;
         }

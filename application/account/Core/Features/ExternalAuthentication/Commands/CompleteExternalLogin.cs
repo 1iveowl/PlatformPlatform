@@ -9,9 +9,11 @@ using JetBrains.Annotations;
 using Microsoft.AspNetCore.Http;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Cqrs;
+using SharedKernel.Domain;
 using SharedKernel.ExecutionContext;
 using SharedKernel.OpenIdConnect;
 using SharedKernel.Telemetry;
+using ExternalIdentity = Account.Features.ExternalAuthentication.Domain.ExternalIdentity;
 
 namespace Account.Features.ExternalAuthentication.Commands;
 
@@ -25,6 +27,7 @@ public sealed record CompleteExternalLoginCommand(string? Code, string? State, s
 
 public sealed class CompleteExternalLoginHandler(
     IExternalLoginRepository externalLoginRepository,
+    IExternalIdentityRepository externalIdentityRepository,
     IUserRepository userRepository,
     ITenantRepository tenantRepository,
     ISessionRepository sessionRepository,
@@ -55,35 +58,62 @@ public sealed class CompleteExternalLoginHandler(
             var externalLoginCookie = validationResult.Cookie;
             var userProfile = validationResult.UserProfile!;
 
-            var allUsersWithEmail = await userRepository.GetUsersByEmailUnfilteredAsync(userProfile.Email, cancellationToken);
-            var activeTenantIds = (await tenantRepository.GetByIdsAsync(allUsersWithEmail.Select(u => u.TenantId).Distinct().ToArray(), cancellationToken))
-                .Select(t => t.Id).ToHashSet();
-            var activeUsers = allUsersWithEmail.Where(u => activeTenantIds.Contains(u.TenantId)).ToArray();
+            // Only identities with the Login capability may log in; a verification-only identity is not a match
+            var externalIdentities = (await externalIdentityRepository.GetByProviderUserIdUnfilteredAsync(externalLogin.ProviderType, userProfile.ProviderUserId, cancellationToken))
+                .Where(ei => ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Login))
+                .ToArray();
+            var identityCandidates = await GetUsersByIdentities(externalIdentities, cancellationToken);
 
-            if (activeUsers.Length == 0)
+            // An invitation in the preferred tenant can match by email even when another tenant holds the identity.
+            var emailCandidates = userProfile.Email is null
+                ? []
+                : await GetUsersInActiveTenants(await userRepository.GetUsersByEmailUnfilteredAsync(userProfile.Email, cancellationToken), cancellationToken);
+
+            var (user, lookup) = SelectUser(identityCandidates, emailCandidates, externalLoginCookie.PreferredTenantId);
+
+            if (user is null)
             {
                 logger.LogWarning("No active users found for external login '{ExternalLoginId}'", externalLogin.Id);
                 return LoginFailedRedirect(externalLogin, ExternalLoginResult.UserNotFound);
             }
 
-            var user = externalLoginCookie.PreferredTenantId is not null
-                ? activeUsers.SingleOrDefault(u => u.TenantId == externalLoginCookie.PreferredTenantId) ?? activeUsers[0]
-                : activeUsers[0];
-
-            var existingIdentity = user.GetExternalIdentity(externalLogin.ProviderType);
-            if (existingIdentity is not null && existingIdentity.ProviderUserId != userProfile.ProviderUserId)
+            if (lookup == ExternalLoginLookup.Email)
             {
-                logger.LogWarning("Identity mismatch for user '{UserId}' with provider '{ProviderType}'", user.Id, externalLogin.ProviderType);
-                return LoginFailedRedirect(externalLogin, ExternalLoginResult.IdentityMismatch);
+                // The capability is deliberately not part of this lookup: filtering it out here would hide a
+                // verification-only row and make the insert below violate the unique index on user and provider.
+                var existingIdentity = await externalIdentityRepository.GetByUserIdAndProviderUnfilteredAsync(user.Id, externalLogin.ProviderType, cancellationToken);
+                if (existingIdentity is not null && existingIdentity.ProviderUserId != userProfile.ProviderUserId)
+                {
+                    logger.LogWarning("Identity mismatch for user '{UserId}' with provider '{ProviderType}'", user.Id, externalLogin.ProviderType);
+                    return LoginFailedRedirect(externalLogin, ExternalLoginResult.IdentityMismatch);
+                }
+
+                if (existingIdentity is null)
+                {
+                    // The identity lookup matched no live user, so a row for this identity in the user's tenant belongs
+                    // to a soft-deleted user. It is removed so the re-invited user can take the identity over without
+                    // violating the unique index on provider, provider user id and tenant.
+                    foreach (var recycledIdentity in externalIdentities.Where(ei => ei.TenantId == user.TenantId))
+                    {
+                        externalIdentityRepository.Remove(recycledIdentity);
+                    }
+
+                    var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
+                    await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
+                }
+                else if (!existingIdentity.Capabilities.HasFlag(ExternalIdentityCapabilities.Login))
+                {
+                    // The row already holds this exact identity, and the provider verified an email that matches the
+                    // user's own. That is the same evidence the branch above accepts to create a new Login row, so the
+                    // verification-only row is upgraded; the unique index leaves no room for a second row anyway.
+                    existingIdentity.AddCapability(ExternalIdentityCapabilities.Login);
+                    externalIdentityRepository.Update(existingIdentity);
+                }
             }
 
-            if (existingIdentity is null)
-            {
-                user.AddExternalIdentity(externalLogin.ProviderType, userProfile.ProviderUserId);
-                userRepository.Update(user);
-            }
-
-            if (!user.EmailConfirmed)
+            // The provider only vouches for its own email, so a stored email is confirmed when it is the one the
+            // provider verified; a profile without an email or with a different email leaves it unconfirmed
+            if (!user.EmailConfirmed && string.Equals(userProfile.Email, user.Email, StringComparison.OrdinalIgnoreCase))
             {
                 user.ConfirmEmail();
                 userRepository.Update(user);
@@ -105,6 +135,7 @@ public sealed class CompleteExternalLoginHandler(
             }
 
             externalLogin.MarkCompleted(userProfile.Email);
+            externalLogin.RecordResolvedUser(user.Id, user.TenantId);
             externalLoginRepository.Update(externalLogin);
 
             var httpContext = httpContextAccessor.HttpContext!;
@@ -124,7 +155,7 @@ public sealed class CompleteExternalLoginHandler(
 
             events.CollectEvent(new SessionCreated(session.Id));
             var loginTimeInSeconds = (int)(timeProvider.GetUtcNow() - externalLogin.CreatedAt).TotalSeconds;
-            events.CollectEvent(new ExternalLoginCompleted(user.Id, externalLogin.ProviderType, loginTimeInSeconds));
+            events.CollectEvent(new ExternalLoginCompleted(user.Id, externalLogin.ProviderType, lookup, loginTimeInSeconds));
 
             var returnPath = ReturnPathHelper.GetReturnPathCookie(httpContext) ?? "/";
             ReturnPathHelper.ClearReturnPathCookie(httpContext);
@@ -136,6 +167,42 @@ public sealed class CompleteExternalLoginHandler(
             externalAuthenticationService.ClearExternalLoginCookie();
             externalAuthenticationService.ClearLocaleCookie();
         }
+    }
+
+    /// <summary>Prefers the requested tenant, then identity over email. Both candidate arrays are ordered by user ID.</summary>
+    private static (User? User, ExternalLoginLookup Lookup) SelectUser(User[] identityCandidates, User[] emailCandidates, TenantId? preferredTenantId)
+    {
+        if (preferredTenantId is not null)
+        {
+            // The identity key and composite user foreign key guarantee at most one candidate per tenant.
+            var preferredIdentityUser = identityCandidates.SingleOrDefault(u => u.TenantId == preferredTenantId);
+            if (preferredIdentityUser is not null) return (preferredIdentityUser, ExternalLoginLookup.Identity);
+
+            var preferredEmailUser = emailCandidates.FirstOrDefault(u => u.TenantId == preferredTenantId);
+            if (preferredEmailUser is not null) return (preferredEmailUser, ExternalLoginLookup.Email);
+        }
+
+        if (identityCandidates.Length > 0) return (identityCandidates[0], ExternalLoginLookup.Identity);
+        if (emailCandidates.Length > 0) return (emailCandidates[0], ExternalLoginLookup.Email);
+
+        return (null, ExternalLoginLookup.Identity);
+    }
+
+    private async Task<User[]> GetUsersByIdentities(ExternalIdentity[] externalIdentities, CancellationToken cancellationToken)
+    {
+        if (externalIdentities.Length == 0) return [];
+
+        var usersByIdentity = await userRepository.GetByIdsUnfilteredAsync(externalIdentities.Select(ei => ei.UserId).ToArray(), cancellationToken);
+        return await GetUsersInActiveTenants(usersByIdentity.OrderBy(u => u.Id).ToArray(), cancellationToken);
+    }
+
+    private async Task<User[]> GetUsersInActiveTenants(User[] users, CancellationToken cancellationToken)
+    {
+        if (users.Length == 0) return users;
+
+        var activeTenantIds = (await tenantRepository.GetByIdsAsync(users.Select(u => u.TenantId).Distinct().ToArray(), cancellationToken))
+            .Select(t => t.Id).ToHashSet();
+        return users.Where(u => activeTenantIds.Contains(u.TenantId)).ToArray();
     }
 
     private Result<string> LoginFailedRedirect(ExternalLogin externalLogin, ExternalLoginResult loginResult)

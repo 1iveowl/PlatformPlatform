@@ -2,6 +2,7 @@ using System.Net;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Integrations.OAuth.Mock;
 using FluentAssertions;
+using SharedKernel.Domain;
 using SharedKernel.Tests.Persistence;
 using Xunit;
 
@@ -27,6 +28,10 @@ public sealed class CompleteExternalSignupTests : ExternalAuthenticationTestBase
             "SELECT COUNT(*) FROM users WHERE email = @email", [new { email = MockOAuthProvider.MockEmail }]
         );
         userCount.Should().Be(1);
+        Connection.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM external_logins e JOIN users u ON u.id = e.user_id AND u.tenant_id = e.tenant_id WHERE e.id = @id AND u.email = @email",
+            [new { id = GetExternalLoginIdFromUrl(callbackUrl), email = MockOAuthProvider.MockEmail }]
+        ).Should().Be(1);
 
         var tenantCount = Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM tenants", []);
         tenantCount.Should().BeGreaterThan(1);
@@ -42,7 +47,7 @@ public sealed class CompleteExternalSignupTests : ExternalAuthenticationTestBase
     public async Task CompleteExternalSignup_WhenUserAlreadyExists_ShouldRedirectToErrorPage()
     {
         // Arrange
-        InsertUserWithExternalIdentity(MockOAuthProvider.MockEmail, ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId);
+        InsertUser(MockOAuthProvider.MockEmail);
         var (callbackUrl, cookies) = await StartSignupFlow();
         TelemetryEventsCollectorSpy.Reset();
 
@@ -296,10 +301,37 @@ public sealed class CompleteExternalSignupTests : ExternalAuthenticationTestBase
         await CallCallback(callbackUrl, cookies, "signup");
 
         // Assert
-        var externalIdentities = Connection.ExecuteScalar<string>(
-            "SELECT external_identities FROM users WHERE email = @email", [new { email = MockOAuthProvider.MockEmail }]
+        var userId = Connection.ExecuteScalar<string>("SELECT id FROM users WHERE email = @email", [new { email = MockOAuthProvider.MockEmail }]);
+        var tenantId = Connection.ExecuteScalar<long>("SELECT tenant_id FROM users WHERE email = @email", [new { email = MockOAuthProvider.MockEmail }]);
+        CountExternalIdentities(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, new TenantId(tenantId)).Should().Be(1);
+        GetExternalIdentityUserId(ExternalProviderType.Google, MockOAuthProvider.MockProviderUserId, new TenantId(tenantId)).Should().Be(userId);
+        Connection.ExecuteScalar<string>("SELECT external_identities FROM users WHERE id = @id", [new { id = userId }]).Should().Be("[]");
+    }
+
+    [Fact]
+    public async Task CompleteExternalSignup_WhenProfileHasNoEmail_ShouldRedirectToErrorPage()
+    {
+        // Arrange
+        var (callbackUrl, cookies) = await StartSignupFlow();
+        var externalLoginId = GetExternalLoginIdFromUrl(callbackUrl);
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await CallCallback(callbackUrl, cookies, "signup", MockOAuthProvider.NoEmailValue);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Contain("/error?error=authentication_failed");
+
+        var loginResult = Connection.ExecuteScalar<string>(
+            "SELECT login_result FROM external_logins WHERE id = @id", [new { id = externalLoginId }]
         );
-        externalIdentities.Should().Contain(MockOAuthProvider.MockProviderUserId);
+        loginResult.Should().Be(nameof(ExternalLoginResult.CodeExchangeFailed));
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM users WHERE email = @email", [new { email = MockOAuthProvider.MockEmail }]).Should().Be(0);
+
+        TelemetryEventsCollectorSpy.CollectedEvents.Count.Should().Be(1);
+        TelemetryEventsCollectorSpy.CollectedEvents[0].GetType().Name.Should().Be("ExternalSignupFailed");
+        TelemetryEventsCollectorSpy.AreAllEventsDispatched.Should().BeTrue();
     }
 
     [Fact]
