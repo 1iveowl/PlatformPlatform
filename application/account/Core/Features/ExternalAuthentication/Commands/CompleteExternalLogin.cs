@@ -66,14 +66,7 @@ public sealed class CompleteExternalLoginHandler(
             var loginCapableIdentities = identitiesForProviderUserId.Where(ei => ei.Capabilities.HasFlag(ExternalIdentityCapabilities.Login)).ToArray();
             var identityCandidates = await GetUsersByIdentities(loginCapableIdentities, cancellationToken);
 
-            // A provider that vouches for no email never has an account chosen for it by one, whatever it returns.
-            // The identifier is the only thing such a provider proves, so an email claim cannot influence the
-            // outcome even if the provider unexpectedly supplies one, and an identity that was never verified
-            // resolves nothing at all.
-            // For the providers that do vouch for an email, the candidates are loaded alongside the identity
-            // candidates instead of only when the identity lookup came up empty. A person invited by email to a
-            // second tenant has no identity row there, and without this the preferred tenant could never be
-            // honoured and they would land in the other tenant.
+            // MitID cannot select an account by email. Other providers also check email for an invitation in the preferred tenant.
             var suppliesEmail = ExternalAuthenticationPolicy.SuppliesEmail(externalLogin.ProviderType);
             var emailCandidates = !suppliesEmail || userProfile.Email is null
                 ? []
@@ -109,8 +102,7 @@ public sealed class CompleteExternalLoginHandler(
 
                 if (existingIdentity is null)
                 {
-                    var conflictResult = await ResolveIdentityHeldByAnotherUser(externalLogin, identitiesForProviderUserId, user.TenantId, cancellationToken);
-                    if (conflictResult is not null) return conflictResult;
+                    await RemoveDeletedIdentityHolders(externalLogin, identitiesForProviderUserId, user.TenantId, cancellationToken);
 
                     var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
                     await externalIdentityRepository.AddAsync(externalIdentity, cancellationToken);
@@ -177,27 +169,15 @@ public sealed class CompleteExternalLoginHandler(
         }
     }
 
-    /// <summary>
-    ///     Picks the user to log in and reports which of the two candidate lists it came from. A preferred tenant from
-    ///     the login cookie wins, by identity first and by email second, and falls through to the first candidate by
-    ///     user id when neither list covers that tenant. Both lists arrive ordered by user id, so the positional
-    ///     fall-through below is deterministic.
-    /// </summary>
+    /// <summary>Prefers the requested tenant, then identity over email. Both candidate arrays are ordered by user ID.</summary>
     private static (User? User, ExternalLoginLookup Lookup) SelectUser(User[] identityCandidates, User[] emailCandidates, TenantId? preferredTenantId)
     {
         if (preferredTenantId is not null)
         {
-            // The two operators differ because the two lists are guaranteed differently. Two identity candidates in
-            // one tenant are impossible: the unique index on provider, provider user id and tenant allows one row
-            // per tenant for this identity, and the composite foreign key on tenant id and user id ties that row to
-            // a user in the same tenant. SingleOrDefault keeps that as an assertion rather than a comment, so a
-            // schema change that drops either half fails visibly instead of silently logging someone into the wrong
-            // account in their preferred tenant.
+            // The identity key and composite user foreign key guarantee at most one candidate per tenant.
             var preferredIdentityUser = identityCandidates.SingleOrDefault(u => u.TenantId == preferredTenantId);
             if (preferredIdentityUser is not null) return (preferredIdentityUser, ExternalLoginLookup.Identity);
 
-            // The email list needs no such guard: the unique index on tenant id and email, filtered to live users,
-            // makes a second candidate in one tenant impossible.
             var preferredEmailUser = emailCandidates.FirstOrDefault(u => u.TenantId == preferredTenantId);
             if (preferredEmailUser is not null) return (preferredEmailUser, ExternalLoginLookup.Email);
         }
@@ -209,18 +189,13 @@ public sealed class CompleteExternalLoginHandler(
     }
 
     /// <summary>
-    ///     The unique index on provider, provider user id and tenant allows one holder of an identity per tenant, so a
-    ///     row already in the chosen user's tenant has to be dealt with before inserting. A row left behind by a
-    ///     soft-deleted user is freed, which is how a re-invited person takes their identity back.
-    ///     A row held by a live user cannot occur here. This runs only on the email path, which only providers that
-    ///     vouch for an email reach, and every identity such a provider writes carries the Login capability. A live
-    ///     holder in this tenant would therefore be a login candidate, and the email path runs only when there were
-    ///     no login candidates at all.
+    ///     Remove soft-deleted holders before inserting a replacement identity in the selected tenant. A live holder
+    ///     in this tenant would have won the identity lookup, so finding one here violates the resolution invariant.
     /// </summary>
-    private async Task<Result<string>?> ResolveIdentityHeldByAnotherUser(ExternalLogin externalLogin, ExternalIdentity[] identitiesForProviderUserId, TenantId tenantId, CancellationToken cancellationToken)
+    private async Task RemoveDeletedIdentityHolders(ExternalLogin externalLogin, ExternalIdentity[] identitiesForProviderUserId, TenantId tenantId, CancellationToken cancellationToken)
     {
         var identitiesInTenant = identitiesForProviderUserId.Where(ei => ei.TenantId == tenantId).ToArray();
-        if (identitiesInTenant.Length == 0) return null;
+        if (identitiesInTenant.Length == 0) return;
 
         var liveUserIds = (await userRepository.GetByIdsUnfilteredAsync(identitiesInTenant.Select(ei => ei.UserId).ToArray(), cancellationToken))
             .Select(u => u.Id).ToHashSet();
@@ -234,8 +209,6 @@ public sealed class CompleteExternalLoginHandler(
         {
             externalIdentityRepository.Remove(recycledIdentity);
         }
-
-        return null;
     }
 
     private async Task<User[]> GetUsersByIdentities(ExternalIdentity[] externalIdentities, CancellationToken cancellationToken)

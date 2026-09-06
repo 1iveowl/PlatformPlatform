@@ -58,11 +58,7 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
     public bool UsedMockProvider { get; private init; }
 
     /// <summary>
-    ///     The account this flow belongs to, and the only way a completed flow can be traced back to a person. A
-    ///     verification flow is bound to its user when it starts, because it writes to an account that is known
-    ///     before the provider replies. A login or signup flow starts unbound and records the account it resolved
-    ///     when it completes, which is the only handle the back office has on a flow whose provider supplied no
-    ///     email.
+    ///     The actor at verification start, or the resolved account after a successful login or signup.
     /// </summary>
     public UserId? UserId { get; private set; }
 
@@ -120,16 +116,11 @@ public sealed class ExternalLogin : AggregateRoot<ExternalLoginId>
         return new ExternalLogin(type, providerType, codeVerifier, nonce, browserFingerprint, usedMockProvider, userId, tenantId, sessionId);
     }
 
-    /// <summary>
-    ///     Records the account a login or signup flow resolved, so the flow can be found by user as well as by email.
-    ///     A verification flow was bound at the start and passes the same user again, which changes nothing; a flow
-    ///     that tried to record a different user would mean account resolution had contradicted the binding.
-    /// </summary>
     public void RecordResolvedUser(UserId userId, TenantId tenantId)
     {
-        if (UserId is not null && UserId != userId)
+        if (UserId is not null && (UserId != userId || TenantId != tenantId))
         {
-            throw new UnreachableException($"The external login is bound to user '{UserId}' and cannot resolve to user '{userId}'.");
+            throw new UnreachableException("The external login cannot resolve to another account.");
         }
 
         UserId = userId;

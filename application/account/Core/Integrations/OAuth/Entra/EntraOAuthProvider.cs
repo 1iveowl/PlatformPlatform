@@ -194,15 +194,8 @@ public sealed class EntraOAuthProvider(HttpClient httpClient, IConfiguration con
         );
     }
 
-    /// <summary>
-    ///     The email claim is optional, mutable and set by a directory administrator, so it is trusted only when the
-    ///     token also carries xms_edov, Microsoft's attestation that the email's domain is verified for the user's own
-    ///     directory or that this is a personal Microsoft account. Without it no email is reported at all, because the
-    ///     callback validator rejects an unverified email before the identity lookup runs.
-    ///     Entra emits the claim as a JSON boolean for work and school accounts but as a JSON string for personal
-    ///     Microsoft accounts, where the observed value is "1". The boolean is read first because the token handler
-    ///     coerces a boolean claim to the string "True", so a string-first read cannot tell the two shapes apart.
-    /// </summary>
+    // Email requires xms_edov: a boolean for work/school accounts or the observed personal-account string "1".
+    // Return no email when untrusted so linked identities can still log in without the callback rejecting it.
     private static (string? Email, bool EmailVerified) GetVerifiedEmail(JsonWebToken token)
     {
         var email = token.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
@@ -258,12 +251,6 @@ public sealed class EntraOAuthProvider(HttpClient httpClient, IConfiguration con
     {
         var accessTokenHash = idToken.Claims.FirstOrDefault(c => c.Type == "at_hash")?.Value;
         if (string.IsNullOrEmpty(accessTokenHash)) return true;
-
-        if (idToken.Alg != SecurityAlgorithms.RsaSha256)
-        {
-            logger.LogWarning("Entra ID token validation failed: at_hash cannot be validated for algorithm '{Algorithm}'", idToken.Alg);
-            return false;
-        }
 
         var hash = SHA256.HashData(Encoding.ASCII.GetBytes(accessToken));
         var expectedHash = Base64UrlEncoder.Encode(hash[..(hash.Length / 2)]);

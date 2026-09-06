@@ -53,7 +53,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     protected readonly TimeProvider TimeProvider;
     private readonly WebApplicationFactory<Program> _webApplicationFactory;
 
-    protected ExternalAuthenticationTestBase()
+    protected ExternalAuthenticationTestBase(Action<IServiceCollection>? configureServices = null)
     {
         Environment.SetEnvironmentVariable(SinglePageAppConfiguration.PublicUrlKey, PublicUrl);
         Environment.SetEnvironmentVariable(SinglePageAppConfiguration.CdnUrlKey, $"{PublicUrl}/account");
@@ -98,10 +98,9 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
                         config.AddInMemoryCollection(new Dictionary<string, string?>
                             {
                                 ["OAuth:AllowMockProvider"] = "true",
-                                // Both MitID purposes are on for the suite. A test that needs one of them off
-                                // overrides the value in its own host rather than relying on the key being absent.
                                 ["OAuth:MitId:VerificationEnabled"] = "true",
-                                ["OAuth:MitId:LoginEnabled"] = "true"
+                                ["OAuth:MitId:LoginEnabled"] = "true",
+                                ["BackOffice:Host"] = "back-office.test.localhost"
                             }
                         );
                     }
@@ -118,6 +117,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
                         testServices.AddTransient<IEmailClient>(_ => emailClient);
 
                         testServices.AddScoped<IExecutionContext, HttpExecutionContext>();
+                        configureServices?.Invoke(testServices);
                     }
                 );
             }

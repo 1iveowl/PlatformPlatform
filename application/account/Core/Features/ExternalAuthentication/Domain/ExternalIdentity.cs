@@ -122,8 +122,6 @@ public sealed class ExternalIdentity : AggregateRoot<ExternalIdentityId>, ITenan
         AuthenticatedAt = authenticatedAt;
         VerifiedByExternalLoginId = verifiedByExternalLoginId;
         Capabilities |= ExternalIdentityCapabilities.Login | ExternalIdentityCapabilities.Verification;
-
-        AddDomainEvent(new UserIdentityVerifiedEvent(TenantId, UserId, Provider, assuranceLevel));
     }
 
     /// <summary>

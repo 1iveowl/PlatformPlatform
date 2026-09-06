@@ -1,5 +1,6 @@
 using Account.Features.Authentication.Domain;
 using Account.Features.EmailAuthentication.Domain;
+using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
@@ -55,15 +56,11 @@ public sealed class GetDashboardRecentLoginsHandler(
         var emailLogins = await emailLoginRepository.GetCompletedSinceAsync(since, cancellationToken);
         var externalLogins = await externalLoginRepository.GetSucceededSinceAsync(since, cancellationToken);
 
-        // A provider that supplies no email leaves a row with none, so the row carries the account it resolved
-        // instead. Both are optional here and the pair is what the row is later identified by; a row with neither is
-        // dropped further down, because nothing could be shown for it.
         var externalEntries = externalLogins
-            .Select(e => new { e.Email, e.UserId, Method = MapExternalMethod(e.ProviderType), e.CreatedAt })
-            .Where(e => e.Method is not null)
-            .Select(e => new LoginEntry(e.UserId, e.Email, e.Method!.Value, e.CreatedAt));
+            .Where(e => e.Email is not null || e.UserId is not null)
+            .Select(e => new LoginEntry(e.Email, e.UserId, ExternalAuthenticationService.GetLoginMethod(e.ProviderType), e.CreatedAt));
 
-        var entries = emailLogins.Select(e => new LoginEntry(null, e.Email, LoginMethod.OneTimePassword, e.CreatedAt))
+        var entries = emailLogins.Select(e => new LoginEntry(e.Email, null, LoginMethod.OneTimePassword, e.CreatedAt))
             .Concat(externalEntries)
             .OrderByDescending(e => e.OccurredAt)
             .Take(query.Limit)
@@ -71,11 +68,10 @@ public sealed class GetDashboardRecentLoginsHandler(
 
         if (entries.Length == 0) return new BackOfficeDashboardRecentLoginsResponse([]);
 
-        // An email login stores an email rather than a user id, because an email can map to several users across
-        // tenants; it resolves to the first of them so the row can show a name and the tenant context. Operators can
-        // still drill into the user and account detail pages for full disambiguation. An external login that recorded
-        // the account it resolved needs none of that guesswork.
-        var distinctEmails = entries.Where(e => e.Email is not null).Select(e => e.Email!).Distinct().ToArray();
+        var userIds = entries.Where(e => e.UserId is not null).Select(e => e.UserId!).Distinct().ToArray();
+        var resolvedUsers = userIds.Length == 0 ? [] : await userRepository.GetByIdsUnfilteredAsync(userIds, cancellationToken);
+        var usersById = resolvedUsers.ToDictionary(u => u.Id);
+        var distinctEmails = entries.Where(e => e.UserId is null && e.Email is not null).Select(e => e.Email!).Distinct().ToArray();
         var userByEmail = new Dictionary<string, User>();
         foreach (var email in distinctEmails)
         {
@@ -83,64 +79,35 @@ public sealed class GetDashboardRecentLoginsHandler(
             if (users.Length > 0) userByEmail[email] = users[0];
         }
 
-        var distinctUserIds = entries.Where(e => e.UserId is not null).Select(e => e.UserId!).Distinct().ToArray();
-        var usersById = distinctUserIds.Length == 0
-            ? []
-            : (await userRepository.GetByIdsUnfilteredAsync(distinctUserIds, cancellationToken)).ToDictionary(u => u.Id);
-
-        var resolvedUsers = userByEmail.Values.Concat(usersById.Values).ToArray();
-        var tenantIds = resolvedUsers.Select(u => u.TenantId).Distinct().ToArray();
+        var tenantIds = resolvedUsers.Concat(userByEmail.Values).Select(u => u.TenantId).Distinct().ToArray();
         var tenants = tenantIds.Length == 0
             ? []
             : await tenantRepository.GetByIdsUnfilteredAsync(tenantIds, cancellationToken);
         var tenantsById = tenants.ToDictionary(t => t.Id);
 
         var logins = entries.Select(entry =>
-                {
-                    var user = entry.UserId is not null
-                        ? usersById.GetValueOrDefault(entry.UserId)
-                        : userByEmail.GetValueOrDefault(entry.Email!);
-                    var tenant = user is not null ? tenantsById.GetValueOrDefault(user.TenantId) : null;
-
-                    // The row's own email when it has one, and the resolved account's otherwise. A row with neither
-                    // names nobody and is left out rather than rendered blank.
-                    var email = entry.Email ?? user?.Email;
-                    if (email is null) return null;
-
-                    return new BackOfficeDashboardLogin(
-                        user?.Id,
-                        email,
-                        user?.FirstName,
-                        user?.LastName,
-                        user?.Avatar.Url,
-                        user?.TenantId,
-                        tenant?.Name,
-                        tenant?.Logo.Url,
-                        entry.Method,
-                        entry.OccurredAt
-                    );
-                }
-            )
-            .OfType<BackOfficeDashboardLogin>()
-            .ToArray();
+            {
+                var user = entry.UserId is not null ? usersById.GetValueOrDefault(entry.UserId) : userByEmail.GetValueOrDefault(entry.Email!);
+                var email = entry.Email ?? user?.Email;
+                if (email is null) return null;
+                var tenant = user is not null ? tenantsById.GetValueOrDefault(user.TenantId) : null;
+                return new BackOfficeDashboardLogin(
+                    user?.Id,
+                    email,
+                    user?.FirstName,
+                    user?.LastName,
+                    user?.Avatar.Url,
+                    user?.TenantId,
+                    tenant?.Name,
+                    tenant?.Logo.Url,
+                    entry.Method,
+                    entry.OccurredAt
+                );
+            }
+        ).OfType<BackOfficeDashboardLogin>().ToArray();
 
         return new BackOfficeDashboardRecentLoginsResponse(logins);
     }
 
-    /// <summary>
-    ///     Null for a provider that cannot sign anyone in, which is why the caller drops those rows rather than
-    ///     throwing. A dashboard is the wrong place to discover that a provider has no login method.
-    /// </summary>
-    private static LoginMethod? MapExternalMethod(ExternalProviderType providerType)
-    {
-        return providerType switch
-        {
-            ExternalProviderType.Google => LoginMethod.Google,
-            ExternalProviderType.Entra => LoginMethod.Entra,
-            ExternalProviderType.MitId => LoginMethod.MitId,
-            _ => null
-        };
-    }
-
-    private sealed record LoginEntry(UserId? UserId, string? Email, LoginMethod Method, DateTimeOffset OccurredAt);
+    private sealed record LoginEntry(string? Email, UserId? UserId, LoginMethod Method, DateTimeOffset OccurredAt);
 }

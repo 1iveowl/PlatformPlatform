@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Account.Features.Authentication.Domain;
 using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.Users.BackOffice.Queries;
 using FluentAssertions;
 using SharedKernel.Authentication.MockEasyAuth;
 using SharedKernel.Domain;
@@ -86,12 +87,41 @@ public sealed class GetDashboardRecentLoginsTests(BackOfficeWebApplicationFactor
         payload.Logins.Should().NotContain(l => l.Method == LoginMethod.MitId);
     }
 
+    [Fact]
+    public async Task GetDashboardRecentLogins_WhenLegacyAndResolvedFlowsAreMixed_ShouldKeepOwnershipAndExcludeVerifications()
+    {
+        // Arrange
+        var user = DatabaseSeeder.Tenant1Owner;
+        SeedExternalLogin(ExternalProviderType.Entra, null, null, null, ExternalLoginResult.Success);
+        SeedExternalLogin(ExternalProviderType.Google, user.Email, null, null, ExternalLoginResult.Success, ExternalLoginType.Signup);
+        SeedExternalLogin(ExternalProviderType.MitId, null, user.Id, user.TenantId, ExternalLoginResult.Success);
+        SeedExternalLogin(ExternalProviderType.Google, user.Email, UserId.NewId(), user.TenantId, ExternalLoginResult.Success);
+        SeedExternalLogin(ExternalProviderType.MitId, user.Email, user.Id, user.TenantId, ExternalLoginResult.Success, ExternalLoginType.Verification);
+        SeedExternalLogin(ExternalProviderType.MitId, user.Email, user.Id, user.TenantId, ExternalLoginResult.StaleAuthentication, ExternalLoginType.Verification);
+        SeedExternalLogin(ExternalProviderType.MitId, user.Email, user.Id, user.TenantId, null, ExternalLoginType.Verification);
+        using var client = CreateBackOfficeClientForIdentity(MockEasyAuthIdentities.Default.Single(i => i.Id == "user"));
+
+        // Act
+        var dashboard = await client.GetFromJsonAsync<BackOfficeDashboardRecentLoginsResponse>("/api/back-office/dashboard/recent-logins?Limit=50");
+        var history = await client.GetFromJsonAsync<BackOfficeUserLoginHistoryResponse>($"/api/back-office/users/{user.Id}/login-history");
+
+        // Assert
+        dashboard!.Logins.Should().HaveCount(3);
+        dashboard.Logins.Should().ContainSingle(e => e.Method == LoginMethod.MitId && e.UserId == user.Id);
+        dashboard.Logins.Should().ContainSingle(e => e.Method == LoginMethod.Google && e.UserId == user.Id);
+        dashboard.Logins.Should().ContainSingle(e => e.Method == LoginMethod.Google && e.UserId == null && e.Email == user.Email);
+        history!.Entries.Should().HaveCount(2);
+        history.Entries.Should().OnlyContain(e => e.Outcome == LoginEventOutcome.Succeeded);
+        history.Entries.Should().ContainSingle(e => e.Method == LoginMethod.MitId);
+        history.Entries.Should().ContainSingle(e => e.Method == LoginMethod.Google);
+    }
+
     private void SeedExternalLogin(
         ExternalProviderType providerType,
         string? email,
         UserId? userId,
         TenantId? tenantId,
-        ExternalLoginResult result,
+        ExternalLoginResult? result,
         ExternalLoginType loginType = ExternalLoginType.Login
     )
     {
@@ -105,7 +135,7 @@ public sealed class GetDashboardRecentLoginsTests(BackOfficeWebApplicationFactor
                 ("code_verifier", "code-verifier"),
                 ("nonce", "nonce"),
                 ("browser_fingerprint", "fingerprint"),
-                ("login_result", result.ToString()),
+                ("login_result", result?.ToString()),
                 ("used_mock_provider", false),
                 ("user_id", userId?.ToString()),
                 ("tenant_id", tenantId?.ToString())
