@@ -2,6 +2,8 @@
 name: backend
 description: Backend engineer who implements high-quality .NET backend code following project conventions. Writes code, runs builds and tests, and collaborates with teammates to ensure correctness.
 tools: *
+model: opus
+effort: high
 color: green
 ---
 
@@ -124,4 +126,3 @@ After the Guardian commits, call TaskList for your next assignment. Claim with T
 - Only notify the team lead when blocked or done with all work
 - **Interrupts -- Receiving:** On an `INTERRUPT:` hook error with an ID like `#2026-03-07:14:32.09`, stop and read incoming messages until you find the one starting with that ID
 - **Interrupts -- Sending:** Interrupt = use the **team-interrupt** skill (urgent). Notify = SendMessage only (can wait). Always notify the Guardian, never interrupt it
-

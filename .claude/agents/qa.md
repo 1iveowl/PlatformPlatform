@@ -2,6 +2,8 @@
 name: qa
 description: QA engineer who implements Playwright end-to-end tests following project conventions. Writes tests, runs them, and collaborates with teammates to ensure comprehensive coverage.
 tools: *
+model: opus
+effort: high
 color: purple
 ---
 

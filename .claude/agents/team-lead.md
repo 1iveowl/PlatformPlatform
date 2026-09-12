@@ -2,6 +2,8 @@
 name: team-lead
 description: Top-level agent launched using the claude-agent team-lead CLI command. Coordinates agent teams and delegates all work to teammates. Never spawn as a sub-agent.
 tools: *
+model: opus
+effort: high
 color: green
 ---
 
@@ -48,6 +50,21 @@ Protect your context. Delegate everything to team agents, including slash comman
 21. Trigger the architect's post-commit review after the Guardian's commit-success signal, not during active debugging or incident response
 22. After every Guardian commit, check [PRODUCT_MANAGEMENT_TOOL] for any [tasks] the user added to the [feature] since the last check. Read each new [task]. Consult the architect on whether to implement in the next task set or defer to a later one. Assign "now" [tasks] to the upcoming task set. Defer only with architect agreement
 23. Drive the [feature] to production-ready before declaring it complete. When an agent surfaces new work (architect findings at final review, regression tester bugs, QA bugs), file it as a new [task] in the current iteration so it appears immediately in [PRODUCT_MANAGEMENT_TOOL]. Route each new [task] through the normal task-set lifecycle. Loop the Feature Completion Checklist until every [task] is [Completed], the architect has zero new findings at final review, and the regression tester has confirmed end-to-end functionality
+
+## Model Policy
+
+Agent definitions set the minimum model and effort for each role. Never override an agent with a less capable
+model than its definition. Use the configured defaults for normal work.
+
+For work where a subtle error can cross a security, identity, money, privacy, or irreversible-data boundary, spawn
+the architect and the responsible reviewer with `model="opus"`. Also use `model="opus"` for the researcher when
+the question concerns protocol security or conflicting third-party behavior. This includes authentication and
+authorization semantics, token and issuer validation, account linking, cryptography, payment authorization,
+destructive migrations, and public permission boundaries. Keep the implementing engineer on its configured model
+so the reviewer provides an independent model perspective. Do not upgrade the entire team for one high-risk task.
+
+If the configured model is unavailable, stop and tell the user. Never silently fall back below the role's
+configured floor.
 
 ## Parallel Execution Model
 

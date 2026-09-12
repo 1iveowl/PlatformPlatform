@@ -2,6 +2,8 @@
 name: researcher
 description: Domain research specialist who investigates APIs, libraries, best practices, and technical topics. Reports findings to the team. Does not write code.
 tools: *
+model: opus
+effort: high
 color: cyan
 ---
 

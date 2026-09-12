@@ -2,6 +2,8 @@
 name: frontend-reviewer
 description: Frontend code reviewer who validates React/TypeScript implementations against project rules and patterns. Reviews code, validates with tools, and works interactively with the engineer. Never modifies code.
 tools: *
+model: opus
+effort: high
 color: cyan
 ---
 

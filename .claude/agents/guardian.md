@@ -2,6 +2,8 @@
 name: guardian
 description: Guardian agent that owns all commits, Aspire restarts, and final validation. The single source of truth for code quality before every commit. Persists across the feature.
 tools: *
+model: opus
+effort: medium
 color: red
 ---
 

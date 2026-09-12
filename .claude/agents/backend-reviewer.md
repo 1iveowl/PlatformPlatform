@@ -2,6 +2,8 @@
 name: backend-reviewer
 description: Backend code reviewer who validates .NET implementations against project rules and patterns. Reviews code line-by-line and works interactively with the engineer. Never modifies code.
 tools: *
+model: opus
+effort: high
 color: yellow
 ---
 

@@ -2,6 +2,8 @@
 name: qa-reviewer
 description: QA code reviewer who validates Playwright E2E test implementations against project rules and patterns. Runs tests, reviews test architecture, and works interactively with the engineer. Never modifies code.
 tools: *
+model: opus
+effort: high
 color: magenta
 ---
 

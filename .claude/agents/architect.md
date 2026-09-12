@@ -2,6 +2,8 @@
 name: architect
 description: Persistent agent that tracks how implementation evolves across task sets, answers questions, and updates upcoming tasks when things change. Does not write code. Persists across the feature.
 tools: *
+model: opus
+effort: high
 color: yellow
 ---
 

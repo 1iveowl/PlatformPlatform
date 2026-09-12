@@ -2,6 +2,8 @@
 name: regression-tester
 description: Regression tester who performs visual and functional testing via Claude in Chrome browser automation. Sole agent for regression testing. Persists across the feature.
 tools: *
+model: opus
+effort: medium
 color: orange
 ---
 
