@@ -190,7 +190,7 @@ public sealed class ClaudeUsageCommand : Command
         var countedToolUses = new HashSet<string>(StringComparer.Ordinal);
         var countedToolResults = new HashSet<string>(StringComparer.Ordinal);
         var toolNamesById = new Dictionary<string, string>(StringComparer.Ordinal);
-        DateTimeOffset? previousCall = null;
+        var callState = new CallState();
 
         using var stream = new FileStream(transcript.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
@@ -242,7 +242,7 @@ public sealed class ClaudeUsageCommand : Command
                         var requestId = GetString(root, "requestId") ?? GetString(message, "id");
                         if (requestId is not null && countedRequests.Add(requestId))
                         {
-                            CountCall(scan, message, model, timestamp, ref previousCall);
+                            CountCall(scan, message, model, timestamp, callState);
                         }
                     }
                 }
@@ -260,6 +260,7 @@ public sealed class ClaudeUsageCommand : Command
                             var toolName = GetString(block, "name") ?? "(unknown)";
                             if (toolUseId is null) break;
                             toolNamesById[toolUseId] = toolName;
+                            callState.ToolUseSincePreviousCall = true;
                             if (countedToolUses.Add(toolUseId)) scan.AddToolCall(toolName);
                             break;
 
@@ -268,6 +269,7 @@ public sealed class ClaudeUsageCommand : Command
                             if (toolResultId is null || !countedToolResults.Add(toolResultId)) break;
                             var resultName = toolNamesById.GetValueOrDefault(toolResultId, "(unknown)");
                             var bytes = MeasureResultBytes(block);
+                            callState.ResultBytesSincePreviousCall += bytes;
                             scan.AddToolResult(resultName, bytes);
                             scan.LargestResults.Add(new LargeResultRow
                                 {
@@ -287,8 +289,13 @@ public sealed class ClaudeUsageCommand : Command
         return scan;
     }
 
-    private static void CountCall(FileScan scan, JsonElement message, string model, DateTimeOffset timestamp, ref DateTimeOffset? previousCall)
+    private static void CountCall(FileScan scan, JsonElement message, string model, DateTimeOffset timestamp, CallState state)
     {
+        var resultBytes = state.ResultBytesSincePreviousCall;
+        var afterToolUse = state.ToolUseSincePreviousCall;
+        state.ResultBytesSincePreviousCall = 0;
+        state.ToolUseSincePreviousCall = false;
+
         if (!message.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object) return;
 
         var freshInput = GetLong(usage, "input_tokens");
@@ -309,6 +316,30 @@ public sealed class ClaudeUsageCommand : Command
 
         var context = freshInput + cacheRead + cacheWrite;
 
+        // A conversation only grows, so the prefix a call can read is everything the previous call read plus
+        // everything it wrote. A cache read below that means the cached prefix was invalidated and the part
+        // below the divergence point had to be written again; the difference is what the re-write cost. The
+        // clamp covers compaction, which is the one event that makes a conversation shrink.
+        long rewritten = 0;
+        if (state.PreviousPrefix < 0)
+        {
+            scan.ColdStart += cacheWrite;
+        }
+        else
+        {
+            if (cacheRead < state.PreviousPrefix)
+            {
+                rewritten = Math.Min(state.PreviousPrefix - cacheRead, cacheWrite);
+                scan.Rewritten += rewritten;
+                scan.ChurnCalls++;
+                scan.ChurnResultBytes += resultBytes;
+            }
+
+            if (!afterToolUse) scan.TurnBoundaries++;
+        }
+
+        state.PreviousPrefix = cacheRead + cacheWrite;
+
         scan.Calls++;
         scan.FreshInput += freshInput;
         scan.CacheRead += cacheRead;
@@ -327,13 +358,14 @@ public sealed class ClaudeUsageCommand : Command
         modelTotals.CacheWrite5M += cacheWrite5M;
         modelTotals.CacheWrite1H += cacheWrite1H;
         modelTotals.Output += output;
+        modelTotals.Rewritten += rewritten;
 
-        var bucket = previousCall is null ? GapBucketNames[0] : BucketFor(timestamp - previousCall.Value);
+        var bucket = state.PreviousCall is null ? GapBucketNames[0] : BucketFor(timestamp - state.PreviousCall.Value);
         var gapTotals = scan.Gaps.TryGetValue(bucket, out var gap) ? gap : scan.Gaps[bucket] = new GapRow { Scope = scan.Scope, Bucket = bucket };
         gapTotals.Calls++;
         gapTotals.CacheWrite += cacheWrite;
 
-        previousCall = timestamp;
+        state.PreviousCall = timestamp;
     }
 
     private static string BucketFor(TimeSpan gap)
@@ -419,6 +451,7 @@ public sealed class ClaudeUsageCommand : Command
                 row.CacheWrite5M += model.CacheWrite5M;
                 row.CacheWrite1H += model.CacheWrite1H;
                 row.Output += model.Output;
+                row.Rewritten += model.Rewritten;
             }
 
             row.CostUsd = Math.Round(CostOf(row), 2);
@@ -442,6 +475,26 @@ public sealed class ClaudeUsageCommand : Command
             }
         }
 
+        foreach (var group in scans.GroupBy(scan => (scan.Scope, Agent: AgentTypeOf(scan.Agent))))
+        {
+            var row = new ChurnRow { Scope = group.Key.Scope, Agent = group.Key.Agent };
+            foreach (var scan in group)
+            {
+                row.Calls += scan.Calls;
+                row.CacheWrite += scan.CacheWrite;
+                row.ColdStart += scan.ColdStart;
+                row.Rewritten += scan.Rewritten;
+                row.ChurnCalls += scan.ChurnCalls;
+                row.ChurnResultBytes += scan.ChurnResultBytes;
+                row.TurnBoundaries += scan.TurnBoundaries;
+            }
+
+            report.CacheWriteAttribution.Add(row);
+        }
+
+        report.CacheWriteAttribution = report.CacheWriteAttribution.OrderBy(row => row.Scope, StringComparer.Ordinal)
+            .ThenByDescending(row => row.CacheWrite).ThenBy(row => row.Agent, StringComparer.Ordinal).ToList();
+
         foreach (var group in scans.SelectMany(scan => scan.ToolCalls).GroupBy(tool => tool.Key, StringComparer.Ordinal))
         {
             report.Tools.Add(new ToolRow
@@ -459,6 +512,21 @@ public sealed class ClaudeUsageCommand : Command
             .ThenBy(result => result.Timestamp, StringComparer.Ordinal).Take(LargestResultCount).ToList();
 
         return report;
+    }
+
+    /// A subagent transcript is named after its agent id, which is the letter a, then the agent type when the
+    /// agent was spawned with one, then a 16-character hexadecimal id: agent-aguardian-34cbfcd807603511 for a
+    /// guardian and agent-a0a1c257a5a1917d7 for a one-shot Task subagent. Teams append the task to the type,
+    /// as in agent-abackend-reviewer-EP-8-3687c8a8a1c5e1ca, so the type is the leading run of segments that
+    /// are all lowercase letters and the rest is identity.
+    private static string AgentTypeOf(string agent)
+    {
+        if (agent.Length == 0) return "-";
+
+        var name = agent.StartsWith("agent-a", StringComparison.Ordinal) ? agent["agent-a".Length..] : agent;
+        var type = name.Split('-').TakeWhile(segment => segment.Length > 0 && segment.All(char.IsAsciiLetterLower));
+
+        return string.Join('-', type) is { Length: > 0 } result ? result : "(task)";
     }
 
     private static long Percentile(long[] sorted, double percentile)
@@ -538,11 +606,12 @@ public sealed class ClaudeUsageCommand : Command
         WriteLine();
         var modelBaseline = baseline?.Models.ToDictionary(model => model.Model, model => model.Calls, StringComparer.Ordinal);
         WriteTable(
-            ["Model", "Calls", "Fresh input", "Cache write 5 min", "Cache write 1 hour", "Cache read", "Output", "Cost at list price"],
+            ["Model", "Calls", "Fresh input", "Cache write 5 min", "Cache write 1 hour", "Re-written prefix", "Cache read", "Output", "Cost at list price"],
             report.Models.Select(model => new[]
                 {
                     model.Model, Number(model.Calls), Number(model.FreshInput), Number(model.CacheWrite5M), Number(model.CacheWrite1H),
-                    Number(model.CacheRead), Number(model.Output), PriceFor(model.Model) is null ? "unpriced" : $"${model.CostUsd.ToString("N2", CultureInfo.InvariantCulture)}"
+                    Number(model.Rewritten), Number(model.CacheRead), Number(model.Output),
+                    PriceFor(model.Model) is null ? "unpriced" : $"${model.CostUsd.ToString("N2", CultureInfo.InvariantCulture)}"
                 }
             ),
             baseline is null ? null : report.Models.Select(model => Delta(model.Calls, modelBaseline!.GetValueOrDefault(model.Model, -1))),
@@ -561,6 +630,32 @@ public sealed class ClaudeUsageCommand : Command
             report.GapBuckets.Select(gap => new[] { gap.Scope, gap.Bucket, Number(gap.Calls), Number(gap.CacheWrite) }),
             baseline is null ? null : report.GapBuckets.Select(gap => Delta(gap.CacheWrite, gapBaseline!.GetValueOrDefault(KeyOf(gap), -1))),
             "Δ cache write"
+        );
+
+        WriteLine();
+        WriteLine("## Cache write attribution");
+        WriteLine();
+        WriteLine("Every cache write is one of three things. **Cold start** is the first call of a transcript, which has");
+        WriteLine("nothing to read. **Re-written prefix** is the part of an already cached prefix that a later call could no");
+        WriteLine("longer read, measured as the previous call's cache read plus cache write minus this call's cache read;");
+        WriteLine("it is paid for content the model was already sent. **New material** is the remainder, so the tool");
+        WriteLine("results, the model's own output and the reminders that genuinely joined the conversation.");
+        WriteLine();
+        WriteLine("A **turn boundary** is a call whose previous assistant message asked for no tool, so the turn had ended and");
+        WriteLine("a new user or teammate message restarted it. **Result bytes before a churn call** totals the tool result");
+        WriteLine("bytes that arrived immediately before the calls that re-wrote a prefix: large ingestion would put the");
+        WriteLine("bytes and the cache write in the same place, prefix churn separates them.");
+        WriteLine();
+        WriteTable(
+            ["Scope", "Agent", "Calls", "Cache write", "Cold start", "Re-written prefix", "New material", "Churn calls", "Turn boundaries", "Result bytes before a churn call"],
+            report.CacheWriteAttribution.Select(row => new[]
+                {
+                    row.Scope, row.Agent, Number(row.Calls), Number(row.CacheWrite), Number(row.ColdStart), Number(row.Rewritten),
+                    Number(row.NewMaterial), Number(row.ChurnCalls), Number(row.TurnBoundaries), Number(row.ChurnResultBytes)
+                }
+            ),
+            null,
+            ""
         );
 
         WriteLine();
@@ -622,6 +717,8 @@ public sealed class ClaudeUsageCommand : Command
         return delta == 0 ? "0" : $"{(delta > 0 ? "+" : "")}{Number(delta)}";
     }
 
+    /// The cache write attribution table is derived from the same per-call numbers the file and model tables
+    /// already compare, so it is left out here rather than counting one divergence twice.
     private static int CountDifferences(UsageReport report, UsageReport baseline)
     {
         var differences = 0;
@@ -724,6 +821,22 @@ public sealed class ClaudeUsageCommand : Command
 
     private sealed record ModelPrice(decimal Input, decimal CacheWrite5M, decimal CacheWrite1H, decimal CacheRead, decimal Output);
 
+    /// What the scanner has to remember between one counted call and the next within a single transcript.
+    private sealed class CallState
+    {
+        public DateTimeOffset? PreviousCall { get; set; }
+
+        /// Cache read plus cache write of the previous call, so the prefix this call should be able to read.
+        /// Negative until the first call of the transcript has been counted.
+        public long PreviousPrefix { get; set; } = -1;
+
+        public long ResultBytesSincePreviousCall { get; set; }
+
+        /// False when the previous assistant message ended the turn without asking for a tool, which is where
+        /// a new user or teammate message resumes the conversation.
+        public bool ToolUseSincePreviousCall { get; set; }
+    }
+
     private sealed class FileScan(string scope, string session, string agent)
     {
         public string Scope { get; } = scope;
@@ -743,6 +856,16 @@ public sealed class ClaudeUsageCommand : Command
         public long Output { get; set; }
 
         public long CallsAboveThreshold { get; set; }
+
+        public long ColdStart { get; set; }
+
+        public long Rewritten { get; set; }
+
+        public long ChurnCalls { get; set; }
+
+        public long ChurnResultBytes { get; set; }
+
+        public long TurnBoundaries { get; set; }
 
         public string? FirstTimestamp { get; set; }
 
@@ -784,6 +907,8 @@ public sealed class ClaudeUsageCommand : Command
         public List<ModelRow> Models { get; set; } = [];
 
         public List<GapRow> GapBuckets { get; init; } = [];
+
+        public List<ChurnRow> CacheWriteAttribution { get; set; } = [];
 
         public List<ToolRow> Tools { get; set; } = [];
 
@@ -833,7 +958,32 @@ public sealed class ClaudeUsageCommand : Command
 
         public long Output { get; set; }
 
+        public long Rewritten { get; set; }
+
         public decimal CostUsd { get; set; }
+    }
+
+    private sealed class ChurnRow
+    {
+        public string Scope { get; init; } = "";
+
+        public string Agent { get; init; } = "";
+
+        public long Calls { get; set; }
+
+        public long CacheWrite { get; set; }
+
+        public long ColdStart { get; set; }
+
+        public long Rewritten { get; set; }
+
+        public long ChurnCalls { get; set; }
+
+        public long ChurnResultBytes { get; set; }
+
+        public long TurnBoundaries { get; set; }
+
+        public long NewMaterial => CacheWrite - ColdStart - Rewritten;
     }
 
     private sealed class GapRow
