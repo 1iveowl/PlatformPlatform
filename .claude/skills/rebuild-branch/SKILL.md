@@ -1,6 +1,6 @@
 ---
 name: rebuild-branch
-description: Rebuild a stale branch by cherry-picking each commit onto a fresh branch off main, using a ralph-loop to validate each commit (build, test, format, lint, optional e2e) before moving on. Use when a branch has gone stale, has merge conflicts with main, or needs to be split out of a long-lived feature branch.
+description: Rebuild a stale or conflicting branch by cherry-picking each commit onto a fresh branch off main, validating every commit.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion, EnterWorktree
 ---
 

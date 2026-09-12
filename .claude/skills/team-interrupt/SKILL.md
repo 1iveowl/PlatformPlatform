@@ -1,6 +1,6 @@
 ---
 name: team-interrupt
-description: Send an interrupt signal to a working team agent. Use when an agent is actively running and you need to send it a message without having to wait until it has processed all other messages.
+description: Interrupt a working team agent with a message it must read before finishing its current task.
 ---
 
 # Team Interrupt

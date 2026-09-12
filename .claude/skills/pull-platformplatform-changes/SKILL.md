@@ -1,6 +1,6 @@
 ---
 name: pull-platformplatform-changes
-description: Pull unmerged PlatformPlatform pull requests into a downstream project by cherry-picking each one onto the platformplatform-updates branch. Renames commits to "PlatformPlatform PR N - title" per the existing convention. Drives a ralph-loop that validates each commit (build, test, format, lint, optional e2e) before moving on. Use in downstream projects that have PlatformPlatform configured as the upstream remote.
+description: Pull unmerged PlatformPlatform pull requests into a downstream project as validated cherry-picks on the platformplatform-updates branch.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion, EnterWorktree
 ---
 

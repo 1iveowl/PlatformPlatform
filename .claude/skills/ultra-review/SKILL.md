@@ -17,7 +17,7 @@ The orchestrator never writes findings. Design the review, spawn agents, digest 
 
 ## Core principles
 
-- **Depth, not token-saving.** Spend whatever it takes. Use Explore subagents for code search, MCP tools (Stripe, [PRODUCT_MANAGEMENT_TOOL], Aspire, DB, etc.), and any other tooling. Prefer Perplexity over WebSearch for online research.
+- **Depth in findings, receipts for everything else.** Use Explore subagents for code search, MCP tools (Stripe, [PRODUCT_MANAGEMENT_TOOL], Aspire, DB, etc.), and any other tooling. Prefer Perplexity over WebSearch for online research.
 - **Generic by design.** Roster, clusters, and focus areas are co-designed with the user every time. No fixed catalog.
 - **80/20.** Agents spend ~80% on the few highest-risk areas (deep dive), ~20% sanity-scanning the rest.
 - **No cap on agent count.** Match the change: a 20K-line PR touching money, integrations, and migrations may warrant 25+ agents; a small UI fix may warrant 4.
@@ -150,7 +150,7 @@ Phase 2 — Deep dive (80%): investigate chosen subareas thoroughly. Read every 
 
 Phase 3 — Sanity scan (20%): sweep the rest of your area lightly. Note anything off that does not merit a deep dive.
 
-Tools: read code, grep/find, Explore subagents (subagent_type=Explore) for broad search, Perplexity (preferred over WebSearch), db-query skill (read-only), Stripe MCP, Aspire MCP, [PRODUCT_MANAGEMENT_TOOL] MCP. Do not save tokens.
+Tools: read code, grep/find, Explore subagents (subagent_type=Explore) for broad search, Perplexity (preferred over WebSearch), db-query skill (read-only), Stripe MCP, Aspire MCP, [PRODUCT_MANAGEMENT_TOOL] MCP. Depth in findings, receipts for everything else.
 
 Be specific. Cite file:line. Quote code, query results, and external sources.
 

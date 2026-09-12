@@ -1,6 +1,6 @@
 ---
 name: aspire-stop
-description: Stop the .NET Aspire AppHost and its Docker containers via the developer CLI. Defaults to the current worktree; supports stopping all worktrees or a specific base port.
+description: Stop the Aspire AppHost and its Docker containers via the developer CLI, for this worktree, all worktrees or a base port.
 ---
 
 # Stop Aspire

@@ -12,6 +12,8 @@ Use the developer CLI skills (`build`, `test`, `format`, `lint`, `e2e`, `aspire-
 
 Aspire: start or restart the AppHost only through the `aspire-restart` skill. Local ports derive from the base in `.workspace/port.txt` (offsets in `application/shared-kernel/SharedKernel/Configuration/PortAllocation.cs`); never take a port from the Aspire MCP, which may describe another worktree's stack. Call `mcp__aspire__select_apphost` with the cwd before any other Aspire MCP tool.
 
+MCP: `aspire` and `linear-server` are enabled by default. Enable `azure-staging`, `azure-production`, `shadcn` or the Stripe plugin only for a task that needs them, through `enabledMcpjsonServers` or `enabledPlugins` in `.claude/settings.local.json`.
+
 Never commit, amend or revert without an explicit user instruction each time. Commit messages: one descriptive line in imperative form, no body.
 
 ## Product Management Tool

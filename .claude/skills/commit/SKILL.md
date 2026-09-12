@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Commit session changes to git. Identify files from session context, ask user pick message, run validation only if needed. Use when user want commit / save / land changes.
+description: Commit session changes to git: pick files from session context, ask the user to pick a message, validate only if needed.
 allowed-tools: *
 ---
 
