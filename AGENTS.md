@@ -1,26 +1,18 @@
 ## Behavioral Guidelines
 
-1. **Think before coding.** State assumptions explicitly. If uncertain, ask rather than guess. When multiple interpretations exist, present them - don't pick silently.
-
-2. **Goal-driven execution.** Define success criteria before iterating. Loop until verified. Strong success criteria let you loop independently; "make it work" requires constant clarification.
-
-3. **Read before you write.** Before adding code in a file, read the file's exports, the immediate caller, and obvious shared utilities. "Looks orthogonal to me" is the most dangerous phrase in this codebase.
-
-4. **Checkpoint significant steps.** After each step in a multi-step task, summarize what was done, what's verified, and what's left. Don't continue from a state you can't describe back.
-
-5. **Fail loud.** Surface uncertainty, don't hide it. "Completed" is wrong if anything was skipped silently. "Tests pass" is wrong if any were skipped. "Feature works" is wrong if the edge case wasn't verified.
+1. Think before coding: state assumptions; if uncertain, ask rather than guess; when several interpretations exist, present them rather than pick one silently.
+2. Define success criteria before iterating, then loop until they are verified.
+3. Read before you write: the file's exports, its immediate caller and the shared utilities it uses.
+4. Checkpoint after each step: what was done, what is verified, what is left.
+5. Fail loud: "completed", "tests pass" and "works" are wrong if anything was skipped or left unverified.
 
 ## Build, Test, and Format
 
-Use the developer CLI skills (`build`, `test`, `format`, `lint`, `e2e`, `aspire-restart`, `team-interrupt`) for all code workflows. They invoke `dotnet run --project developer-cli -- <command>` directly. Never run `dotnet`, `npm`, or `npx` directly - the pre-tool-use Bash hook blocks them.
+Use the developer CLI skills (`build`, `test`, `format`, `lint`, `e2e`, `aspire-restart`, `team-interrupt`) for all code workflows; they wrap `dotnet run --project developer-cli -- <command>`. Never run `dotnet`, `npm` or `npx` directly and never `cd`; the pre-tool-use hook blocks both. The excuse-check and interrupt hooks explain themselves when they fire; do what their message says.
 
-Run `build` first, then `format`, `lint`, `test` in parallel with `--no-build`.
+Aspire: start or restart the AppHost only through the `aspire-restart` skill. Local ports derive from the base in `.workspace/port.txt` (offsets in `application/shared-kernel/SharedKernel/Configuration/PortAllocation.cs`); never take a port from the Aspire MCP, which may describe another worktree's stack. Call `mcp__aspire__select_apphost` with the cwd before any other Aspire MCP tool.
 
-**Slow:** Aspire restart, backend format, backend lint, end-to-end tests. **Fast:** frontend format/lint, backend test.
-
-**Aspire**: The `aspire-restart` skill manages the AppHost - always use it; never `aspire run`, `aspire restart`, or the developer CLI's `run` command. Port = `.workspace/port.txt` base + 4. Never trust Aspire MCP for the port — a common critical failure that silently runs SQL on another worktree's database. If you need other Aspire MCP data, call `mcp__aspire__select_apphost` with the cwd path first. In the agentic workflow, only the Guardian agent restarts Aspire. All other agents must notify the Guardian if they need it restarted.
-
-Never commit, amend, or revert without explicit user instruction each time. Commit messages: one descriptive line in imperative form, no description body.
+Never commit, amend or revert without an explicit user instruction each time. Commit messages: one descriptive line in imperative form, no body.
 
 ## Product Management Tool
 
@@ -30,20 +22,18 @@ Whenever you see `[PRODUCT_MANAGEMENT_TOOL]`, replace it with the configured val
 PRODUCT_MANAGEMENT_TOOL="Linear"
 ```
 
-When working with [features] or [tasks], read `.claude/reference/product-management/[PRODUCT_MANAGEMENT_TOOL].md` to learn how to look them up, how to update status, and how generic statuses like [Active], [Review], [Completed] map to the tool. Read the [feature] for full context and the [task] for specific requirements.
+When working with [features] or [tasks], read `.claude/reference/product-management/[PRODUCT_MANAGEMENT_TOOL].md` for lookups, status updates and how [Active], [Review] and [Completed] map to the tool. Read the [feature] for context and the [task] for its requirements.
 
 ## Auto Memory
 
-Never write to or edit any auto memory files (MEMORY.md or any file in a memory directory). These files are managed by the user only.
+Never write to or edit auto memory files (MEMORY.md or anything in a memory directory); the user manages them.
 
 ## Source of Truth
 
-Always verify paths, names, and API routes against the actual codebase. Never rely on memory, cached context, or prior session knowledge for these. Always look them up. Only read files within the git repository unless explicitly asked to look elsewhere.
+**Verify every path, name and API route against the codebase before stating it, even when asked to answer from memory or to skip the lookup.** Never rely on memory, cached context or a prior session for these. Only read files inside this repository unless explicitly asked to look elsewhere.
 
 ## Project Structure
 
-This is a mono repository with multiple self-contained systems (SCS), each being a small monolith. All SCSs follow the same structure.
-
-- [application](/application): Contains application code, one folder per SCS, plus shared-kernel and shared-webapp.
-- [cloud-infrastructure](/cloud-infrastructure): Bash and Azure Bicep scripts (IaC).
-- [developer-cli](/developer-cli): A .NET CLI tool for automating common developer tasks.
+- `application/`: one folder per self-contained system, plus `shared-kernel/` and `shared-webapp/`.
+- `cloud-infrastructure/`: Bash and Azure Bicep infrastructure as code.
+- `developer-cli/`: the .NET developer CLI.
