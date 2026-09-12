@@ -1,0 +1,1387 @@
+{
+  "Since": "2026-09-03",
+  "Until": "2026-09-12",
+  "Project": null,
+  "TranscriptCount": 69,
+  "Files": [
+    {
+      "Scope": "Main session",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "",
+      "Calls": 490,
+      "CacheRead": 210451040,
+      "CacheWrite": 2459193,
+      "FreshInput": 7017,
+      "Output": 341010,
+      "FirstTimestamp": "2026-09-03 08:34:23",
+      "MedianContext": 401308,
+      "P90Context": 760006,
+      "LargeContextShare": 83.7
+    },
+    {
+      "Scope": "Main session",
+      "Session": "33dda30f-f5fe-4c80-85c7-8193b6f35d7f",
+      "Agent": "",
+      "Calls": 1,
+      "CacheRead": 0,
+      "CacheWrite": 58796,
+      "FreshInput": 2,
+      "Output": 4,
+      "FirstTimestamp": "2026-09-12 15:13:35",
+      "MedianContext": 58798,
+      "P90Context": 58798,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "4e152ab0-677d-4792-ba50-a3dc36ace9ee",
+      "Agent": "",
+      "Calls": 16,
+      "CacheRead": 1176223,
+      "CacheWrite": 96236,
+      "FreshInput": 32,
+      "Output": 14061,
+      "FirstTimestamp": "2026-09-09 20:48:49",
+      "MedianContext": 80566,
+      "P90Context": 95173,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "4f199f78-6a5c-4ea2-8c4f-9b6fb38dc7f9",
+      "Agent": "",
+      "Calls": 22,
+      "CacheRead": 1825722,
+      "CacheWrite": 135106,
+      "FreshInput": 44,
+      "Output": 30891,
+      "FirstTimestamp": "2026-09-04 09:07:08",
+      "MedianContext": 88086,
+      "P90Context": 119714,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "5d73bd2f-08b3-4e05-b0ee-0b496377b7f9",
+      "Agent": "",
+      "Calls": 1,
+      "CacheRead": 0,
+      "CacheWrite": 52799,
+      "FreshInput": 2,
+      "Output": 831,
+      "FirstTimestamp": "2026-09-03 08:32:11",
+      "MedianContext": 52801,
+      "P90Context": 52801,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "5fcc2261-4d5d-476c-8020-fe0b9d96548c",
+      "Agent": "",
+      "Calls": 18,
+      "CacheRead": 1312693,
+      "CacheWrite": 91606,
+      "FreshInput": 36,
+      "Output": 11678,
+      "FirstTimestamp": "2026-09-12 15:13:28",
+      "MedianContext": 73527,
+      "P90Context": 90970,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "6e958fb9-6b63-4a66-993b-4128c2cca9d4",
+      "Agent": "",
+      "Calls": 323,
+      "CacheRead": 149927486,
+      "CacheWrite": 1311681,
+      "FreshInput": 1212,
+      "Output": 261681,
+      "FirstTimestamp": "2026-09-05 13:56:37",
+      "MedianContext": 497359,
+      "P90Context": 647424,
+      "LargeContextShare": 88.9
+    },
+    {
+      "Scope": "Main session",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "",
+      "Calls": 790,
+      "CacheRead": 400845487,
+      "CacheWrite": 2662916,
+      "FreshInput": 6388,
+      "Output": 790271,
+      "FirstTimestamp": "2026-09-04 16:39:59",
+      "MedianContext": 517284,
+      "P90Context": 771121,
+      "LargeContextShare": 93.5
+    },
+    {
+      "Scope": "Main session",
+      "Session": "7b4aa484-179c-43e7-900f-7049bd4d3771",
+      "Agent": "",
+      "Calls": 39,
+      "CacheRead": 3146906,
+      "CacheWrite": 98198,
+      "FreshInput": 78,
+      "Output": 15277,
+      "FirstTimestamp": "2026-09-12 15:13:57",
+      "MedianContext": 85224,
+      "P90Context": 97233,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "8d7ebeb0-4574-4d86-99b4-cd13a71d7a3d",
+      "Agent": "",
+      "Calls": 130,
+      "CacheRead": 23562345,
+      "CacheWrite": 395626,
+      "FreshInput": 260,
+      "Output": 168731,
+      "FirstTimestamp": "2026-09-06 07:58:54",
+      "MedianContext": 190389,
+      "P90Context": 283757,
+      "LargeContextShare": 47.7
+    },
+    {
+      "Scope": "Main session",
+      "Session": "90a650dc-1d48-462d-8f97-4b8e097b471c",
+      "Agent": "",
+      "Calls": 291,
+      "CacheRead": 103974150,
+      "CacheWrite": 2257798,
+      "FreshInput": 11057,
+      "Output": 376562,
+      "FirstTimestamp": "2026-09-03 20:56:17",
+      "MedianContext": 296047,
+      "P90Context": 636895,
+      "LargeContextShare": 80.1
+    },
+    {
+      "Scope": "Main session",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "",
+      "Calls": 301,
+      "CacheRead": 158975685,
+      "CacheWrite": 2739678,
+      "FreshInput": 2367,
+      "Output": 446233,
+      "FirstTimestamp": "2026-09-04 07:08:53",
+      "MedianContext": 562220,
+      "P90Context": 860916,
+      "LargeContextShare": 83.7
+    },
+    {
+      "Scope": "Main session",
+      "Session": "a0d1bcb0-de22-4fda-9906-74d423e2cb5d",
+      "Agent": "",
+      "Calls": 41,
+      "CacheRead": 5219878,
+      "CacheWrite": 185913,
+      "FreshInput": 82,
+      "Output": 50058,
+      "FirstTimestamp": "2026-09-12 15:37:55",
+      "MedianContext": 148916,
+      "P90Context": 181512,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "d79c8260-036b-4d23-994e-7f26628e5a5c",
+      "Agent": "",
+      "Calls": 35,
+      "CacheRead": 4993769,
+      "CacheWrite": 232769,
+      "FreshInput": 856,
+      "Output": 70831,
+      "FirstTimestamp": "2026-09-12 14:30:41",
+      "MedianContext": 164871,
+      "P90Context": 226230,
+      "LargeContextShare": 22.9
+    },
+    {
+      "Scope": "Main session",
+      "Session": "e6a12ee5-755f-4bd5-9808-7f436f0a1623",
+      "Agent": "",
+      "Calls": 1,
+      "CacheRead": 0,
+      "CacheWrite": 0,
+      "FreshInput": 2104,
+      "Output": 153,
+      "FirstTimestamp": "2026-09-03 18:21:58",
+      "MedianContext": 2104,
+      "P90Context": 2104,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Main session",
+      "Session": "e7218d3a-0bd2-41db-9b40-1f2aff127f36",
+      "Agent": "",
+      "Calls": 83,
+      "CacheRead": 17922055,
+      "CacheWrite": 409082,
+      "FreshInput": 166,
+      "Output": 180792,
+      "FirstTimestamp": "2026-09-11 15:42:47",
+      "MedianContext": 220307,
+      "P90Context": 366949,
+      "LargeContextShare": 53
+    },
+    {
+      "Scope": "Main session",
+      "Session": "ea68264f-1f4f-4079-915f-a6f738b6e404",
+      "Agent": "",
+      "Calls": 92,
+      "CacheRead": 20097796,
+      "CacheWrite": 582425,
+      "FreshInput": 184,
+      "Output": 94675,
+      "FirstTimestamp": "2026-09-03 20:13:17",
+      "MedianContext": 241510,
+      "P90Context": 307896,
+      "LargeContextShare": 64.1
+    },
+    {
+      "Scope": "Main session",
+      "Session": "fd2ae52c-f40d-42be-8454-26b053d0efd5",
+      "Agent": "",
+      "Calls": 15,
+      "CacheRead": 1069769,
+      "CacheWrite": 102565,
+      "FreshInput": 30,
+      "Output": 15949,
+      "FirstTimestamp": "2026-09-12 15:43:57",
+      "MedianContext": 81329,
+      "P90Context": 92928,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aarchitect-95e53f1d99f916ac",
+      "Calls": 46,
+      "CacheRead": 5781685,
+      "CacheWrite": 1821891,
+      "FreshInput": 7299,
+      "Output": 1065,
+      "FirstTimestamp": "2026-09-03 08:58:50",
+      "MedianContext": 159970,
+      "P90Context": 245548,
+      "LargeContextShare": 28.3
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aarchitect-a504613598ec49e0",
+      "Calls": 129,
+      "CacheRead": 28425357,
+      "CacheWrite": 3945988,
+      "FreshInput": 258,
+      "Output": 1582,
+      "FirstTimestamp": "2026-09-03 17:10:30",
+      "MedianContext": 255810,
+      "P90Context": 395355,
+      "LargeContextShare": 69.8
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aarchitect-ec291bbc48f30018",
+      "Calls": 61,
+      "CacheRead": 10255746,
+      "CacheWrite": 2998007,
+      "FreshInput": 10974,
+      "Output": 212,
+      "FirstTimestamp": "2026-09-03 15:46:20",
+      "MedianContext": 223709,
+      "P90Context": 333310,
+      "LargeContextShare": 57.4
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-abackend-EP-5-4175f225f2197a2c",
+      "Calls": 49,
+      "CacheRead": 8422799,
+      "CacheWrite": 1520153,
+      "FreshInput": 7847,
+      "Output": 248,
+      "FirstTimestamp": "2026-09-03 09:00:20",
+      "MedianContext": 226819,
+      "P90Context": 274321,
+      "LargeContextShare": 69.4
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-abackend-EP-6-c537d6d9d57e70bb",
+      "Calls": 41,
+      "CacheRead": 7479338,
+      "CacheWrite": 2260463,
+      "FreshInput": 9013,
+      "Output": 411,
+      "FirstTimestamp": "2026-09-03 09:39:53",
+      "MedianContext": 278102,
+      "P90Context": 312645,
+      "LargeContextShare": 75.6
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-abackend-EP-8-3f4144b3a3ecb1b9",
+      "Calls": 177,
+      "CacheRead": 37311396,
+      "CacheWrite": 4662593,
+      "FreshInput": 354,
+      "Output": 10995,
+      "FirstTimestamp": "2026-09-03 16:14:54",
+      "MedianContext": 229018,
+      "P90Context": 371952,
+      "LargeContextShare": 61.6
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-abackend-EP-9-77ccf4d8971906dc",
+      "Calls": 167,
+      "CacheRead": 31828574,
+      "CacheWrite": 5748528,
+      "FreshInput": 334,
+      "Output": 3590,
+      "FirstTimestamp": "2026-09-03 17:10:31",
+      "MedianContext": 216007,
+      "P90Context": 348439,
+      "LargeContextShare": 61.1
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-abackend-reviewer-EP-5-6048f6239bca3c87",
+      "Calls": 50,
+      "CacheRead": 7387472,
+      "CacheWrite": 2637101,
+      "FreshInput": 7139,
+      "Output": 911,
+      "FirstTimestamp": "2026-09-03 09:00:20",
+      "MedianContext": 201157,
+      "P90Context": 263194,
+      "LargeContextShare": 56
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-abackend-reviewer-EP-6-72610c88cf94c493",
+      "Calls": 42,
+      "CacheRead": 8224209,
+      "CacheWrite": 2704351,
+      "FreshInput": 6652,
+      "Output": 1283,
+      "FirstTimestamp": "2026-09-03 09:39:55",
+      "MedianContext": 299320,
+      "P90Context": 378320,
+      "LargeContextShare": 71.4
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-abackend-reviewer-EP-8-3687c8a8a1c5e1ca",
+      "Calls": 22,
+      "CacheRead": 2597997,
+      "CacheWrite": 737471,
+      "FreshInput": 5983,
+      "Output": 877,
+      "FirstTimestamp": "2026-09-03 16:14:56",
+      "MedianContext": 186298,
+      "P90Context": 209591,
+      "LargeContextShare": 22.7
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aguardian-34cbfcd807603511",
+      "Calls": 304,
+      "CacheRead": 91696531,
+      "CacheWrite": 15418648,
+      "FreshInput": 608,
+      "Output": 8769,
+      "FirstTimestamp": "2026-09-03 16:10:34",
+      "MedianContext": 362782,
+      "P90Context": 597767,
+      "LargeContextShare": 76
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aguardian-c3bd460f44e30516",
+      "Calls": 131,
+      "CacheRead": 16333887,
+      "CacheWrite": 2737158,
+      "FreshInput": 13886,
+      "Output": 1315,
+      "FirstTimestamp": "2026-09-03 08:58:51",
+      "MedianContext": 142651,
+      "P90Context": 234314,
+      "LargeContextShare": 22.9
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aprd-research-04f47775e1c90eba",
+      "Calls": 47,
+      "CacheRead": 5973528,
+      "CacheWrite": 417443,
+      "FreshInput": 94,
+      "Output": 534,
+      "FirstTimestamp": "2026-09-03 08:39:32",
+      "MedianContext": 144544,
+      "P90Context": 190626,
+      "LargeContextShare": 6.4
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aqa-EP-7-f36f75b333c632da",
+      "Calls": 45,
+      "CacheRead": 4413420,
+      "CacheWrite": 1610098,
+      "FreshInput": 20819,
+      "Output": 153,
+      "FirstTimestamp": "2026-09-03 09:56:56",
+      "MedianContext": 139357,
+      "P90Context": 181396,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aqa-reviewer-EP-7-a52f66a08b7418ae",
+      "Calls": 41,
+      "CacheRead": 4294621,
+      "CacheWrite": 1392870,
+      "FreshInput": 7391,
+      "Output": 139,
+      "FirstTimestamp": "2026-09-03 09:56:58",
+      "MedianContext": 142332,
+      "P90Context": 183514,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-aresearcher-8899c3beedadd563",
+      "Calls": 21,
+      "CacheRead": 1819321,
+      "CacheWrite": 407116,
+      "FreshInput": 4938,
+      "Output": 1345,
+      "FirstTimestamp": "2026-09-03 15:46:23",
+      "MedianContext": 119438,
+      "P90Context": 145241,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-areviewer-EP-8-5b514db2a7a1aafe",
+      "Calls": 88,
+      "CacheRead": 14160799,
+      "CacheWrite": 4519797,
+      "FreshInput": 176,
+      "Output": 3244,
+      "FirstTimestamp": "2026-09-03 16:28:04",
+      "MedianContext": 223249,
+      "P90Context": 316282,
+      "LargeContextShare": 60.2
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-areviewer-EP-9-6d0980fb0d808a98",
+      "Calls": 141,
+      "CacheRead": 32307682,
+      "CacheWrite": 5632910,
+      "FreshInput": 282,
+      "Output": 7266,
+      "FirstTimestamp": "2026-09-03 17:10:31",
+      "MedianContext": 286425,
+      "P90Context": 409855,
+      "LargeContextShare": 69.5
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-areviewer-assessment-a58a4d816d6f2d50",
+      "Calls": 37,
+      "CacheRead": 5446120,
+      "CacheWrite": 946164,
+      "FreshInput": 10881,
+      "Output": 2242,
+      "FirstTimestamp": "2026-09-03 15:46:22",
+      "MedianContext": 208406,
+      "P90Context": 263135,
+      "LargeContextShare": 51.4
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec",
+      "Agent": "agent-avscode-question-15a64e8d745d0bae",
+      "Calls": 21,
+      "CacheRead": 1231499,
+      "CacheWrite": 189500,
+      "FreshInput": 42,
+      "Output": 75,
+      "FirstTimestamp": "2026-09-03 18:20:25",
+      "MedianContext": 65597,
+      "P90Context": 85483,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "6e958fb9-6b63-4a66-993b-4128c2cca9d4",
+      "Agent": "agent-a6908486dd2659a6d",
+      "Calls": 16,
+      "CacheRead": 1234424,
+      "CacheWrite": 129174,
+      "FreshInput": 32,
+      "Output": 53,
+      "FirstTimestamp": "2026-09-05 13:58:22",
+      "MedianContext": 100605,
+      "P90Context": 127882,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "6e958fb9-6b63-4a66-993b-4128c2cca9d4",
+      "Agent": "agent-a8d089d3f203b72a2",
+      "Calls": 33,
+      "CacheRead": 2547917,
+      "CacheWrite": 126369,
+      "FreshInput": 66,
+      "Output": 157,
+      "FirstTimestamp": "2026-09-05 13:58:34",
+      "MedianContext": 84239,
+      "P90Context": 125651,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a0a1c257a5a1917d7",
+      "Calls": 26,
+      "CacheRead": 2174792,
+      "CacheWrite": 147316,
+      "FreshInput": 52,
+      "Output": 210,
+      "FirstTimestamp": "2026-09-04 16:40:59",
+      "MedianContext": 95019,
+      "P90Context": 142471,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a0b4adfc2f6724b76",
+      "Calls": 37,
+      "CacheRead": 4455129,
+      "CacheWrite": 191469,
+      "FreshInput": 74,
+      "Output": 259,
+      "FirstTimestamp": "2026-09-04 16:52:17",
+      "MedianContext": 132526,
+      "P90Context": 186473,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a0cf738a1b0f8bdc3",
+      "Calls": 24,
+      "CacheRead": 2244135,
+      "CacheWrite": 145753,
+      "FreshInput": 48,
+      "Output": 94,
+      "FirstTimestamp": "2026-09-04 16:41:22",
+      "MedianContext": 107301,
+      "P90Context": 146099,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a3205d14e91a7c278",
+      "Calls": 62,
+      "CacheRead": 7895296,
+      "CacheWrite": 166842,
+      "FreshInput": 124,
+      "Output": 643,
+      "FirstTimestamp": "2026-09-04 23:16:22",
+      "MedianContext": 135449,
+      "P90Context": 173070,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a7f9c6deb4955ed3d",
+      "Calls": 56,
+      "CacheRead": 4462951,
+      "CacheWrite": 127217,
+      "FreshInput": 112,
+      "Output": 735,
+      "FirstTimestamp": "2026-09-05 09:40:45",
+      "MedianContext": 77274,
+      "P90Context": 119936,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a8494baceb0bb583c",
+      "Calls": 34,
+      "CacheRead": 5298268,
+      "CacheWrite": 261422,
+      "FreshInput": 68,
+      "Output": 150,
+      "FirstTimestamp": "2026-09-04 23:16:01",
+      "MedianContext": 159951,
+      "P90Context": 257973,
+      "LargeContextShare": 38.2
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a8946b77afcf35a38",
+      "Calls": 27,
+      "CacheRead": 2218738,
+      "CacheWrite": 133076,
+      "FreshInput": 54,
+      "Output": 109,
+      "FirstTimestamp": "2026-09-05 10:40:25",
+      "MedianContext": 77472,
+      "P90Context": 129504,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-a907d1cd52c21476e",
+      "Calls": 25,
+      "CacheRead": 2497602,
+      "CacheWrite": 118957,
+      "FreshInput": 50,
+      "Output": 136,
+      "FirstTimestamp": "2026-09-04 23:16:38",
+      "MedianContext": 114335,
+      "P90Context": 134137,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa",
+      "Agent": "agent-ab1708eda79f4bf99",
+      "Calls": 42,
+      "CacheRead": 5394493,
+      "CacheWrite": 190038,
+      "FreshInput": 84,
+      "Output": 234,
+      "FirstTimestamp": "2026-09-04 16:41:12",
+      "MedianContext": 146442,
+      "P90Context": 190833,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "90a650dc-1d48-462d-8f97-4b8e097b471c",
+      "Agent": "agent-a17183a5e0843d0dd",
+      "Calls": 44,
+      "CacheRead": 5596006,
+      "CacheWrite": 213192,
+      "FreshInput": 88,
+      "Output": 341,
+      "FirstTimestamp": "2026-09-03 22:15:17",
+      "MedianContext": 137214,
+      "P90Context": 196888,
+      "LargeContextShare": 4.5
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "90a650dc-1d48-462d-8f97-4b8e097b471c",
+      "Agent": "agent-a33d1238c4b61060f",
+      "Calls": 19,
+      "CacheRead": 1081456,
+      "CacheWrite": 105075,
+      "FreshInput": 38,
+      "Output": 76,
+      "FirstTimestamp": "2026-09-03 21:18:06",
+      "MedianContext": 60567,
+      "P90Context": 100874,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "90a650dc-1d48-462d-8f97-4b8e097b471c",
+      "Agent": "agent-a4613eda1d4690eb7",
+      "Calls": 59,
+      "CacheRead": 7232084,
+      "CacheWrite": 182844,
+      "FreshInput": 118,
+      "Output": 524,
+      "FirstTimestamp": "2026-09-03 21:47:15",
+      "MedianContext": 135051,
+      "P90Context": 177224,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "90a650dc-1d48-462d-8f97-4b8e097b471c",
+      "Agent": "agent-a5b2e311de4517cb3",
+      "Calls": 53,
+      "CacheRead": 7131064,
+      "CacheWrite": 198827,
+      "FreshInput": 106,
+      "Output": 714,
+      "FirstTimestamp": "2026-09-03 22:15:33",
+      "MedianContext": 135657,
+      "P90Context": 206170,
+      "LargeContextShare": 13.2
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "90a650dc-1d48-462d-8f97-4b8e097b471c",
+      "Agent": "agent-acafca957dca8bef6",
+      "Calls": 9,
+      "CacheRead": 556370,
+      "CacheWrite": 70909,
+      "FreshInput": 18,
+      "Output": 31,
+      "FirstTimestamp": "2026-09-03 22:15:43",
+      "MedianContext": 75168,
+      "P90Context": 88192,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-a1d671a437868b401",
+      "Calls": 26,
+      "CacheRead": 4629991,
+      "CacheWrite": 741484,
+      "FreshInput": 5167,
+      "Output": 859,
+      "FirstTimestamp": "2026-09-04 09:07:43",
+      "MedianContext": 201742,
+      "P90Context": 290696,
+      "LargeContextShare": 53.8
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-a60392dab0bbe2dc7",
+      "Calls": 46,
+      "CacheRead": 4398348,
+      "CacheWrite": 241124,
+      "FreshInput": 92,
+      "Output": 799,
+      "FirstTimestamp": "2026-09-04 10:32:18",
+      "MedianContext": 104835,
+      "P90Context": 118372,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-a74e813304bb366ab",
+      "Calls": 13,
+      "CacheRead": 347748,
+      "CacheWrite": 41896,
+      "FreshInput": 26,
+      "Output": 51,
+      "FirstTimestamp": "2026-09-05 09:11:49",
+      "MedianContext": 29756,
+      "P90Context": 41062,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-a86411122b98a3a81",
+      "Calls": 33,
+      "CacheRead": 3744124,
+      "CacheWrite": 411271,
+      "FreshInput": 66,
+      "Output": 150,
+      "FirstTimestamp": "2026-09-04 10:32:33",
+      "MedianContext": 130950,
+      "P90Context": 163328,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-adb7f9f9c0bff7982",
+      "Calls": 43,
+      "CacheRead": 4854886,
+      "CacheWrite": 275488,
+      "FreshInput": 86,
+      "Output": 433,
+      "FirstTimestamp": "2026-09-04 10:48:42",
+      "MedianContext": 125077,
+      "P90Context": 146921,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-ae9e67262167ddc62",
+      "Calls": 55,
+      "CacheRead": 13240351,
+      "CacheWrite": 2245098,
+      "FreshInput": 15109,
+      "Output": 3883,
+      "FirstTimestamp": "2026-09-04 09:10:52",
+      "MedianContext": 315812,
+      "P90Context": 385110,
+      "LargeContextShare": 76.4
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-aeb44394094856836",
+      "Calls": 327,
+      "CacheRead": 83510436,
+      "CacheWrite": 4671747,
+      "FreshInput": 654,
+      "Output": 4809,
+      "FirstTimestamp": "2026-09-04 09:07:28",
+      "MedianContext": 270203,
+      "P90Context": 421954,
+      "LargeContextShare": 71.9
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-af7acd4c5bf8a7865",
+      "Calls": 82,
+      "CacheRead": 12532352,
+      "CacheWrite": 1502889,
+      "FreshInput": 164,
+      "Output": 277,
+      "FirstTimestamp": "2026-09-04 10:48:56",
+      "MedianContext": 185279,
+      "P90Context": 242818,
+      "LargeContextShare": 37.8
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Agent": "agent-af98a0a4fa5a223a4",
+      "Calls": 168,
+      "CacheRead": 41069249,
+      "CacheWrite": 2104401,
+      "FreshInput": 336,
+      "Output": 1905,
+      "FirstTimestamp": "2026-09-04 09:07:55",
+      "MedianContext": 265222,
+      "P90Context": 357467,
+      "LargeContextShare": 76.8
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "d79c8260-036b-4d23-994e-7f26628e5a5c",
+      "Agent": "agent-a938cef799b4280f3",
+      "Calls": 15,
+      "CacheRead": 1583458,
+      "CacheWrite": 167474,
+      "FreshInput": 30,
+      "Output": 47,
+      "FirstTimestamp": "2026-09-12 14:31:51",
+      "MedianContext": 142451,
+      "P90Context": 167108,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "d79c8260-036b-4d23-994e-7f26628e5a5c",
+      "Agent": "agent-ac23a1752954dd8fd",
+      "Calls": 10,
+      "CacheRead": 398082,
+      "CacheWrite": 63682,
+      "FreshInput": 20,
+      "Output": 57,
+      "FirstTimestamp": "2026-09-12 14:31:28",
+      "MedianContext": 44509,
+      "P90Context": 64519,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "d79c8260-036b-4d23-994e-7f26628e5a5c",
+      "Agent": "agent-afadd1aa94c0e4013",
+      "Calls": 11,
+      "CacheRead": 469706,
+      "CacheWrite": 76090,
+      "FreshInput": 22,
+      "Output": 8063,
+      "FirstTimestamp": "2026-09-12 14:31:17",
+      "MedianContext": 47739,
+      "P90Context": 74499,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "e7218d3a-0bd2-41db-9b40-1f2aff127f36",
+      "Agent": "agent-a044d84900765b211",
+      "Calls": 21,
+      "CacheRead": 1031621,
+      "CacheWrite": 73309,
+      "FreshInput": 42,
+      "Output": 138,
+      "FirstTimestamp": "2026-09-11 15:44:37",
+      "MedianContext": 53402,
+      "P90Context": 75882,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "e7218d3a-0bd2-41db-9b40-1f2aff127f36",
+      "Agent": "agent-a559bd902dac17591",
+      "Calls": 27,
+      "CacheRead": 2557211,
+      "CacheWrite": 145114,
+      "FreshInput": 54,
+      "Output": 12482,
+      "FirstTimestamp": "2026-09-11 15:44:32",
+      "MedianContext": 103465,
+      "P90Context": 147676,
+      "LargeContextShare": 0
+    },
+    {
+      "Scope": "Subagent",
+      "Session": "e7218d3a-0bd2-41db-9b40-1f2aff127f36",
+      "Agent": "agent-ad6ad3e044bd35c97",
+      "Calls": 20,
+      "CacheRead": 1302214,
+      "CacheWrite": 119837,
+      "FreshInput": 40,
+      "Output": 77,
+      "FirstTimestamp": "2026-09-11 15:44:19",
+      "MedianContext": 68680,
+      "P90Context": 115989,
+      "LargeContextShare": 0
+    }
+  ],
+  "Models": [
+    {
+      "Model": "claude-opus-5",
+      "Calls": 4622,
+      "FreshInput": 9244,
+      "CacheRead": 1436680069,
+      "CacheWrite5M": 52938209,
+      "CacheWrite1H": 10062224,
+      "Output": 2228053,
+      "CostUsd": 1205.57
+    },
+    {
+      "Model": "claude-fable-5-1",
+      "Calls": 1131,
+      "FreshInput": 158463,
+      "CacheRead": 226443819,
+      "CacheWrite5M": 24765214,
+      "CacheWrite1H": 3555774,
+      "Output": 699275,
+      "CostUsd": 473.84
+    },
+    {
+      "Model": "claude-sonnet-5",
+      "Calls": 58,
+      "FreshInput": 116,
+      "CacheRead": 4459599,
+      "CacheWrite5M": 0,
+      "CacheWrite1H": 248600,
+      "Output": 26959,
+      "CostUsd": 2.16
+    },
+    {
+      "Model": "claude-haiku-4-5-20251001",
+      "Calls": 1,
+      "FreshInput": 2104,
+      "CacheRead": 0,
+      "CacheWrite5M": 0,
+      "CacheWrite1H": 0,
+      "Output": 153,
+      "CostUsd": 0.00
+    }
+  ],
+  "GapBuckets": [
+    {
+      "Scope": "Main session",
+      "Bucket": "First call",
+      "Calls": 18,
+      "CacheWrite": 796860
+    },
+    {
+      "Scope": "Main session",
+      "Bucket": "Under 60 s",
+      "Calls": 2196,
+      "CacheWrite": 5126660
+    },
+    {
+      "Scope": "Main session",
+      "Bucket": "1 to 5 min",
+      "Calls": 379,
+      "CacheWrite": 1635729
+    },
+    {
+      "Scope": "Main session",
+      "Bucket": "5 to 60 min",
+      "Calls": 88,
+      "CacheWrite": 1888350
+    },
+    {
+      "Scope": "Main session",
+      "Bucket": "Over 60 min",
+      "Calls": 8,
+      "CacheWrite": 4424788
+    },
+    {
+      "Scope": "Subagent",
+      "Bucket": "First call",
+      "Calls": 51,
+      "CacheWrite": 1355631
+    },
+    {
+      "Scope": "Subagent",
+      "Bucket": "Under 60 s",
+      "Calls": 2788,
+      "CacheWrite": 42280265
+    },
+    {
+      "Scope": "Subagent",
+      "Bucket": "1 to 5 min",
+      "Calls": 193,
+      "CacheWrite": 11717081
+    },
+    {
+      "Scope": "Subagent",
+      "Bucket": "5 to 60 min",
+      "Calls": 82,
+      "CacheWrite": 20079046
+    },
+    {
+      "Scope": "Subagent",
+      "Bucket": "Over 60 min",
+      "Calls": 9,
+      "CacheWrite": 2265611
+    }
+  ],
+  "Tools": [
+    {
+      "Tool": "Bash",
+      "Calls": 4527,
+      "ResultBytes": 12046392
+    },
+    {
+      "Tool": "Read",
+      "Calls": 161,
+      "ResultBytes": 3021820
+    },
+    {
+      "Tool": "mcp__linear-server__save_issue",
+      "Calls": 206,
+      "ResultBytes": 1690837
+    },
+    {
+      "Tool": "WebFetch",
+      "Calls": 139,
+      "ResultBytes": 826473
+    },
+    {
+      "Tool": "mcp__linear-server__get_issue",
+      "Calls": 83,
+      "ResultBytes": 807723
+    },
+    {
+      "Tool": "mcp__linear-server__get_project",
+      "Calls": 29,
+      "ResultBytes": 369600
+    },
+    {
+      "Tool": "mcp__linear-server__list_comments",
+      "Calls": 20,
+      "ResultBytes": 236392
+    },
+    {
+      "Tool": "mcp__linear-server__save_comment",
+      "Calls": 43,
+      "ResultBytes": 166084
+    },
+    {
+      "Tool": "SendMessage",
+      "Calls": 580,
+      "ResultBytes": 154361
+    },
+    {
+      "Tool": "WebSearch",
+      "Calls": 30,
+      "ResultBytes": 76523
+    },
+    {
+      "Tool": "mcp__linear-server__save_project",
+      "Calls": 53,
+      "ResultBytes": 74111
+    },
+    {
+      "Tool": "mcp__linear-server__list_projects",
+      "Calls": 20,
+      "ResultBytes": 64728
+    },
+    {
+      "Tool": "Edit",
+      "Calls": 243,
+      "ResultBytes": 52023
+    },
+    {
+      "Tool": "mcp__linear-server__get_document",
+      "Calls": 3,
+      "ResultBytes": 48111
+    },
+    {
+      "Tool": "mcp__linear-server__list_issues",
+      "Calls": 25,
+      "ResultBytes": 45937
+    },
+    {
+      "Tool": "Agent",
+      "Calls": 51,
+      "ResultBytes": 38943
+    },
+    {
+      "Tool": "ExitPlanMode",
+      "Calls": 2,
+      "ResultBytes": 30137
+    },
+    {
+      "Tool": "TaskOutput",
+      "Calls": 1,
+      "ResultBytes": 29127
+    },
+    {
+      "Tool": "ToolSearch",
+      "Calls": 242,
+      "ResultBytes": 28030
+    },
+    {
+      "Tool": "AskUserQuestion",
+      "Calls": 40,
+      "ResultBytes": 25879
+    },
+    {
+      "Tool": "ListAgents",
+      "Calls": 17,
+      "ResultBytes": 18205
+    },
+    {
+      "Tool": "Write",
+      "Calls": 48,
+      "ResultBytes": 10023
+    },
+    {
+      "Tool": "mcp__aspire__list_structured_logs",
+      "Calls": 8,
+      "ResultBytes": 7996
+    },
+    {
+      "Tool": "mcp__linear-server__save_document",
+      "Calls": 7,
+      "ResultBytes": 7097
+    },
+    {
+      "Tool": "mcp__linear-server__list_issue_statuses",
+      "Calls": 5,
+      "ResultBytes": 2855
+    },
+    {
+      "Tool": "mcp__aspire__list_resources",
+      "Calls": 1,
+      "ResultBytes": 2272
+    },
+    {
+      "Tool": "SendUserFile",
+      "Calls": 4,
+      "ResultBytes": 1676
+    },
+    {
+      "Tool": "mcp__linear-server__list_initiatives",
+      "Calls": 1,
+      "ResultBytes": 1666
+    },
+    {
+      "Tool": "Skill",
+      "Calls": 62,
+      "ResultBytes": 1520
+    },
+    {
+      "Tool": "mcp__linear-server__list_teams",
+      "Calls": 4,
+      "ResultBytes": 1380
+    },
+    {
+      "Tool": "EnterPlanMode",
+      "Calls": 2,
+      "ResultBytes": 1162
+    },
+    {
+      "Tool": "mcp__aspire__select_apphost",
+      "Calls": 7,
+      "ResultBytes": 916
+    },
+    {
+      "Tool": "Monitor",
+      "Calls": 4,
+      "ResultBytes": 883
+    },
+    {
+      "Tool": "mcp__linear-server__list_documents",
+      "Calls": 1,
+      "ResultBytes": 669
+    },
+    {
+      "Tool": "TaskStop",
+      "Calls": 1,
+      "ResultBytes": 433
+    },
+    {
+      "Tool": "mcp__linear-server__get_workspace",
+      "Calls": 1,
+      "ResultBytes": 101
+    },
+    {
+      "Tool": "mcp__linear-server__list_cycles",
+      "Calls": 2,
+      "ResultBytes": 4
+    }
+  ],
+  "LargestResults": [
+    {
+      "Tool": "Read",
+      "Bytes": 358818,
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa/agent-a7f9c6deb4955ed3d",
+      "Timestamp": "2026-09-05 09:45:23"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 203266,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-aqa-EP-7-f36f75b333c632da",
+      "Timestamp": "2026-09-03 13:06:18"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 193642,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-aqa-EP-7-f36f75b333c632da",
+      "Timestamp": "2026-09-03 13:06:17"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 60449,
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Timestamp": "2026-09-04 07:35:42"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 60287,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-8-3687c8a8a1c5e1ca",
+      "Timestamp": "2026-09-03 16:15:20"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 60070,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-6-72610c88cf94c493",
+      "Timestamp": "2026-09-03 09:56:57"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 59852,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-6-72610c88cf94c493",
+      "Timestamp": "2026-09-03 09:40:19"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 59849,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-5-6048f6239bca3c87",
+      "Timestamp": "2026-09-03 09:01:10"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 58315,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-8-3687c8a8a1c5e1ca",
+      "Timestamp": "2026-09-03 16:15:47"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 57199,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-6-72610c88cf94c493",
+      "Timestamp": "2026-09-03 09:41:56"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 57192,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-6-72610c88cf94c493",
+      "Timestamp": "2026-09-03 09:41:53"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 56961,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-6-72610c88cf94c493",
+      "Timestamp": "2026-09-03 09:41:56"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 55544,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-EP-6-c537d6d9d57e70bb",
+      "Timestamp": "2026-09-03 09:40:56"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 53917,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-aarchitect-ec291bbc48f30018",
+      "Timestamp": "2026-09-03 15:48:12"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 53442,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-aarchitect-95e53f1d99f916ac",
+      "Timestamp": "2026-09-03 13:12:39"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 45838,
+      "Session": "70520699-14e3-4b71-947c-20a98a2e4baa/agent-a8946b77afcf35a38",
+      "Timestamp": "2026-09-05 10:50:42"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 45764,
+      "Session": "9723af48-3369-48aa-ba65-80ee3dde3513",
+      "Timestamp": "2026-09-04 07:37:42"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 45243,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-aarchitect-95e53f1d99f916ac",
+      "Timestamp": "2026-09-03 13:12:39"
+    },
+    {
+      "Tool": "WebFetch",
+      "Bytes": 45051,
+      "Session": "d79c8260-036b-4d23-994e-7f26628e5a5c/agent-a938cef799b4280f3",
+      "Timestamp": "2026-09-12 14:33:39"
+    },
+    {
+      "Tool": "Read",
+      "Bytes": 44507,
+      "Session": "20f295f6-0eb0-449d-8ea3-cdbd82b22dec/agent-abackend-reviewer-EP-8-3687c8a8a1c5e1ca",
+      "Timestamp": "2026-09-03 16:15:49"
+    }
+  ]
+}
