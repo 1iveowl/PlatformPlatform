@@ -16,6 +16,10 @@
 <a href="https://sonarcloud.io/component_measures?id=PlatformPlatform_platformplatform&metric=Reliability" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=PlatformPlatform_platformplatform&metric=reliability_rating" alt="Reliability Rating" /></a>
 <a href="https://sonarcloud.io/component_measures?id=PlatformPlatform_platformplatform&metric=Maintainability" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=PlatformPlatform_platformplatform&metric=sqale_rating" alt="Maintainability Rating" /></a>
 
+[![Sign in with Microsoft Entra ID](https://img.shields.io/badge/Login-Microsoft%20Entra%20ID-0078D4?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICAgIDxyZWN0IGZpbGw9IiNGMjUwMjIiIHg9IjEiIHk9IjEiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIvPgogICAgPHJlY3QgZmlsbD0iIzdGQkEwMCIgeD0iMTMiIHk9IjEiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIvPgogICAgPHJlY3QgZmlsbD0iIzAwQTRFRiIgeD0iMSIgeT0iMTMiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIvPgogICAgPHJlY3QgZmlsbD0iI0ZGQjkwMCIgeD0iMTMiIHk9IjEzIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiLz4KPC9zdmc%2BCg%3D%3D)](#33-optional-set-up-microsoft-entra-id-for-sign-in-with-microsoft-on-localhost)
+[![Identity verification with MitID](https://img.shields.io/badge/Identity-MitID-0060E6?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2MSAxNiIgd2lkdGg9IjYxIiBoZWlnaHQ9IjE2Ij4KICAgIDxwYXRoIGZpbGw9IiNGRkZGRkYiCiAgICAgICAgICBkPSJNMTkuMiwwYzEsMCwxLjgsMC44LDEuOCwxLjhjMCwxLTAuOCwxLjgtMS44LDEuOGMtMSwwLTEuOC0wLjgtMS44LTEuOEMxNy40LDAuOCwxOC4yLDAsMTkuMiwweiBNNDAuNCwwIGMyLjEsMCwzLjgsMS43LDMuOCwzLjhjMCwyLjEtMS43LDMuOC0zLjgsMy44Yy0yLjEsMC0zLjgtMS43LTMuOC0zLjhDMzYuNiwxLjcsMzguMywwLDQwLjQsMHogTTIwLjcsNC45djEwLjloLTNWNC45SDIwLjd6IE0yLjksMC44bDQuNiw3LjFsNC41LTcuMWgyLjl2MTVoLTMuMVY2LjFsLTQuMyw2LjRINy40TDMuMSw2LjF2OS43SDB2LTE1SDIuOXogTTQwLjQsOWMzLjYsMCw2LjUsMiw2LjksNi44SDMzLjYgQzM0LDExLDM2LjksOSw0MC40LDl6IE01MS45LDAuMkM1OC4zLDAuMiw2MSwzLjcsNjEsOGMwLDQuMy0yLjcsNy44LTkuMSw3LjhoLTIuNlYwLjJINTEuOXogTTI3LjEsMS45djNoMi40djIuNGgtMi40djQuOCBjMCwwLjksMC41LDEuMiwxLjMsMS4yYzAuNSwwLDEtMC4xLDEuMy0wLjR2Mi43Yy0wLjQsMC4yLTEuMiwwLjMtMiwwLjNjLTIuMiwwLTMuNi0xLjEtMy42LTMuNVY3LjNoLTEuN1Y0LjloMS43di0zSDI3LjF6Ii8%2BCjwvc3ZnPgo%3D)](#34-optional-set-up-mitid-on-localhost)
+[![Blazor WebAssembly frontend planned](https://img.shields.io/badge/Planned-Blazor%20WebAssembly-512BD4?logo=blazor&logoColor=white)](BLAZOR.md)
+
 </h4>
 
 # 👋 Welcome to PlatformPlatform
@@ -25,6 +29,14 @@ Kick-start building top-tier B2B & B2C cloud SaaS products with sleek design, fu
 Ships with signup and login via Google, Microsoft or email one-time password, Stripe-powered subscription and payment management with plan upgrades, downgrades, and invoicing, feature flags with A/B-rollout, plan-gating, and per-user/tenant overrides, and a back-office dashboard with MRR and revenue trends, plan distribution, and tenant growth.
 
 Built to demonstrate seamless flow: backend contracts feed a fully-typed React UI, pipelines make fully automated deployments to Azure, and a multi-agent workflow built on Claude Code's native [Agent Teams](https://code.claude.com/docs/en/agent-teams) where PlatformPlatform-expert agents collaborate to deliver complete features following the opinionated architecture. Think of it as a ready-made blueprint, not a pile of parts to assemble.
+
+## About this fork
+
+This is a friendly fork of [PlatformPlatform](https://github.com/platformplatform/PlatformPlatform). It adds Microsoft Entra ID as a login and signup provider, Danish MitID for identity verification and login, and it is heading for a frontend written entirely in C# and Razor with Blazor WebAssembly.
+
+That last one is not a verdict on React. Upstream's React frontend is genuinely excellent, and it is the reason this fork had such a good place to start from: fully typed against the backend contracts, localized, accessible, and a pleasure to read. Blazor is not the better framework either. It is the better fit for an all-C# team, where a second language in the stack is a cost somebody has to keep paying. If you have frontend people, or you want the deepest component ecosystem available, upstream is the stronger choice and will stay ahead of this fork. The backend architecture is identical in both, so whichever you pick, you get the part that took the longest to get right.
+
+[Advantages and disadvantages of a Blazor frontend](BLAZOR.md) makes the case in full, including the parts that get worse.
 
 ## What's inside
 
