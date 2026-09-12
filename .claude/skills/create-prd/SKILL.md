@@ -112,9 +112,11 @@ AskUserQuestion with:
   - label: "No", description: "Backend-first approach (default)"
 ```
 
-### Step 5: Draft the complete PRD and get approval
+### Step 5: Draft the complete PRD
 
 Based on all the research and user answers, draft the complete PRD.
+
+**Drafting rule, never guess:** an unspecified point that would change a [task]'s scope, a business rule or an acceptance criterion is written inline as `[NEEDS CLARIFICATION: <one-line question>]` at the place in the text where the answer belongs. A point that only needs a sensible default gets the default with "assumed:" in front of it; it is not a marker. Markers are the only input to Step 5a, so this rule is what keeps the clarify step short.
 
 **Create the PRD content following the [example PRD structure](/.claude/reference/samples/example-prd.md):**
 
@@ -162,6 +164,10 @@ Based on all the research and user answers, draft the complete PRD.
    - **List [tasks] in implementation order** (the order they should be implemented)
    - E2E tests should typically be the final [task]
    - **Important:** When using MCP-based `[PRODUCT_MANAGEMENT_TOOL]`, create [tasks] in the same order they appear in the PRD—this defines the implementation sequence
+   - **Story:** one entry under the PRD's core features that an end user can exercise on its own. The PRD still uses the example structure, not user-story prose; the story is a unit of grouping, not a writing style
+   - **Milestones:** when the PRD has more than one story, group [tasks] into phases in this order: `Setup` (scaffolding no story needs alone), `Foundational` (what every story depends on), one `Story: <name>` per story, `Polish` (cross-cutting finish work and the E2E [task]). A single-story [feature] has no milestones. The milestone is the story tag; never put `[US1]` style text in titles
+   - **Titles:** `T001: <sentence case title>`, three digits, numbered in implementation order and unique in the [feature]. Numbers are never reused or shifted; a [task] added later takes the next free number
+   - **Files touched:** each [task] paragraph lists the files or folders it will touch, so Step 6 can decide `parallel-ok`
 
 **Example of WRONG task description (missing business rules):**
 ```
@@ -219,6 +225,44 @@ This task implements the Users page UI. Users can only be managed by Tenant Owne
 
 ASCII sketches help engineers visualize the UI before coding.
 
+### Step 5a: Clarify
+
+Runs before the PRD is shown for approval, so the user approves the clarified text.
+
+**Scan** the description and every [task] paragraph against these nine categories, in this order:
+
+1. Functional scope: what is in and what is out
+2. Data model: entities, fields, identity, uniqueness, retention
+3. UX flow: entry points, states, errors, empty states
+4. Non-functional: performance, limits, availability, localisation
+5. Integration: other self-contained systems, external providers, events
+6. Edge cases: concurrency, partial failure, re-entry, deletion
+7. Constraints: permissions, tenancy, feature flags, compliance
+8. Terminology: names that must match the glossary or the code
+9. Completion signals: how the user knows the [feature] is done and how it is tested
+
+Record Clear, Partial or Missing per category in a nine-row table kept in the session, not in the PRD. Every marker maps to one category. Rank the candidate questions: one that changes the [task] split or an acceptance criterion outranks one that changes a business rule, which outranks wording. Keep the top five. If no category is Partial or Missing and no marker exists, say "No clarifications needed" and go to Step 5b.
+
+**Ask** the questions one at a time, one AskUserQuestion call per question, never batched:
+
+```
+AskUserQuestion with:
+- header: "<category name>"
+- question: "<marker text, rewritten so it can be answered by choosing an option or a phrase of five words or fewer> (or type up to five words)"
+- multiSelect: false
+- options: two to four concrete answers, each with a one-line consequence as description; the option the research suggests goes first, its label ending in "(recommended)"
+```
+
+The free-text answer is the five-words-or-fewer phrase. Stop after five questions, or earlier when the user answers "stop", "skip the rest" or "proceed". Never ask a sixth question in the same session, even if markers remain.
+
+**Record** after each answer, before asking the next question:
+- Replace the marker in the draft with the resolved text, in the sentence where it sat
+- Append one line under `## Clarifications` / `### <today's date, YYYY-MM-DD>` in the form `- <Category>: Q: <question> A: <answer>`. The section is the last section of the description, after the core changes and before "Tasks overview", so Step 6 stores it as part of the [feature] description. A later clarify session on the same [feature] adds a new dated sub-heading rather than editing an earlier one
+
+Markers not resolved (beyond the five, or skipped) stay in the text unchanged and are handled in Step 6.
+
+### Step 5b: Get approval
+
 Show the complete PRD to the user - display the full content including all [tasks] with their descriptions.
 
 **Ask for approval:** "Does this PRD look good?" (Yes/No)
@@ -231,12 +275,20 @@ Follow your [PRODUCT_MANAGEMENT_TOOL]-specific guide at `/.claude/reference/prod
 
 Create:
 - [feature] with name=[feature name from Step 4 wizard], assign to "me"
+- Milestones, only when the PRD has more than one story, in this order with `save_milestone`: `Setup`, `Foundational`, one `Story: <name>` per story, `Polish`
 - [task] for each [task] in the PRD with:
-  - Title: [task title] (sentence case)
+  - Title: `T001: [task title]` (three-digit number in implementation order, sentence case)
   - Description: [task description paragraph] + [subtask bullets] (use bullets, NOT checkboxes)
   - Link to parent [feature]
+  - `milestone` set, when milestones exist
+  - Label `parallel-ok` when the [task] depends on no unfinished [task] and names no file or folder that another open [task] in the same milestone names
   - Assign to "me"
 - Initialize all items in [Planned] status, in the current iteration/sprint
+
+**Remaining markers**, after the [tasks] are created:
+- Every [task] whose description still contains `[NEEDS CLARIFICATION: ...]` gets `addLabels: ["needs-clarification"]`
+- Create one [task] titled `Open clarifications` (no `T` number, so it is never picked as a [task] to implement) in the [feature], in [Planned], with a bullet per marker: the category, the question and the [task] it affects. Its `blocks` list holds every labelled [task]. Markers in the [feature] description but in no [task] are listed in the same item and block nothing
+- When no marker remains, do not create it
 
 Each [task] description must include:
 1. A paragraph explaining what the task delivers
@@ -255,7 +307,7 @@ After creating all [tasks], update each [feature]'s description in [PRODUCT_MANA
 - Respect multi-tenant design by default
 - Keep the PRD high level without code snippets
 - Ask comprehensive questions in Step 4 to gather all requirements
-- Show PRD for approval (Step 5) before creating anything
+- Show PRD for approval (Step 5b) before creating anything
 - Use the AskUserQuestion tool for all wizard questions in Plan Mode
 
 ❌ DON'T:
@@ -265,7 +317,7 @@ After creating all [tasks], update each [feature]'s description in [PRODUCT_MANA
 - Ignore rule files
 - Repeat information across sections
 - Write titles in Title Case—use sentence case
-- Create [feature] or [tasks] in `[PRODUCT_MANAGEMENT_TOOL]` before getting PRD approval in Step 5
+- Create [feature] or [tasks] in `[PRODUCT_MANAGEMENT_TOOL]` before getting PRD approval in Step 5b
 - Rename the file—must be `prd.md`
 - Save questions in the PRD file
 - Create [tasks] that split tests, implementation, and migrations across separate [tasks]—each [task] must be a complete vertical slice
