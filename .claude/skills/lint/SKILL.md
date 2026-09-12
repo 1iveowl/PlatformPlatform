@@ -6,7 +6,7 @@ description: Lint code via the developer CLI - backend (.NET via JetBrains inspe
 # Lint
 
 ```bash
-dotnet run --project developer-cli -- lint [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--no-build] [--changed-only] --quiet
+dotnet run --project developer-cli -- lint [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--no-build] [--changed-only] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -34,12 +34,12 @@ CI always lints the full solution, so anything missed by a local `--changed-only
 ## Examples
 
 ```bash
-dotnet run --project developer-cli -- lint --quiet                                                # everything (full solution)
-dotnet run --project developer-cli -- lint --backend --changed-only --quiet                       # backend, changed files only (recommended for routine work)
-dotnet run --project developer-cli -- lint --frontend --quiet                                     # frontend
-dotnet run --project developer-cli -- lint --backend --self-contained-system main --quiet         # one SCS, full
+dotnet run --project developer-cli -- lint                                                # everything (full solution)
+dotnet run --project developer-cli -- lint --backend --changed-only                       # backend, changed files only (recommended for routine work)
+dotnet run --project developer-cli -- lint --frontend                                     # frontend
+dotnet run --project developer-cli -- lint --backend --self-contained-system main         # one SCS, full
 ```
 
-## Always pass --quiet
+## Output
 
-Verbose output goes to a log file. On success the CLI prints a single line; on failure it prints where to find the findings and exits 1.
+By default the CLI prints a single line when clean. When there are findings it prints each one as `file:line: rule: message` (capped at 30) and the path to `result.json` for the rest, and exits 1. Pass `--verbose` for the full tool output.

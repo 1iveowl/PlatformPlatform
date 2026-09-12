@@ -23,6 +23,15 @@ Always start new tasks in plan mode. Before writing any code:
 
 This applies to every new task, not just large ones. Small tasks get brief plans, large tasks get detailed plans. Skip planning only when the user explicitly says to just do it.
 
+## Session Discipline
+
+Every call re-reads the whole conversation, so context length is the dominant cost and instruction following degrades as it grows.
+
+- One task per session. When the task is done, tell the user to start a fresh session for the next one
+- At 200k tokens of context, finish the current step, write a handoff to `.workspace/{branch-name}/handoff.md` (done, verified, left, open questions), and tell the user to start a fresh session from it rather than continuing
+- When the tail of the conversation is what should go, prefer `/rewind` to an earlier cached point over `/compact`
+- Read files by line range, not whole, unless the file is under about 200 lines
+
 ## How You Work
 
 - You are the user's hands-on collaborator, a senior engineer pair-programming with them
@@ -101,6 +110,8 @@ Create a team with TeamCreate, then spawn agents with the Agent tool using `team
 
 Never assign work to an agent outside its type. If no agent of the correct type exists, spawn one.
 
+**Spawn prompts**: Name the [PRODUCT_MANAGEMENT_TOOL] [task] and add only what the [task] does not say. Never paste the [task] description into the prompt.
+
 ### Communication
 
 **SendMessage** queues a message the agent receives after completing its current task. Never send more than one message to the same agent without getting a response.
@@ -120,3 +131,11 @@ Tell agents to communicate directly: engineers notify reviewers, reviewers notif
 4. Engineers implement and notify their reviewers
 5. Reviewers review, approve, and notify the Guardian to stage files
 6. Guardian runs validation and commits
+
+## [PRODUCT_MANAGEMENT_TOOL] Writes
+
+Write [tasks] and comments with the smallest field set, never re-fetch what was just written (the save response is the confirmation), and follow the rules in `.claude/reference/product-management/[PRODUCT_MANAGEMENT_TOOL].md`.
+
+## Return
+
+Your final message is a receipt of at most about 1,500 tokens: status, the commit or files changed, the check results, blockers, and the path to full logs. No progress narration and no restating the task.

@@ -6,7 +6,7 @@ description: Build (compile) the solution via the developer CLI - backend (.NET)
 # Build
 
 ```bash
-dotnet run --project developer-cli -- build [--backend] [--frontend] [--cli] [--self-contained-system <name>] --quiet
+dotnet run --project developer-cli -- build [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -21,12 +21,12 @@ No arguments builds everything.
 ## Examples
 
 ```bash
-dotnet run --project developer-cli -- build --quiet                                           # everything
-dotnet run --project developer-cli -- build --backend --quiet                                 # all backend
-dotnet run --project developer-cli -- build --frontend --quiet                                # frontend
-dotnet run --project developer-cli -- build --backend --self-contained-system main --quiet    # one SCS
+dotnet run --project developer-cli -- build                                           # everything
+dotnet run --project developer-cli -- build --backend                                 # all backend
+dotnet run --project developer-cli -- build --frontend                                # frontend
+dotnet run --project developer-cli -- build --backend --self-contained-system main    # one SCS
 ```
 
-## Always pass --quiet
+## Output
 
-Verbose output goes to a log file. On success the CLI prints a single line; on failure it prints a short error summary - read the log if you need the full errors. Without `--quiet` the build floods the conversation.
+By default the CLI prints only failures (distinct compiler errors, which include warnings treated as errors, capped at 20 lines) and the path to the full log, or one line on success. Read the log for anything more. Pass `--verbose` only when you need the full streaming output; it floods the conversation.

@@ -17,7 +17,8 @@ public class FormatCommand : Command
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope backend formatting to AppGateway and AppGateway.Tests" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring before formatting" };
         var allFilesOption = new Option<bool>("--all-files") { Description = "Format every file in the solution. Default is to format only .cs files changed against origin/main." };
-        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Minimal output mode" };
+        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
+        var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
 
         Options.Add(backendOption);
         Options.Add(frontendOption);
@@ -27,6 +28,7 @@ public class FormatCommand : Command
         Options.Add(noBuildOption);
         Options.Add(allFilesOption);
         Options.Add(quietOption);
+        Options.Add(verboseOption);
 
         SetAction(parseResult => Execute(
                 parseResult.GetValue(backendOption),
@@ -36,7 +38,7 @@ public class FormatCommand : Command
                 parseResult.GetValue(gatewayOption),
                 parseResult.GetValue(noBuildOption),
                 parseResult.GetValue(allFilesOption),
-                parseResult.GetValue(quietOption)
+                !parseResult.GetValue(verboseOption)
             )
         );
     }
@@ -56,9 +58,14 @@ public class FormatCommand : Command
             if (SourceStateCache.IsUpToDate(cacheKey))
             {
                 if (quiet)
+                {
                     Console.WriteLine("No changes since last format run, skipping.");
+                }
                 else
+                {
                     AnsiConsole.MarkupLine("[green]No changes since last format run, skipping.[/]");
+                }
+
                 return;
             }
 

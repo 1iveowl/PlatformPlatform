@@ -60,6 +60,9 @@ DEFAULT_TEAM=null
 - featureId will be a project ID/name.
 - taskId will be an issue ID (e.g., "PP-445").
 - To query tasks in a feature: use `list_issues` with `project: "<project-id>"`.
+- Write issues and comments with the smallest field set: send only the fields that change (for a status update, the id and state).
+- Never re-fetch what was just written. The save response is the confirmation.
+- The team lead reads a project once per task set, not before every assignment.
 
 ## Initialization
 

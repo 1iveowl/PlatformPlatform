@@ -9,13 +9,16 @@ namespace DeveloperCli.Commands;
 
 public class TestCommand : Command
 {
+    private const int MaxFailedTestsShown = 30;
+
     public TestCommand() : base("test", "Runs tests from a solution")
     {
         var backendOption = new Option<bool>("--backend", "-b") { Description = "This command is always only backend. The option is only here for consistency." };
         var selfContainedSystemOption = new Option<string?>("<self-contained-system>", "--self-contained-system", "-s") { Description = "The name of the self-contained system to test (e.g., main, account, back-office)" };
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope tests to AppGateway.Tests" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring the solution before running tests" };
-        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Minimal output mode" };
+        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
+        var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
         var filterOption = new Option<string?>("--filter") { Description = "Filter tests by name (dotnet test --filter)" };
         var excludeCategoryOption = new Option<string?>("--exclude-category") { Description = "Exclude tests by category (e.g., 'Noisy', 'RequiresDocker'). Defaults to 'Noisy'." };
 
@@ -24,6 +27,7 @@ public class TestCommand : Command
         Options.Add(gatewayOption);
         Options.Add(noBuildOption);
         Options.Add(quietOption);
+        Options.Add(verboseOption);
         Options.Add(filterOption);
         Options.Add(excludeCategoryOption);
 
@@ -31,7 +35,7 @@ public class TestCommand : Command
                 parseResult.GetValue(selfContainedSystemOption),
                 parseResult.GetValue(gatewayOption),
                 parseResult.GetValue(noBuildOption),
-                parseResult.GetValue(quietOption),
+                !parseResult.GetValue(verboseOption),
                 parseResult.GetValue(filterOption),
                 parseResult.GetValue(excludeCategoryOption)
             )
@@ -196,9 +200,14 @@ public class TestCommand : Command
         if (stats.Failed > 0)
         {
             Console.WriteLine("Failed tests:");
-            foreach (var test in stats.FailedTests)
+            foreach (var test in stats.FailedTests.Take(MaxFailedTestsShown))
             {
                 Console.WriteLine($"  {test}");
+            }
+
+            if (stats.FailedTests.Count > MaxFailedTestsShown)
+            {
+                Console.WriteLine($"  ... and {stats.FailedTests.Count - MaxFailedTestsShown} more");
             }
 
             Console.WriteLine($"Full output: {result.TempFilePathWithSize}");

@@ -26,7 +26,9 @@ args = CommandLineArgumentsPreprocessor.PreprocessArguments(args);
 WorkspaceHelper.EnsureWorkspace();
 
 // Skip preamble for commands that need a clean stdout (MCP protocol, skills parsing CLI output).
-var isQuietCommand = args.Length > 0 && (args[0] == "mcp" || args[0] == "claude-command");
+// build, test, format and lint print only failures and a one-line total unless --verbose is passed.
+string[] minimalOutputCommands = ["build", "test", "format", "lint"];
+var isQuietCommand = args.Length > 0 && (args[0] == "mcp" || args[0] == "claude-command" || (minimalOutputCommands.Contains(args[0]) && !args.Contains("--verbose")));
 var solutionName = new DirectoryInfo(Configuration.SourceCodeFolder).Name;
 
 if (!isQuietCommand && !args.Contains("-q") && !args.Contains("--quiet"))

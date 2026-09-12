@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Diagnostics;
+using System.Text.Json;
 using DeveloperCli.Installation;
 using DeveloperCli.Utilities;
 using Karambolo.PO;
@@ -9,6 +10,8 @@ namespace DeveloperCli.Commands;
 
 public class LintCommand : Command
 {
+    private const int MaxFindingsShown = 30;
+
     public LintCommand() : base("lint", "Run code linting for frontend and backend code")
     {
         var backendOption = new Option<bool>("--backend", "-b") { Description = "Run backend linting" };
@@ -18,7 +21,8 @@ public class LintCommand : Command
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope backend linting to AppGateway and AppGateway.Tests" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring the solution before running linting" };
         var changedOnlyOption = new Option<bool>("--changed-only") { Description = "Lint only .cs files changed against origin/main. Default is to lint the full solution. Recommended for routine local runs; CI always lints the full solution." };
-        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Minimal output mode" };
+        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
+        var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
 
         Options.Add(backendOption);
         Options.Add(frontendOption);
@@ -28,6 +32,7 @@ public class LintCommand : Command
         Options.Add(noBuildOption);
         Options.Add(changedOnlyOption);
         Options.Add(quietOption);
+        Options.Add(verboseOption);
 
         SetAction(parseResult => Execute(
                 parseResult.GetValue(backendOption),
@@ -37,7 +42,7 @@ public class LintCommand : Command
                 parseResult.GetValue(gatewayOption),
                 parseResult.GetValue(noBuildOption),
                 parseResult.GetValue(changedOnlyOption),
-                parseResult.GetValue(quietOption)
+                !parseResult.GetValue(verboseOption)
             )
         );
     }
@@ -57,9 +62,14 @@ public class LintCommand : Command
             if (SourceStateCache.IsUpToDate(cacheKey))
             {
                 if (quiet)
+                {
                     Console.WriteLine("No changes since last lint run, skipping.");
+                }
                 else
+                {
                     AnsiConsole.MarkupLine("[green]No changes since last lint run, skipping.[/]");
+                }
+
                 return;
             }
 
@@ -98,7 +108,7 @@ public class LintCommand : Command
             {
                 if (hasIssues)
                 {
-                    Console.WriteLine("Issues found. Check result.json in the project directories.");
+                    Console.WriteLine($"Linting found issues in {Stopwatch.GetElapsedTime(startTime).Format()}.");
                     Environment.Exit(1);
                 }
 
@@ -198,10 +208,14 @@ public class LintCommand : Command
             quiet
         );
 
-        var resultJson = File.ReadAllText(Path.Combine(solutionFile.Directory!.FullName, "result.json"));
+        var resultJson = File.ReadAllText(resultJsonPath);
         var hasIssues = !resultJson.Contains("\"results\": [],");
 
-        if (!quiet)
+        if (quiet)
+        {
+            if (hasIssues) PrintFindings(resultJsonPath);
+        }
+        else
         {
             if (hasIssues)
             {
@@ -215,6 +229,45 @@ public class LintCommand : Command
         }
 
         return hasIssues;
+    }
+
+    private static void PrintFindings(string resultJsonPath)
+    {
+        using var sarif = JsonDocument.Parse(File.ReadAllText(resultJsonPath));
+        var findings = sarif.RootElement.GetProperty("runs").EnumerateArray()
+            .SelectMany(run => run.GetProperty("results").EnumerateArray())
+            .Select(FormatFinding)
+            .ToArray();
+
+        Console.WriteLine($"Lint findings ({findings.Length}):");
+        foreach (var finding in findings.Take(MaxFindingsShown))
+        {
+            Console.WriteLine($"  {finding}");
+        }
+
+        if (findings.Length > MaxFindingsShown)
+        {
+            Console.WriteLine($"  ... and {findings.Length - MaxFindingsShown} more");
+        }
+
+        Console.WriteLine($"Full findings: {resultJsonPath}");
+    }
+
+    private static string FormatFinding(JsonElement result)
+    {
+        var ruleId = result.TryGetProperty("ruleId", out var ruleIdElement) ? ruleIdElement.GetString() : "unknown";
+        var message = result.TryGetProperty("message", out var messageElement) && messageElement.TryGetProperty("text", out var textElement) ? textElement.GetString() : "";
+
+        var location = "";
+        if (result.TryGetProperty("locations", out var locations) && locations.GetArrayLength() > 0 &&
+            locations[0].TryGetProperty("physicalLocation", out var physicalLocation))
+        {
+            var uri = physicalLocation.TryGetProperty("artifactLocation", out var artifactLocation) && artifactLocation.TryGetProperty("uri", out var uriElement) ? uriElement.GetString() : "";
+            var line = physicalLocation.TryGetProperty("region", out var region) && region.TryGetProperty("startLine", out var startLine) ? startLine.GetInt32().ToString() : "";
+            location = line == "" ? $"{uri}: " : $"{uri}:{line}: ";
+        }
+
+        return $"{location}{ruleId}: {message}";
     }
 
     private static bool RunFrontendLinting(bool quiet)
@@ -318,10 +371,14 @@ public class LintCommand : Command
             quiet
         );
 
-        var resultJson = File.ReadAllText(Path.Combine(solutionFile.Directory!.FullName, "result.json"));
+        var resultJson = File.ReadAllText(resultJsonPath);
         var hasIssues = !resultJson.Contains("\"results\": [],");
 
-        if (!quiet)
+        if (quiet)
+        {
+            if (hasIssues) PrintFindings(resultJsonPath);
+        }
+        else
         {
             if (hasIssues)
             {

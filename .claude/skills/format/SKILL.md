@@ -6,7 +6,7 @@ description: Auto-format code via the developer CLI - backend (.NET via JetBrain
 # Format
 
 ```bash
-dotnet run --project developer-cli -- format [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--no-build] [--all-files] --quiet
+dotnet run --project developer-cli -- format [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--no-build] [--all-files] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -25,12 +25,12 @@ After `build` succeeds, run `format`, `lint`, `test` in parallel with `--no-buil
 ## Examples
 
 ```bash
-dotnet run --project developer-cli -- format --quiet                                            # everything
-dotnet run --project developer-cli -- format --backend --quiet                                  # all backend
-dotnet run --project developer-cli -- format --frontend --quiet                                 # frontend
-dotnet run --project developer-cli -- format --backend --self-contained-system account --quiet  # one SCS
+dotnet run --project developer-cli -- format                                            # everything
+dotnet run --project developer-cli -- format --backend                                  # all backend
+dotnet run --project developer-cli -- format --frontend                                 # frontend
+dotnet run --project developer-cli -- format --backend --self-contained-system account  # one SCS
 ```
 
-## Always pass --quiet
+## Output
 
-Verbose output goes to a log file. On success the CLI prints a single line; on failure it prints a short error message - read the log if you need details. Backend is slow - run last. Frontend is fast.
+By default the CLI prints a single line on success and a short error summary with the log path on failure; read the log if you need details. Pass `--verbose` for the full output. Backend is slow - run last. Frontend is fast.

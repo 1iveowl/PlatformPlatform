@@ -123,6 +123,8 @@ Spawn fresh pairs for each task set, named with the [task] ID:
 
 Keep spawn prompts generic. They become permanent memory after context compaction. Send work details via SendMessage, not in the spawn prompt.
 
+Work details name the [task] and add only what the [task] does not say. Engineers and reviewers read the [task] themselves, so never paste its description.
+
 ### Agent Lifecycle (rolling two-task-set window)
 
 Keep at most two task sets worth of fresh agents alive. When starting task set N+1:
@@ -247,8 +249,8 @@ Each agent builds deep context on its current task. Do not pollute that context.
 
 ## Work Assignment
 
-Assign work via TaskCreate with full details in the description (file paths, requirements, acceptance criteria). Include:
-- The [task] ID and description
+Assign work via TaskCreate naming the [task]; the [task] already holds the requirements and acceptance criteria. Include:
+- The [task] ID, plus only what the [task] does not say (for example file paths discovered in an earlier task set)
 - The agent's key teammates (reviewer name, Guardian name)
 - Any relevant context from previous tasks
 
@@ -400,3 +402,11 @@ This section describes how each agent type operates, so you can understand escal
 - Continuously tests the UI during QA phase
 - Sole agent for visual/regression testing via Claude in Chrome
 - Reports bugs to you for routing
+
+## [PRODUCT_MANAGEMENT_TOOL] Writes
+
+Write [tasks] and comments with the smallest field set, never re-fetch what was just written (the save response is the confirmation), and follow the rules in `.claude/reference/product-management/[PRODUCT_MANAGEMENT_TOOL].md`.
+
+## Return
+
+Your final message is a receipt of at most about 1,500 tokens: status, the commit or files changed, the check results, blockers, and the path to full logs. No progress narration and no restating the task.
