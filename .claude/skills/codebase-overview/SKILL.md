@@ -20,6 +20,7 @@ skill holds only what they cannot tell you. Terms: [references/glossary.md](refe
 | `application/shared-webapp/` | `@repo/ui`, `@repo/infrastructure`, `@repo/build`, shared Playwright setup |
 | `application/AppHost/`, `application/AppGateway/` | Aspire orchestration and parameters; YARP proxy that turns auth cookies into bearer tokens |
 | `developer-cli/` | The `pp` CLI behind the build, test, format, lint and e2e skills |
+| `blazor/` | Blazor edition spike root on its own SDK 11 `global.json`: `Blazor.Host` (server) and `Blazor.Client` (WebAssembly); `--blazor` target of build, format and lint |
 | `cloud-infrastructure/` | Bicep and bash: `environment/`, `cluster/`, `modules/` |
 
 Inside `Core/Features/<Feature>/`: `Commands/`, `Queries/`, `Domain/` (aggregate, types, EF configuration,

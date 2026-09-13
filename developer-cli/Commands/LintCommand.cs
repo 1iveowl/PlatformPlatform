@@ -17,6 +17,7 @@ public class LintCommand : Command
         var backendOption = new Option<bool>("--backend", "-b") { Description = "Run backend linting" };
         var frontendOption = new Option<bool>("--frontend", "-f") { Description = "Run frontend linting" };
         var cliOption = new Option<bool>("--cli", "-c") { Description = "Run developer-cli linting" };
+        var blazorOption = new Option<bool>("--blazor") { Description = "Run linting for the Blazor build root (blazor/), which resolves its own SDK" };
         var selfContainedSystemOption = new Option<string?>("<self-contained-system>", "--self-contained-system", "-s") { Description = "The name of the self-contained system to lint (e.g., main, account, back-office)" };
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope backend linting to AppGateway and AppGateway.Tests" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring the solution before running linting" };
@@ -27,6 +28,7 @@ public class LintCommand : Command
         Options.Add(backendOption);
         Options.Add(frontendOption);
         Options.Add(cliOption);
+        Options.Add(blazorOption);
         Options.Add(selfContainedSystemOption);
         Options.Add(gatewayOption);
         Options.Add(noBuildOption);
@@ -38,6 +40,7 @@ public class LintCommand : Command
                 parseResult.GetValue(backendOption),
                 parseResult.GetValue(frontendOption),
                 parseResult.GetValue(cliOption),
+                parseResult.GetValue(blazorOption),
                 parseResult.GetValue(selfContainedSystemOption),
                 parseResult.GetValue(gatewayOption),
                 parseResult.GetValue(noBuildOption),
@@ -47,14 +50,15 @@ public class LintCommand : Command
         );
     }
 
-    private static void Execute(bool backend, bool frontend, bool developerCli, string? selfContainedSystem, bool gateway, bool noBuild, bool changedOnly, bool quiet)
+    private static void Execute(bool backend, bool frontend, bool developerCli, bool blazor, string? selfContainedSystem, bool gateway, bool noBuild, bool changedOnly, bool quiet)
     {
         if (gateway) AppGatewayHelper.EnsureNotCombinedWithSelfContainedSystem(selfContainedSystem);
 
-        var noFlags = !backend && !frontend && !developerCli;
+        var noFlags = !backend && !frontend && !developerCli && !blazor;
         var lintBackend = backend || noFlags;
         var lintFrontend = frontend || noFlags;
         var lintDeveloperCli = developerCli || noFlags;
+        var lintBlazor = blazor || noFlags;
 
         try
         {
@@ -77,6 +81,7 @@ public class LintCommand : Command
             var backendTime = TimeSpan.Zero;
             var frontendTime = TimeSpan.Zero;
             var developerCliTime = TimeSpan.Zero;
+            var blazorTime = TimeSpan.Zero;
             var hasIssues = false;
 
             if (lintBackend)
@@ -97,9 +102,17 @@ public class LintCommand : Command
             if (lintDeveloperCli)
             {
                 Prerequisite.Ensure(Prerequisite.Dotnet);
-                var developerCliHasIssues = RunDeveloperCliLinting(noBuild, changedOnly, quiet);
+                var developerCliHasIssues = RunSolutionLinting(new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx")), "developer-cli", noBuild, changedOnly, quiet);
                 hasIssues = hasIssues || developerCliHasIssues;
                 developerCliTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime;
+            }
+
+            if (lintBlazor)
+            {
+                Prerequisite.Ensure(Prerequisite.Dotnet);
+                var blazorHasIssues = RunSolutionLinting(new FileInfo(Path.Combine(Configuration.BlazorFolder, "Blazor.slnx")), "Blazor", noBuild, changedOnly, quiet);
+                hasIssues = hasIssues || blazorHasIssues;
+                blazorTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime - developerCliTime;
             }
 
             if (!hasIssues) SourceStateCache.Save(cacheKey);
@@ -118,13 +131,14 @@ public class LintCommand : Command
             {
                 AnsiConsole.MarkupLine($"[green]Code linting completed in {Stopwatch.GetElapsedTime(startTime).Format()}[/]");
 
-                var multipleTargets = (lintBackend ? 1 : 0) + (lintFrontend ? 1 : 0) + (lintDeveloperCli ? 1 : 0) > 1;
+                var multipleTargets = (lintBackend ? 1 : 0) + (lintFrontend ? 1 : 0) + (lintDeveloperCli ? 1 : 0) + (lintBlazor ? 1 : 0) > 1;
                 if (multipleTargets)
                 {
                     var timingLines = new List<string>();
                     if (lintBackend) timingLines.Add($"Backend:       [green]{backendTime.Format()}[/]");
                     if (lintFrontend) timingLines.Add($"Frontend:      [green]{frontendTime.Format()}[/]");
                     if (lintDeveloperCli) timingLines.Add($"Developer CLI: [green]{developerCliTime.Format()}[/]");
+                    if (lintBlazor) timingLines.Add($"Blazor:        [green]{blazorTime.Format()}[/]");
                     AnsiConsole.MarkupLine(string.Join(Environment.NewLine, timingLines));
                 }
 
@@ -332,17 +346,16 @@ public class LintCommand : Command
         return true;
     }
 
-    private static bool RunDeveloperCliLinting(bool noBuild, bool changedOnly, bool quiet)
+    // Runs from the solution's own folder so the SDK in that folder's global.json is resolved
+    private static bool RunSolutionLinting(FileInfo solutionFile, string displayName, bool noBuild, bool changedOnly, bool quiet)
     {
-        var solutionFile = new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx"));
-
         var includeArgument = string.Empty;
         if (changedOnly)
         {
             var changedCsFiles = GitHelper.GetChangedCsFilesInDirectory(solutionFile.Directory!.FullName);
             if (changedCsFiles.Length == 0)
             {
-                if (!quiet) AnsiConsole.MarkupLine("[green]No changed C# files found, skipping developer-cli linting.[/]");
+                if (!quiet) AnsiConsole.MarkupLine($"[green]No changed C# files found, skipping {displayName} linting.[/]");
                 return false;
             }
 
@@ -352,7 +365,7 @@ public class LintCommand : Command
 
         if (!noBuild)
         {
-            if (!quiet) AnsiConsole.MarkupLine("[blue]Running developer-cli code linting...[/]");
+            if (!quiet) AnsiConsole.MarkupLine($"[blue]Running {displayName} code linting...[/]");
             ProcessHelper.Run("dotnet tool restore", solutionFile.Directory!.FullName, "Tool restore", quiet);
             ProcessHelper.Run($"dotnet build {solutionFile.Name}", solutionFile.Directory!.FullName, "Build", quiet);
         }
@@ -382,12 +395,12 @@ public class LintCommand : Command
         {
             if (hasIssues)
             {
-                AnsiConsole.MarkupLine("[yellow]Developer-cli issues found. Opening result.json...[/]");
+                AnsiConsole.MarkupLine($"[yellow]{displayName} issues found. Opening result.json...[/]");
                 ProcessHelper.StartProcess("code result.json", solutionFile.Directory!.FullName);
             }
             else
             {
-                AnsiConsole.MarkupLine("[green]No developer-cli issues found![/]");
+                AnsiConsole.MarkupLine($"[green]No {displayName} issues found![/]");
             }
         }
 

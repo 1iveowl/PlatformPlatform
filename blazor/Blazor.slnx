@@ -1,0 +1,4 @@
+<Solution>
+    <Project Path="Blazor.Client\Blazor.Client.csproj"/>
+    <Project Path="Blazor.Host\Blazor.Host.csproj"/>
+</Solution>

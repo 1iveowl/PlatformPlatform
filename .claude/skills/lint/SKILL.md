@@ -6,7 +6,7 @@ description: Lint code via the developer CLI - backend (.NET via JetBrains inspe
 # Lint
 
 ```bash
-dotnet run --project developer-cli -- lint [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--no-build] [--changed-only] [--verbose]
+dotnet run --project developer-cli -- lint [--backend] [--frontend] [--cli] [--blazor] [--self-contained-system <name>] [--no-build] [--changed-only] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -14,6 +14,7 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 - `--backend` - .NET (JetBrains inspectcode)
 - `--frontend` - React/TypeScript (oxlint)
 - `--cli` - the developer CLI itself
+- `--blazor` - the Blazor build root in `blazor/`, which resolves the SDK in its own `global.json`
 - `--self-contained-system <name>` - narrows backend linting to one SCS (e.g. `account`, `main`)
 - `--no-build` - skip the rebuild step (faster after a recent build)
 - `--changed-only` - lint only `.cs` files changed against `origin/main` (much faster; see guidance below)

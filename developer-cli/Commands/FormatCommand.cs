@@ -13,6 +13,7 @@ public class FormatCommand : Command
         var backendOption = new Option<bool>("--backend", "-b") { Description = "Format backend code" };
         var frontendOption = new Option<bool>("--frontend", "-f") { Description = "Format frontend code" };
         var cliOption = new Option<bool>("--cli", "-c") { Description = "Format developer-cli code" };
+        var blazorOption = new Option<bool>("--blazor") { Description = "Format the Blazor build root (blazor/), which resolves its own SDK" };
         var selfContainedSystemOption = new Option<string?>("<self-contained-system>", "--self-contained-system", "-s") { Description = "The name of the self-contained system to format (e.g., main, account, back-office)" };
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope backend formatting to AppGateway and AppGateway.Tests" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring before formatting" };
@@ -23,6 +24,7 @@ public class FormatCommand : Command
         Options.Add(backendOption);
         Options.Add(frontendOption);
         Options.Add(cliOption);
+        Options.Add(blazorOption);
         Options.Add(selfContainedSystemOption);
         Options.Add(gatewayOption);
         Options.Add(noBuildOption);
@@ -34,6 +36,7 @@ public class FormatCommand : Command
                 parseResult.GetValue(backendOption),
                 parseResult.GetValue(frontendOption),
                 parseResult.GetValue(cliOption),
+                parseResult.GetValue(blazorOption),
                 parseResult.GetValue(selfContainedSystemOption),
                 parseResult.GetValue(gatewayOption),
                 parseResult.GetValue(noBuildOption),
@@ -43,14 +46,15 @@ public class FormatCommand : Command
         );
     }
 
-    private static void Execute(bool backend, bool frontend, bool developerCli, string? selfContainedSystem, bool gateway, bool noBuild, bool allFiles, bool quiet)
+    private static void Execute(bool backend, bool frontend, bool developerCli, bool blazor, string? selfContainedSystem, bool gateway, bool noBuild, bool allFiles, bool quiet)
     {
         if (gateway) AppGatewayHelper.EnsureNotCombinedWithSelfContainedSystem(selfContainedSystem);
 
-        var noFlags = !backend && !frontend && !developerCli;
+        var noFlags = !backend && !frontend && !developerCli && !blazor;
         var formatBackend = backend || noFlags;
         var formatFrontend = frontend || noFlags;
         var formatDeveloperCli = developerCli || noFlags;
+        var formatBlazor = blazor || noFlags;
 
         try
         {
@@ -79,6 +83,7 @@ public class FormatCommand : Command
             var backendTime = TimeSpan.Zero;
             var frontendTime = TimeSpan.Zero;
             var developerCliTime = TimeSpan.Zero;
+            var blazorTime = TimeSpan.Zero;
 
             if (formatBackend)
             {
@@ -97,8 +102,15 @@ public class FormatCommand : Command
             if (formatDeveloperCli)
             {
                 Prerequisite.Ensure(Prerequisite.Dotnet);
-                RunDeveloperCliFormat(noBuild, allFiles, quiet);
+                RunSolutionFormat(new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx")), "developer-cli", noBuild, allFiles, quiet);
                 developerCliTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime;
+            }
+
+            if (formatBlazor)
+            {
+                Prerequisite.Ensure(Prerequisite.Dotnet);
+                RunSolutionFormat(new FileInfo(Path.Combine(Configuration.BlazorFolder, "Blazor.slnx")), "Blazor", noBuild, allFiles, quiet);
+                blazorTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime - developerCliTime;
             }
 
             SourceStateCache.Save(cacheKey);
@@ -123,13 +135,14 @@ public class FormatCommand : Command
 
                 AnsiConsole.MarkupLine($"[green]Code format completed in {Stopwatch.GetElapsedTime(startTime).Format()}[/]");
 
-                var multipleTargets = (formatBackend ? 1 : 0) + (formatFrontend ? 1 : 0) + (formatDeveloperCli ? 1 : 0) > 1;
+                var multipleTargets = (formatBackend ? 1 : 0) + (formatFrontend ? 1 : 0) + (formatDeveloperCli ? 1 : 0) + (formatBlazor ? 1 : 0) > 1;
                 if (multipleTargets)
                 {
                     var timingLines = new List<string>();
                     if (formatBackend) timingLines.Add($"Backend:       [green]{backendTime.Format()}[/]");
                     if (formatFrontend) timingLines.Add($"Frontend:      [green]{frontendTime.Format()}[/]");
                     if (formatDeveloperCli) timingLines.Add($"Developer CLI: [green]{developerCliTime.Format()}[/]");
+                    if (formatBlazor) timingLines.Add($"Blazor:        [green]{blazorTime.Format()}[/]");
                     AnsiConsole.MarkupLine(string.Join(Environment.NewLine, timingLines));
                 }
             }
@@ -207,11 +220,10 @@ public class FormatCommand : Command
         ProcessHelper.Run("npm run format", Configuration.ApplicationFolder, "Frontend format", quiet);
     }
 
-    private static void RunDeveloperCliFormat(bool noBuild, bool allFiles, bool quiet)
+    // Runs from the solution's own folder so the SDK in that folder's global.json is resolved
+    private static void RunSolutionFormat(FileInfo solutionFile, string displayName, bool noBuild, bool allFiles, bool quiet)
     {
-        var solutionFile = new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx"));
-
-        if (!quiet) AnsiConsole.MarkupLine("[blue]Running developer-cli code format...[/]");
+        if (!quiet) AnsiConsole.MarkupLine($"[blue]Running {displayName} code format...[/]");
 
         var includeArgument = string.Empty;
         if (!allFiles)
@@ -219,7 +231,7 @@ public class FormatCommand : Command
             var changedCsFiles = GitHelper.GetChangedCsFilesInDirectory(solutionFile.Directory!.FullName);
             if (changedCsFiles.Length == 0)
             {
-                if (!quiet) AnsiConsole.MarkupLine("[green]No changed C# files found, skipping developer-cli format.[/]");
+                if (!quiet) AnsiConsole.MarkupLine($"[green]No changed C# files found, skipping {displayName} format.[/]");
                 return;
             }
 
