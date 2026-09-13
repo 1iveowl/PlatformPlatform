@@ -6,7 +6,7 @@ description: Run backend (.NET) xUnit unit and integration tests via the develop
 # Test
 
 ```bash
-dotnet run --project developer-cli -- test [--self-contained-system <name>] [--filter <expr>] [--no-build] [--exclude-category <cat>] --quiet
+dotnet run --project developer-cli -- test [--self-contained-system <name>] [--filter <expr>] [--no-build] [--exclude-category <cat>] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -25,12 +25,12 @@ After `build` succeeds, run `format`, `lint`, `test` in parallel with `--no-buil
 ## Examples
 
 ```bash
-dotnet run --project developer-cli -- test --quiet                                                # all tests
-dotnet run --project developer-cli -- test --self-contained-system account --quiet                # one SCS
-dotnet run --project developer-cli -- test --filter "FullyQualifiedName~LoginTests" --quiet       # filter by name
-dotnet run --project developer-cli -- test --no-build --quiet                                     # after a recent build
+dotnet run --project developer-cli -- test                                                # all tests
+dotnet run --project developer-cli -- test --self-contained-system account                # one SCS
+dotnet run --project developer-cli -- test --filter "FullyQualifiedName~LoginTests"       # filter by name
+dotnet run --project developer-cli -- test --no-build                                     # after a recent build
 ```
 
-## Always pass --quiet
+## Output
 
-Verbose output goes to a log file. On success the CLI prints a one-line summary (totals + duration); on failure it lists the failed test names plus the log path - read the log if you need stack traces. Without `--quiet` every test result streams into the conversation.
+By default a passing run prints one summary line (totals and duration). A failing run prints the summary, the failed test names (capped at 30) and the path to the full log; read the log for stack traces. Pass `--verbose` only when you need every test result streamed; it floods the conversation.

@@ -1,6 +1,6 @@
 ---
 name: aspire-restart
-description: Start or restart the .NET Aspire AppHost via the developer CLI. Always use this, never the developer CLI's `run` command, `aspire run`, or `aspire restart`.
+description: Start or restart the Aspire AppHost via the developer CLI. Always use this, never `run`, `aspire run` or `aspire restart`.
 ---
 
 # Restart Aspire

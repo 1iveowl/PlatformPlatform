@@ -1,6 +1,6 @@
 ---
 name: swc-plugin-compatibility
-description: Diagnose and fix Lingui SWC plugin compatibility errors with Next.js, Rspack, or other SWC runtimes. Use when seeing errors like "failed to invoke plugin", "failed to run Wasm plugin transform", "out of bounds memory access", or "LayoutError" during builds with @lingui/swc-plugin.
+description: Fix @lingui/swc-plugin errors such as "failed to invoke plugin", "failed to run Wasm plugin transform" or "LayoutError".
 ---
 
 # SWC Plugin Compatibility

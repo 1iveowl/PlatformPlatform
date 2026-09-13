@@ -1,0 +1,75 @@
+---
+name: codebase-overview
+description: Invoke first, before ls or grep, for where code lives or would live, which system owns a feature, or adding an OAuth provider, tab or endpoint.
+---
+
+# Codebase Overview
+
+Verified at 0982adae1 (2026-09-12). Use `ls`, LSP and the path-scoped rules in `.claude/rules/` for detail; this
+skill holds only what they cannot tell you. Terms: [references/glossary.md](references/glossary.md).
+
+## Routing
+
+| Where | Owns |
+| --- | --- |
+| `application/account/` | Identity, tenants, users and invitations, email and external login, sessions, subscriptions, billing, feature flags, back office |
+| `application/main/` | The product slot: host SPA that consumes account's federated modules; no features yet |
+| `application/<scs>/{Api,Core,Workers,Tests,WebApp}` | Endpoints, features and integrations, migrations host, xunit tests, React SPA |
+| `application/account/BackOffice/` | Admin SPA; tabs are folders under `routes/`, menu in `shared/components/BackOfficeSideMenu.tsx`, API in `account/Api/BackOffice/` |
+| `application/shared-kernel/SharedKernel/` | CQRS, domain, persistence, auth, OpenID Connect, feature flags, telemetry, port allocation |
+| `application/shared-webapp/` | `@repo/ui`, `@repo/infrastructure`, `@repo/build`, shared Playwright setup |
+| `application/AppHost/`, `application/AppGateway/` | Aspire orchestration and parameters; YARP proxy that turns auth cookies into bearer tokens |
+| `developer-cli/` | The `pp` CLI behind the build, test, format, lint and e2e skills |
+| `cloud-infrastructure/` | Bicep and bash: `environment/`, `cluster/`, `modules/` |
+
+Inside `Core/Features/<Feature>/`: `Commands/`, `Queries/`, `Domain/` (aggregate, types, EF configuration,
+repository), `Shared/`. Integrations sit in `Core/Integrations/`.
+
+There is no generated project dependency graph in this repository; derive project references from `PlatformPlatform.slnx`
+and the `.csproj` files.
+
+## Patterns to copy, not invent
+
+- **External provider**: mirror Google, Entra or MitId. Provider class in
+  `account/Core/Integrations/OAuth/<Provider>/` implementing `IOAuthProvider`; keyed registration plus a
+  `mock-<provider>` registration in `account/Core/Configuration.cs`; a value in `ExternalProviderType`
+  (`Features/ExternalAuthentication/Domain/ExternalAuthenticationTypes.cs`); an AppHost parameter block with
+  `OAuth__<Provider>__*` environment variables; a `SystemFeatureFlag` in `SharedKernel/FeatureFlags/FeatureFlags.cs`;
+  Bicep parameters and Key Vault secrets under `cloud-infrastructure/cluster/`; entries in
+  `developer-cli/Commands/GithubConfigCommand.cs`; login and signup buttons; tests in
+  `account/Tests/ExternalAuthentication/`.
+- **Endpoint**: implement `IEndpoints`, `MapGroup(...).WithTags(...).RequireAuthorization()`, one-line handlers that
+  `await mediator.Send(...)`, `.AllowAnonymous()` only for public routes.
+- **Pipeline**: Validation, Handler, PublishDomainEvents, UnitOfWork, PublishTelemetryEvents (registered in
+  `SharedKernel/Configuration/SharedDependencyConfiguration.cs`).
+- **Command file**: record, validator and handler in one sealed-class file with primary constructors, returning
+  `Result<T>`.
+- **Strongly typed id**: `[IdPrefix("usr")] public sealed record UserId(string Value) : StronglyTypedUlid<UserId>(Value)`;
+  an architecture test fails without the prefix.
+- **Repository**: interface extends `ICrudRepository`, class extends `RepositoryBase`, Scrutor registers it. Tenant
+  scoping is an EF query filter; methods that bypass it end in `UnfilteredAsync`.
+- **Migration**: hand written in `Core/Database/Migrations/YYYYMMDDHHmmss_Name.cs`, Up only, snake_case, `text`,
+  `timestamptz`, `jsonb`. Never produced by EF tooling.
+- **Telemetry event**: sealed class deriving `TelemetryEvent` in `Features/TelemetryEvents.cs`, past tense name,
+  collected in the handler.
+- **Backend test**: derive from `EndpointBaseTest<AccountDbContext>`, seed with `DatabaseSeeder`, assert telemetry
+  through the collector spy.
+- **Frontend route**: `createFileRoute` with `staticData.trackingTitle`, guards from
+  `shared-webapp/infrastructure/auth/routeGuards.ts`, Lingui translations, `api.useQuery` and `api.useMutation`.
+
+## Gotchas
+
+- The `pp` CLI refuses to run outside this repository's git root, and the bash hook blocks `cd`; use the skills.
+- Google's redirect allowlist needs literal `https://localhost:<base port>`; `AppGateway/Middleware/LocalhostRedirectMiddleware.cs`
+  bounces back to `app.dev.localhost` so state cookies survive.
+- `ExternalAvatarClient` downloads avatars only from `.googleusercontent.com` and `.gravatar.com`.
+- All worktrees share one AppHost user secrets store: `UserSecretsId` is tracked in `application/AppHost/AppHost.csproj`.
+  Changing an OAuth or Postgres secret for one worktree changes it for all.
+- No GitHub workflow runs Playwright, so the end-to-end suite is ungated and can be red on main. Run the baseline
+  before blaming a branch.
+- The Postgres container survives Aspire restarts and `email_logins` accumulates, so repeated full e2e runs exhaust
+  one-time-password attempts. Prefer sequential single-browser runs.
+- `.claude/commands/` no longer exists, but `SyncAiRulesAndWorkflowsCommand.cs` still reads it (a no-op).
+- `developer-cli/Program.cs` special-cases an `mcp` command that does not exist; only `mcp-setup` does.
+- `.github/dependabot.yml` is a stub; package updates go through the upgrade-packages skill.
+- `.editorconfig` exists in `application/` and `developer-cli/`, not at the root.

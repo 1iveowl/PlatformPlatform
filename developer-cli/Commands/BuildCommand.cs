@@ -16,7 +16,8 @@ public class BuildCommand : Command
         var cliOption = new Option<bool>("--cli", "-c") { Description = "Build developer-cli code" };
         var selfContainedSystemOption = new Option<string?>("<self-contained-system>", "--self-contained-system", "-s") { Description = "The name of the self-contained system to build (e.g., main, account, back-office)" };
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope backend work to AppGateway and AppGateway.Tests" };
-        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Minimal output mode" };
+        var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
+        var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
 
         Options.Add(backendOption);
         Options.Add(frontendOption);
@@ -25,6 +26,7 @@ public class BuildCommand : Command
         Options.Add(selfContainedSystemOption);
         Options.Add(gatewayOption);
         Options.Add(quietOption);
+        Options.Add(verboseOption);
 
         SetAction(parseResult => Execute(
                 parseResult.GetValue(backendOption),
@@ -33,7 +35,7 @@ public class BuildCommand : Command
                 parseResult.GetValue(cliOption),
                 parseResult.GetValue(selfContainedSystemOption),
                 parseResult.GetValue(gatewayOption),
-                parseResult.GetValue(quietOption)
+                !parseResult.GetValue(verboseOption)
             )
         );
     }

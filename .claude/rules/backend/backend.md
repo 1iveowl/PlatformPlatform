@@ -1,5 +1,5 @@
 ---
-paths: **/*.cs,**/*.csproj,**/*.slnx,**/*.slnx.DotSettings,**/*.props,**/*.targets,**/*.json,.editorconfig
+paths: **/*.cs,**/*.csproj,**/*.slnx,**/*.slnx.DotSettings,**/*.props,**/*.targets,**/appsettings*.json,application/global.json,application/dotnet-tools.json,application/.editorconfig
 description: Core rules for C# development and tooling
 ---
 

@@ -8,6 +8,10 @@
       "command": "aspire",
       "args": ["agent", "mcp"]
     },
+    "linear-server": {
+      "type": "http",
+      "url": "https://mcp.linear.app/mcp"
+    },
     "azure-staging": {
       "command": "npx",
       "args": [

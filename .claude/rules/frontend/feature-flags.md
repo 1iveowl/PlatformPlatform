@@ -1,4 +1,5 @@
 ---
+paths: **/*.tsx,**/*.ts
 description: Non-obvious behaviour of the feature flag system on the frontend (hook, codegen, propagation timing)
 ---
 

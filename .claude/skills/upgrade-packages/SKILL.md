@@ -1,6 +1,6 @@
 ---
 name: upgrade-packages
-description: Upgrade all backend (.NET/NuGet), frontend (npm), and GitHub Actions dependencies to their latest versions, in that fixed order. Drives the developer CLI's update-packages command, parses its quiet dry-run output to separate trivial bumps from majors, ships trivial bumps as one bulk commit per side, and gives every major (and any code/config change) its own clean commit. Detects required toolchain installs (e.g. a new .NET SDK that needs sudo) and asks the user to run them up front so the backend upgrades first. Fixes the CLI itself when it produces a wrong outcome.
+description: Upgrade backend NuGet, frontend npm and GitHub Actions dependencies, trivial bumps in one commit per side and each major in its own commit.
 ---
 
 # Upgrade Packages

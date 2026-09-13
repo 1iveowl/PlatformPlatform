@@ -1,6 +1,6 @@
 ---
 name: lingui-best-practices
-description: Implement internationalization with Lingui in React and JavaScript applications. Use when adding i18n, translating UI, working with Trans/useLingui/Plural, extracting messages, compiling catalogs, or when the user mentions Lingui, internationalization, i18n, translations, locales, message extraction, ICU MessageFormat, or working with .po files.
+description: Lingui i18n in React: Trans, useLingui, Plural, message extraction, catalogs, ICU MessageFormat and .po files.
 ---
 
 # Lingui Best Practices

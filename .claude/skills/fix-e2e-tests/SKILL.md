@@ -1,6 +1,6 @@
 ---
 name: fix-e2e-tests
-description: Systematically fix all failing E2E tests using a phased diagnostic approach. Classifies tests as passing, flaky, or permanently failing, then fixes them one by one with progressive scope expansion.
+description: Fix all failing E2E tests with a phased diagnosis that classifies each as passing, flaky or permanently failing.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

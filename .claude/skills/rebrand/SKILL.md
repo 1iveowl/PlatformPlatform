@@ -1,6 +1,6 @@
 ---
 name: rebrand
-description: Apply a downstream brand to a PlatformPlatform fork. Edits one config file, drops in eight supplied logo assets, renames the solution and CLI to the new brand, and rotates UserSecretsId across every csproj. Skips all other source files. Use once per downstream fork after cloning, or to re-flip a brand later.
+description: Apply a downstream brand to a PlatformPlatform fork: brand config, logos, solution and CLI rename, UserSecretsId rotation.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 

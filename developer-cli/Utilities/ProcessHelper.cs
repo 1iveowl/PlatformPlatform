@@ -300,26 +300,37 @@ public sealed record ProcessResult(int ExitCode, string StdOut, string StdErr, s
 
     public string GetErrorSummary(string operation)
     {
-        var errorLines = CombinedOutput
+        var outputLines = CombinedOutput
             .Split('\n')
+            .Select(line => line.Trim())
             .Where(line => !string.IsNullOrWhiteSpace(line))
             .ToArray();
+
+        // MSBuild and tsc repeat each error in their summaries, and warnings treated as errors are reported as errors,
+        // so distinct error lines are the failures. Fall back to the first lines when the tool reports errors differently.
+        var diagnosticLines = outputLines
+            .Where(line => line.Contains(": error ", StringComparison.OrdinalIgnoreCase) || line.Contains(" error TS", StringComparison.Ordinal))
+            .Distinct()
+            .ToArray();
+        var maxLinesShown = diagnosticLines.Length > 0 ? 20 : 3;
+        var errorLines = diagnosticLines.Length > 0 ? diagnosticLines : outputLines;
 
         var outputBuilder = new StringBuilder();
         outputBuilder.Append(operation).AppendLine(" failed.");
         outputBuilder.AppendLine();
 
-        foreach (var line in errorLines.Take(3))
+        foreach (var line in errorLines.Take(maxLinesShown))
         {
-            outputBuilder.Append("  ").AppendLine(line.Trim());
+            outputBuilder.Append("  ").AppendLine(line);
         }
 
-        if (errorLines.Length > 3)
+        if (errorLines.Length > maxLinesShown)
         {
-            outputBuilder.Append("  ... and ").Append(errorLines.Length - 3).AppendLine(" more lines");
-            outputBuilder.AppendLine();
-            outputBuilder.Append("Full output: ").Append(TempFilePath).Append(" (").Append(ProcessHelper.FormatFileSize(TempFilePath)).Append(')');
+            outputBuilder.Append("  ... and ").Append(errorLines.Length - maxLinesShown).AppendLine(" more lines");
         }
+
+        outputBuilder.AppendLine();
+        outputBuilder.Append("Full output: ").Append(TempFilePath).Append(" (").Append(ProcessHelper.FormatFileSize(TempFilePath)).Append(')');
 
         return outputBuilder.ToString();
     }
