@@ -5,6 +5,7 @@
 3. Read before you write: the file's exports, its immediate caller and the shared utilities it uses.
 4. Checkpoint after each step: what was done, what is verified, what is left.
 5. Fail loud: "completed", "tests pass" and "works" are wrong if anything was skipped or left unverified.
+6. Write plainly: state facts directly; omit self-referential assurances, intent-signalling and rhetorical filler.
 
 ## Build, Test, and Format
 
