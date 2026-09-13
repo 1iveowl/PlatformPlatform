@@ -20,7 +20,7 @@ This is an alternative, not a successor. PlatformPlatform classic remains the Re
 
 Teams that are already all-C# and regard a second language as a cost. If your team debugs, tests and reviews in .NET, this edition removes the React frontend from its remit.
 
-If you have frontend specialists or want the deepest component ecosystem, choose PlatformPlatform classic. It will stay ahead.
+If you have frontend specialists or want the deepest component ecosystem, choose PlatformPlatform classic.
 
 ## Advantages
 
