@@ -22,6 +22,8 @@ Teams that are already all-C# and regard a second language as a cost. If your te
 
 If you have frontend specialists or want the deepest component ecosystem, choose PlatformPlatform classic.
 
+Blazor tends to appear in public sector and enterprise internal-tool work, React in product-facing consumer applications, so it's more about which segment you're targeting than which frontend technology is best.
+
 ## Advantages
 
 * **One language, toolchain and debugger** - The application will be C#. A single debugging session can step from a Razor event handler into a command handler. It has one build, formatter, linter, test runner, dependency file and upgrade path.
