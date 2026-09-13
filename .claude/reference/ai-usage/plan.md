@@ -19,6 +19,10 @@ framework specifics into the always-loaded instruction set.
 
 ## 2. Baseline, measured 2026-09-12
 
+The totals below are superseded. Use `baseline-2026-09-12.md` next to this file, or regenerate with
+`pp claude-usage`; the per-call ratios and the conclusions drawn here stand. This section is kept as the
+record of what the plan was based on.
+
 Source: the 14 main-session and 51 subagent transcripts under `~/.claude/projects/` for this container,
 2026-09-03 to 2026-09-12, covering PR 1 to PR 3 plus environment work. The analysis scripts are in the session
 scratchpad and will be checked in as step 4.1.
