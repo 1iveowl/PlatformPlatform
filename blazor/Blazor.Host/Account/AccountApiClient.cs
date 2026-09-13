@@ -60,7 +60,10 @@ public sealed class AccountApiClient(HttpClient httpClient, IHttpContextAccessor
 
         if (response.Headers.TryGetValues("Set-Cookie", out var setCookies))
         {
-            foreach (var setCookie in setCookies) context.Response.Headers.Append("Set-Cookie", setCookie);
+            foreach (var setCookie in setCookies)
+            {
+                context.Response.Headers.Append("Set-Cookie", setCookie);
+            }
         }
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);

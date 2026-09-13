@@ -1,5 +1,6 @@
 using ApexCharts;
 using Blazor.Client.Bootstrap;
+using Blazor.Client.Users;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.FluentUI.AspNetCore.Components;
 
@@ -11,5 +12,8 @@ builder.Services.AddApexCharts();
 // Spike (B2): same-origin calls through the gateway, which turns the session cookies into a bearer token
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddScoped<IBootstrapSource, HttpBootstrapSource>();
+
+// Spike (B3): the users calls and their page cache, shared by both grid components
+builder.Services.AddScoped<UsersApiClient>();
 
 await builder.Build().RunAsync();

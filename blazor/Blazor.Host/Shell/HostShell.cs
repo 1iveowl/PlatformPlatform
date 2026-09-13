@@ -131,11 +131,14 @@ public sealed class HostShell
         return next(context);
     }
 
-    // Spike only: the csp-variant query value exists for the B1 negative policy tests and must never be ported
+    // Spike only: the csp-variant query value exists for the B1 negative policy tests and the B3 style-attribute comparison,
+    // and must never be ported
     private string BuildContentSecurityPolicy(string nonce, string variant)
     {
         var wasmUnsafeEval = variant == "no-wasm-eval" ? "" : " 'wasm-unsafe-eval'";
         var strictDynamic = variant == "no-strict-dynamic" ? "" : " 'strict-dynamic'";
+        // B3: allows style attributes only; <style> elements and stylesheet loads stay under the nonce and host list
+        var styleAttributes = variant == "style-attr-unsafe-inline" ? "style-src-attr 'unsafe-inline'" : null;
 
         var directives = new[]
         {
@@ -151,7 +154,7 @@ public sealed class HostShell
             "base-uri 'none'"
         };
 
-        return string.Join(";", directives);
+        return string.Join(";", styleAttributes is null ? directives : [.. directives, styleAttributes]);
     }
 
     // Mirrors the claim reads in SharedKernel's UserInfo.Create; strongly typed ids serialize as strings there (StronglyTypedIdJsonConverter)

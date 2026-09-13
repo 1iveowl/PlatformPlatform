@@ -48,3 +48,64 @@ h1:focus {
     width: 80px;
     flex-shrink: 0;
 }
+
+/* Spike code (Blazor edition, stage B3): layout for the users list in Blazor.Client/Users. The grid's scroll container needs a
+   fixed height for virtualization to have a viewport; kept here for the same reasons as the B1 rules above */
+.users-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    align-items: end;
+    flex-wrap: wrap;
+    margin-block: 1rem;
+}
+
+.users-layout {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.users-grid {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.users-grid-scroll {
+    height: 70vh;
+    overflow: auto;
+}
+
+.users-quickgrid tr {
+    height: 56px;
+}
+
+.users-quickgrid tr.row-selected {
+    background: var(--brand-primary-foreground, #eef);
+}
+
+.users-quickgrid .row-open {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.profile-pane {
+    flex: 0 0 22rem;
+    border-inline-start: 1px solid #ddd;
+    padding-inline: 1rem;
+}
+
+.dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+}
+
+.dialog-actions {
+    display: flex;
+    gap: 0.5rem;
+}

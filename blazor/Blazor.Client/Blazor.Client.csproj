@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <PackageReference Include="Blazor-ApexCharts" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
         <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" />
     </ItemGroup>

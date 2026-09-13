@@ -1,0 +1,12 @@
+@* Spike code (Blazor edition, stage B3): the users list on FluentDataGrid. Not prerendered: the list is
+   data behind login that the WebAssembly component fetches itself, so a prerender would render an empty grid twice. *@
+@page "/app/users/fluent"
+@using Blazor.Client.Users
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>Users</PageTitle>
+
+<UsersSurface Grid="fluent" @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)"/>
