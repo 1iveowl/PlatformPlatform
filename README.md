@@ -18,10 +18,6 @@
 
 <a href="docs/BLAZOR.md"><img src="https://img.shields.io/badge/New-Blazor%20WebAssembly-512BD4?logo=blazor&logoColor=white" alt="Blazor WebAssembly frontend" title="Blazor WebAssembly frontend" /></a>
 
-Sign in with
-
-&nbsp;&nbsp;<a href="#31-optional-set-up-google-oauth-for-sign-in-with-google-on-localhost"><img src="application/account/WebApp/shared/images/google-icon.svg" alt="Sign in with Google" title="Sign in with Google" height="20" /></a>&nbsp;&nbsp;<a href="#33-optional-set-up-microsoft-entra-id-for-sign-in-with-microsoft-on-localhost"><img src="application/account/WebApp/shared/images/microsoft-icon.svg" alt="Sign in with Microsoft Entra ID" title="Sign in with Microsoft Entra ID" height="20" /></a>&nbsp;&nbsp;<a href="#34-optional-set-up-mitid-on-localhost"><img src="application/account/WebApp/shared/images/mitid-logo-blue.svg" alt="Sign in with MitID" title="Sign in with MitID" height="20" /></a>&nbsp;&nbsp;<img src="https://img.shields.io/badge/Email-one--time%20password-555555" alt="Sign in with an email one-time password" title="Sign in with an email one-time password" />
-
 </h4>
 
 # 👋 Welcome to PlatformPlatform
@@ -35,6 +31,15 @@ Built to demonstrate seamless flow: backend contracts feed a fully-typed React U
 ## About this fork
 
 This is a friendly fork of [PlatformPlatform](https://github.com/platformplatform/PlatformPlatform). It adds Microsoft Entra ID as a login and signup provider, Danish MitID for identity verification and login, and it is heading for a frontend written entirely in C# and Razor with Blazor WebAssembly.
+
+The sign-in options, including the two this fork adds:
+
+| Sign in with | What it is |
+| -- | -- |
+| <img src="application/account/WebApp/shared/images/google-icon.svg" alt="Google" height="18" /> [**Google**](#31-optional-set-up-google-oauth-for-sign-in-with-google-on-localhost) | Google OAuth over OpenID Connect with PKCE. Optional on localhost. |
+| <img src="application/account/WebApp/shared/images/microsoft-icon.svg" alt="Microsoft Entra ID" height="18" /> [**Microsoft Entra ID**](#33-optional-set-up-microsoft-entra-id-for-sign-in-with-microsoft-on-localhost) | Work, school and personal Microsoft accounts through one multi-tenant app registration, over OpenID Connect with PKCE. An account is only created at signup when the token carries a verified email. |
+| <img src="application/account/WebApp/shared/images/mitid-logo-blue.svg" alt="MitID" height="18" /> [**MitID**](#34-optional-set-up-mitid-on-localhost) | The Danish national electronic ID, through the [Idura](https://idura.eu) broker. A signed-in user proves who they are, and once verified can use it to sign in. It can never be used to sign up. |
+| ✉️ **Email one-time password** | A code sent to the email address, so there is no password to store. Needs no configuration, and `UNLOCK` stands in for the code on localhost. |
 
 That last one is not a verdict on React. Upstream's React frontend is genuinely excellent, and it is the reason this fork had such a good place to start from: fully typed against the backend contracts, localized, accessible, and a pleasure to read. Blazor is not the better framework either. It is the better fit for an all-C# team, where a second language in the stack is a cost somebody has to keep paying. If you have frontend people, or you want the deepest component ecosystem available, upstream is the stronger choice and will stay ahead of this fork. The backend architecture is identical in both, so whichever you pick, you get the part that took the longest to get right.
 
