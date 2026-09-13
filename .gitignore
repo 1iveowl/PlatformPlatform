@@ -437,3 +437,4 @@ application/playwright.combined.config.ts
 # Claude Code scheduled-tasks runtime lock
 .claude/scheduled_tasks.lock
 .claude/worktrees
+dotnet/runfile-discovery/PlatformPlatform-85d26b74cc1831f1938e2b4bfbb22be15e4268b5d26b85e645b9742e74825bf9/cache.staging.json
