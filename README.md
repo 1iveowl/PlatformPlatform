@@ -18,7 +18,9 @@
 
 <a href="docs/BLAZOR.md"><img src="https://img.shields.io/badge/New-Blazor%20WebAssembly-512BD4?logo=blazor&logoColor=white" alt="Blazor WebAssembly frontend" title="Blazor WebAssembly frontend" /></a>
 
-Sign in with&nbsp;&nbsp;<a href="#31-optional-set-up-google-oauth-for-sign-in-with-google-on-localhost"><img src="application/account/WebApp/shared/images/google-icon.svg" alt="Sign in with Google" title="Sign in with Google" height="20" /></a>&nbsp;&nbsp;<a href="#33-optional-set-up-microsoft-entra-id-for-sign-in-with-microsoft-on-localhost"><img src="application/account/WebApp/shared/images/microsoft-icon.svg" alt="Sign in with Microsoft Entra ID" title="Sign in with Microsoft Entra ID" height="20" /></a>&nbsp;&nbsp;<a href="#34-optional-set-up-mitid-on-localhost"><img src="application/account/WebApp/shared/images/mitid-logo-blue.svg" alt="Sign in with MitID" title="Sign in with MitID" height="20" /></a>&nbsp;&nbsp;<img src="https://img.shields.io/badge/Email-one--time%20password-555555" alt="Sign in with an email one-time password" title="Sign in with an email one-time password" />
+Sign in with
+
+&nbsp;&nbsp;<a href="#31-optional-set-up-google-oauth-for-sign-in-with-google-on-localhost"><img src="application/account/WebApp/shared/images/google-icon.svg" alt="Sign in with Google" title="Sign in with Google" height="20" /></a>&nbsp;&nbsp;<a href="#33-optional-set-up-microsoft-entra-id-for-sign-in-with-microsoft-on-localhost"><img src="application/account/WebApp/shared/images/microsoft-icon.svg" alt="Sign in with Microsoft Entra ID" title="Sign in with Microsoft Entra ID" height="20" /></a>&nbsp;&nbsp;<a href="#34-optional-set-up-mitid-on-localhost"><img src="application/account/WebApp/shared/images/mitid-logo-blue.svg" alt="Sign in with MitID" title="Sign in with MitID" height="20" /></a>&nbsp;&nbsp;<img src="https://img.shields.io/badge/Email-one--time%20password-555555" alt="Sign in with an email one-time password" title="Sign in with an email one-time password" />
 
 </h4>
 
