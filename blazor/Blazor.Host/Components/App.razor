@@ -1,20 +1,103 @@
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Antiforgery
+@* Spike code (Blazor edition, stage B1): the host page. Carries the React shell's substituted values as meta tags and
+   puts the per-request CSP nonce on the import map, the brand style block, the stylesheet links and blazor.web.js.
+   Every URL it renders is absolute under the path base, because base-uri 'none' makes the browser ignore <base href>;
+   b1-shell/document-base.js gives Blazor's scripts the path base as document.baseURI for the same reason. *@
+@inject HostShell Shell
+@inject IAntiforgery Antiforgery
+
 <!DOCTYPE html>
-<html lang="en">
+@* no-fuib-style: FluentUI's initializer otherwise fetches "./_content/.../css/default-fuib.css" with the native fetch, which
+   resolves against the document URL and returns 404 below the path base; the host links the same file absolutely instead *@
+<html lang="@_locale" no-fuib-style>
 
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <BasePath/>
-    <ResourcePreloader/>
-    <link rel="stylesheet" href="@Assets["app.css"]"/>
-    <link rel="stylesheet" href="@Assets["Blazor.Host.styles.css"]"/>
-    <ImportMap/>
+    <meta name="theme-color" content="@Shell.Brand.ThemeColorLight"/>
+    <meta name="csp-nonce" content="@_nonce"/>
+    <meta name="runtimeEnv" content="@Shell.RuntimeEnvironmentJson"/>
+    <meta name="userInfoEnv" content="@_userInfoJson"/>
+    <meta name="antiforgeryToken" content="@_antiforgeryToken"/>
+    <title>@Shell.Brand.ProductName</title>
+    @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce *@
+    @foreach (var link in _preloadLinks)
+    {
+        <link href="@link.Href" rel="@link.Rel" as="@link.As" fetchpriority="@link.FetchPriority" crossorigin="@link.CrossOrigin" integrity="@link.Integrity"/>
+    }
+    <style nonce="@_nonce">
+        :root, .light {
+            --brand-primary: @Shell.Brand.PrimaryColorLight;
+            --brand-primary-foreground: @Shell.Brand.PrimaryColorLightForeground;
+        }
+        .dark {
+            --brand-primary: @Shell.Brand.PrimaryColorDark;
+            --brand-primary-foreground: @Shell.Brand.PrimaryColorDarkForeground;
+        }
+    </style>
+    <link rel="stylesheet" href="@Asset("_content/Microsoft.FluentUI.AspNetCore.Components/css/default-fuib.css")" nonce="@_nonce"/>
+    <link rel="stylesheet" href="@Asset("app.css")" nonce="@_nonce"/>
+    <link rel="stylesheet" href="@Asset("Blazor.Host.styles.css")" nonce="@_nonce"/>
+    <ImportMap ImportMapDefinition="_importMap" nonce="@_nonce"/>
     <HeadOutlet/>
 </head>
 
 <body>
 <Routes/>
-<script src="@Assets["_framework/blazor.web.js"]"></script>
+@if (_renderTestHooks)
+{
+    @* CSP test hooks (B1), opt-in with ?b1-hooks=1: each sets a data attribute on <html> only if the browser lets it run *@
+    <script src="@Asset("b1-hooks/same-origin.js")"></script>
+    <script src="@_disallowedOriginHookUrl"></script>
+    <script>document.documentElement.dataset.b1InlineNoNonce = "ran";</script>
+}
+@if (_setApexChartsNonce)
+{
+    <script src="@Asset("b1-shell/apexcharts-nonce.js")" nonce="@_nonce"></script>
+}
+<script src="@Asset("b1-shell/document-base.js")" data-base="@(HttpContext.Request.PathBase)/" nonce="@_nonce"></script>
+<script src="@Asset("_framework/blazor.web.js")" nonce="@_nonce"></script>
 </body>
 
 </html>
+
+@code {
+
+    private string _antiforgeryToken = "";
+    private string _disallowedOriginHookUrl = "";
+    private ImportMapDefinition? _importMap;
+    private string _locale = "";
+    private string _nonce = "";
+    private PreloadLink[] _preloadLinks = [];
+    private bool _renderTestHooks;
+    private bool _setApexChartsNonce;
+    private string _userInfoJson = "";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        _nonce = HostShell.GetNonce(HttpContext);
+        _locale = HostShell.GetLocale(HttpContext.User);
+        _userInfoJson = Shell.GetUserInfoJson(HttpContext);
+        _antiforgeryToken = Antiforgery.GetAndStoreTokens(HttpContext).RequestToken!;
+
+        var pathBase = HttpContext.Request.PathBase;
+        var importMap = HttpContext.GetEndpoint()?.Metadata.GetMetadata<ImportMapDefinition>() ?? ImportMapDefinition.FromResourceCollection(Assets);
+        _importMap = Shell.GetAbsoluteImportMap(importMap, pathBase);
+        _preloadLinks = HostShell.GetPreloadLinks(Assets, _importMap, pathBase).OrderBy(link => link.Order).ToArray();
+        _renderTestHooks = HttpContext.Request.Query["b1-hooks"] == "1";
+        _setApexChartsNonce = HttpContext.Request.Query["b1-apex-nonce"] == "1";
+
+        // The host's own Kestrel origin (https://localhost:<port>) differs from the gateway origin in the policy's host list
+        _disallowedOriginHookUrl = $"https://localhost:{HttpContext.Connection.LocalPort}{pathBase}/b1-hooks/disallowed-origin.js";
+    }
+
+    private string Asset(string name)
+    {
+        return HostShell.ToAbsoluteUrl(HttpContext.Request.PathBase, Assets[name]);
+    }
+
+}

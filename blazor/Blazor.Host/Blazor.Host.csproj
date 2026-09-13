@@ -7,6 +7,9 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+        <!-- Spike (B1): brotli stays publish-only (the SDK default). With brotli at build, the Development static asset handler
+             re-compresses package assets whose manifest timestamp differs from the extracted file as gzip but keeps the
+             br Content-Encoding, so browsers fail with a decoding error (observed on 11.0.0-rc.1.26425.128) -->
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,7 +17,13 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Spike: the same brand source file the React shell reads through SharedKernel's Settings.Current -->
+        <EmbeddedResource Include="..\..\application\platform-settings.jsonc" LogicalName="platform-settings.jsonc" />
     </ItemGroup>
 
 </Project>

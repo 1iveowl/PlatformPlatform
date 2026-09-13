@@ -36,3 +36,15 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* Spike code (Blazor edition, stage B1): layout for the FluentOverflow event check in Blazor.Client/B1Overflow.razor. Kept
+   here rather than in component-scoped CSS because WebKit resolves the scoped bundle's @import against the document URL
+   under the path base, and the nonce-only style-src blocks style attributes */
+.b1-overflow-row {
+    width: 240px;
+}
+
+.b1-overflow-item {
+    width: 80px;
+    flex-shrink: 0;
+}

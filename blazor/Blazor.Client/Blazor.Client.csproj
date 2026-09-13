@@ -17,4 +17,9 @@
         <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!-- Spike (B1): keeps a FluentUI event args element type that the trimmer removes, see the file -->
+        <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
+    </ItemGroup>
+
 </Project>

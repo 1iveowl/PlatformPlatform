@@ -1,0 +1,6 @@
+@* Spike code (Blazor edition, stage B1): hosts the FluentOverflow event check, apart from the page under test at /blazor/ *@
+@page "/b1/overflow"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<B1Overflow @rendermode="InteractiveWebAssembly"/>

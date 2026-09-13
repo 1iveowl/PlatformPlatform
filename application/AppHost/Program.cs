@@ -172,6 +172,13 @@ var mainApi = builder
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
     .WaitFor(mainWorkers);
 
+// Spike (Blazor edition, stage B): added by path rather than by generated project type, because the
+// Blazor build root resolves its own SDK from blazor/global.json and is not referenced by AppHost.csproj.
+builder
+    .AddProject("blazor-host", "../../blazor/Blazor.Host/Blazor.Host.csproj")
+    .WithEnvironment("ASPNETCORE_URLS", "https://localhost:" + ports.BlazorHost)
+    .WithUrlConfiguration(appHostname, ports.AppGateway, "/blazor");
+
 builder
     .AddProject<AppGateway>("app-gateway")
     .WithReference(frontendBuild)

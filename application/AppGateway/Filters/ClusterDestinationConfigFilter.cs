@@ -37,6 +37,7 @@ public class ClusterDestinationConfigFilter(PortAllocation ports) : IProxyConfig
             "main-api" => ResolveAddress("MAIN_API_URL", ports.MainApi),
             "main-static" => ResolveAddress("MAIN_API_URL", ports.MainStatic),
             "main-storage" => ResolveStorageAddress("MAIN_STORAGE_URL", ports.Blob),
+            "blazor-host" => ResolveAddress("BLAZOR_HOST_URL", ports.BlazorHost),
             _ => throw new InvalidOperationException($"Unknown Cluster ID {clusterId}.")
         };
     }

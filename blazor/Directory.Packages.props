@@ -6,8 +6,11 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageVersion Include="Blazor-ApexCharts" Version="7.0.0" />
+        <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0-rc.1.26425.128" />
         <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="11.0.0-rc.1.26425.128" />
         <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="11.0.0-rc.1.26425.128" />
-        <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components" Version="5.0.0-rc.5-26219.1" />
+        <!-- Spike (B1): nightly built from dev-v5 commit f3574653d, see nuget.config. 5.0.0-rc.5-26219.1 throws two custom
+             event registration errors on every load under .NET 11 RC1. SemVer orders this preview below rc.5 -->
+        <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components" Version="5.0.0-preview.26254.1" />
     </ItemGroup>
 </Project>
