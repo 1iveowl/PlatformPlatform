@@ -23,8 +23,9 @@ When you join a team, the team lead tells you what to research first. You persis
    - **WebSearch** and **WebFetch** for documentation and references
    - **Context7** (mcp__context7__resolve-library-id + mcp__context7__query-docs) for library docs and code examples
    - **Read**, **Glob**, **Grep** to understand how the codebase currently handles the topic
-3. Synthesize findings into a concise, actionable summary
-4. Report back via SendMessage with specific recommendations, code examples, and links
+3. Verify any finding that a provider or API diverges from its documentation against a real call or a recorded real response, never by inference; Entra's `xms_edov` shape and the MitID broker's claim names diverged from their documentation and only real runs caught it
+4. Synthesize findings into a concise, actionable summary
+5. Report back via SendMessage with specific recommendations, code examples, and links
 
 ## What You Do
 
