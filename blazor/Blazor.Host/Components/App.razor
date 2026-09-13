@@ -10,7 +10,7 @@
 <!DOCTYPE html>
 @* no-fuib-style: FluentUI's initializer otherwise fetches "./_content/.../css/default-fuib.css" with the native fetch, which
    resolves against the document URL and returns 404 below the path base; the host links the same file absolutely instead *@
-<html lang="@_locale" no-fuib-style>
+<html lang="@_locale" no-fuib-style data-surface="@(_isInteractiveSurface ? "interactive" : "static")">
 
 <head>
     <meta charset="utf-8"/>
@@ -67,6 +67,7 @@
     private string _antiforgeryToken = "";
     private string _disallowedOriginHookUrl = "";
     private ImportMapDefinition? _importMap;
+    private bool _isInteractiveSurface;
     private string _locale = "";
     private string _nonce = "";
     private PreloadLink[] _preloadLinks = [];
@@ -80,14 +81,17 @@
     protected override void OnInitialized()
     {
         _nonce = HostShell.GetNonce(HttpContext);
-        _locale = HostShell.GetLocale(HttpContext.User);
+        _locale = HostShell.GetLocale(HttpContext);
         _userInfoJson = Shell.GetUserInfoJson(HttpContext);
         _antiforgeryToken = Antiforgery.GetAndStoreTokens(HttpContext).RequestToken!;
 
         var pathBase = HttpContext.Request.PathBase;
         var importMap = HttpContext.GetEndpoint()?.Metadata.GetMetadata<ImportMapDefinition>() ?? ImportMapDefinition.FromResourceCollection(Assets);
         _importMap = Shell.GetAbsoluteImportMap(importMap, pathBase);
-        _preloadLinks = HostShell.GetPreloadLinks(Assets, _importMap, pathBase).OrderBy(link => link.Order).ToArray();
+        // B2: the import map is on every page so enhanced navigation can still start the runtime, but only pages that host a
+        // WebAssembly component preload it; a static SSR public page therefore downloads no runtime
+        _isInteractiveSurface = HttpContext.GetEndpoint()?.Metadata.GetMetadata<InteractiveSurfaceAttribute>() is not null;
+        _preloadLinks = _isInteractiveSurface ? HostShell.GetPreloadLinks(Assets, _importMap, pathBase).OrderBy(link => link.Order).ToArray() : [];
         _renderTestHooks = HttpContext.Request.Query["b1-hooks"] == "1";
         _setApexChartsNonce = HttpContext.Request.Query["b1-apex-nonce"] == "1";
 

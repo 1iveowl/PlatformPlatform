@@ -16,6 +16,8 @@ const playwright = createRequire(path.join(repositoryRoot, "application/"))("pla
 const basePort = readFileSync(path.join(repositoryRoot, ".workspace/port.txt"), "utf8").trim();
 const baseUrl = `https://app.dev.localhost:${basePort}`;
 const verificationCode = "UNLOCK";
+// B2 moved the B1 page under test from /blazor/ to /blazor/b1; /blazor/ is now the static SSR public landing page
+const b1PagePath = "/blazor/b1";
 const interactiveTimeoutMs = 60_000;
 
 // Chromium only, through CDP. Stated in the result file; not a DevTools preset.
@@ -218,11 +220,12 @@ async function runPolicyCases(account) {
   const cases = {};
   const context = await newContext(account.storageState);
   const caseUrls = {
-    proposed: `${baseUrl}/blazor/`,
-    proposedApexChartsNonce: `${baseUrl}/blazor/?b1-apex-nonce=1`,
-    proposedWithHooks: `${baseUrl}/blazor/?b1-hooks=1`,
-    noWasmEval: `${baseUrl}/blazor/?csp-variant=no-wasm-eval`,
-    noStrictDynamic: `${baseUrl}/blazor/?csp-variant=no-strict-dynamic`,
+    proposed: `${baseUrl}${b1PagePath}`,
+    proposedApexChartsNonce: `${baseUrl}${b1PagePath}?b1-apex-nonce=1`,
+    proposedWithHooks: `${baseUrl}${b1PagePath}?b1-hooks=1`,
+    noWasmEval: `${baseUrl}${b1PagePath}?csp-variant=no-wasm-eval`,
+    noStrictDynamic: `${baseUrl}${b1PagePath}?csp-variant=no-strict-dynamic`,
+    // Since B2, /blazor redirects to the static landing page, which never becomes interactive
     pathBaseWithoutSlash: `${baseUrl}/blazor`,
     deeperRoute: `${baseUrl}/blazor/b1/deeper/route`,
     overflowEvent: `${baseUrl}/blazor/b1/overflow?b1-apex-nonce=1`
@@ -236,7 +239,8 @@ async function runPolicyCases(account) {
   return cases;
 }
 
-// Anonymous request to /blazor/, redirected to the React login; records where the login lands afterwards
+// Anonymous request to the B1 page, redirected to the React login until B2; records where the login lands afterwards.
+// Since B2 the redirect goes to the Blazor login, whose controls this case does not know; B2 journey.mjs covers that flow.
 async function runLoginReturnPath(account) {
   const context = await newContext(undefined, "en-US");
   const page = await context.newPage();
@@ -294,7 +298,7 @@ async function readTimings(page) {
 async function runTiming(account) {
   // One discarded load warms the server (JIT, static asset endpoint caches) so samples measure the client
   const warmUpContext = await newContext(account.storageState);
-  await loadPage(warmUpContext, `${baseUrl}/blazor/`, { clickCounter: false });
+  await loadPage(warmUpContext, `${baseUrl}${b1PagePath}`, { clickCounter: false });
   await warmUpContext.close();
 
   const cold = [];
@@ -304,7 +308,7 @@ async function runTiming(account) {
     const context = await newContext(account.storageState);
     const page = await context.newPage();
     profile = await applyThrottling(context, page);
-    await page.goto(`${baseUrl}/blazor/`, { waitUntil: "load" });
+    await page.goto(`${baseUrl}${b1PagePath}`, { waitUntil: "load" });
     cold.push(await readTimings(page));
     await page.reload({ waitUntil: "load" });
     warm.push(await readTimings(page));
@@ -358,7 +362,7 @@ async function runPayload(account) {
   const page = await context.newPage();
   const requests = [];
   page.on("requestfinished", (request) => requests.push(request));
-  const response = await page.goto(`${baseUrl}/blazor/`, { waitUntil: "load" });
+  const response = await page.goto(`${baseUrl}${b1PagePath}`, { waitUntil: "load" });
   const html = await response.text();
   await page.waitForFunction(() => typeof window.__b1InteractiveAt === "number", null, { timeout: interactiveTimeoutMs });
   await page.waitForLoadState("networkidle");

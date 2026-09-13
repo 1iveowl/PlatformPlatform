@@ -2,7 +2,9 @@
 @page "/b1/deeper/route"
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
+@using Blazor.Host.Shell
 @attribute [Authorize]
+@attribute [InteractiveSurface]
 
 <B1Interactive Email="@_email" @rendermode="InteractiveWebAssembly"/>
 

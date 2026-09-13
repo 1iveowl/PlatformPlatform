@@ -83,6 +83,7 @@ public sealed class HostShell
             }
         }
 
+        RuntimeEnvironment = runtimeEnvironment;
         RuntimeEnvironmentJson = JsonSerializer.Serialize(runtimeEnvironment, JsonHtmlEncodingOptions);
 
         _trustedHosts = $"{publicUrl} {cdnUrl}";
@@ -93,6 +94,8 @@ public sealed class HostShell
 
         Brand = LoadBrandTokens();
     }
+
+    public IReadOnlyDictionary<string, string> RuntimeEnvironment { get; }
 
     public string RuntimeEnvironmentJson { get; }
 
@@ -166,7 +169,7 @@ public sealed class HostShell
         var userInfo = new
         {
             IsAuthenticated = user.Identity?.IsAuthenticated == true,
-            Locale = GetLocale(user),
+            Locale = GetLocale(context),
             Id = user.FindFirstValue(ClaimTypes.NameIdentifier),
             TenantId = tenantId,
             Role = user.FindFirstValue(ClaimTypes.Role),
@@ -190,14 +193,23 @@ public sealed class HostShell
         return JsonSerializer.Serialize(userInfo, JsonHtmlEncodingOptions);
     }
 
-    public static string GetLocale(ClaimsPrincipal user)
+    // The locale claim for a signed-in user; for an anonymous visitor (B2) the best supported Accept-Language entry
+    public static string GetLocale(HttpContext context)
     {
-        var locale = user.FindFirstValue("locale");
-        if (string.IsNullOrEmpty(locale)) return DefaultLocale;
-        if (SupportedLocalizations.Contains(locale, StringComparer.OrdinalIgnoreCase)) return locale;
+        var claimLocale = context.User.FindFirstValue("locale");
+        if (!string.IsNullOrEmpty(claimLocale)) return ToSupportedLocale(claimLocale) ?? DefaultLocale;
+
+        var acceptLanguages = context.Request.GetTypedHeaders().AcceptLanguage.OrderByDescending(language => language.Quality ?? 1);
+        return acceptLanguages.Select(language => ToSupportedLocale(language.Value.ToString())).FirstOrDefault(locale => locale is not null) ?? DefaultLocale;
+    }
+
+    private static string? ToSupportedLocale(string locale)
+    {
+        if (locale.Length < 2) return null;
+        if (SupportedLocalizations.Contains(locale, StringComparer.OrdinalIgnoreCase)) return SupportedLocalizations.First(l => l.Equals(locale, StringComparison.OrdinalIgnoreCase));
 
         var baseLanguageCode = locale[..2];
-        return SupportedLocalizations.FirstOrDefault(l => l.StartsWith(baseLanguageCode, StringComparison.OrdinalIgnoreCase)) ?? DefaultLocale;
+        return SupportedLocalizations.FirstOrDefault(l => l.StartsWith(baseLanguageCode, StringComparison.OrdinalIgnoreCase));
     }
 
     // Under base-uri 'none' the browser ignores <base href>, so every URL the host page renders is made absolute under the

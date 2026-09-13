@@ -177,6 +177,12 @@ var mainApi = builder
 builder
     .AddProject("blazor-host", "../../blazor/Blazor.Host/Blazor.Host.csproj")
     .WithEnvironment("ASPNETCORE_URLS", "https://localhost:" + ports.BlazorHost)
+    .WithEnvironment("ACCOUNT_API_URL", "https://localhost:" + ports.AccountApi)
+    .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
     .WithUrlConfiguration(appHostname, ports.AppGateway, "/blazor");
 
 builder

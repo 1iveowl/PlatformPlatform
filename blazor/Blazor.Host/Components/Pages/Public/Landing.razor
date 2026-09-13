@@ -1,0 +1,14 @@
+@* Spike code (Blazor edition, stage B2): the public landing page, static SSR. The FluentUI component resolves its services
+   from the host container, which is why Blazor.Host registers AddFluentUIComponents. *@
+@page "/"
+@using Microsoft.FluentUI.AspNetCore.Components
+
+<PageTitle>Welcome</PageTitle>
+
+<PublicNav/>
+
+<h1>Welcome</h1>
+
+<p data-testid="landing-text">A server-rendered public page. No WebAssembly runtime is downloaded here.</p>
+
+<FluentLabel data-testid="fluent-label">Rendered by the host with a FluentUI component</FluentLabel>

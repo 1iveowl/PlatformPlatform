@@ -1,0 +1,173 @@
+@* Spike code (Blazor edition, stage B2): the interactive WebAssembly surface behind login. Prerendered by the host with
+   the host's IBootstrapSource, then started in the browser where the client's IBootstrapSource calls the bootstrap
+   endpoint. Crossing back to the public surface (logout, lost session) is a deliberate full document navigation. *@
+@using System.Net
+@using System.Text.Json
+@using Microsoft.Extensions.DependencyInjection
+@using Blazor.Client.Bootstrap
+@implements IAsyncDisposable
+@inject IBootstrapSource BootstrapSource
+@inject NavigationManager Navigation
+@inject IJSRuntime JavaScriptRuntime
+@inject IServiceProvider Services
+
+<h1>@(Page == "details" ? "Account details" : "Your workspace")</h1>
+
+<nav>
+    <a href="/blazor/app" data-testid="nav-app">Workspace</a> |
+    <a href="/blazor/app/details" data-testid="nav-details">Details</a> |
+    <a href="/blazor/legal/terms" data-enhance-nav="false" data-testid="nav-terms">Terms</a>
+</nav>
+
+<p data-testid="render-mode">Interactive: @RendererInfo.IsInteractive</p>
+
+@if (_bootstrap is { } bootstrap)
+{
+    <dl>
+        <dt>Bootstrap source</dt>
+        <dd data-testid="bootstrap-source">@bootstrap.Source</dd>
+        <dt>Authenticated</dt>
+        <dd data-testid="bootstrap-authenticated">@bootstrap.IsAuthenticated</dd>
+        <dt>Email</dt>
+        <dd data-testid="bootstrap-email">@bootstrap.User?.Email</dd>
+        <dt>Tenant</dt>
+        <dd data-testid="bootstrap-tenant-id">@bootstrap.User?.TenantId</dd>
+        <dt>Locale</dt>
+        <dd data-testid="bootstrap-locale">@bootstrap.Locale</dd>
+        <dt>System feature flags</dt>
+        <dd data-testid="bootstrap-flags">@string.Join(", ", bootstrap.SystemFeatureFlags.Select(flag => $"{flag.Key}={flag.Value}"))</dd>
+        <dt>Runtime configuration keys</dt>
+        <dd data-testid="bootstrap-runtime-keys">@string.Join(", ", bootstrap.RuntimeConfiguration.Keys)</dd>
+    </dl>
+}
+
+@if (RendererInfo.IsInteractive)
+{
+    <p>
+        <button type="button" data-testid="reload-bootstrap" @onclick="ReloadBootstrapAsync">Reload bootstrap</button>
+        <button type="button" data-testid="logout" @onclick="LogoutAsync">Log out</button>
+    </p>
+
+    @if (Page != "details")
+    {
+        <ul data-testid="tenants">
+            @foreach (var tenant in _tenants)
+            {
+                <li>
+                    <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.Id" disabled="@(tenant.Id == _bootstrap?.User?.TenantId)"
+                            @onclick="() => SwitchTenantAsync(tenant.Id)">
+                        Switch to @(tenant.Name ?? tenant.Id)
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+
+    <p data-testid="status">@_status</p>
+}
+
+@code {
+
+    private BootstrapResponse? _bootstrap;
+    private IJSObjectReference? _interactiveMarkerModule;
+    private string _status = "";
+    private TenantOption[] _tenants = [];
+
+    [Parameter]
+    public string Page { get; set; } = "home";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _bootstrap = await BootstrapSource.GetAsync();
+        if (!RendererInfo.IsInteractive) return;
+
+        if (!_bootstrap.IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+        if (Page != "details") await LoadTenantsAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive) return;
+
+        _interactiveMarkerModule = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/b1-interactive.js");
+        await _interactiveMarkerModule.InvokeVoidAsync("markInteractive");
+    }
+
+    private async Task ReloadBootstrapAsync()
+    {
+        _bootstrap = await BootstrapSource.GetAsync();
+        _status = $"Bootstrap reloaded at {DateTime.UtcNow:O}";
+        if (!_bootstrap.IsAuthenticated) GoToLogin();
+    }
+
+    private async Task LoadTenantsAsync()
+    {
+        using var response = await GetHttpClient().GetAsync("/api/account/tenants");
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            GoToLogin();
+            return;
+        }
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        _tenants = document.RootElement.GetProperty("tenants").EnumerateArray()
+            .Select(tenant => new TenantOption(tenant.GetProperty("tenantId").GetString()!, tenant.GetProperty("tenantName").GetString()))
+            .ToArray();
+    }
+
+    private async Task SwitchTenantAsync(string tenantId)
+    {
+        using var response = await SendWithAntiforgeryAsync("/api/account/authentication/switch-tenant", JsonContent.Create(new { tenantId }));
+        if (!response.IsSuccessStatusCode)
+        {
+            _status = $"Switch tenant failed with {(int)response.StatusCode}";
+            return;
+        }
+
+        // The antiforgery token is bound to the user, and switching tenant changes the user, so the bootstrap is read again
+        _bootstrap = await BootstrapSource.GetAsync();
+        await LoadTenantsAsync();
+        _status = $"Switched to tenant {_bootstrap.User?.TenantId}";
+    }
+
+    private async Task LogoutAsync()
+    {
+        using var response = await SendWithAntiforgeryAsync("/api/account/authentication/logout", null);
+        Navigation.NavigateTo($"login?loggedOut={(int)response.StatusCode}", true);
+    }
+
+    private async Task<HttpResponseMessage> SendWithAntiforgeryAsync(string url, HttpContent? content)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        request.Headers.Add("x-xsrf-token", _bootstrap?.AntiforgeryToken);
+        return await GetHttpClient().SendAsync(request);
+    }
+
+    private void GoToLogin()
+    {
+        var returnPath = new Uri(Navigation.Uri).PathAndQuery;
+        Navigation.NavigateTo($"login?returnPath={Uri.EscapeDataString(returnPath)}", true);
+    }
+
+    // Resolved lazily: the host container registers no HttpClient for this component, and the calls only run interactively
+    private HttpClient GetHttpClient()
+    {
+        return Services.GetRequiredService<HttpClient>();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interactiveMarkerModule is not null)
+        {
+            await _interactiveMarkerModule.DisposeAsync();
+        }
+    }
+
+    private sealed record TenantOption(string Id, string? Name);
+
+}

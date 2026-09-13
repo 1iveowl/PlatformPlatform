@@ -1,0 +1,11 @@
+@* Spike code (Blazor edition, stage B2): a second authenticated page, to show enhanced navigation inside the interactive
+   surface keeping the one running WebAssembly runtime *@
+@page "/app/details"
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>Details</PageTitle>
+
+<AuthenticatedApp Page="details" @rendermode="InteractiveWebAssembly"/>

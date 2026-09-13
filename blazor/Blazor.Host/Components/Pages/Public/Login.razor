@@ -1,0 +1,60 @@
+@* Spike code (Blazor edition, stage B2): email login start, static SSR. The form is enhanced because it stays inside the
+   public surface: the account API returns an email login id and the handler redirects to the verification page. *@
+@page "/login"
+@using Blazor.Host.Account
+@inject AccountApiClient AccountApi
+@inject NavigationManager Navigation
+
+<PageTitle>Log in</PageTitle>
+
+<PublicNav/>
+
+<h1>Log in</h1>
+
+@if (LoggedOut is not null)
+{
+    <p data-testid="logged-out">You have been logged out.</p>
+}
+
+<EditForm Model="Input" FormName="login-start" OnValidSubmit="StartAsync" Enhance>
+    <DataAnnotationsValidator/>
+    <label>
+        Email
+        <InputText @bind-Value="Input.Email" type="email" autocomplete="email" data-testid="email"/>
+    </label>
+    <ValidationMessage For="() => Input.Email"/>
+    <button type="submit" data-testid="submit">Continue</button>
+</EditForm>
+
+<p data-testid="form-error">@_error</p>
+
+@code {
+
+    private string? _error;
+
+    [SupplyParameterFromForm(FormName = "login-start")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private EmailForm Input { get => field ??= new EmailForm(); set; }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnPath { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? LoggedOut { get; set; }
+
+    private async Task StartAsync()
+    {
+        var result = await AccountApi.PostAsync("/api/account/authentication/email/login/start", new { email = Input.Email });
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        var emailLoginId = result.Body!.Value.GetProperty("emailLoginId").GetString();
+        Navigation.NavigateTo(
+            $"login/verify?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}&returnPath={Uri.EscapeDataString(ReturnPaths.Sanitize(ReturnPath))}"
+        );
+    }
+
+}

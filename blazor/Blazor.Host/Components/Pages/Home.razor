@@ -1,8 +1,10 @@
-@* Spike code (Blazor edition, stage B1): the authenticated page under test at /blazor/ *@
-@page "/"
+@* Spike code (Blazor edition, stage B1): the authenticated page under test, moved from /blazor/ to /blazor/b1 in B2 *@
+@page "/b1"
+@using Blazor.Host.Shell
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
+@attribute [InteractiveSurface]
 
 <B1Interactive Email="@_email" @rendermode="InteractiveWebAssembly"/>
 

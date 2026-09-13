@@ -1,0 +1,64 @@
+@* Spike code (Blazor edition, stage B2): one-time password verification for login, static SSR. The form is deliberately not
+   enhanced: a successful submission crosses the authentication boundary, so the browser follows the redirect with a full
+   document load and the session cookies set on that redirect by the gateway. *@
+@page "/login/verify"
+@using Blazor.Host.Account
+@inject AccountApiClient AccountApi
+@inject NavigationManager Navigation
+
+<PageTitle>Check your email</PageTitle>
+
+<PublicNav/>
+
+<h1>Check your email</h1>
+
+<p data-testid="verify-email">Enter the code sent to @Email</p>
+
+<EditForm Model="Input" FormName="login-verify" OnValidSubmit="CompleteAsync">
+    <DataAnnotationsValidator/>
+    <label>
+        Code
+        <InputText @bind-Value="Input.OneTimePassword" autocomplete="one-time-code" data-testid="code"/>
+    </label>
+    <ValidationMessage For="() => Input.OneTimePassword"/>
+    <button type="submit" data-testid="submit">Verify</button>
+</EditForm>
+
+<p data-testid="form-error">@_error</p>
+
+@code {
+
+    private string? _error;
+
+    [SupplyParameterFromForm(FormName = "login-verify")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private OneTimePasswordForm Input { get => field ??= new OneTimePasswordForm(); set; }
+
+    [SupplyParameterFromQuery]
+    public string? Id { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Email { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnPath { get; set; }
+
+    private async Task CompleteAsync()
+    {
+        if (string.IsNullOrEmpty(Id))
+        {
+            _error = "The login has expired. Start again.";
+            return;
+        }
+
+        var result = await AccountApi.PostAsync($"/api/account/authentication/email/login/{Uri.EscapeDataString(Id)}/complete", new { oneTimePassword = Input.OneTimePassword });
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Navigation.NavigateTo(ReturnPaths.Sanitize(ReturnPath), true);
+    }
+
+}

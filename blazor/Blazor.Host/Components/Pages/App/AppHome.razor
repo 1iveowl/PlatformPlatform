@@ -1,0 +1,11 @@
+@* Spike code (Blazor edition, stage B2): the authenticated workspace page. The page is server-rendered; the render mode is on
+   the WebAssembly component it hosts, never on the document root. *@
+@page "/app"
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>Workspace</PageTitle>
+
+<AuthenticatedApp Page="home" @rendermode="InteractiveWebAssembly"/>

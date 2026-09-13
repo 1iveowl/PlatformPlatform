@@ -1,0 +1,67 @@
+@* Spike code (Blazor edition, stage B2): one-time password verification for signup, static SSR, not enhanced for the same
+   reason as the login verification *@
+@page "/signup/verify"
+@using Blazor.Host.Account
+@using Blazor.Host.Shell
+@inject AccountApiClient AccountApi
+@inject NavigationManager Navigation
+
+<PageTitle>Check your email</PageTitle>
+
+<PublicNav/>
+
+<h1>Check your email</h1>
+
+<p data-testid="verify-email">Enter the code sent to @Email</p>
+
+<EditForm Model="Input" FormName="signup-verify" OnValidSubmit="CompleteAsync">
+    <DataAnnotationsValidator/>
+    <label>
+        Code
+        <InputText @bind-Value="Input.OneTimePassword" autocomplete="one-time-code" data-testid="code"/>
+    </label>
+    <ValidationMessage For="() => Input.OneTimePassword"/>
+    <button type="submit" data-testid="submit">Verify</button>
+</EditForm>
+
+<p data-testid="form-error">@_error</p>
+
+@code {
+
+    private string? _error;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    [SupplyParameterFromForm(FormName = "signup-verify")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private OneTimePasswordForm Input { get => field ??= new OneTimePasswordForm(); set; }
+
+    [SupplyParameterFromQuery]
+    public string? Id { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Email { get; set; }
+
+    private async Task CompleteAsync()
+    {
+        if (string.IsNullOrEmpty(Id))
+        {
+            _error = "The signup has expired. Start again.";
+            return;
+        }
+
+        var result = await AccountApi.PostAsync(
+            $"/api/account/authentication/email/signup/{Uri.EscapeDataString(Id)}/complete",
+            new { oneTimePassword = Input.OneTimePassword, preferredLocale = HostShell.GetLocale(HttpContext) }
+        );
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Navigation.NavigateTo(ReturnPaths.AuthenticatedHome, true);
+    }
+
+}

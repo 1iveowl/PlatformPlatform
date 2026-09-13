@@ -1,13 +1,17 @@
-// Spike code (Blazor edition, stage B1): the Blazor host behind AppGateway under /blazor/, authenticating the
+// Spike code (Blazor edition, stages B1 and B2): the Blazor host behind AppGateway under /blazor/, authenticating the
 // gateway's bearer token and serving the page under test with the React shell's headers and substituted values.
+// B2 adds the static SSR public surface with the email login and signup forms, and the throwaway bootstrap endpoint.
 
 using System.Runtime.InteropServices;
 using System.Text;
 using ApexCharts;
+using Blazor.Client.Bootstrap;
+using Blazor.Host.Account;
 using Blazor.Host.Components;
 using Blazor.Host.Shell;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.IdentityModel.Tokens;
 using _Imports = Blazor.Client._Imports;
@@ -30,6 +34,17 @@ builder.Services.AddFluentUIComponents();
 builder.Services.AddApexCharts();
 
 builder.Services.AddSingleton<HostShell>();
+builder.Services.AddHttpContextAccessor();
+
+// B2: prerendering an interactive component and the bootstrap endpoint both resolve the contract from this container
+builder.Services.AddScoped<IBootstrapSource, HostBootstrapSource>();
+
+// B2: static SSR form handlers call the account API directly, the way the gateway reaches it; cookies are forwarded by hand
+var accountApiUrl = Environment.GetEnvironmentVariable("ACCOUNT_API_URL")
+                    ?? throw new InvalidOperationException("ACCOUNT_API_URL is not set. Start the stack through the AppHost.");
+builder.Services
+    .AddHttpClient<AccountApiClient>(client => client.BaseAddress = new Uri(accountApiUrl))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false });
 
 // Same application name as SharedKernel's AddCrossServiceDataProtection locally, so the antiforgery cookie issued here
 // and the one issued by the React shell are readable by both
@@ -65,13 +80,13 @@ builder.Services
             };
             options.Events = new JwtBearerEvents
             {
-                // An anonymous page request goes to the React login, which returns here after sign-in
+                // B2: an anonymous request for an authenticated page goes to the Blazor login, which returns here after sign-in
                 OnChallenge = context =>
                 {
                     context.HandleResponse();
                     var request = context.Request;
                     var returnPath = new StringBuilder().Append(request.PathBase).Append(request.Path).Append(request.QueryString).ToString();
-                    context.Response.Redirect($"/login?returnPath={Uri.EscapeDataString(returnPath)}");
+                    context.Response.Redirect($"{request.PathBase}/login?returnPath={Uri.EscapeDataString(returnPath)}");
                     return Task.CompletedTask;
                 }
             };
@@ -89,6 +104,14 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", true);
     app.UseHsts();
 }
+
+// B2: YARP sends X-Forwarded-Host and X-Forwarded-Proto; without them NavigationManager builds redirect URLs on this
+// host's own Kestrel origin (https://localhost:<port>), which the browser cannot follow under the policy's connect-src
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+};
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UsePathBase(pathBase);
 
@@ -112,6 +135,16 @@ app.Use(hostShell.ApplyPageHeadersAsync);
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+// B2: throwaway bootstrap endpoint demonstrating the contract stage C session C3 builds: identity, runtime configuration and
+// system-scope feature flags, plus the antiforgery request token the client needs for its API calls
+app.MapGet("/api/bootstrap", async (HttpContext context, IBootstrapSource bootstrapSource) =>
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        var bootstrap = await bootstrapSource.GetAsync(context.RequestAborted);
+        return Results.Json(bootstrap with { Source = "bootstrap-endpoint" });
+    }
+);
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

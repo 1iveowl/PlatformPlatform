@@ -1,0 +1,46 @@
+@* Spike code (Blazor edition, stage B2): email signup start, static SSR, enhanced for the same reason as the login start *@
+@page "/signup"
+@using Blazor.Host.Account
+@inject AccountApiClient AccountApi
+@inject NavigationManager Navigation
+
+<PageTitle>Sign up</PageTitle>
+
+<PublicNav/>
+
+<h1>Sign up</h1>
+
+<EditForm Model="Input" FormName="signup-start" OnValidSubmit="StartAsync" Enhance>
+    <DataAnnotationsValidator/>
+    <label>
+        Email
+        <InputText @bind-Value="Input.Email" type="email" autocomplete="email" data-testid="email"/>
+    </label>
+    <ValidationMessage For="() => Input.Email"/>
+    <button type="submit" data-testid="submit">Create account</button>
+</EditForm>
+
+<p data-testid="form-error">@_error</p>
+
+@code {
+
+    private string? _error;
+
+    [SupplyParameterFromForm(FormName = "signup-start")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private EmailForm Input { get => field ??= new EmailForm(); set; }
+
+    private async Task StartAsync()
+    {
+        var result = await AccountApi.PostAsync("/api/account/authentication/email/signup/start", new { email = Input.Email });
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        var emailLoginId = result.Body!.Value.GetProperty("emailLoginId").GetString();
+        Navigation.NavigateTo($"signup/verify?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}");
+    }
+
+}
