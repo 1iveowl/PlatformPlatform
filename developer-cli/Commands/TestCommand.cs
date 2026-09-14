@@ -16,6 +16,7 @@ public class TestCommand : Command
         var backendOption = new Option<bool>("--backend", "-b") { Description = "This command is always only backend. The option is only here for consistency." };
         var selfContainedSystemOption = new Option<string?>("<self-contained-system>", "--self-contained-system", "-s") { Description = "The name of the self-contained system to test (e.g., main, account, back-office)" };
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope tests to AppGateway.Tests" };
+        var blazorOption = new Option<bool>("--blazor") { Description = "Run the tests of the Blazor build root (blazor/), which resolves its own SDK" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring the solution before running tests" };
         var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
         var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
@@ -25,6 +26,7 @@ public class TestCommand : Command
         Options.Add(backendOption);
         Options.Add(selfContainedSystemOption);
         Options.Add(gatewayOption);
+        Options.Add(blazorOption);
         Options.Add(noBuildOption);
         Options.Add(quietOption);
         Options.Add(verboseOption);
@@ -34,6 +36,7 @@ public class TestCommand : Command
         SetAction(parseResult => Execute(
                 parseResult.GetValue(selfContainedSystemOption),
                 parseResult.GetValue(gatewayOption),
+                parseResult.GetValue(blazorOption),
                 parseResult.GetValue(noBuildOption),
                 !parseResult.GetValue(verboseOption),
                 parseResult.GetValue(filterOption),
@@ -42,11 +45,17 @@ public class TestCommand : Command
         );
     }
 
-    private void Execute(string? selfContainedSystem, bool gateway, bool noBuild, bool quiet, string? filter, string? excludeCategory)
+    private void Execute(string? selfContainedSystem, bool gateway, bool blazor, bool noBuild, bool quiet, string? filter, string? excludeCategory)
     {
         Prerequisite.Ensure(Prerequisite.Dotnet);
 
         if (gateway) AppGatewayHelper.EnsureNotCombinedWithSelfContainedSystem(selfContainedSystem);
+
+        if (blazor && (gateway || selfContainedSystem is not null))
+        {
+            AnsiConsole.MarkupLine("[red]--blazor cannot be combined with --gateway or --self-contained-system.[/]");
+            Environment.Exit(1);
+        }
 
         try
         {
@@ -57,6 +66,12 @@ public class TestCommand : Command
             {
                 targetName = AppGatewayHelper.TestProjectRelativePath;
                 workingDirectory = Configuration.ApplicationFolder;
+            }
+            else if (blazor)
+            {
+                // The Blazor root resolves the SDK from blazor/global.json, which applies only with blazor/ as the working directory
+                targetName = "Blazor.slnx";
+                workingDirectory = Configuration.BlazorFolder;
             }
             else
             {

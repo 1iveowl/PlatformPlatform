@@ -6,7 +6,7 @@ description: Run backend (.NET) xUnit unit and integration tests via the develop
 # Test
 
 ```bash
-dotnet run --project developer-cli -- test [--self-contained-system <name>] [--filter <expr>] [--no-build] [--exclude-category <cat>] [--verbose]
+dotnet run --project developer-cli -- test [--self-contained-system <name>] [--blazor] [--filter <expr>] [--no-build] [--exclude-category <cat>] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -14,11 +14,12 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 Backend only - there is no frontend test runner.
 
 - `--self-contained-system <name>` - narrows to one SCS (e.g. `account`, `main`)
+- `--blazor` - runs the tests of the Blazor build root in `blazor/` instead, with the SDK from its own `global.json`; not combinable with `--self-contained-system`
 - `--filter <expr>` - forwarded to `dotnet test --filter` to scope to a subset of tests
 - `--no-build` - skip rebuild before running (faster after a recent build)
 - `--exclude-category <cat>` - defaults to `Noisy`; pass an empty string to include them
 
-No arguments runs every test across every SCS.
+No arguments runs every test across every SCS. The Blazor build root is not part of that default; run `--blazor` as well.
 
 After `build` succeeds, run `format`, `lint`, `test` in parallel with `--no-build`.
 

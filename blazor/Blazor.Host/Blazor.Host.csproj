@@ -9,7 +9,9 @@
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
         <!-- Brotli stays publish-only (the SDK default). With brotli at build, the Development static asset handler
              re-compresses package assets whose manifest timestamp differs from the extracted file as gzip but keeps the
-             br Content-Encoding, so browsers fail with a decoding error (observed on 11.0.0-rc.1.26425.128) -->
+             br Content-Encoding, so browsers fail with a decoding error (observed on 11.0.0-rc.1.26425.128). The RC2 hop (T017)
+             owns the re-check: repeat the Development load with build-time Brotli on the new SDK and keep this setting
+             unless the handler serves matching bytes -->
     </PropertyGroup>
 
     <ItemGroup>
