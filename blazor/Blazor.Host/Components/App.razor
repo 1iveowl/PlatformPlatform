@@ -1,8 +1,9 @@
 @using Blazor.Host.Shell
-@* The host page. It renders no per-user data, so the same document can be cached for every visitor of a route; identity
-   reaches the client through the bootstrap endpoint. The per-request nonce is only on the import map, the stylesheet
-   links and the two scripts, none of which enhanced navigation re-inserts. Every URL is root-absolute through AppUrls,
-   because base-uri 'none' makes the browser ignore <base href>. *@
+@* The host page. HostShell.ApplyPageHeadersAsync serves it with no-store, like every component page, because it carries a
+   per-request nonce and an authenticated route prerenders for the requesting user, so no cache may share the document
+   between visitors; identity reaches the client through the bootstrap endpoint. The per-request nonce is only on the
+   import map, the stylesheet links and the two scripts, none of which enhanced navigation re-inserts. Every URL is
+   root-absolute through AppUrls, because base-uri 'none' makes the browser ignore <base href>. *@
 @inject HostShell Shell
 
 <!DOCTYPE html>
