@@ -41,7 +41,10 @@ public sealed class UsersApiClient(HttpClient httpClient, IBootstrapSource boots
     // Serves [startIndex, startIndex + count) from fixed server pages. The HTTP call is not cancelled with the grid's token,
     // so a page that a scroll abandons still lands in the cache for the next request.
     public async Task<(IReadOnlyList<(UserDetails User, int Index)> Items, int TotalCount)> GetRangeAsync(
-        UsersListState state, int startIndex, int? count, CancellationToken cancellationToken)
+        UsersListState state,
+        int startIndex,
+        int? count,
+        CancellationToken cancellationToken)
     {
         var first = await GetPageAsync(state, startIndex / VirtualFetchPageSize, VirtualFetchPageSize).WaitAsync(cancellationToken);
         var total = first.TotalCount;

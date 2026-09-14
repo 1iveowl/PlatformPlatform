@@ -32,9 +32,21 @@ public sealed record UsersListState(
     public static UsersListState FromUri(string uri)
     {
         var query = ParseQuery(new Uri(uri).Query);
-        string? Value(string key) => query.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value) ? value : null;
-        TEnum? EnumValue<TEnum>(string key) where TEnum : struct => Enum.TryParse<TEnum>(Value(key), true, out var parsed) ? parsed : null;
-        DateOnly? DateValue(string key) => DateOnly.TryParse(Value(key), CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+        string? Value(string key)
+        {
+            return query.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value) ? value : null;
+        }
+
+        TEnum? EnumValue<TEnum>(string key) where TEnum : struct
+        {
+            return Enum.TryParse<TEnum>(Value(key), true, out var parsed) ? parsed : null;
+        }
+
+        DateOnly? DateValue(string key)
+        {
+            return DateOnly.TryParse(Value(key), CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+        }
 
         return new UsersListState(
             Value("search"),

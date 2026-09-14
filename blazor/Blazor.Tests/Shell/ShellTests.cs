@@ -65,7 +65,12 @@ public sealed class ShellTests
         var nextCalled = false;
 
         // Act
-        await DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, _ => { nextCalled = true; return Task.CompletedTask; }, new TestWebHostEnvironment(Environments.Production));
+        await DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            }, new TestWebHostEnvironment(Environments.Production)
+        );
 
         // Assert
         context.Response.StatusCode.Should().Be(StatusCodes.Status404NotFound);
@@ -80,7 +85,12 @@ public sealed class ShellTests
         var nextCalled = false;
 
         // Act
-        await DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, _ => { nextCalled = true; return Task.CompletedTask; }, new TestWebHostEnvironment(Environments.Development));
+        await DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            }, new TestWebHostEnvironment(Environments.Development)
+        );
 
         // Assert
         nextCalled.Should().BeTrue();
@@ -95,7 +105,12 @@ public sealed class ShellTests
         var nextCalled = false;
 
         // Act
-        await DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, _ => { nextCalled = true; return Task.CompletedTask; }, new TestWebHostEnvironment(Environments.Production));
+        await DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            }, new TestWebHostEnvironment(Environments.Production)
+        );
 
         // Assert
         nextCalled.Should().BeTrue();

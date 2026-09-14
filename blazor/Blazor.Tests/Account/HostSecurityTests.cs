@@ -13,7 +13,13 @@ namespace Blazor.Tests.Account;
 
 public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostFixture>
 {
-    public enum InvalidToken { WrongIssuer, WrongAudience, WrongKey, ExpiredBeyondClockSkew }
+    public enum InvalidToken
+    {
+        WrongIssuer,
+        WrongAudience,
+        WrongKey,
+        ExpiredBeyondClockSkew
+    }
 
     [Fact]
     public async Task Bootstrap_WhenTokenIsSignedByDevelopmentSigningClient_ShouldBeAuthenticated()

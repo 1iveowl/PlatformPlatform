@@ -19,7 +19,14 @@ namespace Blazor.Tests.Account;
 
 public sealed record EmailLoginStartBody(string Email);
 
-public sealed record RecordedAccountApiRequest(string? Authorization, string? Cookie, string? AntiforgeryToken, string? ForwardedFor, string? ForwardedProto, string? ForwardedHost);
+public sealed record RecordedAccountApiRequest(
+    string? Authorization,
+    string? Cookie,
+    string? AntiforgeryToken,
+    string? ForwardedFor,
+    string? ForwardedProto,
+    string? ForwardedHost
+);
 
 // Runs the real host on loopback in Development, the way the gateway reaches it, with a stand-in account API that records
 // what the host sends. Tokens are signed with the development signing client, which reads the key the AppHost writes.

@@ -14,24 +14,6 @@ public static class HostAuthentication
     // The same values the APIs use in ApiDependencyConfiguration
     private static readonly TimeSpan ClockSkew = TimeSpan.FromSeconds(5);
 
-    extension(IServiceCollection services)
-    {
-        public IServiceCollection AddHostAuthentication(ITokenSigningClient tokenSigningClient)
-        {
-            services.AddSingleton(tokenSigningClient);
-            services
-                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
-                    {
-                        options.TokenValidationParameters = tokenSigningClient.GetTokenValidationParameters(ClockSkew, true);
-                        options.Events = new JwtBearerEvents { OnChallenge = ChallengeAsync };
-                    }
-                );
-
-            return services.AddAuthorization();
-        }
-    }
-
     public static bool IsApiRequest(HttpRequest request)
     {
         if (request.Path.StartsWithSegments("/api")) return true;
@@ -56,5 +38,23 @@ public static class HostAuthentication
         var returnPath = AppUrls.SanitizeReturnPath($"{request.PathBase}{request.Path}{request.QueryString}");
         context.Response.Redirect($"{AppUrls.ToAbsolute("login")}?returnPath={Uri.EscapeDataString(returnPath)}");
         return Task.CompletedTask;
+    }
+
+    extension(IServiceCollection services)
+    {
+        public IServiceCollection AddHostAuthentication(ITokenSigningClient tokenSigningClient)
+        {
+            services.AddSingleton(tokenSigningClient);
+            services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                    {
+                        options.TokenValidationParameters = tokenSigningClient.GetTokenValidationParameters(ClockSkew, true);
+                        options.Events = new JwtBearerEvents { OnChallenge = ChallengeAsync };
+                    }
+                );
+
+            return services.AddAuthorization();
+        }
     }
 }

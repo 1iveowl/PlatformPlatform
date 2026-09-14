@@ -36,7 +36,7 @@ public sealed class BlazorHarnessCommand : Command
             Environment.Exit(1);
         }
 
-        string[] selectedBrowsers = browser == "all" ? Browsers : [browser];
+        var selectedBrowsers = browser == "all" ? Browsers : [browser];
         if (selectedBrowsers.Any(selected => !Browsers.Contains(selected)))
         {
             AnsiConsole.MarkupLine($"[red]Unknown browser '{Markup.Escape(browser)}'. Use chromium, firefox, webkit or all.[/]");

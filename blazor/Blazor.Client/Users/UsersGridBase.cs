@@ -91,7 +91,11 @@ public abstract class UsersGridBase : ComponentBase
 
     // Both grids call this from their ItemsProvider: sort comes from the grid's header state, filters from the surface
     protected async Task<(IReadOnlyList<UserDetails> Items, int TotalCount)> FetchAsync(
-        int startIndex, int? count, string? sortColumnTitle, bool sortAscending, CancellationToken cancellationToken)
+        int startIndex,
+        int? count,
+        string? sortColumnTitle,
+        bool sortAscending,
+        CancellationToken cancellationToken)
     {
         var orderBy = ToSortable(sortColumnTitle) ?? State.OrderBy;
         var sortOrder = sortColumnTitle is null ? State.SortOrder : sortAscending ? SortOrder.Ascending : SortOrder.Descending;
