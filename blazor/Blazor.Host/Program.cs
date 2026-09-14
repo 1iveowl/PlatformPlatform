@@ -1,10 +1,10 @@
-// Spike code (Blazor edition, stages B1 and B2): the Blazor host behind AppGateway under /blazor/, authenticating the
-// gateway's bearer token and serving the page under test with the React shell's headers and substituted values.
-// B2 adds the static SSR public surface with the email login and signup forms, and the throwaway bootstrap endpoint.
+// The Blazor host behind AppGateway under the path base in AppUrls. It authenticates the gateway's bearer token, serves
+// the static server-rendered public surface and the prerendered WebAssembly pages with the React shell's headers, and
+// serves the brand stylesheet, the web app manifest and the temporary bootstrap endpoint.
 
 using System.Runtime.InteropServices;
 using System.Text;
-using ApexCharts;
+using Blazor.Client;
 using Blazor.Client.Bootstrap;
 using Blazor.Host.Account;
 using Blazor.Host.Components;
@@ -21,7 +21,6 @@ using _Imports = Blazor.Client._Imports;
 const string developmentTokenIssuerAndAudience = "Localhost";
 const string sharedUserSecretsId = "platformplatform-f817f2a1-ac57-4756-aef2-a57ca864bbd3";
 const string tokenSigningKeySecretName = "authentication-token-signing-key";
-const string pathBase = "/blazor";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,15 +30,14 @@ builder.Services.AddRazorComponents().AddInteractiveWebAssemblyComponents();
 
 // Prerendering runs client components on the server, so the server registers the same component services as the client
 builder.Services.AddFluentUIComponents();
-builder.Services.AddApexCharts();
 
 builder.Services.AddSingleton<HostShell>();
 builder.Services.AddHttpContextAccessor();
 
-// B2: prerendering an interactive component and the bootstrap endpoint both resolve the contract from this container
+// Prerendering an interactive component and the bootstrap endpoint both resolve the contract from this container
 builder.Services.AddScoped<IBootstrapSource, HostBootstrapSource>();
 
-// B2: static SSR form handlers call the account API directly, the way the gateway reaches it; cookies are forwarded by hand
+// The static server-rendered form handlers call the account API directly, the way the gateway reaches it; cookies are forwarded by hand
 var accountApiUrl = Environment.GetEnvironmentVariable("ACCOUNT_API_URL")
                     ?? throw new InvalidOperationException("ACCOUNT_API_URL is not set. Start the stack through the AppHost.");
 builder.Services
@@ -80,7 +78,7 @@ builder.Services
             };
             options.Events = new JwtBearerEvents
             {
-                // B2: an anonymous request for an authenticated page goes to the Blazor login, which returns here after sign-in
+                // An anonymous request for an authenticated page goes to the Blazor login, which returns here after sign-in
                 OnChallenge = context =>
                 {
                     context.HandleResponse();
@@ -96,7 +94,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Launch evidence for B1: the runtime the host actually runs on
+// The runtime the host runs on, recorded at start because the edition runs on a prerelease framework
 app.Logger.LogInformation("Blazor host running on {FrameworkDescription}", RuntimeInformation.FrameworkDescription);
 
 if (!app.Environment.IsDevelopment())
@@ -105,7 +103,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// B2: YARP sends X-Forwarded-Host and X-Forwarded-Proto; without them NavigationManager builds redirect URLs on this
+// YARP sends X-Forwarded-Host and X-Forwarded-Proto; without them NavigationManager builds redirect URLs on this
 // host's own Kestrel origin (https://localhost:<port>), which the browser cannot follow under the policy's connect-src
 var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
@@ -113,7 +111,7 @@ var forwardedHeadersOptions = new ForwardedHeadersOptions
 };
 app.UseForwardedHeaders(forwardedHeadersOptions);
 
-app.UsePathBase(pathBase);
+app.UsePathBase(AppUrls.PathBase);
 
 // base-uri 'none' makes the browser ignore <base href>, so the document URL is the base for anything still resolved
 // relatively; /blazor would resolve to the site root, so the path base always gets its trailing slash
@@ -130,19 +128,35 @@ app.UseRouting();
 
 // After routing, so the page headers and nonce apply to Razor component endpoints only, including a re-executed not-found page
 var hostShell = app.Services.GetRequiredService<HostShell>();
+app.Use((context, next) => DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, next, app.Environment));
 app.Use(hostShell.ApplyPageHeadersAsync);
 
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-// B2: throwaway bootstrap endpoint demonstrating the contract stage C session C3 builds: identity, runtime configuration and
-// system-scope feature flags, plus the antiforgery request token the client needs for its API calls
+// Temporary bootstrap endpoint: identity, runtime configuration and system-scope feature flags, plus the antiforgery request
+// token the client needs for its API calls. A later task replaces it with the production contract.
 app.MapGet("/api/bootstrap", async (HttpContext context, IBootstrapSource bootstrapSource) =>
     {
         context.Response.Headers.CacheControl = "no-store";
         var bootstrap = await bootstrapSource.GetAsync(context.RequestAborted);
         return Results.Json(bootstrap with { Source = "bootstrap-endpoint" });
+    }
+);
+
+// Brand values from platform-settings.jsonc, versioned by content in the URL the host page renders
+app.MapGet(HostShell.BrandStylesheetPath, (HttpContext context) =>
+    {
+        context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        return Results.Text(hostShell.BrandStylesheet, "text/css");
+    }
+);
+
+app.MapGet(HostShell.ManifestPath, (HttpContext context) =>
+    {
+        context.Response.Headers.CacheControl = "no-cache";
+        return Results.Text(hostShell.Manifest, "application/manifest+json");
     }
 );
 

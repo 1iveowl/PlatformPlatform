@@ -1,13 +1,15 @@
-// Spike code (Blazor edition, stage B1): ports the React shell responsibilities of SharedKernel's
-// SinglePageAppFallbackExtensions and SinglePageAppConfiguration into the Blazor host. Not production code.
+// The host page responsibilities that SharedKernel's SinglePageAppFallbackExtensions and SinglePageAppConfiguration carry
+// for the React edition: security headers and the content security policy, runtime configuration, locale, brand tokens
+// and the web app manifest.
 
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text.Encodings.Web;
+using System.Text;
 using System.Text.Json;
+using Blazor.Client;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 
@@ -17,11 +19,11 @@ public sealed record BrandTokens(
     string ProductName,
     string ThemeColorLight,
     string ThemeColorDark,
+    string BackgroundColor,
     string PrimaryColorLight,
     string PrimaryColorLightForeground,
     string PrimaryColorDark,
-    string PrimaryColorDarkForeground,
-    string InternalEmailDomain
+    string PrimaryColorDarkForeground
 );
 
 public sealed record PreloadLink(
@@ -38,6 +40,8 @@ public sealed class HostShell
 {
     public const string PublicUrlKey = "PUBLIC_URL";
     public const string CdnUrlKey = "CDN_URL";
+    public const string BrandStylesheetPath = "/brand.css";
+    public const string ManifestPath = "/manifest.webmanifest";
 
     // Same literals as SharedKernel's AuthenticationTokenHttpKeys, so the React edition and this host share one antiforgery cookie
     public const string AntiforgeryCookieName = "__Host-xsrf-token";
@@ -47,14 +51,8 @@ public sealed class HostShell
     private const string ApplicationVersionKey = "APPLICATION_VERSION";
     private const string DefaultLocale = "en-US";
     private const string NonceItemKey = "csp-nonce";
-    private const string CspVariantQueryKey = "csp-variant";
+    private const int NonceByteCount = 16;
     private static readonly string[] SupportedLocalizations = ["en-US", "da-DK"];
-
-    private static readonly JsonSerializerOptions JsonHtmlEncodingOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
 
     private readonly ConditionalWeakTable<ImportMapDefinition, ImportMapDefinition> _absoluteImportMaps = new();
     private readonly string _trustedHosts;
@@ -67,7 +65,7 @@ public sealed class HostShell
             Assembly.GetEntryAssembly()!.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? Assembly.GetEntryAssembly()!.GetName().Version!.ToString();
 
-        // Only PUBLIC_* keys plus the two keys the React edition allow-lists ever reach the page
+        // Only PUBLIC_* keys plus the two keys the React edition allow-lists ever reach the client
         var runtimeEnvironment = new Dictionary<string, string>
         {
             { PublicUrlKey, publicUrl },
@@ -84,7 +82,6 @@ public sealed class HostShell
         }
 
         RuntimeEnvironment = runtimeEnvironment;
-        RuntimeEnvironmentJson = JsonSerializer.Serialize(runtimeEnvironment, JsonHtmlEncodingOptions);
 
         _trustedHosts = $"{publicUrl} {cdnUrl}";
         if (environment.IsDevelopment() && Uri.TryCreate(publicUrl, UriKind.Absolute, out var publicUri))
@@ -93,13 +90,20 @@ public sealed class HostShell
         }
 
         Brand = LoadBrandTokens();
+        BrandStylesheet = BuildBrandStylesheet(Brand);
+        BrandStylesheetUrl = $"{AppUrls.ToAbsolute(BrandStylesheetPath)}?v={GetContentVersion(BrandStylesheet)}";
+        Manifest = BuildManifest(Brand);
     }
 
     public IReadOnlyDictionary<string, string> RuntimeEnvironment { get; }
 
-    public string RuntimeEnvironmentJson { get; }
-
     public BrandTokens Brand { get; }
+
+    public string BrandStylesheet { get; }
+
+    public string BrandStylesheetUrl { get; }
+
+    public string Manifest { get; }
 
     public static string GetNonce(HttpContext context)
     {
@@ -114,7 +118,7 @@ public sealed class HostShell
             return next(context);
         }
 
-        var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+        var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(NonceByteCount));
         context.Items[NonceItemKey] = nonce;
 
         var headers = context.Response.Headers;
@@ -126,23 +130,21 @@ public sealed class HostShell
         headers["Referrer-Policy"] = "no-referrer, strict-origin-when-cross-origin";
         headers["Permissions-Policy"] =
             "geolocation=(), microphone=(), camera=(), picture-in-picture=(), display-capture=(), fullscreen=(self), web-share=(), identity-credentials-get=()";
-        headers.ContentSecurityPolicy = BuildContentSecurityPolicy(nonce, context.Request.Query[CspVariantQueryKey].ToString());
+        headers.ContentSecurityPolicy = BuildContentSecurityPolicy(nonce);
 
         return next(context);
     }
 
-    // Spike only: the csp-variant query value exists for the B1 negative policy tests and the B3 style-attribute comparison,
-    // and must never be ported
-    private string BuildContentSecurityPolicy(string nonce, string variant)
+    // The React edition's policy with 'wasm-unsafe-eval' added for the WebAssembly runtime and the Stripe hosts left out.
+    // No form-action: Chromium and WebKit apply it to the redirects after a form submission, and an external login start
+    // redirects to the identity provider's origin, so form-action 'self' blocks the start.
+    // worker-src 'self': the offline shell's service worker must be same-origin, and stating it explicitly avoids inheriting
+    // script-src, where 'strict-dynamic' makes the browser ignore host sources and 'self'.
+    public string BuildContentSecurityPolicy(string nonce)
     {
-        var wasmUnsafeEval = variant == "no-wasm-eval" ? "" : " 'wasm-unsafe-eval'";
-        var strictDynamic = variant == "no-strict-dynamic" ? "" : " 'strict-dynamic'";
-        // B3: allows style attributes only; <style> elements and stylesheet loads stay under the nonce and host list
-        var styleAttributes = variant == "style-attr-unsafe-inline" ? "style-src-attr 'unsafe-inline'" : null;
-
         var directives = new[]
         {
-            $"script-src {_trustedHosts} 'nonce-{nonce}'{strictDynamic}{wasmUnsafeEval} https:",
+            $"script-src {_trustedHosts} 'nonce-{nonce}' 'strict-dynamic' 'wasm-unsafe-eval' https:",
             $"script-src-elem {_trustedHosts} 'nonce-{nonce}'",
             $"style-src {_trustedHosts} 'nonce-{nonce}'",
             $"style-src-elem {_trustedHosts} 'nonce-{nonce}'",
@@ -151,52 +153,14 @@ public sealed class HostShell
             "frame-src 'none'",
             $"img-src {_trustedHosts} data: blob:",
             "object-src 'none'",
-            "base-uri 'none'"
+            "base-uri 'none'",
+            "worker-src 'self'"
         };
 
-        return string.Join(";", styleAttributes is null ? directives : [.. directives, styleAttributes]);
+        return string.Join(";", directives);
     }
 
-    // Mirrors the claim reads in SharedKernel's UserInfo.Create; strongly typed ids serialize as strings there (StronglyTypedIdJsonConverter)
-    public string GetUserInfoJson(HttpContext context)
-    {
-        var user = context.User;
-        var zoomLevel = context.Request.Headers["x-zoom-level"].ToString();
-        var theme = context.Request.Headers["x-theme"].ToString();
-        var email = user.FindFirstValue(ClaimTypes.Email);
-        var tenantId = user.FindFirstValue("tenant_id");
-        var featureFlags = user.FindFirstValue("feature_flags");
-        var tenantRolloutBucket = user.FindFirstValue("tenant_rollout_bucket");
-        var userRolloutBucket = user.FindFirstValue("user_rollout_bucket");
-
-        var userInfo = new
-        {
-            IsAuthenticated = user.Identity?.IsAuthenticated == true,
-            Locale = GetLocale(context),
-            Id = user.FindFirstValue(ClaimTypes.NameIdentifier),
-            TenantId = tenantId,
-            Role = user.FindFirstValue(ClaimTypes.Role),
-            Email = email,
-            FirstName = user.FindFirstValue(ClaimTypes.GivenName),
-            LastName = user.FindFirstValue(ClaimTypes.Surname),
-            Title = user.FindFirstValue("title"),
-            AvatarUrl = user.FindFirstValue("avatar_url"),
-            TenantName = user.FindFirstValue("tenant_name"),
-            TenantLogoUrl = user.FindFirstValue("tenant_logo_url"),
-            SubscriptionPlan = user.FindFirstValue("subscription_plan"),
-            ZoomLevel = string.IsNullOrEmpty(zoomLevel) ? null : zoomLevel,
-            Theme = string.IsNullOrEmpty(theme) ? null : theme,
-            SessionId = user.FindFirstValue("session_id"),
-            IsInternalUser = email?.EndsWith(Brand.InternalEmailDomain, StringComparison.OrdinalIgnoreCase) == true,
-            FeatureFlags = string.IsNullOrEmpty(featureFlags) ? Array.Empty<string>() : featureFlags.Split(',', StringSplitOptions.RemoveEmptyEntries),
-            TenantRolloutBucket = string.IsNullOrEmpty(tenantRolloutBucket) ? 0 : int.Parse(tenantRolloutBucket),
-            UserRolloutBucket = string.IsNullOrEmpty(userRolloutBucket) ? (int?)null : int.Parse(userRolloutBucket)
-        };
-
-        return JsonSerializer.Serialize(userInfo, JsonHtmlEncodingOptions);
-    }
-
-    // The locale claim for a signed-in user; for an anonymous visitor (B2) the best supported Accept-Language entry
+    // The locale claim for a signed-in user; for an anonymous visitor the best supported Accept-Language entry
     public static string GetLocale(HttpContext context)
     {
         var claimLocale = context.User.FindFirstValue("locale");
@@ -215,33 +179,24 @@ public sealed class HostShell
         return SupportedLocalizations.FirstOrDefault(l => l.StartsWith(baseLanguageCode, StringComparison.OrdinalIgnoreCase));
     }
 
-    // Under base-uri 'none' the browser ignores <base href>, so every URL the host page renders is made absolute under the
-    // path base; otherwise relative URLs resolve against the document URL and break at /blazor and on deeper routes
-    public static string ToAbsoluteUrl(PathString pathBase, string url)
-    {
-        if (url.StartsWith('/') || Uri.IsWellFormedUriString(url, UriKind.Absolute)) return url;
-
-        return $"{pathBase}/{(url.StartsWith("./", StringComparison.Ordinal) ? url[2..] : url)}";
-    }
-
-    // Relative ("./") specifiers and targets become absolute; bare specifiers such as "_framework/resource-collection.js"
+    // Relative ("./") specifiers and targets become root-absolute; bare specifiers such as "_framework/resource-collection.js"
     // are matched literally by the browser and stay unchanged
-    public ImportMapDefinition GetAbsoluteImportMap(ImportMapDefinition source, PathString pathBase)
+    public ImportMapDefinition GetAbsoluteImportMap(ImportMapDefinition source)
     {
         return _absoluteImportMaps.GetValue(source, definition =>
             {
                 return new ImportMapDefinition(
-                    RewriteEntries(definition.Imports, pathBase),
-                    definition.Scopes?.ToDictionary(scope => ToAbsoluteSpecifier(pathBase, scope.Key), scope => RewriteEntries(scope.Value, pathBase)!),
-                    definition.Integrity?.ToDictionary(entry => ToAbsoluteSpecifier(pathBase, entry.Key), entry => entry.Value)
+                    RewriteEntries(definition.Imports),
+                    definition.Scopes?.ToDictionary(scope => ToAbsoluteSpecifier(scope.Key), scope => RewriteEntries(scope.Value)!),
+                    definition.Integrity?.ToDictionary(entry => ToAbsoluteSpecifier(entry.Key), entry => entry.Value)
                 );
             }
         );
     }
 
-    // The link elements <ResourcePreloader/> would render, with absolute hrefs; it renders relative hrefs and takes no parameters.
-    // A preload is only reused when its integrity matches the later module request, which takes it from the import map.
-    public static IEnumerable<PreloadLink> GetPreloadLinks(ResourceAssetCollection assets, ImportMapDefinition importMap, PathString pathBase)
+    // The link elements <ResourcePreloader/> would render, with root-absolute hrefs; it renders relative hrefs and takes no
+    // parameters. A preload is only reused when its integrity matches the later module request, which takes it from the import map.
+    public static IEnumerable<PreloadLink> GetPreloadLinks(ResourceAssetCollection assets, ImportMapDefinition importMap)
     {
         foreach (var asset in assets)
         {
@@ -249,7 +204,7 @@ public sealed class HostShell
             if (properties is null || !properties.TryGetValue("preloadrel", out var rel)) continue;
 
             properties.TryGetValue("preloadorder", out var order);
-            var href = ToAbsoluteUrl(pathBase, asset.Url);
+            var href = AppUrls.ToAbsolute(asset.Url);
             yield return new PreloadLink(
                 href,
                 rel,
@@ -262,14 +217,59 @@ public sealed class HostShell
         }
     }
 
-    private static IReadOnlyDictionary<string, string>? RewriteEntries(IReadOnlyDictionary<string, string>? entries, PathString pathBase)
+    private static IReadOnlyDictionary<string, string>? RewriteEntries(IReadOnlyDictionary<string, string>? entries)
     {
-        return entries?.ToDictionary(entry => ToAbsoluteSpecifier(pathBase, entry.Key), entry => ToAbsoluteUrl(pathBase, entry.Value));
+        return entries?.ToDictionary(entry => ToAbsoluteSpecifier(entry.Key), entry => AppUrls.ToAbsolute(entry.Value));
     }
 
-    private static string ToAbsoluteSpecifier(PathString pathBase, string specifier)
+    private static string ToAbsoluteSpecifier(string specifier)
     {
-        return specifier.StartsWith("./", StringComparison.Ordinal) ? ToAbsoluteUrl(pathBase, specifier) : specifier;
+        return specifier.StartsWith("./", StringComparison.Ordinal) ? AppUrls.ToAbsolute(specifier) : specifier;
+    }
+
+    // Served as an external stylesheet rather than an inline <style>: enhanced navigation re-inserts inline head elements
+    // from the new document with a nonce the governing header does not carry, which the policy then blocks
+    private static string BuildBrandStylesheet(BrandTokens brand)
+    {
+        return $$"""
+                 :root, .light {
+                     --brand-primary: {{brand.PrimaryColorLight}};
+                     --brand-primary-foreground: {{brand.PrimaryColorLightForeground}};
+                 }
+
+                 .dark {
+                     --brand-primary: {{brand.PrimaryColorDark}};
+                     --brand-primary-foreground: {{brand.PrimaryColorDarkForeground}};
+                 }
+
+                 """;
+    }
+
+    private static string BuildManifest(BrandTokens brand)
+    {
+        var manifest = new
+        {
+            name = brand.ProductName,
+            short_name = brand.ProductName,
+            start_url = AppUrls.AuthenticatedHome,
+            scope = $"{AppUrls.PathBase}/",
+            display = "standalone",
+            theme_color = brand.ThemeColorLight,
+            background_color = brand.BackgroundColor,
+            icons = new object[]
+            {
+                new { src = AppUrls.ToAbsolute("icons/icon-192.png"), sizes = "192x192", type = "image/png", purpose = "any" },
+                new { src = AppUrls.ToAbsolute("icons/icon-512.png"), sizes = "512x512", type = "image/png", purpose = "any" },
+                new { src = AppUrls.ToAbsolute("icons/icon-maskable-512.png"), sizes = "512x512", type = "image/png", purpose = "maskable" }
+            }
+        };
+
+        return JsonSerializer.Serialize(manifest);
+    }
+
+    private static string GetContentVersion(string content)
+    {
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)))[..16];
     }
 
     public static BrandTokens LoadBrandTokens()
@@ -286,11 +286,11 @@ public sealed class HostShell
             branding.GetProperty("productName").GetString()!,
             themeColor.GetProperty("light").GetString()!,
             themeColor.GetProperty("dark").GetString()!,
+            branding.GetProperty("backgroundColor").GetString()!,
             primaryColor.GetProperty("light").GetString()!,
             primaryColor.GetProperty("lightForeground").GetString()!,
             primaryColor.GetProperty("dark").GetString()!,
-            primaryColor.GetProperty("darkForeground").GetString()!,
-            document.RootElement.GetProperty("identity").GetProperty("internalEmailDomain").GetString()!
+            primaryColor.GetProperty("darkForeground").GetString()!
         );
     }
 }

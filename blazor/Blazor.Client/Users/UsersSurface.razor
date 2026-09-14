@@ -14,7 +14,7 @@
 <nav class="users-nav">
     <a href="@ModeHref(UsersListMode.Virtual)" data-testid="mode-virtual">Infinite scroll (virtualized)</a> |
     <a href="@ModeHref(UsersListMode.Paged)" data-testid="mode-paged">Pages</a> |
-    <a href="/blazor/app/users/@(Grid == "quick" ? "fluent" : "quick")" data-testid="other-grid">Other grid</a>
+    <a href="@AppUrls.ToAbsolute($"app/users/{(Grid == "quick" ? "fluent" : "quick")}")" data-testid="other-grid">Other grid</a>
 </nav>
 
 @if (_loadError is not null)
@@ -189,7 +189,7 @@
         var bootstrap = await BootstrapSource.GetAsync();
         if (!bootstrap.IsAuthenticated)
         {
-            Navigation.NavigateTo($"login?returnPath={Uri.EscapeDataString(new Uri(Navigation.Uri).PathAndQuery)}", true);
+            Navigation.NavigateTo($"{AppUrls.ToAbsolute("login")}?returnPath={Uri.EscapeDataString(new Uri(Navigation.Uri).PathAndQuery)}", true);
             return;
         }
 

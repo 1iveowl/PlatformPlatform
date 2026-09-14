@@ -12,14 +12,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Blazor-ApexCharts" />
         <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
         <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" />
     </ItemGroup>
 
     <ItemGroup>
-        <!-- Spike (B1): keeps a FluentUI event args element type that the trimmer removes, see the file -->
+        <!-- Keeps a FluentUI event args element type that the trimmer removes, see the file -->
         <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
     </ItemGroup>
 

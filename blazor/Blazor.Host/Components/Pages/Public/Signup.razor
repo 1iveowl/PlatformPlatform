@@ -1,4 +1,4 @@
-@* Spike code (Blazor edition, stage B2): email signup start, static SSR, enhanced for the same reason as the login start *@
+@* Email signup start, static server-side rendering, enhanced for the same reason as the login start *@
 @page "/signup"
 @using Blazor.Host.Account
 @inject AccountApiClient AccountApi
@@ -40,7 +40,7 @@
         }
 
         var emailLoginId = result.Body!.Value.GetProperty("emailLoginId").GetString();
-        Navigation.NavigateTo($"signup/verify?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}");
+        Navigation.NavigateTo($"{AppUrls.ToAbsolute("signup/verify")}?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}");
     }
 
 }

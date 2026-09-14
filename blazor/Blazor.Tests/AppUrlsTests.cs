@@ -1,0 +1,111 @@
+using Blazor.Client;
+using FluentAssertions;
+
+namespace Blazor.Tests;
+
+public sealed class AppUrlsTests
+{
+    [Theory]
+    [InlineData("app", "/blazor/app")]
+    [InlineData("/app", "/blazor/app")]
+    [InlineData("./_framework/blazor.web.js", "/blazor/_framework/blazor.web.js")]
+    [InlineData("", "/blazor/")]
+    public void ToAbsolute_WhenRelativeOrRooted_ShouldPrefixPathBase(string url, string expected)
+    {
+        // Act
+        var absolute = AppUrls.ToAbsolute(url);
+
+        // Assert
+        absolute.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("/blazor/app")]
+    [InlineData("/blazor")]
+    [InlineData("/blazor?returnPath=%2Fblazor%2Fapp")]
+    public void ToAbsolute_WhenAlreadyUnderPathBase_ShouldPrefixOnce(string url)
+    {
+        // Act
+        var absolute = AppUrls.ToAbsolute(url);
+
+        // Assert
+        absolute.Should().Be(url);
+    }
+
+    [Fact]
+    public void ToAbsolute_WhenAppliedTwice_ShouldPrefixOnce()
+    {
+        // Act
+        var absolute = AppUrls.ToAbsolute(AppUrls.ToAbsolute("app/details"));
+
+        // Assert
+        absolute.Should().Be("/blazor/app/details");
+    }
+
+    [Theory]
+    [InlineData("login?returnPath=%2Fblazor%2Fapp#top", "/blazor/login?returnPath=%2Fblazor%2Fapp#top")]
+    [InlineData("app/users/quick?search=ann", "/blazor/app/users/quick?search=ann")]
+    public void ToAbsolute_WhenQueryOrFragment_ShouldKeepThem(string url, string expected)
+    {
+        // Act
+        var absolute = AppUrls.ToAbsolute(url);
+
+        // Assert
+        absolute.Should().Be(expected);
+    }
+
+    [Fact]
+    public void ToAbsolute_WhenAbsoluteHttpsUrl_ShouldReturnUnchanged()
+    {
+        // Arrange
+        const string url = "https://cdn.example.com/app.css";
+
+        // Act
+        var absolute = AppUrls.ToAbsolute(url);
+
+        // Assert
+        absolute.Should().Be(url);
+    }
+
+    [Fact]
+    public void ToAbsolute_WhenBlazorPrefixIsPartOfAnotherSegment_ShouldPrefixPathBase()
+    {
+        // Act
+        var absolute = AppUrls.ToAbsolute("/blazor-other/app");
+
+        // Assert
+        absolute.Should().Be("/blazor/blazor-other/app");
+    }
+
+    [Theory]
+    [InlineData("/blazor/app/details?tab=1")]
+    [InlineData("/blazor/app/users/quick#row-3")]
+    public void SanitizeReturnPath_WhenLocalPathUnderPathBase_ShouldKeepIt(string returnPath)
+    {
+        // Act
+        var sanitized = AppUrls.SanitizeReturnPath(returnPath);
+
+        // Assert
+        sanitized.Should().Be(returnPath);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("//evil.example.com/blazor/app")]
+    [InlineData("/blazor//evil.example.com")]
+    [InlineData("/blazor/\\evil.example.com")]
+    [InlineData("\\\\evil.example.com")]
+    [InlineData("https://evil.example.com/blazor/app")]
+    [InlineData("/dashboard")]
+    [InlineData("/blazor")]
+    [InlineData("/blazor-other/app")]
+    public void SanitizeReturnPath_WhenNotALocalPathUnderPathBase_ShouldReturnAuthenticatedHome(string? returnPath)
+    {
+        // Act
+        var sanitized = AppUrls.SanitizeReturnPath(returnPath);
+
+        // Assert
+        sanitized.Should().Be("/blazor/app");
+    }
+}

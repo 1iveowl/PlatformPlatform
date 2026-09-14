@@ -1,5 +1,5 @@
-@* Spike code (Blazor edition, stage B2): the authenticated workspace page. The page is server-rendered; the render mode is on
-   the WebAssembly component it hosts, never on the document root. *@
+@* The authenticated workspace page. The page is server-rendered; the render mode is on the WebAssembly component it
+   hosts, never on the document root, so a failed runtime start still leaves the prerendered content. *@
 @page "/app"
 @using Blazor.Host.Shell
 @using Microsoft.AspNetCore.Authorization

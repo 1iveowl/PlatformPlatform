@@ -1,4 +1,4 @@
-@* Spike code (Blazor edition, stage B2): one-time password verification for login, static SSR. The form is deliberately not
+@* One-time password verification for login, static server-side rendering. The form is deliberately not
    enhanced: a successful submission crosses the authentication boundary, so the browser follows the redirect with a full
    document load and the session cookies set on that redirect by the gateway. *@
 @page "/login/verify"
@@ -58,7 +58,7 @@
             return;
         }
 
-        Navigation.NavigateTo(ReturnPaths.Sanitize(ReturnPath), true);
+        Navigation.NavigateTo(AppUrls.SanitizeReturnPath(ReturnPath), true);
     }
 
 }

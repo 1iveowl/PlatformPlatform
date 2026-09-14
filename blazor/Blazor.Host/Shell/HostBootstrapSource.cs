@@ -1,4 +1,4 @@
-// Spike code (Blazor edition, stage B2): the host's implementation of the bootstrap contract. It serves the bootstrap
+// The host's implementation of the temporary bootstrap contract. It serves the bootstrap
 // endpoint and prerendering of WebAssembly components, and reads everything per request: identity from the bearer token
 // the gateway derived from the session cookies, locale from the token or Accept-Language, configuration from the process.
 

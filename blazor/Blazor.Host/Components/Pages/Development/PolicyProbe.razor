@@ -1,0 +1,32 @@
+@* Development-only page for the content security policy harness in blazor/tests. Three scripts each set a data attribute
+   on <html> only if the browser lets them run: the nonced inline script must run, the inline script without the nonce
+   and the script from a host outside the trusted list must be blocked. Outside Development the request returns 404. *@
+@page "/development/policy-probe"
+@using Blazor.Host.Shell
+@attribute [DevelopmentOnly]
+
+<PageTitle>Policy probe</PageTitle>
+
+<h1>Policy probe</h1>
+
+@((MarkupString)_probeScripts)
+
+@code {
+
+    private string _probeScripts = "";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        var nonce = HostShell.GetNonce(HttpContext);
+        _probeScripts =
+            $"""
+             <script nonce="{nonce}">document.documentElement.dataset.probeInlineWithNonce = "ran";</script>
+             <script>document.documentElement.dataset.probeInlineWithoutNonce = "ran";</script>
+             <script src="https://untrusted.invalid/policy-probe.js"></script>
+             """;
+    }
+
+}

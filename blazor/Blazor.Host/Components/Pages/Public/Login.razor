@@ -1,5 +1,5 @@
-@* Spike code (Blazor edition, stage B2): email login start, static SSR. The form is enhanced because it stays inside the
-   public surface: the account API returns an email login id and the handler redirects to the verification page. *@
+@* Email login start, static server-side rendering. The form is enhanced because it stays inside the public surface: the
+   account API returns an email login id and the handler redirects to the verification page. *@
 @page "/login"
 @using Blazor.Host.Account
 @inject AccountApiClient AccountApi
@@ -53,7 +53,7 @@
 
         var emailLoginId = result.Body!.Value.GetProperty("emailLoginId").GetString();
         Navigation.NavigateTo(
-            $"login/verify?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}&returnPath={Uri.EscapeDataString(ReturnPaths.Sanitize(ReturnPath))}"
+            $"{AppUrls.ToAbsolute("login/verify")}?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}&returnPath={Uri.EscapeDataString(AppUrls.SanitizeReturnPath(ReturnPath))}"
         );
     }
 

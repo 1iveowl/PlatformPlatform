@@ -1,5 +1,5 @@
-@* Spike code (Blazor edition, stage B2): one-time password verification for signup, static SSR, not enhanced for the same
-   reason as the login verification *@
+@* One-time password verification for signup, static server-side rendering, not enhanced for the same reason as the
+   login verification *@
 @page "/signup/verify"
 @using Blazor.Host.Account
 @using Blazor.Host.Shell
@@ -61,7 +61,7 @@
             return;
         }
 
-        Navigation.NavigateTo(ReturnPaths.AuthenticatedHome, true);
+        Navigation.NavigateTo(AppUrls.AuthenticatedHome, true);
     }
 
 }

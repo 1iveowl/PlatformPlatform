@@ -1,10 +1,9 @@
-@* Spike code (Blazor edition, stage B2): navigation for the static SSR public surface. Links inside the public surface use
-   enhanced navigation; the link into the authenticated surface opts out, so crossing the boundary is a full document load. Every href is absolute: under base-uri 'none' the browser resolves a native
-   (non-enhanced) link against the document URL, so a relative href breaks on any route below the first segment. *@
+@* Navigation for the static server-rendered public surface. Links inside the public surface use enhanced navigation; the
+   link into the authenticated surface opts out, so crossing the authentication boundary is a full document load. *@
 <nav data-testid="public-nav">
-    <a href="/blazor/" data-testid="nav-landing">Home</a> |
-    <a href="/blazor/login" data-testid="nav-login">Log in</a> |
-    <a href="/blazor/signup" data-testid="nav-signup">Sign up</a> |
-    <a href="/blazor/legal/terms" data-testid="nav-terms">Terms</a> |
-    <a href="/blazor/app" data-enhance-nav="false" data-testid="nav-app">Open the app</a>
+    <a href="@AppUrls.ToAbsolute("")" data-testid="nav-landing">Home</a> |
+    <a href="@AppUrls.ToAbsolute("login")" data-testid="nav-login">Log in</a> |
+    <a href="@AppUrls.ToAbsolute("signup")" data-testid="nav-signup">Sign up</a> |
+    <a href="@AppUrls.ToAbsolute("legal/terms")" data-testid="nav-terms">Terms</a> |
+    <a href="@AppUrls.AuthenticatedHome" data-enhance-nav="false" data-testid="nav-app">Open the app</a>
 </nav>
