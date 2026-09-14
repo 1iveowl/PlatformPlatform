@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 using JetBrains.Annotations;
 using SharedKernel.Domain;
 using SharedKernel.FeatureFlags;
-using SharedKernel.StronglyTypedIds;
 
 namespace Account.Features.FeatureFlags.Domain;
 

@@ -19,7 +19,6 @@ using SharedKernel.Middleware;
 using SharedKernel.OpenApi;
 using SharedKernel.Platform;
 using SharedKernel.SinglePageApp;
-using SharedKernel.StronglyTypedIds;
 using SharedKernel.Telemetry;
 using IPNetwork = System.Net.IPNetwork;
 
@@ -223,7 +222,8 @@ public static class ApiDependencyConfiguration
     {
         private IServiceCollection AddOpenApiConfiguration(Assembly[] assemblies, ApiDocumentLayout documentLayout)
         {
-            var allAssemblies = assemblies.Concat([Assembly.GetExecutingAssembly()]).ToArray();
+            // SharedKernel.Contracts is scanned after SharedKernel so enum schemas keep the order they had before the split
+            var allAssemblies = assemblies.Concat([Assembly.GetExecutingAssembly(), typeof(IStronglyTypedId).Assembly]).ToArray();
 
             if (documentLayout == ApiDocumentLayout.Single)
             {

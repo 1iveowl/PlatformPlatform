@@ -1,5 +1,4 @@
 using SharedKernel.Domain;
-using SharedKernel.StronglyTypedIds;
 
 namespace SharedKernel.Tests.TestEntities;
 

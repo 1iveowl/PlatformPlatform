@@ -19,9 +19,6 @@ public sealed record ResendEmailLoginCodeCommand : ICommand, IRequest<Result<Res
     public EmailLoginId Id { get; init; } = null!;
 }
 
-[PublicAPI]
-public sealed record ResendEmailLoginCodeResponse(int ValidForSeconds);
-
 public sealed class ResendEmailLoginCodeHandler(
     IEmailLoginRepository emailLoginRepository,
     IUserRepository userRepository,

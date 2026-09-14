@@ -2,7 +2,6 @@ using System.Security;
 using JetBrains.Annotations;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
-using SharedKernel.StronglyTypedIds;
 
 namespace Account.Features.ExternalAuthentication.Domain;
 

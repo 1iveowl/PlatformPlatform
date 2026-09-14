@@ -6,18 +6,14 @@ namespace SharedKernel.StronglyTypedIds;
 /// <summary>
 ///     This is the recommended ID type to use. It uses the <see cref="Ulid" /> to create unique chronological IDs.
 ///     IDs are prefixed with the value of the <see cref="IdPrefixAttribute" /> inspired by Stripe's API.
+///     Parsing is portable; generating a new ID is server behavior provided by SharedKernel.
 /// </summary>
-public abstract record StronglyTypedUlid<T>(string Value) : StronglyTypedId<string, T>(Value)
+public abstract record StronglyTypedUlid<T>(string Value)
+    : StronglyTypedId<string, T>(Value), IParsableStronglyTypedId<T>
     where T : StronglyTypedUlid<T>
 {
     private static readonly string Prefix = typeof(T).GetCustomAttribute<IdPrefixAttribute>()?.Prefix
                                             ?? throw new InvalidOperationException("IdPrefixAttribute is required.");
-
-    public static T NewId()
-    {
-        var newValue = Ulid.NewUlid();
-        return FormUlid(newValue);
-    }
 
     public static bool TryParse(string? value, [NotNullWhen(true)] out T? result)
     {
@@ -33,17 +29,17 @@ public abstract record StronglyTypedUlid<T>(string Value) : StronglyTypedId<stri
             return false;
         }
 
-        result = FormUlid(parsedValue);
+        result = FromUlid(parsedValue);
         return true;
     }
 
-    private static T FormUlid(Ulid newValue)
+    internal static T FromUlid(Ulid value)
     {
         return (T)Activator.CreateInstance(
             typeof(T),
             BindingFlags.Instance | BindingFlags.Public,
             null,
-            [$"{Prefix}_{newValue}"],
+            [$"{Prefix}_{value}"],
             null
         )!;
     }

@@ -4,6 +4,7 @@ using SharedKernel.ApiResults;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Endpoints;
 using SharedKernel.OpenApi;
+using AuthenticationRequests = Account.Features.Authentication.Requests;
 
 namespace Account.Api.Endpoints;
 
@@ -19,8 +20,8 @@ public sealed class AuthenticationEndpoints : IEndpoints
             => await mediator.Send(new LogoutCommand())
         );
 
-        group.MapPost("/switch-tenant", async Task<ApiResult> (SwitchTenantCommand command, IMediator mediator)
-            => await mediator.Send(command)
+        group.MapPost("/switch-tenant", async Task<ApiResult> (AuthenticationRequests.SwitchTenantCommand command, IMediator mediator)
+            => await mediator.Send(new SwitchTenantCommand(command.TenantId))
         );
 
         group.MapGet("/sessions", async Task<ApiResult<UserSessionsResponse>> ([AsParameters] GetUserSessionsQuery query, IMediator mediator)

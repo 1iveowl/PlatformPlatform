@@ -35,7 +35,7 @@ and the `.csproj` files.
   `account/Core/Integrations/OAuth/<Provider>/` implementing `IOAuthProvider`; keyed registration plus a
   `mock-<provider>` registration in `account/Core/Configuration.cs`; a value in `ExternalProviderType`
   (`Features/ExternalAuthentication/Domain/ExternalAuthenticationTypes.cs`); an AppHost parameter block with
-  `OAuth__<Provider>__*` environment variables; a `SystemFeatureFlag` in `SharedKernel/FeatureFlags/FeatureFlags.cs`;
+  `OAuth__<Provider>__*` environment variables; a `SystemFeatureFlag` in `SharedKernel.Contracts/FeatureFlags/FeatureFlags.cs`;
   Bicep parameters and Key Vault secrets under `cloud-infrastructure/cluster/`; entries in
   `developer-cli/Commands/GithubConfigCommand.cs`; login and signup buttons; tests in
   `account/Tests/ExternalAuthentication/`.

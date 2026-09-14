@@ -1,8 +1,7 @@
-using Microsoft.Extensions.Configuration;
-
 namespace SharedKernel.FeatureFlags;
 
-// Abstract base. Each valid combination of Scope, AdminLevel, and capability flags lives in its own
+// Portable declaration: clients read keys, labels and scopes from here. Evaluation (IsSystemFeatureFlagEnabled) and
+// reconciliation stay on the server in SharedKernel. Abstract base. Each valid combination of Scope, AdminLevel, and capability flags lives in its own
 // sealed subtype, so illegal combinations are compile-time errors rather than runtime throws in
 // FeatureFlags.ValidateFlags(). The flat virtual property API is preserved so the ~20 consumer files
 // (evaluator, queries, command handlers, telemetry, manifest emitter, reconciler) keep reading
@@ -86,17 +85,6 @@ public abstract class FeatureFlagDefinition(string key, string label, string des
     ///     flag that admins can globally deactivate.
     /// </summary>
     public virtual bool IsStableModule => false;
-
-    public bool IsSystemFeatureFlagEnabled(IConfiguration configuration)
-    {
-        if (Scope != FeatureFlagScope.System || SystemConfigKey is null) return false;
-
-        var configValue = configuration[SystemConfigKey];
-
-        return SystemConfigExpectedValue is not null
-            ? configValue == SystemConfigExpectedValue
-            : !string.IsNullOrEmpty(configValue);
-    }
 }
 
 // System scope: env-var-driven kill switch. SystemConfigKey and FrontendEnvVar are required by the

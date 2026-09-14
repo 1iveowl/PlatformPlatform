@@ -58,6 +58,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\SharedKernel.Contracts\SharedKernel.Contracts.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <EmbeddedResource Include="..\..\platform-settings.jsonc" LogicalName="platform-settings.jsonc"/>
     </ItemGroup>
 

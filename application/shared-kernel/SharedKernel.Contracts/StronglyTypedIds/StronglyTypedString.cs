@@ -7,21 +7,10 @@ namespace SharedKernel.StronglyTypedIds;
 ///     This is a strongly typed ID for string values. It uses a custom string value with an optional prefix.
 ///     IDs can be prefixed with the value of the <see cref="IdPrefixAttribute" /> inspired by Stripe's API.
 /// </summary>
-public abstract record StronglyTypedString<T>(string Value) : StronglyTypedId<string, T>(Value)
+public abstract record StronglyTypedString<T>(string Value)
+    : StronglyTypedId<string, T>(Value), IParsableStronglyTypedId<T>
     where T : StronglyTypedString<T>
 {
-    public static T NewId(string value)
-    {
-        var prefixWithUnderscore = PrefixCache.GetPrefixWithUnderscore(typeof(T));
-        if (prefixWithUnderscore is not null && !IsValidPrefixedValue(value, prefixWithUnderscore))
-        {
-            var prefix = PrefixCache.GetPrefix(typeof(T));
-            throw new ArgumentException($"Value must start with prefix '{prefix}_' followed by at least one character", nameof(value));
-        }
-
-        return CreateInstance(value);
-    }
-
     public static bool TryParse(string? value, [NotNullWhen(true)] out T? result)
     {
         var prefixWithUnderscore = PrefixCache.GetPrefixWithUnderscore(typeof(T));
@@ -33,6 +22,18 @@ public abstract record StronglyTypedString<T>(string Value) : StronglyTypedId<st
 
         result = CreateInstance(value);
         return true;
+    }
+
+    public static T NewId(string value)
+    {
+        var prefixWithUnderscore = PrefixCache.GetPrefixWithUnderscore(typeof(T));
+        if (prefixWithUnderscore is not null && !IsValidPrefixedValue(value, prefixWithUnderscore))
+        {
+            var prefix = PrefixCache.GetPrefix(typeof(T));
+            throw new ArgumentException($"Value must start with prefix '{prefix}_' followed by at least one character", nameof(value));
+        }
+
+        return CreateInstance(value);
     }
 
     private static bool IsValidPrefixedValue(string value, string prefixWithUnderscore)

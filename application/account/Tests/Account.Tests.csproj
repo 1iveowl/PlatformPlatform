@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Api\Account.Api.csproj"/>
+        <ProjectReference Include="..\Client\Account.Client.csproj"/>
         <ProjectReference Include="..\Workers\Account.Workers.csproj">
             <Aliases>workers</Aliases>
         </ProjectReference>

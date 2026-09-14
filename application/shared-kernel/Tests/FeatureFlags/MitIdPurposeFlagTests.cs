@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
+using SharedKernel.FeatureFlags;
 using Xunit;
 using FeatureFlagRegistry = SharedKernel.FeatureFlags.FeatureFlags;
 

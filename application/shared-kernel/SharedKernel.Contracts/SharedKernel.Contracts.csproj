@@ -1,0 +1,35 @@
+<!--
+    Platform-neutral contracts shared by the server and every client (the Blazor client today, a native client later).
+    Rule for every slice: a slice that needs a contract moves it here in the same commit as the slice.
+    Nothing here may depend on a web host, a UI framework, EF Core, MediatR, NSwag or Azure; the dependency-boundary
+    architecture test in account/Tests/ArchitectureTests fails when a resolved reference crosses that line.
+    Server-only behavior (ID generation, feature flag evaluation) stays in SharedKernel.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Library</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyName>SharedKernel.Contracts</AssemblyName>
+        <RootNamespace>SharedKernel</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Inherited server-only global usings that a portable assembly must not depend on -->
+        <Using Remove="MediatR"/>
+        <Using Remove="Microsoft.Extensions.Logging"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations"/>
+        <PackageReference Include="NUlid"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="SharedKernel"/>
+        <InternalsVisibleTo Include="SharedKernel.Tests"/>
+    </ItemGroup>
+
+</Project>

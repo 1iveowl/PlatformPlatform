@@ -1,16 +1,11 @@
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
 using SharedKernel.Cqrs;
-using SharedKernel.Domain;
 using SharedKernel.ExecutionContext;
 
 namespace Account.Features.Tenants.Queries;
 
 public sealed record GetTenantsForUserQuery : IRequest<Result<GetTenantsForUserResponse>>;
-
-public sealed record GetTenantsForUserResponse(TenantInfo[] Tenants);
-
-public sealed record TenantInfo(TenantId TenantId, string? TenantName, UserId UserId, string? LogoUrl, bool IsNew);
 
 internal sealed class GetTenantsForUserQueryHandler(
     IUserRepository userRepository,

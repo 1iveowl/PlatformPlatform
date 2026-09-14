@@ -18,6 +18,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- The account API contracts, shared with the server across the build-root boundary. The net10.0 project builds
+             with this root's SDK and restores with the central package versions of application/ -->
+        <ProjectReference Include="..\..\application\account\Contracts\Account.Contracts.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Account.Features.Users.Domain" />
+        <Using Include="Account.Features.Users.Queries" />
+        <Using Include="SharedKernel.Persistence" />
+    </ItemGroup>
+
+    <ItemGroup>
         <!-- Keeps a FluentUI event args element type that the trimmer removes, see the file -->
         <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
     </ItemGroup>

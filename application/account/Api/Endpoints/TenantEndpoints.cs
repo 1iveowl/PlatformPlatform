@@ -4,6 +4,7 @@ using SharedKernel.ApiResults;
 using SharedKernel.Domain;
 using SharedKernel.Endpoints;
 using SharedKernel.OpenApi;
+using TenantRequests = Account.Features.Tenants.Requests;
 
 namespace Account.Api.Endpoints;
 
@@ -19,8 +20,8 @@ public sealed class TenantEndpoints : IEndpoints
             => await mediator.Send(new GetCurrentTenantQuery())
         ).Produces<TenantResponse>();
 
-        group.MapPut("/current", async Task<ApiResult> (UpdateCurrentTenantCommand command, IMediator mediator)
-            => (await mediator.Send(command)).AddRefreshAuthenticationTokens()
+        group.MapPut("/current", async Task<ApiResult> (TenantRequests.UpdateCurrentTenantCommand command, IMediator mediator)
+            => (await mediator.Send(new UpdateCurrentTenantCommand { Name = command.Name })).AddRefreshAuthenticationTokens()
         );
 
         group.MapGet("/", async Task<ApiResult<GetTenantsForUserResponse>> (IMediator mediator)

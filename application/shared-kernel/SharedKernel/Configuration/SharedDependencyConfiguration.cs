@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using SharedKernel.ApiResults;
 using SharedKernel.Authentication;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Authentication.TokenSigning;
@@ -24,12 +25,8 @@ namespace SharedKernel.Configuration;
 
 public static class SharedDependencyConfiguration
 {
-    // Ensure that enums are serialized as strings and use CamelCase
-    public static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
-    {
-        Converters = { new JsonStringEnumConverter() },
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    // Ensure that enums are serialized as strings and use CamelCase, with the same options the clients use
+    public static readonly JsonSerializerOptions DefaultJsonSerializerOptions = ApiJsonSerializerOptions.Create();
 
     public static ITokenSigningClient GetTokenSigningService()
     {

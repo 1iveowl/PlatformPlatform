@@ -1,6 +1,5 @@
 using FluentAssertions;
 using SharedKernel.Domain;
-using SharedKernel.StronglyTypedIds;
 using Xunit;
 
 namespace SharedKernel.Tests.Entities;

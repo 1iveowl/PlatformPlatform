@@ -1,5 +1,3 @@
-using SharedKernel.StronglyTypedIds;
-
 namespace SharedKernel.Authentication.TokenGeneration;
 
 [PublicAPI]

@@ -9,7 +9,7 @@ Load this when adding, removing, or changing how a feature flag is evaluated or 
 
 ## Subtype Is the Contract
 
-The `FeatureFlagDefinition` subtype on a field is not just a permissions tag — it rewires database-row ownership and validator behaviour at runtime. The subtype hierarchy replaced what used to be runtime checks (see the comment above the registry in `application/shared-kernel/SharedKernel/FeatureFlags/FeatureFlags.cs`).
+The `FeatureFlagDefinition` subtype on a field is not just a permissions tag — it rewires database-row ownership and validator behaviour at runtime. The subtype hierarchy replaced what used to be runtime checks (see the comment above the registry in `application/shared-kernel/SharedKernel.Contracts/FeatureFlags/FeatureFlags.cs`).
 
 - `PlanGatedTenantFlag` makes `PlanBasedFeatureFlagEvaluator` the exclusive writer of tenant overrides on every JWT refresh; the reconciler stamps `Source=Plan` on the base row and the Set/Remove validators block manual edits.
 - `SystemFeatureFlag` skips the database entirely — config + frontend env var only. There is no per-tenant override.

@@ -4,6 +4,7 @@ using SharedKernel.ApiResults;
 using SharedKernel.Domain;
 using SharedKernel.Endpoints;
 using SharedKernel.OpenApi;
+using UserRequests = Account.Features.Users.Requests;
 
 namespace Account.Api.Endpoints;
 
@@ -15,8 +16,8 @@ public sealed class UserEndpoints : IEndpoints
     {
         var group = routes.MapGroup(RoutesPrefix).WithTags("Users").WithGroupName(OpenApiDocumentNames.Account).RequireAuthorization().ProducesValidationProblem();
 
-        group.MapGet("/", async Task<ApiResult<UsersResponse>> ([AsParameters] GetUsersQuery query, IMediator mediator)
-            => await mediator.Send(query)
+        group.MapGet("/", async Task<ApiResult<UsersResponse>> ([AsParameters] UserRequests.GetUsersQuery query, IMediator mediator)
+            => await mediator.Send(new GetUsersQuery(query.Search, query.UserRole, query.UserStatus, query.StartDate, query.EndDate, query.OrderBy, query.SortOrder, query.PageOffset, query.PageSize))
         ).Produces<UsersResponse>();
 
         group.MapGet("/{id}", async Task<ApiResult<UserDetails>> (UserId id, IMediator mediator)
@@ -35,8 +36,8 @@ public sealed class UserEndpoints : IEndpoints
             => await mediator.Send(command)
         );
 
-        group.MapPut("/{id}/change-user-role", async Task<ApiResult> (UserId id, ChangeUserRoleCommand command, IMediator mediator)
-            => await mediator.Send(command with { Id = id })
+        group.MapPut("/{id}/change-user-role", async Task<ApiResult> (UserId id, UserRequests.ChangeUserRoleCommand command, IMediator mediator)
+            => await mediator.Send(new ChangeUserRoleCommand { Id = id, UserRole = command.UserRole })
         );
 
         group.MapPost("/invite", async Task<ApiResult> (InviteUserCommand command, IMediator mediator)
@@ -72,8 +73,8 @@ public sealed class UserEndpoints : IEndpoints
             => await mediator.Send(query)
         ).Produces<CurrentUserResponse>();
 
-        group.MapPut("/me", async Task<ApiResult> (UpdateCurrentUserCommand command, IMediator mediator)
-            => (await mediator.Send(command)).AddRefreshAuthenticationTokens()
+        group.MapPut("/me", async Task<ApiResult> (UserRequests.UpdateCurrentUserCommand command, IMediator mediator)
+            => (await mediator.Send(new UpdateCurrentUserCommand(command.FirstName, command.LastName, command.Title))).AddRefreshAuthenticationTokens()
         );
 
         group.MapPost("/me/update-avatar", async Task<ApiResult> (IFormFile file, IMediator mediator)

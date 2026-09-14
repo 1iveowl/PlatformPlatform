@@ -1,6 +1,5 @@
 using FluentAssertions;
 using NetArchTest.Rules;
-using SharedKernel.StronglyTypedIds;
 using Xunit;
 
 namespace Account.Tests.ArchitectureTests;
@@ -12,7 +11,7 @@ public class IdPrefixForAllStronglyTypedUlidTests
     {
         // Act
         var result = Types
-            .InAssembly(Configuration.Assembly)
+            .InAssemblies([Configuration.ContractsAssembly, Configuration.Assembly])
             .That().Inherit(typeof(StronglyTypedUlid<>))
             .Should().HaveCustomAttribute(typeof(IdPrefixAttribute))
             .GetResult();
@@ -27,17 +26,18 @@ public class IdPrefixForAllStronglyTypedUlidTests
     {
         // Arrange
         var stronglyTypedUlidIds = Types
-            .InAssembly(Configuration.Assembly)
+            .InAssemblies([Configuration.ContractsAssembly, Configuration.Assembly])
             .That().Inherit(typeof(StronglyTypedUlid<>))
             .GetTypes();
 
         // Assert
         foreach (var stronglyTypedId in stronglyTypedUlidIds)
         {
-            var newId = stronglyTypedId.BaseType?.GetMethod("NewId")?.Invoke(null, null);
+            var newId = typeof(StronglyTypedUlidGeneration).GetMethod(nameof(StronglyTypedUlidGeneration.NewUlidId))!.MakeGenericMethod(stronglyTypedId).Invoke(null, null);
 
             // Ids must follow the pattern: {prefix}_{ULID} where prefix is lowercase and ULID is uppercase
-            newId?.ToString().Should().MatchRegex("^[a-z0-9]+_[A-Z0-9]{26}$");
+            newId.Should().NotBeNull();
+            newId.ToString().Should().MatchRegex("^[a-z0-9]+_[A-Z0-9]{26}$");
         }
     }
 }

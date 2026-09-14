@@ -1,0 +1,33 @@
+<!--
+    Platform-neutral contracts of the account API: the request, response, ID and enum types a client compiles against.
+    Rule for every slice: a slice that needs a contract moves it here in the same commit as the slice.
+    Types keep the name, namespace and JSON shape the API already uses, so the OpenAPI document does not change. A request
+    record here carries the JSON body of a command; the endpoint binds it and maps it to the MediatR command in Account.
+    Nothing here may depend on a web host, a UI framework, EF Core, MediatR, NSwag or Azure; the dependency-boundary
+    architecture test in account/Tests/ArchitectureTests fails when a resolved reference crosses that line.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>Account.Contracts</AssemblyName>
+        <RootNamespace>Account</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Inherited server-only global usings that a portable assembly must not depend on -->
+        <Using Remove="MediatR"/>
+        <Using Remove="Microsoft.Extensions.Logging"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\shared-kernel\SharedKernel.Contracts\SharedKernel.Contracts.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations"/>
+    </ItemGroup>
+
+</Project>
