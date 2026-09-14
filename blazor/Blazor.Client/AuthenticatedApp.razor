@@ -1,12 +1,11 @@
-@* The interactive WebAssembly surface behind login. Prerendered by the host with
-   the host's IBootstrapSource, then started in the browser where the client's IBootstrapSource calls the bootstrap
-   endpoint. Crossing back to the public surface (logout, lost session) is a deliberate full document navigation. *@
-@using System.Net
+@* The interactive WebAssembly surface behind login. Prerendered by the host with the host's bootstrap adapter, then
+   started in the browser, where the bootstrap comes from the account API. Leaving the authenticated state (logout, tenant
+   switch, a lost session) is always a full document navigation, so nothing from the previous identity stays in memory. *@
 @using System.Text.Json
+@using Account.Features.Authentication.Queries
 @using Microsoft.Extensions.DependencyInjection
 @using Blazor.Client.Bootstrap
 @inject IBootstrapSource BootstrapSource
-@inject NavigationManager Navigation
 @inject IServiceProvider Services
 
 <h1>@(Page == "details" ? "Account details" : "Your workspace")</h1>
@@ -22,14 +21,14 @@
 @if (_bootstrap is { } bootstrap)
 {
     <dl>
-        <dt>Bootstrap source</dt>
-        <dd data-testid="bootstrap-source">@bootstrap.Source</dd>
         <dt>Authenticated</dt>
         <dd data-testid="bootstrap-authenticated">@bootstrap.IsAuthenticated</dd>
         <dt>Email</dt>
         <dd data-testid="bootstrap-email">@bootstrap.User?.Email</dd>
         <dt>Tenant</dt>
         <dd data-testid="bootstrap-tenant-id">@bootstrap.User?.TenantId</dd>
+        <dt>Tenant name</dt>
+        <dd data-testid="bootstrap-tenant-name">@bootstrap.User?.TenantName</dd>
         <dt>Locale</dt>
         <dd data-testid="bootstrap-locale">@bootstrap.Locale</dd>
         <dt>System feature flags</dt>
@@ -52,7 +51,7 @@
             @foreach (var tenant in _tenants)
             {
                 <li>
-                    <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.Id" disabled="@(tenant.Id == _bootstrap?.User?.TenantId)"
+                    <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.Id" disabled="@(tenant.Id == _bootstrap?.User?.TenantId.ToString())"
                             @onclick="() => SwitchTenantAsync(tenant.Id)">
                         Switch to @(tenant.Name ?? tenant.Id)
                     </button>
@@ -80,7 +79,7 @@
 
         if (!_bootstrap.IsAuthenticated)
         {
-            GoToLogin();
+            GetNavigator().LeaveForLogin();
             return;
         }
 
@@ -91,17 +90,14 @@
     {
         _bootstrap = await BootstrapSource.GetAsync();
         _status = $"Bootstrap reloaded at {DateTime.UtcNow:O}";
-        if (!_bootstrap.IsAuthenticated) GoToLogin();
+        if (!_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
     }
 
     private async Task LoadTenantsAsync()
     {
+        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
         using var response = await GetHttpClient().GetAsync("/api/account/tenants");
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            GoToLogin();
-            return;
-        }
+        if (!response.IsSuccessStatusCode) return;
 
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         _tenants = document.RootElement.GetProperty("tenants").EnumerateArray()
@@ -109,6 +105,8 @@
             .ToArray();
     }
 
+    // The gateway turns the new session's tokens into cookies. The bootstrap is read again under the new identity, and the
+    // authenticated home is then loaded as a new document, so no state of the previous tenant survives in memory
     private async Task SwitchTenantAsync(string tenantId)
     {
         using var response = await SendWithAntiforgeryAsync("/api/account/authentication/switch-tenant", JsonContent.Create(new { tenantId }));
@@ -118,16 +116,20 @@
             return;
         }
 
-        // The antiforgery token is bound to the user, and switching tenant changes the user, so the bootstrap is read again
         _bootstrap = await BootstrapSource.GetAsync();
-        await LoadTenantsAsync();
-        _status = $"Switched to tenant {_bootstrap.User?.TenantId}";
+        if (!_bootstrap.IsAuthenticated)
+        {
+            GetNavigator().LeaveForLogin();
+            return;
+        }
+
+        GetNavigator().LeaveForAuthenticatedHome();
     }
 
     private async Task LogoutAsync()
     {
         using var response = await SendWithAntiforgeryAsync("/api/account/authentication/logout", null);
-        Navigation.NavigateTo($"{AppUrls.ToAbsolute("login")}?loggedOut={(int)response.StatusCode}", true);
+        GetNavigator().LeaveForLoggedOut();
     }
 
     private async Task<HttpResponseMessage> SendWithAntiforgeryAsync(string url, HttpContent? content)
@@ -137,16 +139,15 @@
         return await GetHttpClient().SendAsync(request);
     }
 
-    private void GoToLogin()
-    {
-        var returnPath = new Uri(Navigation.Uri).PathAndQuery;
-        Navigation.NavigateTo($"{AppUrls.ToAbsolute("login")}?returnPath={Uri.EscapeDataString(returnPath)}", true);
-    }
-
-    // Resolved lazily: the host container registers no HttpClient for this component, and the calls only run interactively
+    // Resolved lazily: the host container registers no HttpClient for prerendering, and both are only used interactively
     private HttpClient GetHttpClient()
     {
         return Services.GetRequiredService<HttpClient>();
+    }
+
+    private AuthenticationNavigator GetNavigator()
+    {
+        return Services.GetRequiredService<AuthenticationNavigator>();
     }
 
     private sealed record TenantOption(string Id, string? Name);

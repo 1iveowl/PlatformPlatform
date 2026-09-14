@@ -1,6 +1,6 @@
 // The Blazor host behind AppGateway under the path base in AppUrls. It authenticates the gateway's bearer token, serves
 // the static server-rendered public surface and the prerendered WebAssembly pages with the React shell's headers, and
-// serves the brand stylesheet, the web app manifest and the temporary bootstrap endpoint.
+// serves the brand stylesheet and the web app manifest. Clients read the bootstrap contract from the account API.
 
 using System.Net;
 using System.Runtime.InteropServices;
@@ -38,8 +38,10 @@ public static class HostApplication
         builder.Services.AddSingleton<HostShell>();
         builder.Services.AddHttpContextAccessor();
 
-        // Prerendering an interactive component and the bootstrap endpoint both resolve the contract from this container
+        // Prerendering an interactive component reads the bootstrap contract through the host's adapter; the components'
+        // navigation out of the authenticated surface resolves from the same container
         builder.Services.AddScoped<IBootstrapSource, HostBootstrapSource>();
+        builder.Services.AddScoped<AuthenticationNavigator>();
 
         // The static server-rendered form handlers call the account API directly, the way the gateway reaches it; cookies are forwarded by hand
         var accountApiUrl = Environment.GetEnvironmentVariable("ACCOUNT_API_URL")
@@ -100,16 +102,6 @@ public static class HostApplication
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseAntiforgery();
-
-        // Temporary bootstrap endpoint: identity, runtime configuration and system-scope feature flags, plus the antiforgery request
-        // token the client needs for its API calls. A later task replaces it with the production contract.
-        app.MapGet("/api/bootstrap", async (HttpContext context, IBootstrapSource bootstrapSource) =>
-            {
-                context.Response.Headers.CacheControl = "no-store";
-                var bootstrap = await bootstrapSource.GetAsync(context.RequestAborted);
-                return Results.Json(bootstrap with { Source = "bootstrap-endpoint" });
-            }
-        );
 
         // Brand values from platform-settings.jsonc, versioned by content in the URL the host page renders
         app.MapGet(HostShell.BrandStylesheetPath, (HttpContext context) =>

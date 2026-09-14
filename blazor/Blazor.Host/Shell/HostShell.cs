@@ -1,9 +1,7 @@
 // The host page responsibilities that SharedKernel's SinglePageAppFallbackExtensions and SinglePageAppConfiguration carry
-// for the React edition: security headers and the content security policy, runtime configuration, locale, brand tokens
-// and the web app manifest.
+// for the React edition: security headers and the content security policy, locale, brand tokens and the web app
+// manifest. Runtime configuration reaches clients through the bootstrap contract, never through the host page.
 
-using System.Collections;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -47,8 +45,6 @@ public sealed class HostShell
     public const string AntiforgeryCookieName = "__Host-xsrf-token";
     public const string AntiforgeryHeaderName = "x-xsrf-token";
 
-    private const string PublicKeyPrefix = "PUBLIC_";
-    private const string ApplicationVersionKey = "APPLICATION_VERSION";
     private const string DefaultLocale = "en-US";
     private const string NonceItemKey = "csp-nonce";
     private const int NonceByteCount = 16;
@@ -61,27 +57,6 @@ public sealed class HostShell
     {
         var publicUrl = Environment.GetEnvironmentVariable(PublicUrlKey) ?? string.Empty;
         var cdnUrl = Environment.GetEnvironmentVariable(CdnUrlKey) ?? string.Empty;
-        var applicationVersion =
-            Assembly.GetEntryAssembly()!.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? Assembly.GetEntryAssembly()!.GetName().Version!.ToString();
-
-        // Only PUBLIC_* keys plus the two keys the React edition allow-lists ever reach the client
-        var runtimeEnvironment = new Dictionary<string, string>
-        {
-            { PublicUrlKey, publicUrl },
-            { CdnUrlKey, cdnUrl },
-            { ApplicationVersionKey, applicationVersion }
-        };
-        foreach (var entry in Environment.GetEnvironmentVariables().Cast<DictionaryEntry>())
-        {
-            var key = (string)entry.Key;
-            if (key.StartsWith(PublicKeyPrefix, StringComparison.Ordinal) && !runtimeEnvironment.ContainsKey(key))
-            {
-                runtimeEnvironment[key] = (string?)entry.Value ?? string.Empty;
-            }
-        }
-
-        RuntimeEnvironment = runtimeEnvironment;
 
         _trustedHosts = $"{publicUrl} {cdnUrl}";
         if (environment.IsDevelopment() && Uri.TryCreate(publicUrl, UriKind.Absolute, out var publicUri))
@@ -93,9 +68,8 @@ public sealed class HostShell
         BrandStylesheet = BuildBrandStylesheet(Brand);
         BrandStylesheetUrl = $"{AppUrls.ToAbsolute(BrandStylesheetPath)}?v={GetContentVersion(BrandStylesheet)}";
         Manifest = BuildManifest(Brand);
+        InternalEmailDomain = LoadInternalEmailDomain();
     }
-
-    public IReadOnlyDictionary<string, string> RuntimeEnvironment { get; }
 
     public BrandTokens Brand { get; }
 
@@ -104,6 +78,9 @@ public sealed class HostShell
     public string BrandStylesheetUrl { get; }
 
     public string Manifest { get; }
+
+    // The email suffix that marks a user as internal, from the same settings file UserInfo reads
+    public string InternalEmailDomain { get; }
 
     public static string GetNonce(HttpContext context)
     {
@@ -274,10 +251,7 @@ public sealed class HostShell
 
     public static BrandTokens LoadBrandTokens()
     {
-        using var stream = typeof(HostShell).Assembly.GetManifestResourceStream("platform-settings.jsonc")
-                           ?? throw new InvalidOperationException("Embedded resource 'platform-settings.jsonc' not found.");
-        using var document = JsonDocument.Parse(stream, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
-
+        using var document = LoadPlatformSettings();
         var branding = document.RootElement.GetProperty("branding");
         var themeColor = branding.GetProperty("themeColor");
         var primaryColor = branding.GetProperty("primaryColor");
@@ -292,5 +266,18 @@ public sealed class HostShell
             primaryColor.GetProperty("dark").GetString()!,
             primaryColor.GetProperty("darkForeground").GetString()!
         );
+    }
+
+    private static string LoadInternalEmailDomain()
+    {
+        using var document = LoadPlatformSettings();
+        return document.RootElement.GetProperty("identity").GetProperty("internalEmailDomain").GetString()!;
+    }
+
+    private static JsonDocument LoadPlatformSettings()
+    {
+        using var stream = typeof(HostShell).Assembly.GetManifestResourceStream("platform-settings.jsonc")
+                           ?? throw new InvalidOperationException("Embedded resource 'platform-settings.jsonc' not found.");
+        return JsonDocument.Parse(stream, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
     }
 }

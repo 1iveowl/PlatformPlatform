@@ -5,6 +5,7 @@
 @using Microsoft.FluentUI.AspNetCore.Components
 @implements IAsyncDisposable
 @inject IBootstrapSource BootstrapSource
+@inject AuthenticationNavigator AuthenticationNavigator
 @inject NavigationManager Navigation
 @inject IJSRuntime JavaScriptRuntime
 @inject UsersApiClient UsersApi
@@ -189,11 +190,11 @@
         var bootstrap = await BootstrapSource.GetAsync();
         if (!bootstrap.IsAuthenticated)
         {
-            Navigation.NavigateTo($"{AppUrls.ToAbsolute("login")}?returnPath={Uri.EscapeDataString(new Uri(Navigation.Uri).PathAndQuery)}", true);
+            AuthenticationNavigator.LeaveForLogin();
             return;
         }
 
-        _currentUserId = bootstrap.User?.Id;
+        _currentUserId = bootstrap.User?.Id.Value;
         _isOwner = bootstrap.User?.Role == nameof(UserRole.Owner);
 
         if (_state.UserId is not null)

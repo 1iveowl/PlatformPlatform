@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Text.Json;
 using Blazor.Host;
 using Blazor.Host.Account;
 using FluentAssertions;
@@ -11,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace Blazor.Tests.Account;
 
-public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostFixture>
+public sealed partial class HostSecurityTests(HostFixture fixture) : IClassFixture<HostFixture>
 {
     public enum InvalidToken
     {
@@ -22,17 +21,17 @@ public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostF
     }
 
     [Fact]
-    public async Task Bootstrap_WhenTokenIsSignedByDevelopmentSigningClient_ShouldBeAuthenticated()
+    public async Task AuthenticatedPrerender_WhenTokenIsSignedByDevelopmentSigningClient_ShouldBeAuthenticated()
     {
         // Arrange
         var client = fixture.Client;
 
         // Act
-        var bootstrap = await GetBootstrapAsync(client, fixture.CreateToken("valid@example.com"));
+        using var response = await GetAuthenticatedPageAsync(client, fixture.CreateToken("valid@example.com"));
 
         // Assert
-        bootstrap.GetProperty("isAuthenticated").GetBoolean().Should().BeTrue();
-        bootstrap.GetProperty("user").GetProperty("email").GetString().Should().Be("valid@example.com");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("data-testid=\"bootstrap-email\">valid@example.com<");
     }
 
     [Theory]
@@ -40,7 +39,7 @@ public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostF
     [InlineData(InvalidToken.WrongAudience)]
     [InlineData(InvalidToken.WrongKey)]
     [InlineData(InvalidToken.ExpiredBeyondClockSkew)]
-    public async Task Bootstrap_WhenTokenIsInvalid_ShouldBeAnonymous(InvalidToken invalidToken)
+    public async Task AuthenticatedPrerender_WhenTokenIsInvalid_ShouldBeAnonymous(InvalidToken invalidToken)
     {
         // Arrange
         var client = fixture.Client;
@@ -53,10 +52,11 @@ public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostF
         };
 
         // Act
-        var bootstrap = await GetBootstrapAsync(client, token);
+        using var response = await GetAuthenticatedPageAsync(client, token);
 
         // Assert
-        bootstrap.GetProperty("isAuthenticated").GetBoolean().Should().BeFalse();
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.OriginalString.Should().StartWith("/blazor/login?returnPath=");
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostF
     public void IsApiRequest_WhenPathIsUnderApi_ShouldBeTrue()
     {
         // Arrange
-        var context = new DefaultHttpContext { Request = { PathBase = "/blazor", Path = "/api/bootstrap" } };
+        var context = new DefaultHttpContext { Request = { PathBase = "/blazor", Path = "/api/account/users" } };
 
         // Act & Assert
         HostAuthentication.IsApiRequest(context.Request).Should().BeTrue();
@@ -247,8 +247,8 @@ public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostF
 
     [Theory]
     [InlineData("blazor/login")]
-    [InlineData("blazor/api/bootstrap")]
-    public async Task DocumentsWithAntiforgeryTokenAndBootstrap_ShouldNotBeStored(string path)
+    [InlineData("blazor/error?error=session_revoked")]
+    public async Task DocumentsWithAntiforgeryToken_ShouldNotBeStored(string path)
     {
         // Arrange
         var client = fixture.Client;
@@ -261,13 +261,11 @@ public sealed class HostSecurityTests(HostFixture fixture) : IClassFixture<HostF
         response.Headers.CacheControl!.NoStore.Should().BeTrue();
     }
 
-    private static async Task<JsonElement> GetBootstrapAsync(HttpClient client, string bearerToken)
+    private static async Task<HttpResponseMessage> GetAuthenticatedPageAsync(HttpClient client, string bearerToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "blazor/api/bootstrap");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "blazor/app");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-        using var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        return JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
+        return await client.SendAsync(request);
     }
 
     private static DefaultHttpContext CreateForwardedContext(string remoteAddress, string forwardedHost)

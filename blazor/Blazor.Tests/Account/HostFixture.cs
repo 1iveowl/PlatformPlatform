@@ -34,6 +34,7 @@ public sealed partial class HostFixture : IAsyncLifetime
 {
     public const string PublicHost = "app.dev.localhost:9000";
     public const string EmailLoginStartPath = "/api/account/authentication/email/login/start";
+    public const string TenantIdClaimValue = "4711";
 
     private WebApplication? _accountApi;
     private WebApplication? _host;
@@ -44,6 +45,8 @@ public sealed partial class HostFixture : IAsyncLifetime
 
     // Shared by all tests; every per-user value is set on the request message, never on the client
     public HttpClient Client { get; private set; } = null!;
+
+    public IServiceProvider HostServices => _host!.Services;
 
     public async Task InitializeAsync()
     {
@@ -80,7 +83,7 @@ public sealed partial class HostFixture : IAsyncLifetime
         {
             Issuer = issuer ?? TokenSigningClient.Issuer,
             Audience = audience ?? TokenSigningClient.Audience,
-            Subject = new ClaimsIdentity([new Claim("sub", $"usr_{email}"), new Claim("email", email), new Claim("tenant_id", $"tenant-of-{email}")]),
+            Subject = new ClaimsIdentity([new Claim("sub", $"usr_{email}"), new Claim("email", email), new Claim("tenant_id", TenantIdClaimValue), new Claim("tenant_name", $"tenant-of-{email}")]),
             IssuedAt = (expires ?? now).AddMinutes(-10),
             NotBefore = (expires ?? now).AddMinutes(-10),
             Expires = expires ?? now.AddMinutes(5),

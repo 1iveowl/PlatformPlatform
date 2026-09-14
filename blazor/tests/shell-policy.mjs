@@ -338,15 +338,15 @@ async function runFormAction(account) {
   });
   await page.goto(`${baseUrl}${pathBase}/app`, { waitUntil: "load" });
   await waitForInteractive(page);
-  const start = await page.evaluate(async (path) => {
-    const bootstrap = await (await fetch(`${path}/api/bootstrap`)).json();
+  const start = await page.evaluate(async () => {
+    const bootstrap = await (await fetch("/api/account/bootstrap")).json();
     const response = await fetch("/api/account/authentication/MitId/verification/start", {
       method: "POST",
       headers: { "content-type": "application/json", "x-xsrf-token": bootstrap.antiforgeryToken },
       body: JSON.stringify({ returnPath: "/user/profile" })
     });
     return { status: response.status, body: await response.json().catch(() => null) };
-  }, pathBase);
+  });
   let verification = { startStatus: start.status, startBody: start.body };
   if (start.body?.authorizationUrl) {
     const violationsBefore = await readViolations(page);
