@@ -2,8 +2,10 @@
    enhanced: a successful submission crosses the authentication boundary, so the browser follows the redirect with a full
    document load and the session cookies set on that redirect by the gateway. *@
 @page "/login/verify"
-@using Blazor.Host.Account
-@inject AccountApiClient AccountApi
+@using global::Account.Client
+@using global::Account.Features.EmailAuthentication.Domain
+@using global::Account.Features.EmailAuthentication.Requests
+@inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
 <PageTitle>Check your email</PageTitle>
@@ -30,6 +32,9 @@
 
     private string? _error;
 
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
     [SupplyParameterFromForm(FormName = "login-verify")]
     // Null when the request is not this form's post; the getter then supplies an empty model
     private OneTimePasswordForm Input { get => field ??= new OneTimePasswordForm(); set; }
@@ -45,16 +50,17 @@
 
     private async Task CompleteAsync()
     {
-        if (string.IsNullOrEmpty(Id))
+        // A missing id and one that is not an email login id are both a login that cannot be completed
+        if (!EmailLoginId.TryParse(Id, out var emailLoginId))
         {
             _error = "The login has expired. Start again.";
             return;
         }
 
-        var result = await AccountApi.PostAsync($"/api/account/authentication/email/login/{Uri.EscapeDataString(Id)}/complete", new { oneTimePassword = Input.OneTimePassword });
+        var result = await EmailAuthentication.CompleteLoginAsync(emailLoginId, new CompleteEmailLoginCommand(Input.OneTimePassword), HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _error = result.ErrorMessage;
+            _error = result.Problem.GetFormErrorMessage();
             return;
         }
 

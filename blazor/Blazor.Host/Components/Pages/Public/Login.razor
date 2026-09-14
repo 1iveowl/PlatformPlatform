@@ -1,8 +1,9 @@
 @* Email login start, static server-side rendering. The form is enhanced because it stays inside the public surface: the
    account API returns an email login id and the handler redirects to the verification page. *@
 @page "/login"
-@using Blazor.Host.Account
-@inject AccountApiClient AccountApi
+@using global::Account.Client
+@using global::Account.Features.EmailAuthentication.Requests
+@inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
 <PageTitle>Log in</PageTitle>
@@ -32,6 +33,9 @@
 
     private string? _error;
 
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
     [SupplyParameterFromForm(FormName = "login-start")]
     // Null when the request is not this form's post; the getter then supplies an empty model
     private EmailForm Input { get => field ??= new EmailForm(); set; }
@@ -44,16 +48,15 @@
 
     private async Task StartAsync()
     {
-        var result = await AccountApi.PostAsync("/api/account/authentication/email/login/start", new { email = Input.Email });
+        var result = await EmailAuthentication.StartLoginAsync(new StartEmailLoginCommand(Input.Email), HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _error = result.ErrorMessage;
+            _error = result.Problem.GetFormErrorMessage();
             return;
         }
 
-        var emailLoginId = result.Body!.Value.GetProperty("emailLoginId").GetString();
         Navigation.NavigateTo(
-            $"{AppUrls.ToAbsolute("login/verify")}?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}&returnPath={Uri.EscapeDataString(AppUrls.SanitizeReturnPath(ReturnPath))}"
+            $"{AppUrls.ToAbsolute("login/verify")}?id={Uri.EscapeDataString(result.Value.EmailLoginId.Value)}&email={Uri.EscapeDataString(Input.Email)}&returnPath={Uri.EscapeDataString(AppUrls.SanitizeReturnPath(ReturnPath))}"
         );
     }
 

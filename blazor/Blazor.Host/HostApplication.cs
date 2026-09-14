@@ -4,6 +4,7 @@
 
 using System.Net;
 using System.Runtime.InteropServices;
+using Account.Client;
 using Blazor.Client;
 using Blazor.Client.Bootstrap;
 using Blazor.Host.Account;
@@ -43,12 +44,18 @@ public static class HostApplication
         builder.Services.AddScoped<IBootstrapSource, HostBootstrapSource>();
         builder.Services.AddScoped<AuthenticationNavigator>();
 
-        // The static server-rendered form handlers call the account API directly, the way the gateway reaches it; cookies are forwarded by hand
-        var accountApiUrl = Environment.GetEnvironmentVariable("ACCOUNT_API_URL")
-                            ?? throw new InvalidOperationException("ACCOUNT_API_URL is not set. Start the stack through the AppHost.");
-        builder.Services
-            .AddHttpClient<AccountApiClient>(client => client.BaseAddress = new Uri(accountApiUrl))
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false });
+        // The static server-rendered form handlers call the account API directly through the typed clients, the way the gateway
+        // reaches it; HostAccountApiHandler relays the current request's credentials by hand. The feature flag state is
+        // registered so prerendered components resolve the same services as in the browser.
+        var accountApiUrl = new Uri(Environment.GetEnvironmentVariable("ACCOUNT_API_URL")
+                                    ?? throw new InvalidOperationException("ACCOUNT_API_URL is not set. Start the stack through the AppHost.")
+        );
+        builder.Services.AddTransient<HostAccountApiHandler>();
+        builder.Services.AddScoped<FeatureFlagState>();
+        AddAccountApiClient<EmailAuthenticationClient>(builder.Services, accountApiUrl);
+        AddAccountApiClient<AuthenticationClient>(builder.Services, accountApiUrl);
+        AddAccountApiClient<UsersClient>(builder.Services, accountApiUrl);
+        AddAccountApiClient<TenantsClient>(builder.Services, accountApiUrl);
 
         // The platform's data protection registration: the APIs' application name locally and the Container Apps key ring in
         // Azure, so an antiforgery token issued here validates at the account API and one issued by the React shell validates here
@@ -144,5 +151,13 @@ public static class HostApplication
         options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("100.64.0.0"), 10));
         options.KnownProxies.Clear();
         return options;
+    }
+
+    private static void AddAccountApiClient<TClient>(IServiceCollection services, Uri accountApiUrl) where TClient : class
+    {
+        services
+            .AddHttpClient<TClient>(client => client.BaseAddress = accountApiUrl)
+            .AddHttpMessageHandler<HostAccountApiHandler>()
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = false });
     }
 }

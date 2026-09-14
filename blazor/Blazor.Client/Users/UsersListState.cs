@@ -3,6 +3,7 @@
 // this spike compares. Parsed from and written back to the URL.
 
 using System.Globalization;
+using Account.Features.Users.Requests;
 
 namespace Blazor.Client.Users;
 
@@ -83,20 +84,16 @@ public sealed record UsersListState(
         return query.Length == 0 ? path : $"{path}?{query}";
     }
 
-    // The account API's GetUsersQuery parameters; the filter part only, paging is added per request
-    public string ToApiQuery()
+    // The account API's users query; the filter part only, paging is set per request. A calendar date is sent as the date
+    // itself, so it is carried at midnight UTC.
+    public GetUsersQuery ToUsersQuery()
     {
-        var parameters = new Dictionary<string, string?>
-        {
-            ["Search"] = Search,
-            ["UserRole"] = UserRole?.ToString(),
-            ["UserStatus"] = UserStatus?.ToString(),
-            ["StartDate"] = StartDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            ["EndDate"] = EndDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            ["OrderBy"] = OrderBy.ToString(),
-            ["SortOrder"] = SortOrder.ToString()
-        };
-        return FormatQuery(parameters);
+        return new GetUsersQuery(Search, UserRole, UserStatus, ToDateTimeOffset(StartDate), ToDateTimeOffset(EndDate), OrderBy, SortOrder);
+    }
+
+    private static DateTimeOffset? ToDateTimeOffset(DateOnly? date)
+    {
+        return date is { } value ? new DateTimeOffset(value, TimeOnly.MinValue, TimeSpan.Zero) : null;
     }
 
     private static Dictionary<string, string> ParseQuery(string query)

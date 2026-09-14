@@ -1,7 +1,8 @@
 @* Email signup start, static server-side rendering, enhanced for the same reason as the login start *@
 @page "/signup"
-@using Blazor.Host.Account
-@inject AccountApiClient AccountApi
+@using global::Account.Client
+@using global::Account.Features.EmailAuthentication.Requests
+@inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
 <PageTitle>Sign up</PageTitle>
@@ -26,21 +27,23 @@
 
     private string? _error;
 
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
     [SupplyParameterFromForm(FormName = "signup-start")]
     // Null when the request is not this form's post; the getter then supplies an empty model
     private EmailForm Input { get => field ??= new EmailForm(); set; }
 
     private async Task StartAsync()
     {
-        var result = await AccountApi.PostAsync("/api/account/authentication/email/signup/start", new { email = Input.Email });
+        var result = await EmailAuthentication.StartSignupAsync(new StartEmailSignupCommand(Input.Email), HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _error = result.ErrorMessage;
+            _error = result.Problem.GetFormErrorMessage();
             return;
         }
 
-        var emailLoginId = result.Body!.Value.GetProperty("emailLoginId").GetString();
-        Navigation.NavigateTo($"{AppUrls.ToAbsolute("signup/verify")}?id={Uri.EscapeDataString(emailLoginId!)}&email={Uri.EscapeDataString(Input.Email)}");
+        Navigation.NavigateTo($"{AppUrls.ToAbsolute("signup/verify")}?id={Uri.EscapeDataString(result.Value.EmailLoginId.Value)}&email={Uri.EscapeDataString(Input.Email)}");
     }
 
 }

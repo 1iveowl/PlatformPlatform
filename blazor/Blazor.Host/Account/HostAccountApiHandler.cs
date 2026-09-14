@@ -1,13 +1,17 @@
-// Server-to-server calls from the static server-rendered form handlers to the account API.
+// The request-context credential adapter for the typed account API clients the host uses: the static server-rendered form
+// handlers and any call made while serving a request.
 //
 // Call path: direct to ACCOUNT_API_URL, not back through the gateway. The host is a confidential client inside the same
 // network as the account API, the way the gateway itself reaches it.
 // - Antiforgery: the host validates the posted form token against the __Host-xsrf-token cookie first (UseAntiforgery),
-//   then this client forwards that token as x-xsrf-token with the same cookie, so the account API's AntiforgeryMiddleware
+//   then this handler forwards that token as x-xsrf-token with the same cookie, so the account API's AntiforgeryMiddleware
 //   runs its own check on the same pair. Both validate because they share the data protection key ring.
-// - Tokens to cookies: the account API returns x-refresh-token and x-access-token on this call; they are copied onto the
-//   host response, which leaves through the gateway, and the gateway's AuthenticationCookieMiddleware turns them into the
-//   session cookies exactly as for the React edition's API calls.
+// - Tokens to cookies: the account API returns x-refresh-token and x-access-token when a call issues a session, and
+//   x-refresh-authentication-tokens-required when a mutation changed the caller's claims; they are copied onto the host
+//   response, which leaves through the gateway. The gateway's AuthenticationCookieMiddleware turns the token pair into the
+//   session cookies, or refreshes the tokens when asked, and removes all three headers before the browser sees them,
+//   exactly as for the React edition's API calls. The token headers are removed from the upstream response once copied, so
+//   no typed client result can carry them.
 // - Host network: a caller that can reach the account API directly can already do so without this host, with any
 //   headers; the account API's own authentication and antiforgery checks are its boundary, not the network. The host
 //   adds no credential of its own: it only relays the browser's bearer token, antiforgery pair and client address.
@@ -16,34 +20,39 @@
 // - Deployment: the host's container app must be allowed to reach the account API's internal ingress in the same
 //   Container Apps environment, as the gateway is.
 //
-// Every value is read from the current request and set on the request message; the pooled handler holds no cookies
-// (UseCookies=false) and no credentials, so nothing crosses between concurrent requests.
+// The HTTP client factory pools this handler across requests and users, so it holds nothing but the context accessor and
+// the antiforgery options: every value is read from the current request on each send and set on the request message, and
+// the primary handler holds no cookies (UseCookies=false), so nothing crosses between concurrent requests.
 
-using System.Text.Json;
+using Account.Client;
 using Blazor.Host.Shell;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.Extensions.Options;
 
 namespace Blazor.Host.Account;
 
-public sealed record AccountApiResult(int StatusCode, JsonElement? Body, string? ErrorMessage)
-{
-    public bool IsSuccess => StatusCode is >= 200 and < 300;
-}
-
-public sealed class AccountApiClient(HttpClient httpClient, IHttpContextAccessor httpContextAccessor, IOptions<AntiforgeryOptions> antiforgeryOptions)
+public sealed class HostAccountApiHandler(IHttpContextAccessor httpContextAccessor, IOptions<AntiforgeryOptions> antiforgeryOptions) : DelegatingHandler
 {
     private const string RefreshTokenHeaderKey = "x-refresh-token";
     private const string AccessTokenHeaderKey = "x-access-token";
+    private const string RefreshAuthenticationTokensHeaderKey = "x-refresh-authentication-tokens-required";
 
     private static readonly string[] RelayedRequestHeaders = ["User-Agent", "Accept-Language"];
 
-    public async Task<AccountApiResult> PostAsync(string path, object body, CancellationToken cancellationToken = default)
+    private static readonly string[] TokenResponseHeaders = [RefreshTokenHeaderKey, AccessTokenHeaderKey];
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var context = httpContextAccessor.HttpContext ?? throw new InvalidOperationException("No HttpContext.");
-        using var request = new HttpRequestMessage(HttpMethod.Post, path);
-        request.Content = JsonContent.Create(body);
+        AddRequestCredentials(context, request);
 
+        var response = await base.SendAsync(request, cancellationToken);
+        CopyResponseHeaders(response, context);
+        return response;
+    }
+
+    private void AddRequestCredentials(HttpContext context, HttpRequestMessage request)
+    {
         if (context.Request.HasFormContentType)
         {
             var formToken = context.Request.Form[antiforgeryOptions.Value.FormFieldName].ToString();
@@ -66,18 +75,29 @@ public sealed class AccountApiClient(HttpClient httpClient, IHttpContextAccessor
             if (context.Request.Headers.TryGetValue(header, out var value)) request.Headers.TryAddWithoutValidation(header, value.ToString());
         }
 
+        request.Headers.TryAddWithoutValidation(AccountApiHeaders.Locale, HostShell.GetLocale(context));
+
         if (context.Connection.RemoteIpAddress is { } clientAddress)
         {
             request.Headers.TryAddWithoutValidation("X-Forwarded-For", clientAddress.ToString());
         }
 
         request.Headers.TryAddWithoutValidation("X-Forwarded-Proto", context.Request.Scheme);
+    }
 
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-
-        foreach (var header in new[] { RefreshTokenHeaderKey, AccessTokenHeaderKey })
+    private static void CopyResponseHeaders(HttpResponseMessage response, HttpContext context)
+    {
+        foreach (var header in TokenResponseHeaders)
         {
-            if (response.Headers.TryGetValues(header, out var values)) context.Response.Headers[header] = values.Single();
+            if (!response.Headers.TryGetValues(header, out var values)) continue;
+
+            context.Response.Headers[header] = values.Single();
+            response.Headers.Remove(header);
+        }
+
+        if (response.Headers.TryGetValues(RefreshAuthenticationTokensHeaderKey, out var refreshRequired))
+        {
+            context.Response.Headers[RefreshAuthenticationTokensHeaderKey] = refreshRequired.Single();
         }
 
         if (response.Headers.TryGetValues("Set-Cookie", out var setCookies))
@@ -87,28 +107,5 @@ public sealed class AccountApiClient(HttpClient httpClient, IHttpContextAccessor
                 context.Response.Headers.Append("Set-Cookie", setCookie);
             }
         }
-
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        JsonElement? json = null;
-        if (content.Length > 0 && response.Content.Headers.ContentType?.MediaType?.Contains("json") == true)
-        {
-            json = JsonDocument.Parse(content).RootElement.Clone();
-        }
-
-        return new AccountApiResult((int)response.StatusCode, json, response.IsSuccessStatusCode ? null : GetErrorMessage(json, (int)response.StatusCode));
-    }
-
-    private static string GetErrorMessage(JsonElement? problem, int statusCode)
-    {
-        if (problem is not { ValueKind: JsonValueKind.Object } details) return $"Request failed with status {statusCode}.";
-
-        if (details.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
-        {
-            var messages = errors.EnumerateObject().SelectMany(error => error.Value.EnumerateArray().Select(message => message.GetString())).ToArray();
-            if (messages.Length > 0) return string.Join(" ", messages);
-        }
-
-        if (details.TryGetProperty("detail", out var detail) && detail.GetString() is { Length: > 0 } detailText) return detailText;
-        return details.TryGetProperty("title", out var title) ? title.GetString() ?? "" : $"Request failed with status {statusCode}.";
     }
 }

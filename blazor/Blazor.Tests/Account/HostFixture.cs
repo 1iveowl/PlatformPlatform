@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using Account.Client;
 using Blazor.Host;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,11 +14,14 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using NUlid;
 using SharedKernel.Authentication.TokenSigning;
 
 namespace Blazor.Tests.Account;
 
 public sealed record EmailLoginStartBody(string Email);
+
+public sealed record UpdateCurrentUserBody(string FirstName, string LastName, string Title);
 
 public sealed record RecordedAccountApiRequest(
     string? Authorization,
@@ -25,7 +29,8 @@ public sealed record RecordedAccountApiRequest(
     string? AntiforgeryToken,
     string? ForwardedFor,
     string? ForwardedProto,
-    string? ForwardedHost
+    string? ForwardedHost,
+    string? Locale
 );
 
 // Runs the real host on loopback in Development, the way the gateway reaches it, with a stand-in account API that records
@@ -33,8 +38,10 @@ public sealed record RecordedAccountApiRequest(
 public sealed partial class HostFixture : IAsyncLifetime
 {
     public const string PublicHost = "app.dev.localhost:9000";
-    public const string EmailLoginStartPath = "/api/account/authentication/email/login/start";
     public const string TenantIdClaimValue = "4711";
+    public const string FailingEmailPrefix = "fail-";
+    public const string FailingFirstName = "fail";
+    public const string FieldErrorMessage = "The value is not accepted.";
 
     private WebApplication? _accountApi;
     private WebApplication? _host;
@@ -132,22 +139,52 @@ public sealed partial class HostFixture : IAsyncLifetime
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         var accountApi = builder.Build();
-        accountApi.MapPost(EmailLoginStartPath, async (HttpContext context, EmailLoginStartBody body) =>
+        accountApi.MapPost(AccountApiRoutes.StartEmailLogin, async (HttpContext context, EmailLoginStartBody body) =>
             {
-                var headers = context.Request.Headers;
-                AccountApiRequests[body.Email] = new RecordedAccountApiRequest(
-                    headers.Authorization.FirstOrDefault(), headers.Cookie.FirstOrDefault(), headers["x-xsrf-token"].FirstOrDefault(),
-                    headers["X-Forwarded-For"].FirstOrDefault(), headers["X-Forwarded-Proto"].FirstOrDefault(), headers["X-Forwarded-Host"].FirstOrDefault()
-                );
+                AccountApiRequests[body.Email] = RecordRequest(context);
 
                 // Holds the call open so concurrent form posts overlap inside the host
                 await Task.Delay(TimeSpan.FromMilliseconds(200));
+                if (body.Email.StartsWith(FailingEmailPrefix, StringComparison.Ordinal)) return CreateValidationProblem("email");
+
                 context.Response.Headers["x-access-token"] = $"access-{body.Email}";
                 context.Response.Headers["x-refresh-token"] = $"refresh-{body.Email}";
-                return Results.Json(new { emailLoginId = $"login-{body.Email}" });
+                return Results.Json(new { emailLoginId = $"emlog_{Ulid.NewUlid()}", validForSeconds = 300 });
+            }
+        );
+
+        // A profile change: on success the account API asks the gateway to refresh the caller's tokens, and this stand-in
+        // also returns a token pair and a cookie so their relay is observable; a failure returns neither
+        accountApi.MapPut(AccountApiRoutes.CurrentUser, async (HttpContext context, UpdateCurrentUserBody body) =>
+            {
+                AccountApiRequests[body.LastName] = RecordRequest(context);
+
+                await Task.Delay(TimeSpan.FromMilliseconds(200));
+                if (body.FirstName == FailingFirstName) return CreateValidationProblem("firstName");
+
+                context.Response.Headers["x-refresh-authentication-tokens-required"] = "true";
+                context.Response.Headers["x-access-token"] = $"access-{body.LastName}";
+                context.Response.Headers["x-refresh-token"] = $"refresh-{body.LastName}";
+                context.Response.Headers.Append("Set-Cookie", $"stand-in={body.LastName}; path=/");
+                return Results.NoContent();
             }
         );
         return accountApi;
+    }
+
+    private static RecordedAccountApiRequest RecordRequest(HttpContext context)
+    {
+        var headers = context.Request.Headers;
+        return new RecordedAccountApiRequest(
+            headers.Authorization.FirstOrDefault(), headers.Cookie.FirstOrDefault(), headers["x-xsrf-token"].FirstOrDefault(),
+            headers["X-Forwarded-For"].FirstOrDefault(), headers["X-Forwarded-Proto"].FirstOrDefault(), headers["X-Forwarded-Host"].FirstOrDefault(),
+            headers["X-Locale"].FirstOrDefault()
+        );
+    }
+
+    private static IResult CreateValidationProblem(string fieldKey)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]> { [fieldKey] = [FieldErrorMessage] }, title: "One or more validation errors occurred.");
     }
 
     private static string GetAddress(WebApplication application)

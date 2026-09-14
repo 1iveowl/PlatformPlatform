@@ -1,6 +1,7 @@
 @* Spike code (Blazor edition, stage B3): the users administration surface around a grid. Mirrors the React users page:
    URL state, debounced search, filter dialog with active count, multi-select with bulk delete, owner-only role change and
    delete, a side pane driven by ?userId= with focus restored to the row on close. Only the grid component differs. *@
+@using Account.Client
 @using Blazor.Client.Bootstrap
 @using Microsoft.FluentUI.AspNetCore.Components
 @implements IAsyncDisposable
@@ -46,7 +47,7 @@
 
 <div class="users-layout">
     <div class="users-grid" data-testid="users-grid" data-grid="@Grid" data-state="@(_status.Error is not null ? "error" : _status.IsLoading ? "loading" : "ready")" data-error="@_status.Error"
-         data-total-count="@_status.TotalCount" data-page-index="@_status.PageIndex" data-query="@_state.ToApiQuery()"
+         data-total-count="@_status.TotalCount" data-page-index="@_status.PageIndex" data-query="@AccountApiRoutes.GetUsers(_state.ToUsersQuery())"
          data-selected-count="@_selectedIds.Count" @ref="_gridRoot">
         @if (_currentUserId is not null)
         {

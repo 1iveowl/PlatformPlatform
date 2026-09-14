@@ -1,9 +1,11 @@
 @* One-time password verification for signup, static server-side rendering, not enhanced for the same reason as the
    login verification *@
 @page "/signup/verify"
-@using Blazor.Host.Account
+@using global::Account.Client
+@using global::Account.Features.EmailAuthentication.Domain
+@using global::Account.Features.EmailAuthentication.Requests
 @using Blazor.Host.Shell
-@inject AccountApiClient AccountApi
+@inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
 <PageTitle>Check your email</PageTitle>
@@ -45,19 +47,18 @@
 
     private async Task CompleteAsync()
     {
-        if (string.IsNullOrEmpty(Id))
+        // A missing id and one that is not an email login id are both a signup that cannot be completed
+        if (!EmailLoginId.TryParse(Id, out var emailLoginId))
         {
             _error = "The signup has expired. Start again.";
             return;
         }
 
-        var result = await AccountApi.PostAsync(
-            $"/api/account/authentication/email/signup/{Uri.EscapeDataString(Id)}/complete",
-            new { oneTimePassword = Input.OneTimePassword, preferredLocale = HostShell.GetLocale(HttpContext) }
-        );
+        var command = new CompleteEmailSignupCommand(Input.OneTimePassword, HostShell.GetLocale(HttpContext));
+        var result = await EmailAuthentication.CompleteSignupAsync(emailLoginId, command, HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _error = result.ErrorMessage;
+            _error = result.Problem.GetFormErrorMessage();
             return;
         }
 

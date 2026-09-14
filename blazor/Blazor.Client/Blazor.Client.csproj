@@ -21,6 +21,8 @@
         <!-- The account API contracts, shared with the server across the build-root boundary. The net10.0 project builds
              with this root's SDK and restores with the central package versions of application/ -->
         <ProjectReference Include="..\..\application\account\Contracts\Account.Contracts.csproj" />
+        <!-- The typed account API clients, their transport results, header handlers and feature flag state -->
+        <ProjectReference Include="..\..\application\account\Client\Account.Client.csproj" />
     </ItemGroup>
 
     <ItemGroup>

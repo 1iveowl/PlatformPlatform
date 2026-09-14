@@ -1,25 +1,33 @@
 // Spike code (Blazor edition, stage B3): the users calls of the account API through the gateway, and the page cache that
 // both grids read. The account API pages by PageOffset and PageSize (at most 1000); a virtualized grid asks for arbitrary
-// index ranges, so ranges are served from fixed server pages that are fetched once per filter state.
+// index ranges, so ranges are served from fixed server pages that are fetched once per filter state. A transitional facade
+// over the typed UsersClient until the shared list and cache foundation replaces it.
 
-using System.Net;
-using Blazor.Client.Bootstrap;
+using Account.Client;
+using Account.Features.Users.Requests;
+using SharedKernel.Domain;
 
 namespace Blazor.Client.Users;
 
-public sealed class UsersApiException(HttpStatusCode statusCode, string body)
-    : Exception($"The account API returned {(int)statusCode}: {body}")
+public sealed class UsersApiException(int? statusCode, string message)
+    : Exception($"The account API returned {statusCode?.ToString() ?? "no response"}: {message}")
 {
-    public HttpStatusCode StatusCode { get; } = statusCode;
+    public int? StatusCode { get; } = statusCode;
+
+    public static UsersApiException FromProblem(ApiCallOutcome outcome, ApiCallProblem problem)
+    {
+        var fieldErrors = problem.Errors.Values.SelectMany(messages => messages).ToArray();
+        var message = fieldErrors.Length > 0 ? string.Join(" ", fieldErrors) : problem.Detail ?? problem.Title ?? outcome.ToString();
+        return new UsersApiException(problem.StatusCode, message);
+    }
 }
 
-public sealed class UsersApiClient(HttpClient httpClient, IBootstrapSource bootstrapSource)
+public sealed class UsersApiClient(UsersClient usersClient)
 {
     public const int VirtualFetchPageSize = 100;
     public const int PagedPageSize = 25;
 
-    private readonly Dictionary<(string Query, int PageSize, int PageOffset), Task<UsersResponse>> _pages = new();
-    private string? _antiforgeryToken;
+    private readonly Dictionary<(GetUsersQuery Query, int PageSize, int PageOffset), Task<UsersResponse>> _pages = new();
 
     public int RequestCount { get; private set; }
 
@@ -30,7 +38,7 @@ public sealed class UsersApiClient(HttpClient httpClient, IBootstrapSource boots
 
     public Task<UsersResponse> GetPageAsync(UsersListState state, int pageOffset, int pageSize)
     {
-        var key = (state.ToApiQuery(), pageSize, pageOffset);
+        var key = (state.ToUsersQuery(), pageSize, pageOffset);
         if (_pages.TryGetValue(key, out var cached) && cached is { IsFaulted: false, IsCanceled: false }) return cached;
 
         var task = FetchPageAsync(key.Item1, pageOffset, pageSize);
@@ -65,50 +73,39 @@ public sealed class UsersApiClient(HttpClient httpClient, IBootstrapSource boots
 
     public async Task<UserDetails> GetUserAsync(string id)
     {
-        using var response = await httpClient.GetAsync($"/api/account/users/{Uri.EscapeDataString(id)}");
-        await EnsureSuccessAsync(response);
-        return (await response.Content.ReadFromJsonAsync<UserDetails>())!;
+        return EnsureSuccess(await usersClient.GetUserAsync(new UserId(id), CancellationToken.None));
     }
 
-    public Task ChangeRoleAsync(string id, UserRole role)
+    public async Task ChangeRoleAsync(string id, UserRole role)
     {
-        return SendAsync(HttpMethod.Put, $"/api/account/users/{Uri.EscapeDataString(id)}/change-user-role", new { userRole = role.ToString() });
+        EnsureSuccess(await usersClient.ChangeUserRoleAsync(new UserId(id), new ChangeUserRoleCommand { UserRole = role }, CancellationToken.None));
     }
 
-    public Task DeleteAsync(string id)
+    public async Task DeleteAsync(string id)
     {
-        return SendAsync(HttpMethod.Delete, $"/api/account/users/{Uri.EscapeDataString(id)}", null);
+        EnsureSuccess(await usersClient.DeleteUserAsync(new UserId(id), CancellationToken.None));
     }
 
-    public Task BulkDeleteAsync(IEnumerable<string> ids)
+    public async Task BulkDeleteAsync(IEnumerable<string> ids)
     {
-        return SendAsync(HttpMethod.Post, "/api/account/users/bulk-delete", new { userIds = ids.ToArray() });
+        EnsureSuccess(await usersClient.BulkDeleteUsersAsync(new BulkDeleteUsersCommand(ids.Select(id => new UserId(id)).ToArray()), CancellationToken.None));
     }
 
-    private async Task<UsersResponse> FetchPageAsync(string query, int pageOffset, int pageSize)
+    private async Task<UsersResponse> FetchPageAsync(GetUsersQuery query, int pageOffset, int pageSize)
     {
         RequestCount++;
         // The API rejects a PageOffset at or beyond the last page, which includes offset 0 of an empty result, so page 0 omits it
-        var paging = pageOffset == 0 ? $"PageSize={pageSize}" : $"PageSize={pageSize}&PageOffset={pageOffset}";
-        using var response = await httpClient.GetAsync($"/api/account/users?{query}&{paging}");
-        await EnsureSuccessAsync(response);
-        return (await response.Content.ReadFromJsonAsync<UsersResponse>())!;
+        var pageQuery = query with { PageSize = pageSize, PageOffset = pageOffset == 0 ? null : pageOffset };
+        return EnsureSuccess(await usersClient.GetUsersAsync(pageQuery, CancellationToken.None));
     }
 
-    private async Task SendAsync(HttpMethod method, string url, object? body)
+    private static TValue EnsureSuccess<TValue>(ApiCallResult<TValue> result)
     {
-        _antiforgeryToken ??= (await bootstrapSource.GetAsync()).AntiforgeryToken;
-        using var request = new HttpRequestMessage(method, url);
-        request.Content = body is null ? null : JsonContent.Create(body);
-        request.Headers.Add("x-xsrf-token", _antiforgeryToken);
-        using var response = await httpClient.SendAsync(request);
-        await EnsureSuccessAsync(response);
+        return result.IsSuccess ? result.Value : throw UsersApiException.FromProblem(result.Outcome, result.Problem);
     }
 
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
+    private static void EnsureSuccess(ApiCallResult result)
     {
-        if (response.IsSuccessStatusCode) return;
-        var body = await response.Content.ReadAsStringAsync();
-        throw new UsersApiException(response.StatusCode, body[..Math.Min(body.Length, 300)]);
+        if (!result.IsSuccess) throw UsersApiException.FromProblem(result.Outcome, result.Problem);
     }
 }

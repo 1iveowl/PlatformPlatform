@@ -1,8 +1,10 @@
 @* The interactive WebAssembly surface behind login. Prerendered by the host with the host's bootstrap adapter, then
    started in the browser, where the bootstrap comes from the account API. Leaving the authenticated state (logout, tenant
    switch, a lost session) is always a full document navigation, so nothing from the previous identity stays in memory. *@
-@using System.Text.Json
+@using Account.Client
 @using Account.Features.Authentication.Queries
+@using Account.Features.Authentication.Requests
+@using SharedKernel.Domain
 @using Microsoft.Extensions.DependencyInjection
 @using Blazor.Client.Bootstrap
 @inject IBootstrapSource BootstrapSource
@@ -51,9 +53,9 @@
             @foreach (var tenant in _tenants)
             {
                 <li>
-                    <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.Id" disabled="@(tenant.Id == _bootstrap?.User?.TenantId.ToString())"
+                    <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.Id" disabled="@(tenant.Id == _bootstrap?.User?.TenantId)"
                             @onclick="() => SwitchTenantAsync(tenant.Id)">
-                        Switch to @(tenant.Name ?? tenant.Id)
+                        Switch to @(tenant.Name ?? tenant.Id.ToString())
                     </button>
                 </li>
             }
@@ -96,23 +98,20 @@
     private async Task LoadTenantsAsync()
     {
         // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
-        using var response = await GetHttpClient().GetAsync("/api/account/tenants");
-        if (!response.IsSuccessStatusCode) return;
+        var result = await GetService<TenantsClient>().GetTenantsAsync(CancellationToken.None);
+        if (!result.IsSuccess) return;
 
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        _tenants = document.RootElement.GetProperty("tenants").EnumerateArray()
-            .Select(tenant => new TenantOption(tenant.GetProperty("tenantId").GetString()!, tenant.GetProperty("tenantName").GetString()))
-            .ToArray();
+        _tenants = result.Value.Tenants.Select(tenant => new TenantOption(tenant.TenantId, tenant.TenantName)).ToArray();
     }
 
     // The gateway turns the new session's tokens into cookies. The bootstrap is read again under the new identity, and the
     // authenticated home is then loaded as a new document, so no state of the previous tenant survives in memory
-    private async Task SwitchTenantAsync(string tenantId)
+    private async Task SwitchTenantAsync(TenantId tenantId)
     {
-        using var response = await SendWithAntiforgeryAsync("/api/account/authentication/switch-tenant", JsonContent.Create(new { tenantId }));
-        if (!response.IsSuccessStatusCode)
+        var result = await GetService<AuthenticationClient>().SwitchTenantAsync(new SwitchTenantCommand(tenantId), CancellationToken.None);
+        if (!result.IsSuccess)
         {
-            _status = $"Switch tenant failed with {(int)response.StatusCode}";
+            _status = $"Switch tenant failed with {result.Problem.StatusCode}";
             return;
         }
 
@@ -128,28 +127,22 @@
 
     private async Task LogoutAsync()
     {
-        using var response = await SendWithAntiforgeryAsync("/api/account/authentication/logout", null);
+        await GetService<AuthenticationClient>().LogoutAsync(CancellationToken.None);
         GetNavigator().LeaveForLoggedOut();
     }
 
-    private async Task<HttpResponseMessage> SendWithAntiforgeryAsync(string url, HttpContent? content)
+    // Resolved lazily: the clients and the navigator are only used interactively, so prerendering never constructs them.
+    // The antiforgery token is added by the client's handler chain from the latest bootstrap.
+    private TService GetService<TService>() where TService : notnull
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        request.Headers.Add("x-xsrf-token", _bootstrap?.AntiforgeryToken);
-        return await GetHttpClient().SendAsync(request);
-    }
-
-    // Resolved lazily: the host container registers no HttpClient for prerendering, and both are only used interactively
-    private HttpClient GetHttpClient()
-    {
-        return Services.GetRequiredService<HttpClient>();
+        return Services.GetRequiredService<TService>();
     }
 
     private AuthenticationNavigator GetNavigator()
     {
-        return Services.GetRequiredService<AuthenticationNavigator>();
+        return GetService<AuthenticationNavigator>();
     }
 
-    private sealed record TenantOption(string Id, string? Name);
+    private sealed record TenantOption(TenantId Id, string? Name);
 
 }

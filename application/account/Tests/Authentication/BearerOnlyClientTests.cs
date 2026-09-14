@@ -3,13 +3,13 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Account.Database;
+using Account.Features.Users.Domain;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using SharedKernel.Authentication;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Authentication.TokenSigning;
 using SharedKernel.Tests;
-using FluentAssertions;
-using Account.Features.Users.Domain;
 using Xunit;
 
 namespace Account.Tests.Authentication;
