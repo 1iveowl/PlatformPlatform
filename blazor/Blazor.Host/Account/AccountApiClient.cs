@@ -1,8 +1,23 @@
-// Spike code (Blazor edition, stage B2): server-to-server calls from a static SSR form handler to the account API.
-// The browser posted the form through the gateway to this host; this client forwards the posted antiforgery token as
-// the x-xsrf-token header with the antiforgery cookie, so the account API enforces its own antiforgery check, and
-// copies the authentication token headers and any Set-Cookie back onto this host's response. The gateway then turns
-// x-refresh-token and x-access-token into the session cookies exactly as it does for the React edition's API calls.
+// Server-to-server calls from the static server-rendered form handlers to the account API.
+//
+// Call path: direct to ACCOUNT_API_URL, not back through the gateway. The host is a confidential client inside the same
+// network as the account API, the way the gateway itself reaches it.
+// - Antiforgery: the host validates the posted form token against the __Host-xsrf-token cookie first (UseAntiforgery),
+//   then this client forwards that token as x-xsrf-token with the same cookie, so the account API's AntiforgeryMiddleware
+//   runs its own check on the same pair. Both validate because they share the data protection key ring.
+// - Tokens to cookies: the account API returns x-refresh-token and x-access-token on this call; they are copied onto the
+//   host response, which leaves through the gateway, and the gateway's AuthenticationCookieMiddleware turns them into the
+//   session cookies exactly as for the React edition's API calls.
+// - Host network: a caller that can reach the account API directly can already do so without this host, with any
+//   headers; the account API's own authentication and antiforgery checks are its boundary, not the network. The host
+//   adds no credential of its own: it only relays the browser's bearer token, antiforgery pair and client address.
+// - Forwarded values: only the client address and scheme the host's forwarded headers middleware accepted are sent,
+//   rebuilt from the effective request, so a forged inbound X-Forwarded-For never reaches the account API unchecked.
+// - Deployment: the host's container app must be allowed to reach the account API's internal ingress in the same
+//   Container Apps environment, as the gateway is.
+//
+// Every value is read from the current request and set on the request message; the pooled handler holds no cookies
+// (UseCookies=false) and no credentials, so nothing crosses between concurrent requests.
 
 using System.Text.Json;
 using Blazor.Host.Shell;
@@ -21,7 +36,7 @@ public sealed class AccountApiClient(HttpClient httpClient, IHttpContextAccessor
     private const string RefreshTokenHeaderKey = "x-refresh-token";
     private const string AccessTokenHeaderKey = "x-access-token";
 
-    private static readonly string[] ForwardedRequestHeaders = ["User-Agent", "Accept-Language", "X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-Host"];
+    private static readonly string[] RelayedRequestHeaders = ["User-Agent", "Accept-Language"];
 
     public async Task<AccountApiResult> PostAsync(string path, object body, CancellationToken cancellationToken = default)
     {
@@ -46,10 +61,17 @@ public sealed class AccountApiClient(HttpClient httpClient, IHttpContextAccessor
             request.Headers.TryAddWithoutValidation("Authorization", authorization.ToString());
         }
 
-        foreach (var header in ForwardedRequestHeaders)
+        foreach (var header in RelayedRequestHeaders)
         {
             if (context.Request.Headers.TryGetValue(header, out var value)) request.Headers.TryAddWithoutValidation(header, value.ToString());
         }
+
+        if (context.Connection.RemoteIpAddress is { } clientAddress)
+        {
+            request.Headers.TryAddWithoutValidation("X-Forwarded-For", clientAddress.ToString());
+        }
+
+        request.Headers.TryAddWithoutValidation("X-Forwarded-Proto", context.Request.Scheme);
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
 

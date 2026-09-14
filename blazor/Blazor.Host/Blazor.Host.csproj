@@ -16,6 +16,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Blazor.Client\Blazor.Client.csproj" />
+        <ProjectReference Include="..\..\application\shared-kernel\SharedKernel.Security\SharedKernel.Security.csproj" />
     </ItemGroup>
 
     <ItemGroup>

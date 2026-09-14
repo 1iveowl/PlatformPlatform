@@ -19,6 +19,7 @@
     <Folder Name="/shared-kernel/">
         <Project Path="shared-kernel\SharedKernel\SharedKernel.csproj"/>
         <Project Path="shared-kernel\SharedKernel.Contracts\SharedKernel.Contracts.csproj"/>
+        <Project Path="shared-kernel\SharedKernel.Security\SharedKernel.Security.csproj"/>
         <Project Path="shared-kernel\Tests\SharedKernel.Tests.csproj"/>
         <Project Path="shared-webapp\SharedKernel.WebApp.esproj"/>
     </Folder>

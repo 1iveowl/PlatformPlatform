@@ -24,7 +24,7 @@ namespace SharedKernel.Configuration;
 
 public static class SharedInfrastructureConfiguration
 {
-    public static readonly bool IsRunningInAzure = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID") is not null;
+    public static readonly bool IsRunningInAzure = AzureEnvironment.IsRunningInAzure;
 
     public static readonly string? ServiceVersion = ResolveServiceVersion();
 
@@ -36,7 +36,7 @@ public static class SharedInfrastructureConfiguration
 
     public static readonly string? DeploymentGithubActionId = GetAssemblyMetadata("DeploymentGithubActionId");
 
-    public static DefaultAzureCredential DefaultAzureCredential => GetDefaultAzureCredential();
+    public static DefaultAzureCredential DefaultAzureCredential => AzureEnvironment.DefaultAzureCredential;
 
     private static string? ResolveServiceVersion()
     {
@@ -55,14 +55,6 @@ public static class SharedInfrastructureConfiguration
         return Assembly.GetEntryAssembly()?
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(a => a.Key == key)?.Value;
-    }
-
-    private static DefaultAzureCredential GetDefaultAzureCredential()
-    {
-        // Hack: Remove trailing whitespace from the environment variable, added in Bicep to workaround issue #157.
-        var managedIdentityClientId = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID")!.Trim();
-        var credentialOptions = new DefaultAzureCredentialOptions { ManagedIdentityClientId = managedIdentityClientId };
-        return new DefaultAzureCredential(credentialOptions);
     }
 
     extension(IHostApplicationBuilder builder)

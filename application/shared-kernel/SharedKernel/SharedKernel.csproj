@@ -59,6 +59,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\SharedKernel.Contracts\SharedKernel.Contracts.csproj"/>
+        <ProjectReference Include="..\SharedKernel.Security\SharedKernel.Security.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
