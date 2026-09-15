@@ -2,6 +2,7 @@
 @page "/signup"
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Requests
+@implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
@@ -11,7 +12,7 @@
 
 <h1>Sign up</h1>
 
-<EditForm Model="Input" FormName="signup-start" OnValidSubmit="StartAsync" Enhance>
+<EditForm EditContext="_editContext" FormName="signup-start" OnValidSubmit="StartAsync" Enhance>
     <DataAnnotationsValidator/>
     <label>
         Email
@@ -21,11 +22,12 @@
     <button type="submit" data-testid="submit">Create account</button>
 </EditForm>
 
-<p data-testid="form-error">@_error</p>
+<FormErrorAlert Errors="_formErrors"/>
 
 @code {
 
-    private string? _error;
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -38,12 +40,23 @@
         set;
     }
 
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(Input);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
     private async Task StartAsync()
     {
         var result = await EmailAuthentication.StartSignupAsync(new StartEmailSignupCommand(Input.Email), HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _error = result.Problem.GetFormErrorMessage();
+            _formErrors.ApplyFailure(result);
             return;
         }
 

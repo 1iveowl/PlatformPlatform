@@ -3,6 +3,7 @@
 @page "/login"
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Requests
+@implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
@@ -17,7 +18,7 @@
     <p data-testid="logged-out">You have been logged out.</p>
 }
 
-<EditForm Model="Input" FormName="login-start" OnValidSubmit="StartAsync" Enhance>
+<EditForm EditContext="_editContext" FormName="login-start" OnValidSubmit="StartAsync" Enhance>
     <DataAnnotationsValidator/>
     <label>
         Email
@@ -27,11 +28,12 @@
     <button type="submit" data-testid="submit">Continue</button>
 </EditForm>
 
-<p data-testid="form-error">@_error</p>
+<FormErrorAlert Errors="_formErrors"/>
 
 @code {
 
-    private string? _error;
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -50,12 +52,23 @@
     [SupplyParameterFromQuery]
     public string? LoggedOut { get; set; }
 
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(Input);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
     private async Task StartAsync()
     {
         var result = await EmailAuthentication.StartLoginAsync(new StartEmailLoginCommand(Input.Email), HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _error = result.Problem.GetFormErrorMessage();
+            _formErrors.ApplyFailure(result);
             return;
         }
 

@@ -5,6 +5,7 @@
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Domain
 @using global::Account.Features.EmailAuthentication.Requests
+@implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
@@ -16,7 +17,7 @@
 
 <p data-testid="verify-email">Enter the code sent to @Email</p>
 
-<EditForm Model="Input" FormName="login-verify" OnValidSubmit="CompleteAsync">
+<EditForm EditContext="_editContext" FormName="login-verify" OnValidSubmit="CompleteAsync">
     <DataAnnotationsValidator/>
     <label>
         Code
@@ -26,11 +27,12 @@
     <button type="submit" data-testid="submit">Verify</button>
 </EditForm>
 
-<p data-testid="form-error">@_error</p>
+<FormErrorAlert Errors="_formErrors"/>
 
 @code {
 
-    private string? _error;
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -52,19 +54,30 @@
     [SupplyParameterFromQuery]
     public string? ReturnPath { get; set; }
 
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(Input);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
     private async Task CompleteAsync()
     {
         // A missing id and one that is not an email login id are both a login that cannot be completed
         if (!EmailLoginId.TryParse(Id, out var emailLoginId))
         {
-            _error = "The login has expired. Start again.";
+            _formErrors.AddFormMessage("The login has expired. Start again.");
             return;
         }
 
         var result = await EmailAuthentication.CompleteLoginAsync(emailLoginId, new CompleteEmailLoginCommand(Input.OneTimePassword), HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _error = result.Problem.GetFormErrorMessage();
+            _formErrors.ApplyFailure(result);
             return;
         }
 

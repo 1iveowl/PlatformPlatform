@@ -1,0 +1,190 @@
+@* Warns before unsaved edits are lost on an interactive surface, the React edition's useUnsavedChangesGuard. While
+   HasUnsavedChanges is true it guards:
+   - navigation started from .NET, through NavigationManager.RegisterLocationChangingHandler
+   - in-app links and Back/Forward inside the document, through unsaved-changes.js, because the framework's handlers do
+     not see enhanced navigation
+   - document unload, through a beforeunload listener, whose prompt wording belongs to the browser
+   - closing a dialog, through ConfirmCloseAsync
+   A blocked navigation or close opens the in-app "Unsaved changes" dialog: Stay keeps the page and the edits, Leave
+   discards them and completes the original request once. An authentication loss releases the guard before its full
+   document navigation starts. *@
+@using Blazor.Client.Bootstrap
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@inject AuthenticationNavigator AuthenticationNavigator
+@inject IJSRuntime JavaScriptRuntime
+
+<ModalDialog Open="_isAlertOpen" Role="alertdialog" TitleId="@TitleId" DescriptionId="@DescriptionId" OnDismissRequested="Stay" TestId="unsaved-changes-dialog">
+    <h2 id="@TitleId" class="modal-dialog-title">@Title</h2>
+    <p id="@DescriptionId">@Message</p>
+    <div class="modal-dialog-actions">
+        <button type="button" class="button-secondary" autofocus data-testid="unsaved-changes-stay" @onclick="Stay">@StayLabel</button>
+        <button type="button" class="button-destructive" data-testid="unsaved-changes-leave" @onclick="LeaveAsync">@LeaveLabel</button>
+    </div>
+</ModalDialog>
+
+@code {
+
+    // English UI strings, to be moved to resources by the localization task
+    public const string Title = "Unsaved changes";
+    public const string Message = "You have unsaved changes. If you leave now, your changes will be lost.";
+    public const string StayLabel = "Stay";
+    public const string LeaveLabel = "Leave";
+
+    private readonly string _idPrefix = $"unsaved-changes-{Guid.NewGuid():N}";
+    private DotNetObjectReference<UnsavedChangesGuard>? _dotNet;
+    private IJSObjectReference? _guard;
+    private bool _isAlertOpen;
+
+    private bool _isDisposed;
+
+    // Set by Leave for a navigation: the render that follows the click must not arm the listeners again before the
+    // document unloads. Cleared once the owner reports no unsaved changes.
+    private bool _isReleased;
+    private IDisposable? _locationChangingRegistration;
+    private IJSObjectReference? _module;
+    private Func<Task>? _pendingClose;
+    private string? _pendingLocation;
+    private bool _sentDirtyState;
+
+    [Parameter]
+    public bool HasUnsavedChanges { get; set; }
+
+    private string TitleId => $"{_idPrefix}-title";
+
+    private string DescriptionId => $"{_idPrefix}-description";
+
+    // Runs close at once when nothing is unsaved; otherwise asks first and runs it only on Leave
+    public async Task ConfirmCloseAsync(Func<Task> close)
+    {
+        if (!HasUnsavedChanges || AuthenticationNavigator.IsLeaving)
+        {
+            await close();
+            return;
+        }
+
+        _pendingClose = close;
+        ShowAlert();
+    }
+
+    [JSInvokable]
+    public void OnNavigationBlocked()
+    {
+        ShowAlert();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _isDisposed = true;
+        AuthenticationNavigator.Leaving -= OnAuthenticationLeaving;
+        _locationChangingRegistration?.Dispose();
+        try
+        {
+            if (_guard is not null)
+            {
+                await _guard.InvokeVoidAsync("dispose");
+                await _guard.DisposeAsync();
+            }
+
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The document is already gone, and its listeners with it
+        }
+
+        _dotNet?.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        AuthenticationNavigator.Leaving += OnAuthenticationLeaving;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _locationChangingRegistration = Navigation.RegisterLocationChangingHandler(OnLocationChanging);
+            _dotNet = DotNetObjectReference.Create(this);
+            _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/unsaved-changes.js");
+            if (_isDisposed) return;
+            _guard = await _module.InvokeAsync<IJSObjectReference>("attachNavigationGuard", _dotNet);
+            _sentDirtyState = false;
+        }
+
+        await SendDirtyStateAsync();
+    }
+
+    private async Task SendDirtyStateAsync()
+    {
+        if (!HasUnsavedChanges) _isReleased = false;
+        if (_guard is null || _isDisposed || _isReleased || _sentDirtyState == HasUnsavedChanges) return;
+
+        _sentDirtyState = HasUnsavedChanges;
+        await _guard.InvokeVoidAsync("setDirty", HasUnsavedChanges);
+    }
+
+    private ValueTask OnLocationChanging(LocationChangingContext context)
+    {
+        if (!HasUnsavedChanges || _isReleased || AuthenticationNavigator.IsLeaving) return ValueTask.CompletedTask;
+
+        context.PreventNavigation();
+        _pendingLocation = context.TargetLocation;
+        ShowAlert();
+        return ValueTask.CompletedTask;
+    }
+
+    private void ShowAlert()
+    {
+        _isAlertOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task Stay()
+    {
+        _isAlertOpen = false;
+        _pendingClose = null;
+        _pendingLocation = null;
+        if (_guard is not null) await _guard.InvokeVoidAsync("cancel");
+    }
+
+    private async Task LeaveAsync()
+    {
+        _isAlertOpen = false;
+        var pendingClose = _pendingClose;
+        var pendingLocation = _pendingLocation;
+        _pendingClose = null;
+        _pendingLocation = null;
+
+        if (pendingClose is not null)
+        {
+            await pendingClose();
+            return;
+        }
+
+        if (pendingLocation is not null)
+        {
+            // The handler context does not say whether the request was a full load; a full document navigation completes
+            // either kind correctly, and the released guard lets it through without another prompt
+            _isReleased = true;
+            if (_guard is not null) await _guard.InvokeVoidAsync("setDirty", false);
+            _sentDirtyState = false;
+            Navigation.NavigateTo(pendingLocation, true);
+            return;
+        }
+
+        _isReleased = true;
+        if (_guard is not null) await _guard.InvokeVoidAsync("proceed");
+    }
+
+    // Synchronous in the browser, so the listeners are released before the navigator's full document navigation begins
+    private void OnAuthenticationLeaving()
+    {
+        _isAlertOpen = false;
+        _pendingClose = null;
+        _pendingLocation = null;
+        if (_guard is IJSInProcessObjectReference inProcessGuard) inProcessGuard.InvokeVoid("dispose");
+    }
+
+}

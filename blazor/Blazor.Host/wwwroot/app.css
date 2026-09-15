@@ -98,3 +98,107 @@ h1:focus {
     display: flex;
     gap: 0.5rem;
 }
+
+/* In-house toast region and modal dialogs: every style is a class here, so the components write no style attribute and
+   the nonce-only style policy stays unchanged */
+.toast-region {
+    position: fixed;
+    inset-block-end: 1rem;
+    inset-inline-end: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: min(24rem, calc(100vw - 2rem));
+}
+
+.toast {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #1a1a1a;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.toast-error {
+    border-inline-start: 4px solid #b3261e;
+}
+
+.toast-warning {
+    border-inline-start: 4px solid #8a5a00;
+}
+
+.toast-text {
+    flex: 1;
+}
+
+.toast-title {
+    margin: 0;
+    font-weight: 600;
+}
+
+.toast-message {
+    margin: 0.25rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.toast-actions {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.toast-dismiss,
+.modal-dialog-close {
+    background: none;
+    border: 0;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.modal-dialog {
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 0.5rem;
+    max-width: min(32rem, calc(100vw - 2rem));
+}
+
+.modal-dialog::backdrop {
+    background: rgb(0 0 0 / 40%);
+}
+
+.modal-dialog-surface {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+}
+
+.modal-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.modal-dialog-title {
+    margin: 0;
+    font-size: 1.125rem;
+}
+
+.modal-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.button-destructive {
+    background: #b3261e;
+    color: #fff;
+    border: 1px solid #b3261e;
+}

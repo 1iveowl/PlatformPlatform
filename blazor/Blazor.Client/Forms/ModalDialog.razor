@@ -1,0 +1,93 @@
+@* A modal dialog on the native <dialog> element, shown with showModal through unsaved-changes.js for the top layer, the
+   backdrop, inert content behind it and focus containment. The component library's dialog is not used, so no style
+   attribute is written; styling comes from classes in the host's external stylesheet. Escape, and a backdrop click when
+   ClosesOnBackdrop is set, raise OnDismissRequested instead of closing, so the owner decides whether the dialog closes. *@
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+
+<dialog @ref="_element" class="modal-dialog" role="@Role" aria-modal="true" aria-labelledby="@TitleId" aria-describedby="@DescriptionId" data-testid="@TestId" data-open="@(Open ? "true" : "false")">
+    @if (Open)
+    {
+        <div class="modal-dialog-surface">
+            @ChildContent
+        </div>
+    }
+</dialog>
+
+@code {
+
+    private IJSObjectReference? _dialog;
+    private DotNetObjectReference<ModalDialog>? _dotNet;
+    private ElementReference _element;
+    private bool _isDisposed;
+    private IJSObjectReference? _module;
+    private bool _shownOpen;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public string Role { get; set; } = "dialog";
+
+    [Parameter]
+    public string? TitleId { get; set; }
+
+    [Parameter]
+    public string? DescriptionId { get; set; }
+
+    [Parameter]
+    public bool ClosesOnBackdrop { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public EventCallback OnDismissRequested { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [JSInvokable]
+    public Task RequestDismiss()
+    {
+        return OnDismissRequested.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _isDisposed = true;
+        try
+        {
+            if (_dialog is not null)
+            {
+                await _dialog.InvokeVoidAsync("dispose");
+                await _dialog.DisposeAsync();
+            }
+
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The document is already gone, and the dialog with it
+        }
+
+        _dotNet?.Dispose();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNet = DotNetObjectReference.Create(this);
+            _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/unsaved-changes.js");
+            if (_isDisposed) return;
+            _dialog = await _module.InvokeAsync<IJSObjectReference>("attachModalDialog", _element, _dotNet, ClosesOnBackdrop);
+        }
+
+        if (_dialog is null || _isDisposed || _shownOpen == Open) return;
+
+        _shownOpen = Open;
+        await _dialog.InvokeVoidAsync(Open ? "show" : "close");
+    }
+
+}

@@ -105,9 +105,15 @@ public sealed partial class HostFixture : IAsyncLifetime
     }
 
     // Reads the login page as the given user and returns the antiforgery cookie and the form token issued with it
-    public async Task<(string Cookie, string FormToken)> GetLoginFormAsync(HttpClient client, string? bearerToken)
+    public Task<(string Cookie, string FormToken)> GetLoginFormAsync(HttpClient client, string? bearerToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "blazor/login");
+        return GetFormAsync(client, "blazor/login", bearerToken);
+    }
+
+    // Reads a page with a static form and returns the antiforgery cookie and the form token issued with it
+    public async Task<(string Cookie, string FormToken)> GetFormAsync(HttpClient client, string path, string? bearerToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
         if (bearerToken is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
         using var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();

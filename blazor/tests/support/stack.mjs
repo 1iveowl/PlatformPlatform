@@ -66,8 +66,8 @@ function gatewayCertificateFingerprint() {
 
 // An explicit locale: headless Chromium in the container otherwise reports "en-US@posix", which the .NET runtime rejects
 // as a culture name and aborts the WebAssembly start
-export async function newContext(browser, browserName, storageState) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: browserName !== "chromium", locale: "en-US", storageState });
+export async function newContext(browser, browserName, storageState, locale = "en-US") {
+  const context = await browser.newContext({ ignoreHTTPSErrors: browserName !== "chromium", locale, storageState });
   await context.addInitScript(() => {
     window.__policyViolations = [];
     document.addEventListener("securitypolicyviolation", (event) => {
@@ -75,6 +75,25 @@ export async function newContext(browser, browserName, storageState) {
     });
   });
   return context;
+}
+
+// Browser output the forms fixture does not cause, recorded against the host's preload links and left to their owner: below the
+// second path segment the scoped stylesheet preloads resolve relative to the document and return 404 (WebKit, Firefox), and
+// after an enhanced navigation the runtime preload links are re-read as stylesheets or with an empty "as" value
+const knownHostErrorResponse = /^404 .*\/_content\/[^ ]*\.bundle\.scp\.css$/;
+const knownHostConsoleErrors = [
+  /^Failed to load resource: the server responded with a status of 404/,
+  /The stylesheet .*\/_framework\/dotnet\.[^ ]*\.js was not loaded because its MIME type/,
+  /Did not parse stylesheet at '.*\/_framework\/dotnet\.[^ ]*\.js'/,
+  /<link rel=preload> cannot have the empty string as `as` value/
+];
+
+export function isKnownHostErrorResponse(response) {
+  return knownHostErrorResponse.test(response);
+}
+
+export function isKnownHostConsoleError(message) {
+  return knownHostConsoleErrors.some((pattern) => pattern.test(message));
 }
 
 export function observeErrors(page) {

@@ -1,0 +1,76 @@
+@* Development-only fixture for the shared form error mapper on a static server-rendered form: no render mode and no
+   WebAssembly. A valid POST applies the canned account API failure named by the posted scenario, the way the public form
+   handlers apply a real one. Outside Development the request returns 404 before rendering. *@
+@page "/development/form-errors/static"
+@attribute [DevelopmentOnly]
+@using Blazor.Client.Development
+@using Blazor.Host.Shell
+@implements IDisposable
+
+<PageTitle>Form errors, static</PageTitle>
+
+<h1>Form errors, static</h1>
+
+<EditForm EditContext="_editContext" FormName="form-errors-static" OnValidSubmit="Submit" data-testid="static-form">
+    <DataAnnotationsValidator/>
+    <label>
+        Name
+        <InputText @bind-Value="Input.Name" data-testid="name"/>
+    </label>
+    <ValidationMessage For="() => Input.Name" data-testid="name-messages"/>
+    <label>
+        Email
+        <InputText @bind-Value="Input.Email" data-testid="email"/>
+    </label>
+    <ValidationMessage For="() => Input.Email" data-testid="email-messages"/>
+    <label>
+        Scenario
+        <InputSelect @bind-Value="Input.Scenario" data-testid="scenario">
+            @foreach (var scenario in FormErrorScenarios.All)
+            {
+                <option value="@scenario">@scenario</option>
+            }
+        </InputSelect>
+    </label>
+    <button type="submit" data-testid="submit">Submit</button>
+</EditForm>
+
+<FormErrorAlert Errors="_formErrors"/>
+
+<p data-testid="applied-scenario">@_appliedFailure</p>
+
+<a href="@AppUrls.ToAbsolute("development/form-errors/interactive")" data-testid="interactive-fixture-link">Interactive fixture</a>
+
+@code {
+
+    private string _appliedFailure = "";
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+
+    [SupplyParameterFromForm(FormName = "form-errors-static")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private FormErrorFixtureForm Input
+    {
+        get => field ??= new FormErrorFixtureForm();
+        set;
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(Input);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    private void Submit()
+    {
+        var (outcome, problem) = FormErrorScenarios.Get(Input.Scenario);
+        var failure = _formErrors.ApplyFailure(outcome, problem);
+        _appliedFailure = $"{Input.Scenario}: {failure.Kind}";
+    }
+
+}

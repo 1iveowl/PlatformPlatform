@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Account.Client;
 using Blazor.Client;
 using Blazor.Client.Bootstrap;
+using Blazor.Client.Forms;
 using Blazor.Host.Account;
 using Blazor.Host.Components;
 using Blazor.Host.Shell;
@@ -40,9 +41,11 @@ public static class HostApplication
         builder.Services.AddHttpContextAccessor();
 
         // Prerendering an interactive component reads the bootstrap contract through the host's adapter; the components'
-        // navigation out of the authenticated surface resolves from the same container
+        // navigation out of the authenticated surface and their toast presentation of failed calls resolve from the same container
         builder.Services.AddScoped<IBootstrapSource, HostBootstrapSource>();
         builder.Services.AddScoped<AuthenticationNavigator>();
+        builder.Services.AddScoped<ToastService>();
+        builder.Services.AddScoped<ApiFailurePresenter>();
 
         // The static server-rendered form handlers call the account API directly through the typed clients, the way the gateway
         // reaches it; HostAccountApiHandler relays the current request's credentials by hand. The feature flag state is

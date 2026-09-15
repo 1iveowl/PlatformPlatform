@@ -10,7 +10,11 @@ public sealed class AuthenticationNavigator(NavigationManager navigationManager)
 {
     public const string UnauthorizedReasonHeaderName = "x-unauthorized-reason";
 
-    private bool _isLeaving;
+    public bool IsLeaving { get; private set; }
+
+    // Raised once, before the full document navigation starts, so an unsaved-changes guard releases the document and
+    // components drop sensitive state instead of trapping the user on a page whose session has ended
+    public event Action? Leaving;
 
     // The values of SharedKernel's UnauthorizedReason that end a session for good; ReplayAttackDetected and an absent
     // reason send the user to sign in again
@@ -57,8 +61,9 @@ public sealed class AuthenticationNavigator(NavigationManager navigationManager)
     // sees an anonymous bootstrap
     private void Leave(string url)
     {
-        if (_isLeaving) return;
-        _isLeaving = true;
+        if (IsLeaving) return;
+        IsLeaving = true;
+        Leaving?.Invoke();
         navigationManager.NavigateTo(url, true);
     }
 }

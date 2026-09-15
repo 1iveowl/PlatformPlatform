@@ -87,7 +87,8 @@ public sealed partial class HostSecurityTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var html = await response.Content.ReadAsStringAsync();
-        html.Should().Contain($"data-testid=\"form-error\">{HostFixture.FieldErrorMessage}<");
+        html.Should().Contain($"data-valmsg-for=\"Input.Email\" data-valmsg-replace=\"true\">{HostFixture.FieldErrorMessage}</div>");
+        html.Should().Contain("data-testid=\"form-error\"></div>");
         html.Should().NotContain(bearerToken).And.NotContain(cookie.Split('=', 2)[1]);
         response.Headers.Should().NotContain(header => header.Key == "x-access-token" || header.Key == RefreshAuthenticationTokensHeaderKey);
         fixture.AccountApiRequests[email].Authorization.Should().Be($"Bearer {bearerToken}");

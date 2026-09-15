@@ -1,0 +1,51 @@
+@* A dialog that warns before unsaved edits are lost, the React edition's DirtyDialog. Escape, the close button and a click
+   on the backdrop all request a close; with HasUnsavedChanges set the "Unsaved changes" dialog asks first, Stay keeps the
+   dialog and its edits, and Leave closes it once. A clean dialog closes without warning. While the dialog is open with
+   unsaved changes, navigation away from the page is guarded too. The body renders only while the dialog is open, so the
+   edits of a closed dialog are discarded and the next open starts clean. *@
+
+<ModalDialog Open="Open" TitleId="@_titleId" ClosesOnBackdrop OnDismissRequested="RequestCloseAsync" TestId="@TestId">
+    <div class="modal-dialog-header">
+        <h2 id="@_titleId" class="modal-dialog-title">@Title</h2>
+        <button type="button" class="modal-dialog-close" aria-label="@CloseLabel" data-testid="dialog-close" @onclick="RequestCloseAsync">×</button>
+    </div>
+    @ChildContent
+</ModalDialog>
+
+<UnsavedChangesGuard @ref="_guard" HasUnsavedChanges="Open && HasUnsavedChanges"/>
+
+@code {
+
+    // English UI string, to be moved to resources by the localization task
+    public const string CloseLabel = "Close";
+
+    private readonly string _titleId = $"dirty-dialog-{Guid.NewGuid():N}-title";
+    private UnsavedChangesGuard _guard = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public bool HasUnsavedChanges { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    // The owner's cancel button calls this too, so every way out of the dialog is guarded the same way
+    public Task RequestCloseAsync()
+    {
+        return _guard.ConfirmCloseAsync(() => OpenChanged.InvokeAsync(false));
+    }
+
+}

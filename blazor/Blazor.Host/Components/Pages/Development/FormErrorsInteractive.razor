@@ -1,0 +1,16 @@
+@* Development-only fixture for the shared form error mapper on an authenticated interactive surface. The page is
+   server-rendered and hosts the WebAssembly fixture component, like the authenticated workspace pages. Outside
+   Development the request returns 404 before rendering. *@
+@page "/development/form-errors/interactive"
+@using Blazor.Client.Development
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [DevelopmentOnly]
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>Form errors, interactive</PageTitle>
+
+<h1>Form errors, interactive</h1>
+
+<FormErrorsInteractiveFixture @rendermode="InteractiveWebAssembly"/>

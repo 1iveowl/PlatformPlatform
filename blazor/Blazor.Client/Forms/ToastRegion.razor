@@ -1,0 +1,49 @@
+@* The live region that shows ToastService's toasts on an interactive surface. The region element is always rendered, so a
+   screen reader already tracks it when the first toast arrives. Every text renders as text, never as markup, and all
+   styling comes from classes in the host's external stylesheet: no style attribute is written. *@
+@implements IDisposable
+@inject ToastService Toasts
+
+<section class="toast-region" aria-label="Notifications" aria-live="assertive" data-testid="toast-region">
+    @foreach (var toast in Toasts.Toasts)
+    {
+        <div @key="toast.Id" role="alert" class="toast @(toast.Kind == ToastKind.Error ? "toast-error" : "toast-warning")" data-testid="@toast.TestId">
+            <div class="toast-text">
+                <p class="toast-title" data-testid="toast-title">@toast.Title</p>
+                @if (toast.Message is not null)
+                {
+                    <p class="toast-message" data-testid="toast-message">@toast.Message</p>
+                }
+            </div>
+            <div class="toast-actions">
+                @if (toast.ActionLabel is not null)
+                {
+                    <button type="button" class="toast-action" data-testid="toast-action" @onclick="() => toast.OnAction?.Invoke()">@toast.ActionLabel</button>
+                }
+                <button type="button" class="toast-dismiss" aria-label="@DismissLabel" data-testid="toast-dismiss" @onclick="() => Toasts.Dismiss(toast.Id)">×</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+
+    // English UI string, to be moved to resources by the localization task
+    public const string DismissLabel = "Dismiss notification";
+
+    protected override void OnInitialized()
+    {
+        Toasts.Changed += OnChanged;
+    }
+
+    public void Dispose()
+    {
+        Toasts.Changed -= OnChanged;
+    }
+
+    private void OnChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+}
