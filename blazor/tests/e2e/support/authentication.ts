@@ -113,3 +113,24 @@ export async function logOutThroughBlazor(page: Page): Promise<void> {
 
   await expectBlazorUrl(page, "login");
 }
+
+/**
+ * Log in an existing user through the Blazor public pages and complete the profile step of the welcome setup that a user
+ * invited to an account is sent to on the first login, landing on the authenticated workspace at /blazor/app
+ * @param page Playwright page instance in a fresh browser context
+ * @param email The invited user's email address
+ * @param profile The first and last name to submit on the profile step
+ */
+export async function logInInvitedUserThroughBlazor(page: Page, email: string, profile: { firstName: string; lastName: string }): Promise<void> {
+  await gotoBlazor(page, "login");
+  await startEmailFlowThroughBlazor(page, "login", email);
+  await submitOneTimePassword(page);
+
+  await expectBlazorUrl(page, "welcome");
+  await page.getByTestId("first-name").fill(profile.firstName);
+  await page.getByTestId("last-name").fill(profile.lastName);
+  await page.getByTestId("continue").click();
+
+  await expectBlazorUrl(page, "app");
+  await expect(page.getByTestId("logout")).toBeVisible();
+}

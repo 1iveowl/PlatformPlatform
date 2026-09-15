@@ -13,10 +13,10 @@ Every list in the Blazor edition renders through `DataList<TItem>` in `blazor/Bl
 2. Declare a static `<Feature>ListSource` beside the component with the list id, the URL filter parameter names, the sort keys and default sort, `CacheScope(bootstrap)` from the tenant and user id, `NormalizeFilters` (malformed values dropped, canonical form kept), `ToQuery` (the API request) and `FetchAsync` through the typed client returning `DataListFetchResult<TItem>`. Unit-test it in `blazor/Blazor.Tests/Client/Lists/`.
 3. Keep the list state in the URL and only there: the wrapper writes `orderBy`, `sortOrder`, `pageOffset` and the `SelectedKeyParameter`, and carries the page's `FilterParameters` without interpreting them; defaults are left out. A sort or page change adds a history entry; a filter, search or activation change replaces the current one. QuickGrid's `sort`, `direction` and `page` parameters are never written and are dropped whenever the wrapper writes the URL. Give a second list on one page its own `ParameterPrefix`.
 4. Pass plain delegates and method groups as parameters: `FetchPage="FetchPageAsync"` (a `DataListFetch<TItem>` that receives `DataListRequest` and a `CancellationToken`), `KeySelector="KeyOf"`, `OnActivated="OpenProfileAsync"`, `OnStateChanged="OnListStateChangedAsync"`. The wrapper's own QuickGrid items provider is synchronous over the page it has already loaded; a feature never supplies a QuickGrid `ItemsProvider`, `Pagination` or a `SortBy` column.
-5. Leave keys to `data-list.js`: it attaches listeners to the list root with `addEventListener`, handles arrows, Home, End, Space, Shift and Ctrl selection, Enter and Escape, and ignores keys from inputs, buttons, links and menus. Never put `@onkeydown` on the list, a row or another large surface; it would render the list on every key press. Set `EscapeScopeId` to the element whose Escape should close the activated row.
+5. Leave keys to `data-list.js`: it attaches listeners to the list root with `addEventListener`, handles arrows, Home, End, Space, Shift and Ctrl selection, Enter and Escape, and ignores keys from inputs, buttons, links and menus. Never put `@onkeydown` on the list, a row or another large surface; it would render the list on every key press. Set `EscapeScopeId` to the element whose Escape should close the activated row, and `FocusFallbackId` to a stable control (a search box) that takes focus when the activated row is closed while it is not on the loaded page.
 6. Call `InvalidateAsync()` on the list reference after every mutation (role change, delete); it drops every cached page of the list id, clears the selection and loads the current page again. Change filters through `SetFiltersAsync(...)` and close the activated row through `CloseAsync()`, never by writing the URL.
 7. Rely on the cache's rules rather than adding another: one `DataListPageCache` per application scope, keyed by list id, filters, sort, page size and offset; at most 40 pages; only successful pages stored; a new identity scope clears it. Personalized rows are never stored outside the runtime's memory.
-8. Declare columns as `DataListColumn<TItem>(Title, Cell, SortKey, Class)` with titles from the resources, put row actions in the `RowMenu` fragment as `FluentMenu` items inside a `FluentMenuList`, and use `EmptyContent` only to replace the default empty text.
+8. Declare columns as `DataListColumn<TItem>(Title, Cell, SortKey, Class)` with titles from the resources, put row actions in the `RowMenu` fragment as a `DataListRowMenu` with one `DataListRowMenuItem` per action (a disabled item stays visible; the component library's menu writes style attributes), and use `EmptyContent` only to replace the default empty text.
 
 ## Examples
 
@@ -26,13 +26,13 @@ Every list in the Blazor edition renders through `DataList<TItem>` in `blazor/Bl
 @* ✅ DO: the source supplies names and normalization, the component supplies delegates and fragments
    (blazor/Blazor.Client/Users/UsersSurface.razor) *@
 <DataList @ref="_list" TItem="UserDetails" data-testid="users-grid" ListId="@UsersListSource.ListId" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
-          Label="Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
+          Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
           SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
-          FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="users-profile-pane"
-          RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
-          OnSelectionChanged="OnSelectionChangedAsync" OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
+          FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="@PaneId"
+          FocusFallbackId="@SearchId" RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
+          OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
     <EmptyContent>
-        <p data-testid="empty-state">@(HasFilters ? "No users match these filters." : "No users.")</p>
+        <p data-testid="empty-state">@UsersStrings.NoUsersFound</p>
     </EmptyContent>
 </DataList>
 
@@ -40,7 +40,7 @@ Every list in the Blazor edition renders through `DataList<TItem>` in `blazor/Bl
 
     private Task<DataListFetchResult<UserDetails>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
     {
-        return UsersListSource.FetchAsync(UsersClient, request, cancellationToken);
+        return UsersListSource.FetchAsync(Services.GetRequiredService<UsersClient>(), request, cancellationToken);
     }
 
 }
@@ -67,8 +67,8 @@ public static async Task<DataListFetchResult<UserDetails>> FetchAsync(UsersClien
 }
 
 // ✅ DO: invalidate after a mutation (blazor/Blazor.Client/Users/UsersSurface.razor)
-await _roleDialog!.HideAsync();
-await _list!.InvalidateAsync();
+_isRoleDialogOpen = false;
+if (_list is not null) await _list.InvalidateAsync();
 
 // ❌ DON'T: refresh by writing the URL or by re-fetching in the component; the cache would still serve the old page
 Navigation.NavigateTo(Navigation.Uri, true);

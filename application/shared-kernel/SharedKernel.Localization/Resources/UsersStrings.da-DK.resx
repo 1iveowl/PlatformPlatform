@@ -168,6 +168,12 @@
     <data name="UserInvited" xml:space="preserve">
         <value>Bruger inviteret succesfuldt</value>
     </data>
+    <data name="UserNotFound" xml:space="preserve">
+        <value>Brugeren blev ikke fundet</value>
+    </data>
+    <data name="UserNotFoundMessage" xml:space="preserve">
+        <value>Brugeren findes ikke eller er ikke tilgængelig på denne konto.</value>
+    </data>
     <data name="UserNotInCurrentView" xml:space="preserve">
         <value>Bruger ikke i nuværende visning</value>
     </data>

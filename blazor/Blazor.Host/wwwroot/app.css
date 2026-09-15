@@ -70,6 +70,64 @@ h1:focus {
     overflow-x: auto;
 }
 
+/* An open row menu extends below its row, so the scroll container stops clipping while it is open */
+.data-list-scroll:has([data-list-menu-open]) {
+    overflow: visible;
+}
+
+.data-list-row-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.data-list-row-menu-trigger {
+    background: none;
+    border: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 1.125rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.data-list-row-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+}
+
+.data-list-row-menu-list {
+    position: absolute;
+    inset-block-start: 100%;
+    inset-inline-end: 0;
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+    min-width: 11rem;
+    padding-block: 0.25rem;
+    border: 1px solid #ccc;
+    border-radius: 0.375rem;
+    background: #fff;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.data-list-row-menu-item {
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    background: none;
+    text-align: start;
+    cursor: pointer;
+}
+
+.data-list-row-menu-item:hover:not(:disabled),
+.data-list-row-menu-item:focus-visible {
+    background: #eef;
+}
+
+.data-list-row-menu-item:disabled {
+    color: #888;
+    cursor: default;
+}
+
 .data-list-table {
     width: 100%;
     border-collapse: collapse;
@@ -157,16 +215,168 @@ h1:focus {
     padding-inline: 1rem;
 }
 
-.dialog-body {
+.profile-pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.profile-pane-title {
+    margin: 0;
+    font-size: 1.125rem;
+}
+
+.profile-pane-notice {
+    margin-block: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: #fff4d6;
+}
+
+.profile-pane-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-block: 1rem;
+    text-align: center;
+}
+
+.profile-pane-name,
+.change-role-user-name,
+.user-name {
+    margin: 0;
+    font-weight: 600;
+}
+
+.profile-pane-detail,
+.change-role-user-detail,
+.user-title {
+    margin: 0;
+    color: #555;
+    font-size: 0.875rem;
+}
+
+.user-title {
+    display: block;
+}
+
+.profile-pane-id {
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+}
+
+.profile-pane-fields {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+}
+
+.profile-pane-fields dd {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.profile-pane-badge {
+    padding: 0 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+}
+
+.profile-pane-reason {
+    flex-basis: 100%;
+    text-align: end;
+    color: #555;
+    font-size: 0.75rem;
+}
+
+.user-avatar {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #e3e3e3;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.profile-pane-identity .user-avatar,
+.change-role-user .user-avatar {
+    width: 4rem;
+    height: 4rem;
+    font-size: 1.25rem;
+}
+
+.user-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-name-cell {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.change-role-form {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 1rem;
 }
 
-.dialog-actions {
+.change-role-user {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.change-role-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.change-role-option {
     display: flex;
     gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.change-role-option-title {
+    display: block;
+    font-weight: 600;
+}
+
+.change-role-option-description {
+    display: block;
+    color: #555;
+    font-size: 0.875rem;
+}
+
+.button-primary {
+    background: #1f4fbf;
+    color: #fff;
+    border: 1px solid #1f4fbf;
+}
+
+.button-secondary {
+    background: #fff;
+    color: #1a1a1a;
+    border: 1px solid #bbb;
 }
 
 /* In-house toast region and modal dialogs: every style is a class here, so the components write no style attribute and
@@ -200,6 +410,10 @@ h1:focus {
 
 .toast-warning {
     border-inline-start: 4px solid #8a5a00;
+}
+
+.toast-success {
+    border-inline-start: 4px solid #1b6e3a;
 }
 
 .toast-text {

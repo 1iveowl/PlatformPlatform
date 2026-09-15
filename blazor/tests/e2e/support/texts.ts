@@ -26,7 +26,30 @@ export const blazorCultures = [
     logInWithEmail: "Log in with email",
     signUpWithEmail: "Sign up with email",
     verify: "Verify",
-    continue: "Continue"
+    continue: "Continue",
+    users: "Users",
+    search: "Search",
+    userActions: "User actions",
+    viewProfile: "View profile",
+    changeRole: "Change role",
+    changeUserRole: "Change user role",
+    changeUserRoleFor: "Change user role for ",
+    owner: "Owner",
+    admin: "Admin",
+    member: "Member",
+    saveChanges: "Save changes",
+    cancel: "Cancel",
+    unsavedChanges: "Unsaved changes",
+    stay: "Stay",
+    leave: "Leave",
+    userRoleUpdatedFor: "User role updated successfully for ",
+    userProfile: "User profile",
+    closeUserProfile: "Close user profile",
+    cannotChangeOwnRole: "You cannot change your own role",
+    onlyOwnersCanChangeRoles: "Only owners can change user roles",
+    userNotInCurrentView: "User not in current view",
+    userNotFound: "User not found",
+    noUsersFound: "No users found"
   },
   {
     locale: "da-DK",
@@ -50,7 +73,30 @@ export const blazorCultures = [
     logInWithEmail: "Log ind med e-mail",
     signUpWithEmail: "Tilmeld dig med e-mail",
     verify: "Bekræft",
-    continue: "Fortsæt"
+    continue: "Fortsæt",
+    users: "Brugere",
+    search: "Søg",
+    userActions: "Brugerhandlinger",
+    viewProfile: "Se profil",
+    changeRole: "Skift rolle",
+    changeUserRole: "Skift brugerrolle",
+    changeUserRoleFor: "Skift brugerrolle for ",
+    owner: "Ejer",
+    admin: "Admin",
+    member: "Medlem",
+    saveChanges: "Gem ændringer",
+    cancel: "Annuller",
+    unsavedChanges: "Ugemte ændringer",
+    stay: "Bliv",
+    leave: "Forlad",
+    userRoleUpdatedFor: "Brugerrolle opdateret succesfuldt for ",
+    userProfile: "Brugerprofil",
+    closeUserProfile: "Luk brugerprofil",
+    cannotChangeOwnRole: "Du kan ikke ændre din egen rolle",
+    onlyOwnersCanChangeRoles: "Kun ejere kan ændre brugerroller",
+    userNotInCurrentView: "Bruger ikke i nuværende visning",
+    userNotFound: "Brugeren blev ikke fundet",
+    noUsersFound: "Ingen brugere fundet"
   }
 ] as const;
 
@@ -61,5 +107,8 @@ export type BlazorCulture = (typeof blazorCultures)[number];
  */
 export const accountApiMessages = {
   wrongCode: "The code is wrong or no longer valid.",
-  tooManyAttempts: "Too many attempts, please request a new code."
+  tooManyAttempts: "Too many attempts, please request a new code.",
+  cannotChangeOwnUserRole: "You cannot change your own user role.",
+  onlyOwnersCanChangeUserRoles: "Only owners are allowed to change the user roles of users.",
+  userNotFound: (userId: string) => `User with id '${userId}' not found.`
 } as const;

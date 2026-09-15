@@ -2,42 +2,28 @@
 @using Account.Features.Authentication.Queries
 @using Blazor.Client.Bootstrap
 @using Microsoft.FluentUI.AspNetCore.Components
-@* Spike code (Blazor edition, stage B3): the users administration surface, adapted to the shared DataList until the users
-   journey is rebuilt as production code. Mirrors the React users page: URL state, debounced search, filter dialog with
-   active count, multi-select with bulk delete, owner-only role change and delete, and a side pane driven by ?userId= with
-   focus returned to the row when it closes. *@
+@using SharedKernel.Domain
+@* The users administration surface, the React edition's users page: the list on DataList with search, sort and paging in
+   the URL, the side pane opened from a row or from ?userId=, and the role change with its permission rules. The host
+   prerenders the frame; the list and the pane load their data only once the component runs in the browser.
+   Deletion, invitation, the filter dialog and the recycle bin are not part of this surface yet; role, status and date
+   filters in a deep link are still applied through UsersListSource. *@
 @inject IBootstrapSource BootstrapSource
-@inject AuthenticationNavigator AuthenticationNavigator
-@inject UsersClient UsersClient
-@inject UsersApiClient UsersApi
+@inject IServiceProvider Services
+@inject ToastService Toasts
 
-<h1>Users</h1>
+<h1>@CommonStrings.Users</h1>
+<p>@UsersStrings.ManageUsers</p>
 
-@if (_loadError is not null)
-{
-    <p role="alert" data-testid="load-error">@_loadError</p>
-}
+<nav>
+    <a href="@AppUrls.AuthenticatedHome" data-testid="nav-app">@AccountStrings.Workspace</a>
+</nav>
 
-<div class="users-toolbar" role="toolbar" aria-label="User filters">
-    <FluentTextInput data-testid="search" AriaLabel="Search users" Placeholder="Search" Immediate="true" ImmediateDelay="500"
-                     Value="@Filter(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
-    <FluentButton data-testid="filters" OnClick="OpenFiltersAsync">
-        Filters
-        @if (ActiveFilterCount > 0)
-        {
-            <FluentBadge data-testid="filter-count" Content="@ActiveFilterCount.ToString()"/>
-        }
-    </FluentButton>
-    @if (HasFilters)
-    {
-        <FluentButton data-testid="clear-filters" OnClick="ClearFiltersAsync">Clear filters</FluentButton>
-    }
-    @if (_isOwner && _selectedIds.Count > 0)
-    {
-        <FluentButton data-testid="bulk-delete" Disabled="@_selectedIds.Contains(_currentUserId ?? "")" OnClick="OpenBulkDeleteAsync">
-            Delete @_selectedIds.Count selected
-        </FluentButton>
-    }
+<ToastRegion/>
+
+<div class="users-toolbar" role="search">
+    <FluentTextInput Id="@SearchId" data-testid="search" AriaLabel="@CommonStrings.Search" Placeholder="@CommonStrings.Search" Immediate="true" ImmediateDelay="500"
+                     Value="@_filters.GetValueOrDefault(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
 </div>
 
 <div class="users-layout">
@@ -45,162 +31,89 @@
         @if (_bootstrap is not null)
         {
             <DataList @ref="_list" TItem="UserDetails" data-testid="users-grid" ListId="@UsersListSource.ListId" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
-                      Label="Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
+                      Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
                       SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
-                      FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="users-profile-pane"
-                      RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
-                      OnSelectionChanged="OnSelectionChangedAsync" OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
+                      FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="@PaneId"
+                      FocusFallbackId="@SearchId" RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
+                      OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
                 <EmptyContent>
-                    <p data-testid="empty-state">@(HasFilters ? "No users match these filters." : "No users.")</p>
+                    <div data-testid="empty-state">
+                        <p>@UsersStrings.NoUsersFound</p>
+                        @if (_filters.Count > 0)
+                        {
+                            <p>@UsersStrings.TryAdjustingSearch</p>
+                        }
+                    </div>
                 </EmptyContent>
             </DataList>
         }
     </div>
 
-    <aside class="profile-pane" id="users-profile-pane" data-testid="profile-pane" data-email="@_profile?.Email" hidden="@(_profile is null)" aria-label="User profile"
-           tabindex="-1">
-        @if (_profile is { } profile)
-        {
-            <h2>@(profile.DisplayName.Length > 0 ? profile.DisplayName : profile.Email)</h2>
-            <dl>
-                <dt>Email</dt>
-                <dd>@profile.Email</dd>
-                <dt>Title</dt>
-                <dd>@profile.Title</dd>
-                <dt>Role</dt>
-                <dd data-testid="profile-role">@profile.Role</dd>
-                <dt>Status</dt>
-                <dd>@(profile.EmailConfirmed ? "Active" : "Pending")</dd>
-                <dt>Created</dt>
-                <dd>@profile.CreatedAt.ToString("g")</dd>
-            </dl>
-
-            <FluentButton data-testid="profile-close" OnClick="CloseProfileAsync">Close</FluentButton>
-            @if (_isOwner)
-            {
-                <FluentButton data-testid="profile-delete" Disabled="@(profile.Id == _currentUserId)" OnClick="@(() => OpenDeleteAsync(profile))">Delete</FluentButton>
-            }
-        }
-    </aside>
+    <UserProfilePane Id="@PaneId" State="_profile" Permission="ProfilePermission" IsNotInCurrentView="IsProfileNotInCurrentView" IsDataUpdated="IsProfileDataUpdated"
+                     OnClose="CloseProfileAsync" OnChangeRole="OpenRoleDialog"/>
 </div>
 
-<FluentDialog @ref="_filterDialog">
-    <div data-testid="filter-dialog" class="dialog-body">
-        <h2>Filters</h2>
-        <FluentSelect TOption="string" TValue="string" Label="Role" Items="RoleOptions" @bind-Value="_draftRole" data-testid="filter-role"/>
-        <FluentSelect TOption="string" TValue="string" Label="Status" Items="StatusOptions" @bind-Value="_draftStatus" data-testid="filter-status"/>
-        <label>Modified from <input type="date" data-testid="filter-start" @bind="_draftStart"/></label>
-        <label>Modified to <input type="date" data-testid="filter-end" @bind="_draftEnd"/></label>
-        <div class="dialog-actions">
-            <FluentButton data-testid="filter-apply" Appearance="ButtonAppearance.Primary" OnClick="ApplyFiltersAsync">Apply</FluentButton>
-            <FluentButton data-testid="filter-cancel" OnClick="@(() => _filterDialog!.HideAsync())">Cancel</FluentButton>
-        </div>
-    </div>
-</FluentDialog>
-
-<FluentDialog @ref="_roleDialog">
-    <div data-testid="role-dialog" class="dialog-body">
-        <h2>Change role for @_roleUser?.Email</h2>
-        <FluentRadioGroup TValue="UserRole" @bind-Value="_draftUserRole" Label="Role">
-            <FluentRadio TValue="UserRole" Value="UserRole.Owner" Label="Owner"/>
-            <FluentRadio TValue="UserRole" Value="UserRole.Admin" Label="Admin"/>
-            <FluentRadio TValue="UserRole" Value="UserRole.Member" Label="Member"/>
-        </FluentRadioGroup>
-        @if (_dialogError is not null)
-        {
-            <p role="alert" data-testid="dialog-error">@_dialogError</p>
-        }
-        <div class="dialog-actions">
-            <FluentButton data-testid="role-confirm" Appearance="ButtonAppearance.Primary" Loading="_busy" OnClick="ConfirmRoleChangeAsync">Change role</FluentButton>
-            <FluentButton data-testid="role-cancel" OnClick="@(() => _roleDialog!.HideAsync())">Cancel</FluentButton>
-        </div>
-    </div>
-</FluentDialog>
-
-<FluentDialog @ref="_deleteDialog">
-    <div data-testid="delete-dialog" class="dialog-body">
-        <h2>@(_deleteIds.Length == 1 ? "Delete user" : $"Delete {_deleteIds.Length} users")</h2>
-        <p>Deleted users move to the recycle bin.</p>
-        @if (_dialogError is not null)
-        {
-            <p role="alert" data-testid="dialog-error">@_dialogError</p>
-        }
-        <div class="dialog-actions">
-            <FluentButton data-testid="delete-confirm" Appearance="ButtonAppearance.Primary" Loading="_busy" OnClick="ConfirmDeleteAsync">Delete</FluentButton>
-            <FluentButton data-testid="delete-cancel" OnClick="@(() => _deleteDialog!.HideAsync())">Cancel</FluentButton>
-        </div>
-    </div>
-</FluentDialog>
+<ChangeUserRoleDialog Open="_isRoleDialogOpen" OpenChanged="OnRoleDialogOpenChanged" User="_roleUser" OnSaved="OnRoleSavedAsync"/>
 
 @code {
 
-    private static readonly string[] RoleOptions = ["", nameof(UserRole.Owner), nameof(UserRole.Admin), nameof(UserRole.Member)];
-    private static readonly string[] StatusOptions = ["", nameof(UserStatus.Active), nameof(UserStatus.Pending)];
+    public const string RoleUpdatedToastTestId = "role-updated-toast";
+    private const string SearchId = "users-search";
+    private const string PaneId = "users-profile-pane";
 
-    private IReadOnlySet<string> _selectedIds = new HashSet<string>();
+    private readonly UserProfileState _profile = new();
     private BootstrapResponse? _bootstrap;
-    private bool _busy;
     private IReadOnlyList<DataListColumn<UserDetails>> _columns = [];
-    private string? _currentUserId;
-    private FluentDialog? _deleteDialog;
-    private string[] _deleteIds = [];
-    private string? _dialogError;
-    private DateOnly? _draftEnd;
-    private string? _draftRole;
-    private DateOnly? _draftStart;
-    private string? _draftStatus;
-    private UserRole _draftUserRole;
-    private FluentDialog? _filterDialog;
-    private bool _isOwner;
-    private DataList<UserDetails>? _list;
-    private string? _loadError;
-    private UserDetails? _profile;
-    private FluentDialog? _roleDialog;
-    private UserDetails? _roleUser;
     private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private bool _isRoleDialogOpen;
+    private DataList<UserDetails>? _list;
+    private UserDetails? _roleUser;
 
-    private int ActiveFilterCount => (_filters.ContainsKey(UsersListSource.UserRoleParameter) ? 1 : 0) + (_filters.ContainsKey(UsersListSource.UserStatusParameter) ? 1 : 0) +
-                                     (_filters.ContainsKey(UsersListSource.StartDateParameter) && _filters.ContainsKey(UsersListSource.EndDateParameter) ? 1 : 0);
+    private IReadOnlyList<UserDetails> PageItems => _list is { Status: DataListStatus.Ready or DataListStatus.Empty } list ? list.Items : [];
 
-    private bool HasFilters => _filters.Count > 0;
+    private bool IsListLoaded => _list?.Status is DataListStatus.Ready or DataListStatus.Empty;
+
+    private bool IsProfileNotInCurrentView => IsListLoaded && _profile.IsNotInCurrentView(PageItems.ToArray());
+
+    private bool IsProfileDataUpdated => IsListLoaded && _profile.IsDataUpdated(PageItems.ToArray());
+
+    private RoleChangePermission ProfilePermission => _profile.User is { } user ? UserRolePermissions.ForTarget(_bootstrap?.User, user.Id) : RoleChangePermission.NotOwner;
 
     protected override async Task OnInitializedAsync()
     {
         _columns =
         [
-            new DataListColumn<UserDetails>("Name", user => @<span data-user-row data-email="@user.Email">
-                                                                @(user.DisplayName.Length > 0 ? user.DisplayName : user.Email)
-                                                                @if (!user.EmailConfirmed)
-                                                                {
-                                                                    <FluentBadge Content="Pending"/>
-                                                                }
-                                                            </span>, nameof(SortableUserProperties.Name)
+            new DataListColumn<UserDetails>(UsersStrings.Name, user => @<span class="user-name-cell" data-user-row data-email="@user.Email">
+                                                                           <UserAvatar User="user"/>
+                                                                           <span>
+                                                                               <span class="user-name" data-testid="user-name">@user.DisplayNameOrEmail</span>
+                                                                               @if (!string.IsNullOrEmpty(user.Title))
+                                                                               {
+                                                                                   <span class="user-title">@user.Title</span>
+                                                                               }
+                                                                           </span>
+                                                                       </span>, nameof(SortableUserProperties.Name)
             ),
-            new DataListColumn<UserDetails>("Email", user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email)
+            new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email)
             ),
-            new DataListColumn<UserDetails>("Created", user => @<text>@user.CreatedAt.ToString("d")</text>, nameof(SortableUserProperties.CreatedAt)
+            new DataListColumn<UserDetails>(UsersStrings.Created, user => @<text>@user.CreatedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)</text>,
+                nameof(SortableUserProperties.CreatedAt)
             ),
-            new DataListColumn<UserDetails>("Last seen", user => @<text>@(user.LastSeenAt?.ToString("d") ?? "")</text>, nameof(SortableUserProperties.LastSeenAt)
+            new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<text>@(user.LastSeenAt?.ToLocalTime().ToString("d", CultureInfo.CurrentCulture) ?? "")</text>,
+                nameof(SortableUserProperties.LastSeenAt)
             ),
-            new DataListColumn<UserDetails>("Role", user => @<FluentBadge Content="@user.Role.ToString()"/>, nameof(SortableUserProperties.Role)
+            new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role)
             )
         ];
 
         var bootstrap = await BootstrapSource.GetAsync();
-        if (!bootstrap.IsAuthenticated)
+        if (RendererInfo.IsInteractive && !bootstrap.IsAuthenticated)
         {
-            AuthenticationNavigator.LeaveForLogin();
+            Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();
             return;
         }
 
-        _currentUserId = bootstrap.User?.Id.Value;
-        _isOwner = bootstrap.User?.Role == nameof(UserRole.Owner);
         _bootstrap = bootstrap;
-    }
-
-    private string? Filter(string name)
-    {
-        return _filters.GetValueOrDefault(name);
     }
 
     private static string KeyOf(UserDetails user)
@@ -213,71 +126,66 @@
         return user.Email;
     }
 
+    // Everyone can view a profile; only an owner sees the role action, disabled on their own row
     private RenderFragment<UserDetails> RowMenu => user =>
-        @<text>
-             <FluentButton Id="@($"actions-{user.Id}")" data-testid="row-actions" Title="User actions" Appearance="ButtonAppearance.Subtle" tabindex="-1">⋯</FluentButton>
-             <FluentMenu Trigger="@($"actions-{user.Id}")">
-                 <FluentMenuList>
-                     <FluentMenuItem data-testid="action-view" OnClick="@(() => OpenProfileAsync(user))">View profile</FluentMenuItem>
-                     @if (_isOwner)
-                     {
-                         <FluentMenuItem data-testid="action-change-role" Disabled="@(user.Id.Value == _currentUserId)" OnClick="@(() => OpenRoleDialogAsync(user))">Change role</FluentMenuItem>
-                         <FluentMenuItem data-testid="action-delete" Disabled="@(user.Id.Value == _currentUserId)" OnClick="@(() => OpenDeleteAsync(user))">Delete</FluentMenuItem>
-                     }
-                 </FluentMenuList>
-             </FluentMenu>
-    </text>;
+        @<DataListRowMenu Label="@UsersStrings.UserActions" Items="RowMenuItems(user)" TestId="user-actions"/>;
+
+    private IReadOnlyList<DataListRowMenuItem> RowMenuItems(UserDetails user)
+    {
+        var viewProfile = new DataListRowMenuItem(UsersStrings.ViewProfile, () => ViewProfileAsync(user), TestId: "action-view-profile");
+        if (!UserRolePermissions.IsOwner(_bootstrap?.User)) return [viewProfile];
+
+        var canChangeRole = UserRolePermissions.ForTarget(_bootstrap?.User, user.Id) == RoleChangePermission.Allowed;
+        return [viewProfile, new DataListRowMenuItem(UsersStrings.ChangeRole, () => OpenRoleDialogAsync(user), !canChangeRole, "action-change-role")];
+    }
 
     private Task<DataListFetchResult<UserDetails>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
     {
-        return UsersListSource.FetchAsync(UsersClient, request, cancellationToken);
+        return UsersListSource.FetchAsync(Services.GetRequiredService<UsersClient>(), request, cancellationToken);
     }
 
-    // A deep link with ?userId= opens the pane for that user even when the user is not on the current page
+    // Loads, Back and Forward: a deep link or a history entry with ?userId= opens the pane for that user, on the page or not
     private async Task OnListStateChangedAsync(DataListState state)
     {
         _filters = state.Filters;
         if (state.SelectedKey is null)
         {
-            _profile = null;
-        }
-        else if (_profile?.Id.Value != state.SelectedKey)
-        {
-            try
-            {
-                _profile = await UsersApi.GetUserAsync(state.SelectedKey);
-            }
-            catch (UsersApiException exception)
-            {
-                _loadError = exception.Message;
-            }
+            _profile.Close();
+            StateHasChanged();
+            return;
         }
 
         StateHasChanged();
+        if (_profile.UserId != state.SelectedKey) await LoadProfileAsync(state.SelectedKey, PageItems.FirstOrDefault(user => user.Id.Value == state.SelectedKey));
     }
 
     private Task OnSearchChangedAsync(string? search)
     {
-        return _list?.SetFiltersAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = search?.Trim() }) ?? Task.CompletedTask;
-    }
-
-    private Task OnSelectionChangedAsync(IReadOnlySet<string> selectedIds)
-    {
-        _selectedIds = selectedIds.ToHashSet();
-        StateHasChanged();
-        return Task.CompletedTask;
+        return _list?.SetFiltersAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = search }) ?? Task.CompletedTask;
     }
 
     private Task OpenProfileAsync(UserDetails user)
     {
-        _profile = user;
+        return LoadProfileAsync(user.Id.Value, user);
+    }
+
+    private Task ViewProfileAsync(UserDetails user)
+    {
+        return _list?.ActivateItemAsync(user) ?? Task.CompletedTask;
+    }
+
+    // The pane shows the row at once and then the authoritative user; only the latest load is applied
+    private async Task LoadProfileAsync(string userId, UserDetails? rowUser)
+    {
+        var version = _profile.Open(userId, rowUser);
         StateHasChanged();
-        return Task.CompletedTask;
+        var result = await Services.GetRequiredService<UsersClient>().GetUserAsync(new UserId(userId), CancellationToken.None);
+        if (_profile.Complete(version, result)) StateHasChanged();
     }
 
     private Task OnProfileClosedAsync()
     {
-        _profile = null;
+        _profile.Close();
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -287,95 +195,35 @@
         return _list?.CloseAsync() ?? Task.CompletedTask;
     }
 
-    private async Task OpenFiltersAsync()
-    {
-        _draftRole = Filter(UsersListSource.UserRoleParameter) ?? "";
-        _draftStatus = Filter(UsersListSource.UserStatusParameter) ?? "";
-        _draftStart = DateOnly.TryParse(Filter(UsersListSource.StartDateParameter), out var start) ? start : null;
-        _draftEnd = DateOnly.TryParse(Filter(UsersListSource.EndDateParameter), out var end) ? end : null;
-        await _filterDialog!.ShowAsync();
-    }
-
-    private async Task ApplyFiltersAsync()
-    {
-        await _filterDialog!.HideAsync();
-        await (_list?.SetFiltersAsync(new Dictionary<string, string?>
-                    {
-                        [UsersListSource.UserRoleParameter] = _draftRole,
-                        [UsersListSource.UserStatusParameter] = _draftStatus,
-                        [UsersListSource.StartDateParameter] = _draftStart?.ToString("yyyy-MM-dd"),
-                        [UsersListSource.EndDateParameter] = _draftEnd?.ToString("yyyy-MM-dd")
-                    }
-                ) ?? Task.CompletedTask
-            );
-    }
-
-    private Task ClearFiltersAsync()
-    {
-        return _list?.SetFiltersAsync(UsersListSource.FilterParameters.ToDictionary(name => name, _ => (string?)null)) ?? Task.CompletedTask;
-    }
-
-    private async Task OpenRoleDialogAsync(UserDetails user)
+    private void OpenRoleDialog(UserDetails user)
     {
         _roleUser = user;
-        _draftUserRole = user.Role;
-        _dialogError = null;
-        await _roleDialog!.ShowAsync();
+        _isRoleDialogOpen = true;
+        StateHasChanged();
     }
 
-    private async Task ConfirmRoleChangeAsync()
+    private Task OpenRoleDialogAsync(UserDetails user)
     {
-        if (_roleUser is null) return;
-        _busy = true;
-        try
-        {
-            await UsersApi.ChangeRoleAsync(_roleUser.Id.Value, _draftUserRole);
-            await _roleDialog!.HideAsync();
-            await _list!.InvalidateAsync();
-        }
-        catch (UsersApiException exception)
-        {
-            _dialogError = exception.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
+        OpenRoleDialog(user);
+        return Task.CompletedTask;
     }
 
-    private async Task OpenDeleteAsync(UserDetails user)
+    private void OnRoleDialogOpenChanged(bool isOpen)
     {
-        _deleteIds = [user.Id.Value];
-        _dialogError = null;
-        await _deleteDialog!.ShowAsync();
+        _isRoleDialogOpen = isOpen;
+        if (!isOpen) _roleUser = null;
     }
 
-    private async Task OpenBulkDeleteAsync()
+    // Every cached page of the list is dropped, including sorted and filtered variants the user has just left, and the pane
+    // loads the user again, so neither shows the previous role
+    private async Task OnRoleSavedAsync((UserDetails User, UserRole Role) change)
     {
-        _deleteIds = _selectedIds.ToArray();
-        _dialogError = null;
-        await _deleteDialog!.ShowAsync();
-    }
-
-    private async Task ConfirmDeleteAsync()
-    {
-        _busy = true;
-        try
-        {
-            if (_deleteIds.Length == 1) await UsersApi.DeleteAsync(_deleteIds[0]);
-            else await UsersApi.BulkDeleteAsync(_deleteIds);
-            await _deleteDialog!.HideAsync();
-            if (_profile is not null && _deleteIds.Contains(_profile.Id.Value)) await _list!.CloseAsync();
-            await _list!.InvalidateAsync();
-        }
-        catch (UsersApiException exception)
-        {
-            _dialogError = exception.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
+        _isRoleDialogOpen = false;
+        _roleUser = null;
+        Toasts.Show(ToastKind.Success, string.Format(CultureInfo.CurrentCulture, UsersStrings.UserRoleUpdated, change.User.DisplayNameOrEmail), null, RoleUpdatedToastTestId);
+        var reloadProfile = _profile.UserId == change.User.Id.Value ? LoadProfileAsync(change.User.Id.Value, null) : Task.CompletedTask;
+        if (_list is not null) await _list.InvalidateAsync();
+        await reloadProfile;
     }
 
 }

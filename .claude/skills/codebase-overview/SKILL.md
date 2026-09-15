@@ -64,12 +64,12 @@ and the `.csproj` files.
   `shared-webapp/infrastructure/auth/routeGuards.ts`, Lingui translations, `api.useQuery` and `api.useMutation`.
 - **Blazor authenticated page**: a server-rendered page in `blazor/Blazor.Host/Components/Pages/App/` with `[Authorize]`,
   `[InteractiveSurface]` and a `Blazor.Client` component with `@rendermode="InteractiveWebAssembly"` (`AppDetails.razor`);
-  `new InteractiveWebAssemblyRenderMode(false)` for data behind login (`UsersQuick.razor`). Never a render mode on `Routes`.
+  a list prerenders its frame and loads its data in the browser (`UsersPage.razor`). Never a render mode on `Routes`.
 - **Blazor public static form**: a page in `blazor/Blazor.Host/Components/Pages/Public/` mirroring `Login.razor` (enhanced,
   stays public) or `LoginVerify.razor` (not enhanced, crosses the authentication boundary): `EditForm` with `FormName`,
   `[SupplyParameterFromForm]`, `DataAnnotationsValidator`, the model in `PublicForms.cs`, `FormErrorMapper` and `FormErrorAlert`.
 - **Blazor list page**: `DataList<TItem>` from `blazor/Blazor.Client/Components/Lists/` in a feature component plus a
-  `<Feature>ListSource` (`Users/UsersListSource.cs`) and a host page (`Pages/App/UsersQuick.razor`); never QuickGrid directly.
+  `<Feature>ListSource` (`Users/UsersListSource.cs`) and a host page (`Pages/App/UsersPage.razor`); never QuickGrid directly.
 - **Blazor API call**: a contract in `application/account/Contracts/Features/<Feature>/{Requests,Queries}/`, a path in
   `application/account/Client/AccountApiRoutes.cs`, a method on `application/account/Client/<Area>Client.cs`, called from the
   component or list source with a `CancellationToken`; failures through `FormErrorMapper` (static) or `ApiFailurePresenter` (interactive).

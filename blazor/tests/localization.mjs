@@ -177,7 +177,7 @@ for (const [claimLocale, browserLocale] of [
 
   await check(`users page paginator with claim ${claimLocale} and browser language ${browserLocale} renders in ${claimLocale}`, () =>
     withPage(browserLocale, users[claimLocale].storageState, async (page, observations) => {
-      await page.goto(`${baseUrl}${pathBase}/app/users/quick`, { waitUntil: "load" });
+      await page.goto(`${baseUrl}${pathBase}/account/users`, { waitUntil: "load" });
       const pageText = page.locator("[data-list-page]").first();
       await pageText.waitFor({ timeout: interactiveTimeoutMs });
       // The signed-up user is the tenant's one user, so a loaded list counts at least one

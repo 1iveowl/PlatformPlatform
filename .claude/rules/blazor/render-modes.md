@@ -19,7 +19,7 @@ Rules for which Blazor surfaces are static server-rendered and which are interac
 3. Serve the authenticated surface as server-rendered pages that each host one WebAssembly component:
    - Put `@rendermode="InteractiveWebAssembly"` on the component the page hosts, never on `<Routes>` or the document root
    - Mark the page with `[Authorize]` and `[InteractiveSurface]`, so the host page renders the runtime preload links only there
-   - Use `new InteractiveWebAssemblyRenderMode(false)` for a component whose content is data behind login that it fetches itself, such as a list; a prerender would render an empty list twice
+   - Prerender a component whose content is data behind login that it fetches itself, such as a list: during prerender it renders its frame (heading, search, the list's loading state) and no user data, and it loads the data only once `RendererInfo.IsInteractive`, as `DataList` does. Use `new InteractiveWebAssemblyRenderMode(false)` only for a component that has no meaningful frame without its data
 4. Keep one router and plain links:
    - All routes, public and authenticated, are Razor component endpoints on the host's one `Router` in `Routes.razor`; there is no interactive router
    - Links are plain `<a href>` elements whose paths are built with `AppUrls.ToAbsolute(...)` or `AppUrls.AuthenticatedHome`, never a literal `/blazor/...`; `base-uri 'none'` makes the browser ignore `<base href>`, so a relative href breaks below the first path segment
@@ -49,8 +49,8 @@ Rules for which Blazor surfaces are static server-rendered and which are interac
 
 <AuthenticatedApp Page="home" @rendermode="InteractiveWebAssembly"/>
 
-@* ✅ DO: no prerender for data behind login (blazor/Blazor.Host/Components/Pages/App/UsersQuick.razor) *@
-<UsersSurface @rendermode="new InteractiveWebAssemblyRenderMode(false)"/>
+@* ✅ DO: a prerendered list frame; the data loads in the browser (blazor/Blazor.Host/Components/Pages/App/UsersPage.razor) *@
+<UsersSurface @rendermode="InteractiveWebAssembly"/>
 
 @* ❌ DON'T: a render mode on the router makes every page, public ones included, a WebAssembly island *@
 <Routes @rendermode="new InteractiveWebAssemblyRenderMode(false)"/>

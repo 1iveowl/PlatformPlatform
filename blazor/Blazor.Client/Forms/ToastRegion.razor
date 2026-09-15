@@ -7,7 +7,7 @@
 <section class="toast-region" aria-label="@CommonStrings.Notifications" aria-live="assertive" data-testid="toast-region">
     @foreach (var toast in Toasts.Toasts)
     {
-        <div @key="toast.Id" role="alert" class="toast @(toast.Kind == ToastKind.Error ? "toast-error" : "toast-warning")" data-testid="@toast.TestId">
+        <div @key="toast.Id" role="alert" class="toast @KindClass(toast.Kind)" data-testid="@toast.TestId">
             <div class="toast-text">
                 <p class="toast-title" data-testid="toast-title">@toast.Title</p>
                 @if (toast.Message is not null)
@@ -36,6 +36,16 @@
     public void Dispose()
     {
         Toasts.Changed -= OnChanged;
+    }
+
+    private static string KindClass(ToastKind kind)
+    {
+        return kind switch
+        {
+            ToastKind.Error => "toast-error",
+            ToastKind.Success => "toast-success",
+            _ => "toast-warning"
+        };
     }
 
     private void OnChanged()

@@ -11,8 +11,8 @@
 //
 // The test signs up a new user through the Blazor signup page with the one-time password read from the local mail server,
 // so it needs no stored cookies, secrets or debug-only codes. It fails unless the gateway serves this worktree's publish in
-// Production, the users page on the shared DataList loads its data, a click on a FluentButton runs its .NET handler (the filter
-// dialog opens), and the page raises no page error. Writes a JSON result file under .workspace/blazor-tests/, and on failure a
+// Production, the users page on the shared DataList loads its data, typing in the FluentTextInput search box runs its .NET
+// handler (the search reaches the URL and the list), and the page raises no page error. Writes a JSON result file under .workspace/blazor-tests/, and on failure a
 // browser trace of the signup or of the users page next to it.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -34,7 +34,7 @@ import {
 } from "./support/stack.mjs";
 
 const interactiveTimeoutMs = 60_000;
-const dialogTimeoutMs = 10_000;
+const searchTimeoutMs = 10_000;
 const settleMs = 1_000;
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
@@ -63,7 +63,7 @@ try {
     if (/\/_framework\/Blazor\.Client\.[^/]*\.wasm$/.test(new URL(request.url()).pathname)) clientAssemblyRequests.push(new URL(request.url()).pathname);
   });
 
-  const usersUrl = `${baseUrl}${pathBase}/app/users/quick`;
+  const usersUrl = `${baseUrl}${pathBase}/account/users`;
   const response = await page.goto(usersUrl, { waitUntil: "load" });
   result.status = response.status();
   result.finalUrl = page.url();
@@ -75,10 +75,13 @@ try {
     .then(() => "ready", () => "not ready");
   result.gridState = gridState;
 
-  const applyButton = page.locator('[data-testid="filter-apply"]');
-  result.dialogVisibleBeforeClick = await applyButton.isVisible();
-  await page.locator('[data-testid="filters"]').click();
-  result.dialogOpenedByClick = await applyButton.waitFor({ state: "visible", timeout: dialogTimeoutMs }).then(() => true, () => false);
+  // The signed-up owner is the tenant's one user, so searching for the email keeps exactly that row
+  result.searchInUrlBeforeTyping = new URL(page.url()).searchParams.has("search");
+  await page.getByRole("textbox", { name: "Search" }).fill(account.email);
+  result.searchReachedDotNet = await page
+    .waitForURL((url) => url.searchParams.get("search") === account.email, { timeout: searchTimeoutMs })
+    .then(() => page.locator('[data-testid="users-grid"][data-list-state="ready"][data-list-total-count="1"]').waitFor({ timeout: searchTimeoutMs }))
+    .then(() => true, () => false);
   await page.waitForTimeout(settleMs);
 
   // The Blazor.Client assembly is fingerprinted by content, so a Debug build or another worktree's publish requests a route
@@ -94,8 +97,8 @@ try {
   if (!result.productionPolicy) failures.push("the host does not run in Production");
   if (!result.servedFromThisPublish) failures.push(`the Blazor.Client assembly requested (${clientAssemblyRequests.join(", ") || "none"}) is not in this publish`);
   if (gridState !== "ready") failures.push("the users grid did not load");
-  if (result.dialogVisibleBeforeClick) failures.push("the filter dialog was open before the click");
-  if (!result.dialogOpenedByClick) failures.push("the FluentButton click did not reach its .NET handler");
+  if (result.searchInUrlBeforeTyping) failures.push("the users page started with a search");
+  if (!result.searchReachedDotNet) failures.push("typing in the FluentTextInput search box did not reach its .NET handler");
   if (observations.pageErrors.length > 0) failures.push(`${observations.pageErrors.length} page errors`);
 } catch (error) {
   failures.push(String(error.stack ?? error).slice(0, 1_000));

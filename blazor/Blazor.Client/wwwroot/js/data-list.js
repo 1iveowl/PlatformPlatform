@@ -17,7 +17,7 @@ function isTextEntry(element) {
 
 export function attach(root, dotNet, options) {
   const multiple = options.selectionMode === "Multiple";
-  const state = { activeIndex: -1 };
+  const state = { activeIndex: -1, hasActivated: false };
 
   const rows = () => [...root.querySelectorAll("tbody tr.data-list-row")].filter((row) => row.closest(".data-list") === root);
 
@@ -37,6 +37,15 @@ export function attach(root, dotNet, options) {
     setTabStop(all[clamped]);
     all[clamped].focus();
     return clamped;
+  };
+
+  // When the activated row is not on the loaded page, focus goes to a stable control instead: the element the page names,
+  // else the first sort button, else the list itself
+  const focusFallback = () => {
+    const named = options.focusFallbackId ? document.getElementById(options.focusFallbackId) : null;
+    const target = named ?? root.querySelector("button.data-list-sort") ?? root;
+    if (target === root && !root.hasAttribute("tabindex")) root.tabIndex = -1;
+    target.focus();
   };
 
   const onKeyDown = (event) => {
@@ -78,14 +87,16 @@ export function attach(root, dotNet, options) {
 
   // Escape can come from the row or from the element the page names as the list's detail, such as a side pane
   const onDocumentKeyDown = (event) => {
-    if (event.key !== "Escape" || event.defaultPrevented || state.activeIndex < 0) return;
+    if (event.key !== "Escape" || event.defaultPrevented || !state.hasActivated) return;
     const target = event.target instanceof Element ? event.target : null;
-    if (target === null || isTextEntry(target) || target.closest("dialog[open]") !== null) return;
+    if (target === null || isTextEntry(target) || target.closest("dialog[open], [role='menu']") !== null) return;
     const scope = options.escapeScopeId ? document.getElementById(options.escapeScopeId) : null;
     if (!root.contains(target) && (scope === null || !scope.contains(target))) return;
     event.preventDefault();
     const returnIndex = state.activeIndex;
-    dotNet.invokeMethodAsync("CloseFromKeyboard").then(() => focusAt(returnIndex));
+    dotNet.invokeMethodAsync("CloseFromKeyboard").then(() => {
+      if (returnIndex < 0 || focusAt(returnIndex) < 0) focusFallback();
+    });
   };
 
   // Shift+click would otherwise select the text between the anchor and the row
@@ -115,8 +126,9 @@ export function attach(root, dotNet, options) {
 
   return {
     // Called after every render: rows the grid rendered again have lost their tab index
-    sync: (activeIndex, headerSelection) => {
+    sync: (activeIndex, headerSelection, hasActivated) => {
       state.activeIndex = activeIndex;
+      state.hasActivated = hasActivated === true;
       const all = rows();
       const focused = all.find((row) => row === document.activeElement);
       const tabStop = focused ?? all[activeIndex] ?? all.find((row) => row.tabIndex === 0) ?? all[0];
@@ -125,6 +137,7 @@ export function attach(root, dotNet, options) {
       if (selectAll !== null) selectAll.indeterminate = headerSelection === "Some";
     },
     focusRow: (index) => focusAt(index) >= 0,
+    focusFallback,
     dispose: () => {
       root.removeEventListener("keydown", onKeyDown);
       root.removeEventListener("mousedown", onMouseDown);

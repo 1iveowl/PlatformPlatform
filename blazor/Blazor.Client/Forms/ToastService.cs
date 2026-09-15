@@ -8,7 +8,8 @@ namespace Blazor.Client.Forms;
 public enum ToastKind
 {
     Error,
-    Warning
+    Warning,
+    Success
 }
 
 // ActionLabel names the toast's single action button; OnAction runs when it is pressed

@@ -64,9 +64,9 @@ application/account/Client/AccountApiRoutes.cs                            GetUse
 application/shared-kernel/SharedKernel.Localization/Resources/UsersStrings.resx and UsersStrings.da-DK.resx
 blazor/Blazor.Client/Users/UsersListSource.cs                             filter parameters, sort keys, fetch
 blazor/Blazor.Client/Users/UsersSurface.razor                             the interactive component
-blazor/Blazor.Host/Components/Pages/App/UsersQuick.razor                  the page that hosts it
+blazor/Blazor.Host/Components/Pages/App/UsersPage.razor                   the page that hosts it
 blazor/Blazor.Tests/Client/Lists/UsersListSourceTests.cs                  unit tests
-blazor/tests/e2e/signup-flows.spec.ts                                     end-to-end specification
+blazor/tests/e2e/user-management-flows.spec.ts                            end-to-end specification
 
 ❌ DON'T: declare a request record inside Blazor.Client, call HttpClient from a component, or type a user-visible
    string in a .razor file; each belongs to the project above

@@ -126,6 +126,11 @@
     [Parameter]
     public string? EscapeScopeId { get; set; }
 
+    // The id of a stable control outside the list, such as a search box, that receives focus when the activated row is
+    // closed while it is not on the loaded page; the first sort button otherwise
+    [Parameter]
+    public string? FocusFallbackId { get; set; }
+
     [Parameter]
     public Func<TItem, string>? RowLabel { get; set; }
 
@@ -159,6 +164,11 @@
     public DataListState State => _controller.State;
 
     public IReadOnlySet<string> SelectedKeys => _controller.Selection.Keys;
+
+    // The rows of the loaded page
+    public IReadOnlyList<TItem> Items => _controller.Items;
+
+    public DataListStatus Status => _controller.Status;
 
     private DataListHeaderSelection HeaderSelection => _controller.Selection.GetHeaderSelection(_controller.PageKeys);
 
@@ -198,11 +208,11 @@
         {
             _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/data-list.js");
             _reference = DotNetObjectReference.Create(this);
-            var options = new { selectionMode = SelectionMode.ToString(), escapeScopeId = EscapeScopeId };
+            var options = new { selectionMode = SelectionMode.ToString(), escapeScopeId = EscapeScopeId, focusFallbackId = FocusFallbackId };
             _handle = await _module.InvokeAsync<IJSObjectReference>("attach", _root, _reference, options);
         }
 
-        if (_handle is not null && !_disposed) await _handle.InvokeVoidAsync("sync", _controller.ActiveIndex, HeaderSelection.ToString());
+        if (_handle is not null && !_disposed) await _handle.InvokeVoidAsync("sync", _controller.ActiveIndex, HeaderSelection.ToString(), _controller.State.SelectedKey is not null);
     }
 
     // Invalidates every cached page of this list, clears the selection and loads the current page again
@@ -217,14 +227,23 @@
         return LoadAndRefreshAsync(() => _controller.SetFiltersAsync(changes));
     }
 
-    // Closes the activated row, for example from a side pane's close button; focus returns to the row
+    // Closes the activated row, for example from a side pane's close button; focus returns to the row, or to the fallback
+    // control when the row is not on the loaded page
     public async Task CloseAsync()
     {
         var activeIndex = _controller.ActiveIndex;
         if (!_controller.Close()) return;
         StateHasChanged();
         if (OnClosed is not null) await OnClosed();
-        if (_handle is not null && activeIndex >= 0) await _handle.InvokeAsync<bool>("focusRow", activeIndex);
+        if (_handle is null) return;
+        if (activeIndex < 0 || !await _handle.InvokeAsync<bool>("focusRow", activeIndex)) await _handle.InvokeVoidAsync("focusFallback");
+    }
+
+    // Activates a row of the loaded page from outside the list, such as a row menu's view action; the same as Enter on the row
+    public Task ActivateItemAsync(TItem item)
+    {
+        var index = _controller.PageKeys.ToList().IndexOf(KeySelector(item));
+        return index < 0 ? Task.CompletedTask : ActivateRow(index);
     }
 
     [JSInvokable]

@@ -10,8 +10,8 @@ FluentUI Blazor (`Microsoft.FluentUI.AspNetCore.Components`) is the component fo
 ## Implementation
 
 1. Register the library on both sides with `AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer())`, in `Blazor.Host/HostApplication.cs` for static rendering and prerendering and in `Blazor.Client/Program.cs` for the browser. A public page may use a FluentUI component; it resolves its services from the host container.
-2. Put menu items inside a `FluentMenuList` inside a `FluentMenu` with a `Trigger` naming the button's id; a `FluentMenuItem` outside `FluentMenuList` does not render as a menu.
-3. Use the in-house components where the library one writes a style attribute: `ToastService` and `ToastRegion` instead of the toast provider, `ModalDialog` and `DirtyDialog` on the native `<dialog>` instead of the library dialog, and `DataList` on QuickGrid instead of the data grid. Before using a component new to the edition, render it in a harness case and check for `securitypolicyviolation` events; a component that violates the policy is wrapped or avoided, never the policy widened.
+2. Do not use `FluentMenu` for row actions: it positions its popover by writing `anchor-name` and `position-anchor` style attributes on the trigger and the list. The policy does not report a violation for a style set from script, but the edition allows no style attribute; use `DataListRowMenu` (see the lists rule). Where a `FluentMenu` is used outside a list, its items go inside a `FluentMenuList`; a `FluentMenuItem` outside `FluentMenuList` does not render as a menu.
+3. Use the in-house components where the library one writes a style attribute: `ToastService` and `ToastRegion` instead of the toast provider, `ModalDialog` and `DirtyDialog` on the native `<dialog>` instead of the library dialog, `DataList` on QuickGrid instead of the data grid, and `DataListRowMenu` instead of the library menu. Before using a component new to the edition, render it in a harness case and check for `securitypolicyviolation` events and for style attributes in the document body; a component that violates the policy is wrapped or avoided, never the policy widened.
 4. Keep the FluentUI pin exactly as `Directory.Packages.props` states: `5.0.0-preview.26254.1`, a nightly built from the library's dev-v5 branch and restored from the feed mapped in `blazor/nuget.config`. SemVer orders it below `5.0.0-rc.5-26219.1`, which throws two custom event registration errors on every load under .NET 11 RC1, so any "upgrade to latest" would pick the broken release. The `update-packages` command rewrites every `Directory.Packages.props` in the repository, `blazor/` included, and the package is not in its `RestrictedNuGetPackages` list, so the upgrade-packages skill always passes `--exclude Microsoft.FluentUI.AspNetCore.Components`. The exit criterion is a nuget.org release that contains upstream commit c813a4a6b: then pin that release and remove the feed and its source mapping. The NU3042, NU3018 and NU3027 restore warnings for the nightly's test signature stay visible.
 5. Keep the host page's `no-fuib-style` attribute on `<html>` and the absolute link to `default-fuib.css`; without it the library's initializer fetches the stylesheet relative to the document URL and gets 404 below the path base.
 6. Keep `ILLink.Descriptors.xml` in the client project; it preserves `OverflowChangedItem`, the element type of the library's overflow event arguments, whose constructor the trimmer removes so a trimmed publish throws on the event. Add a type to it only when the trimmed smoke test proves the trimmer removed it, and delete an entry once the library preserves the type itself.
@@ -22,11 +22,14 @@ FluentUI Blazor (`Microsoft.FluentUI.AspNetCore.Components`) is the component fo
 ### Example 1 - A Row Menu
 
 ```razor
-@* ✅ DO: items inside FluentMenuList, the trigger names the button (blazor/Blazor.Client/Users/UsersSurface.razor) *@
-<FluentMenu Trigger="@($"actions-{user.Id}")">
+@* ✅ DO: the in-house row menu, which writes no style attribute (blazor/Blazor.Client/Users/UsersSurface.razor) *@
+private RenderFragment<UserDetails> RowMenu => user =>
+    @<DataListRowMenu Label="@UsersStrings.UserActions" Items="RowMenuItems(user)" TestId="user-actions"/>;
+
+@* ❌ DON'T: the library menu in a row; it writes anchor positioning style attributes on the trigger and the list *@
+<FluentMenu Trigger="@($"user-actions-{user.Id}")">
     <FluentMenuList>
-        <FluentMenuItem data-testid="action-view" OnClick="@(() => OpenProfileAsync(user))">View profile</FluentMenuItem>
-        <FluentMenuItem data-testid="action-delete" Disabled="@(user.Id.Value == _currentUserId)" OnClick="@(() => OpenDeleteAsync(user))">Delete</FluentMenuItem>
+        <FluentMenuItem OnClick="@(() => ViewProfileAsync(user))">@UsersStrings.ViewProfile</FluentMenuItem>
     </FluentMenuList>
 </FluentMenu>
 

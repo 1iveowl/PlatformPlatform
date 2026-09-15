@@ -30,7 +30,7 @@ The `smoke` job in `.github/workflows/blazor.yml` runs the same order with `--br
 
 ## Scripts
 
-- `trimmed-smoke` - signs up through the Blazor pages with the code read from the local mail server, opens the users page on the shared DataList and proves a FluentButton click reaches .NET, with 0 page errors. Fails when the gateway does not serve this publish in Production. On failure it also writes a browser trace (`trimmed-smoke-<browser>-signup-trace.zip` or `trimmed-smoke-<browser>-trace.zip`).
+- `trimmed-smoke` - signs up through the Blazor pages with the code read from the local mail server, opens the users page on the shared DataList and proves typing in the FluentTextInput search box reaches .NET, with 0 page errors. Fails when the gateway does not serve this publish in Production. On failure it also writes a browser trace (`trimmed-smoke-<browser>-signup-trace.zip` or `trimmed-smoke-<browser>-trace.zip`).
 - `public-pages` - measures the six public pages: `--profile unthrottled|throttled|all`, `--samples 7`, `--observe-ms 3000`, `--label <name>`, `--check-budget` (Chromium with the throttled profile only).
 - `interactive-load` - cold and warm time to interactive of the authenticated WebAssembly page with the cache outcome of every runtime resource: `--samples 7`, `--label <name>`, `--firefox-preferences <name=value,...>`.
 - `shell-policy` - the content security policy cases; `--environment production` for the Production check.
