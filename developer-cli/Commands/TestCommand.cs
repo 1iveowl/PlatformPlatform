@@ -18,6 +18,7 @@ public class TestCommand : Command
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope tests to AppGateway.Tests" };
         var blazorOption = new Option<bool>("--blazor") { Description = "Run the tests of the Blazor build root (blazor/), which resolves its own SDK" };
         var cliOption = new Option<bool>("--cli", "-c") { Description = "Run the tests of the developer CLI (developer-cli/)" };
+        var spikeOption = new Option<string?>("--spike") { Description = "Run only the tests of the spike solution in blazor/spike/<name>/, which resolves its own SDK" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring the solution before running tests" };
         var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
         var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
@@ -29,6 +30,7 @@ public class TestCommand : Command
         Options.Add(gatewayOption);
         Options.Add(blazorOption);
         Options.Add(cliOption);
+        Options.Add(spikeOption);
         Options.Add(noBuildOption);
         Options.Add(quietOption);
         Options.Add(verboseOption);
@@ -41,6 +43,7 @@ public class TestCommand : Command
                 parseResult.GetValue(gatewayOption),
                 parseResult.GetValue(blazorOption),
                 parseResult.GetValue(cliOption),
+                parseResult.GetValue(spikeOption),
                 parseResult.GetValue(noBuildOption),
                 !parseResult.GetValue(verboseOption),
                 parseResult.GetValue(filterOption),
@@ -73,6 +76,12 @@ public class TestCommand : Command
         if (developerCli) targets.Add(TestTarget.DeveloperCli);
 
         return targets.ToArray();
+    }
+
+    // A spike name is one lowercase kebab-case folder name, so it can never leave blazor/spike/
+    public static bool IsValidSpikeName(string spikeName)
+    {
+        return Regex.IsMatch(spikeName, "^[a-z0-9]+(-[a-z0-9]+)*$");
     }
 
     public static string BuildBuildCommand(string targetName, bool quiet)
@@ -120,9 +129,15 @@ public class TestCommand : Command
         return exitCodes.FirstOrDefault(exitCode => exitCode != 0);
     }
 
-    private static void Execute(bool backend, string? selfContainedSystem, bool gateway, bool blazor, bool developerCli, bool noBuild, bool quiet, string? filter, string? excludeCategory)
+    private static void Execute(bool backend, string? selfContainedSystem, bool gateway, bool blazor, bool developerCli, string? spike, bool noBuild, bool quiet, string? filter, string? excludeCategory)
     {
         Prerequisite.Ensure(Prerequisite.Dotnet);
+
+        if (spike is not null)
+        {
+            ExecuteSpike(spike, backend || selfContainedSystem is not null || gateway || blazor || developerCli, noBuild, quiet, filter, excludeCategory);
+            return;
+        }
 
         if (gateway) AppGatewayHelper.EnsureNotCombinedWithSelfContainedSystem(selfContainedSystem);
 
@@ -162,6 +177,41 @@ public class TestCommand : Command
             Console.WriteLine($"Tests failed: {ex.Message}");
             Environment.Exit(1);
         }
+    }
+
+    // Spike solutions are experiments outside every regular target; they run alone from their own folder so a global.json
+    // there selects the SDK
+    private static void ExecuteSpike(string spikeName, bool hasOtherTarget, bool noBuild, bool quiet, string? filter, string? excludeCategory)
+    {
+        if (hasOtherTarget)
+        {
+            AnsiConsole.MarkupLine("[red]--spike cannot be combined with another test target.[/]");
+            Environment.Exit(1);
+        }
+
+        if (!IsValidSpikeName(spikeName))
+        {
+            AnsiConsole.MarkupLine($"[red]'{Markup.Escape(spikeName)}' is not a spike name. Use the lowercase kebab-case folder name under blazor/spike/.[/]");
+            Environment.Exit(1);
+        }
+
+        var spikeFolder = Path.Combine(Configuration.BlazorFolder, "spike", spikeName);
+        var solutionFiles = Directory.Exists(spikeFolder) ? Directory.GetFiles(spikeFolder, "*.slnx") : [];
+        if (solutionFiles.Length != 1)
+        {
+            AnsiConsole.MarkupLine($"[red]blazor/spike/{spikeName}/ must contain exactly one .slnx file.[/]");
+            Environment.Exit(1);
+        }
+
+        var solutionName = Path.GetFileName(solutionFiles[0]);
+        if (!noBuild)
+        {
+            ProcessHelper.Run(BuildBuildCommand(solutionName, quiet), spikeFolder, "Build", quiet);
+        }
+
+        var testCommand = BuildTestCommand(solutionName, filter, excludeCategory);
+        var exitCode = quiet ? RunTestsQuietly(testCommand, spikeFolder, "") : RunTestsWithFilteredOutput(testCommand, spikeFolder, "");
+        if (exitCode != 0) Environment.Exit(exitCode);
     }
 
     private static (string TargetName, string? WorkingDirectory) ResolveTarget(TestTarget target, string? selfContainedSystem)

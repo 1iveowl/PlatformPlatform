@@ -132,6 +132,23 @@ public sealed class TestCommandTests
     }
 
     [Theory]
+    [InlineData("c12-public-client", true)]
+    [InlineData("b2-render-split", true)]
+    [InlineData("../application", false)]
+    [InlineData("C12-Public-Client", false)]
+    [InlineData("c12/public-client", false)]
+    [InlineData("c12-", false)]
+    [InlineData("", false)]
+    public void IsValidSpikeName_ShouldAcceptOnlyOneKebabCaseFolderName(string spikeName, bool expected)
+    {
+        // Act
+        var isValid = TestCommand.IsValidSpikeName(spikeName);
+
+        // Assert
+        isValid.Should().Be(expected);
+    }
+
+    [Theory]
     [InlineData(new[] { 0 }, 0)]
     [InlineData(new[] { 0, 0 }, 0)]
     [InlineData(new[] { 1, 0 }, 1)]

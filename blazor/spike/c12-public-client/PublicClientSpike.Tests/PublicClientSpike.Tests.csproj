@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>PublicClientSpike.Tests</AssemblyName>
+        <RootNamespace>PublicClientSpike.Tests</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\..\application\account\Tests\Account.Tests.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="OpenIddict.Server.AspNetCore" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit" />
+    </ItemGroup>
+
+    <!-- The account host locates its SPA folder by walking up from its assembly; the spike's output is outside application/,
+         so a placeholder shell is copied next to the assemblies -->
+    <ItemGroup>
+        <None Include="SpaPlaceholder/index.html" Link="WebApp/main.tsx" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="SpaPlaceholder/index.html" Link="WebApp/dist/index.html" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="SpaPlaceholder/index.html" Link="BackOffice/main.tsx" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="SpaPlaceholder/index.html" Link="BackOffice/dist/index.html" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+</Project>

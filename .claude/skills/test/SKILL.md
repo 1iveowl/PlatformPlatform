@@ -6,7 +6,7 @@ description: Run .NET xUnit unit and integration tests via the developer CLI - t
 # Test
 
 ```bash
-dotnet run --project developer-cli -- test [--backend] [--self-contained-system <name>] [--gateway] [--blazor] [--cli] [--filter <expr>] [--no-build] [--exclude-category <cat>] [--verbose]
+dotnet run --project developer-cli -- test [--backend] [--self-contained-system <name>] [--gateway] [--blazor] [--cli] [--spike <name>] [--filter <expr>] [--no-build] [--exclude-category <cat>] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -18,6 +18,7 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 - `--gateway` - only `AppGateway.Tests`
 - `--blazor` - the tests of the Blazor build root in `blazor/`, with the SDK from its own `global.json`; not combinable with `--self-contained-system` or `--gateway`
 - `--cli` - the developer CLI tests in `developer-cli/Tests`
+- `--spike <name>` - only the spike solution in `blazor/spike/<name>/`, run from that folder so its own `global.json` selects the SDK; not combinable with another target
 - `--filter <expr>` - forwarded to `dotnet test --filter` for every selected target
 - `--no-build` - skip rebuild before running (faster after a recent build)
 - `--exclude-category <cat>` - defaults to `Noisy`; pass an empty string to include them. Applies to every selected target
