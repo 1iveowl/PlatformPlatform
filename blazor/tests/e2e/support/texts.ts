@@ -49,7 +49,14 @@ export const blazorCultures = [
     onlyOwnersCanChangeRoles: "Only owners can change user roles",
     userNotInCurrentView: "User not in current view",
     userNotFound: "User not found",
-    noUsersFound: "No users found"
+    noUsersFound: "No users found",
+    profile: "Profile",
+    profileUpdated: "Profile updated successfully",
+    switchAccount: "Switch account",
+    sessionEnded: "Session ended",
+    sessionRevoked: "Your session was ended from another device.",
+    logInAgainToContinue: "Please log in again to continue.",
+    logIn: "Log in"
   },
   {
     locale: "da-DK",
@@ -96,7 +103,14 @@ export const blazorCultures = [
     onlyOwnersCanChangeRoles: "Kun ejere kan ændre brugerroller",
     userNotInCurrentView: "Bruger ikke i nuværende visning",
     userNotFound: "Brugeren blev ikke fundet",
-    noUsersFound: "Ingen brugere fundet"
+    noUsersFound: "Ingen brugere fundet",
+    profile: "Profil",
+    profileUpdated: "Profil opdateret succesfuldt",
+    switchAccount: "Skift konto",
+    sessionEnded: "Session afsluttet",
+    sessionRevoked: "Din session blev afsluttet fra en anden enhed.",
+    logInAgainToContinue: "Log venligst ind igen for at fortsætte.",
+    logIn: "Log ind"
   }
 ] as const;
 

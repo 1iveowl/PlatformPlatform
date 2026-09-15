@@ -171,4 +171,10 @@
     <data name="TitleTooLong" xml:space="preserve">
         <value>Titlen må højst være på 50 tegn.</value>
     </data>
+    <data name="Profile" xml:space="preserve">
+        <value>Profil</value>
+    </data>
+    <data name="CurrentAccount" xml:space="preserve">
+        <value>Nuværende konto</value>
+    </data>
 </root>

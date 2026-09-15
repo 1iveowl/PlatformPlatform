@@ -1,6 +1,7 @@
 @using Account.Client
 @using Account.Features.Authentication.Queries
 @using Blazor.Client.Bootstrap
+@using Blazor.Client.Session
 @using Microsoft.FluentUI.AspNetCore.Components
 @using SharedKernel.Domain
 @* The users administration surface, the React edition's users page: the list on DataList with search, sort and paging in
@@ -8,16 +9,14 @@
    prerenders the frame; the list and the pane load their data only once the component runs in the browser.
    Deletion, invitation, the filter dialog and the recycle bin are not part of this surface yet; role, status and date
    filters in a deep link are still applied through UsersListSource. *@
-@inject IBootstrapSource BootstrapSource
+@inject SessionState Session
 @inject IServiceProvider Services
 @inject ToastService Toasts
 
 <h1>@CommonStrings.Users</h1>
 <p>@UsersStrings.ManageUsers</p>
 
-<nav>
-    <a href="@AppUrls.AuthenticatedHome" data-testid="nav-app">@AccountStrings.Workspace</a>
-</nav>
+<AccountHeader/>
 
 <ToastRegion/>
 
@@ -106,7 +105,7 @@
             )
         ];
 
-        var bootstrap = await BootstrapSource.GetAsync();
+        var bootstrap = await Session.GetAsync();
         if (RendererInfo.IsInteractive && !bootstrap.IsAuthenticated)
         {
             Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();

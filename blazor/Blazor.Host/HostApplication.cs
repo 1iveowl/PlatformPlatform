@@ -10,6 +10,7 @@ using Blazor.Client.Bootstrap;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 using Blazor.Client.Localization;
+using Blazor.Client.Session;
 using Blazor.Host.Account;
 using Blazor.Host.Components;
 using Blazor.Host.Shell;
@@ -52,6 +53,7 @@ public static class HostApplication
         builder.Services.AddScoped<ToastService>();
         builder.Services.AddScoped<ApiFailurePresenter>();
         builder.Services.AddScoped<DataListPageCache>();
+        builder.Services.AddScoped<SessionState>();
 
         // The static server-rendered form handlers call the account API directly through the typed clients, the way the gateway
         // reaches it; HostAccountApiHandler relays the current request's credentials by hand. The feature flag state is

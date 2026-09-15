@@ -213,4 +213,10 @@
         <value>Title must be no longer than 50 characters.</value>
         <comment>API validation: Title must be no longer than 50 characters.</comment>
     </data>
+    <data name="Profile" xml:space="preserve">
+        <value>Profile</value>
+    </data>
+    <data name="CurrentAccount" xml:space="preserve">
+        <value>Current account</value>
+    </data>
 </root>

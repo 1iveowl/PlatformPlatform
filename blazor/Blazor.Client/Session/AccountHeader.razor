@@ -1,0 +1,125 @@
+@* The authenticated header, rendered inside each interactive page component so no identity is written into a shared
+   outer shell: the current tenant, the user's name with a link to the profile, the tenant switcher for a user with
+   more than one tenant, and logout. Tenant and user data come from the bootstrap and the tenants client. Logout and a
+   tenant switch leave the runtime with one full document navigation through AuthenticationNavigator. *@
+@using Account.Client
+@using Account.Features.Authentication.Requests
+@using Blazor.Client.Bootstrap
+@using SharedKernel.Domain
+@implements IDisposable
+@inject SessionState Session
+@inject IServiceProvider Services
+
+<header class="account-header" data-testid="account-header" data-tenants-state="@(_tenantsLoaded ? "loaded" : "loading")">
+    <nav aria-label="@AccountStrings.UserMenu">
+        <a href="@AppUrls.AuthenticatedHome" data-testid="nav-app">@AccountStrings.Workspace</a> |
+        <a href="@AppUrls.ToAbsolute("account/users")" data-testid="nav-users">@CommonStrings.Users</a> |
+        <a href="@AppUrls.ToAbsolute("user/profile")" data-testid="nav-profile">@AccountStrings.Profile</a>
+    </nav>
+
+    @if (Session.Current?.User is { } user)
+    {
+        <p>
+            <span data-testid="header-tenant-name">@TenantSwitcherOptions.GetDisplayName(user.TenantName)</span>
+            <span data-testid="header-user-name">@GetDisplayName(user.FirstName, user.LastName, user.Email)</span>
+        </p>
+    }
+
+    @if (RendererInfo.IsInteractive)
+    {
+        @if (TenantSwitcherOptions.IsVisible(_tenants))
+        {
+            <nav aria-label="@AccountStrings.SwitchAccount" data-testid="tenant-switcher">
+                <span>@AccountStrings.SwitchAccount</span>
+                <ul data-testid="tenants">
+                    @foreach (var tenant in _tenants)
+                    {
+                        <li>
+                            <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.TenantId" disabled="@(tenant.IsCurrent || _isSwitching)"
+                                    aria-current="@(tenant.IsCurrent ? "true" : null)" @onclick="() => SwitchTenantAsync(tenant.TenantId)">
+                                @tenant.Name
+                                @if (tenant.IsCurrent)
+                                {
+                                    <span class="visually-hidden"> (@AccountStrings.CurrentAccount)</span>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+
+        <button type="button" data-testid="logout" @onclick="LogoutAsync">@AccountStrings.LogOut</button>
+    }
+</header>
+
+@code {
+
+    private bool _isSwitching;
+    private TenantSwitcherOption[] _tenants = [];
+    private bool _tenantsLoaded;
+
+    public void Dispose()
+    {
+        Session.Changed -= OnSessionChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Session.Changed += OnSessionChanged;
+        var bootstrap = await Session.GetAsync();
+        if (!RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
+
+        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
+        var result = await Services.GetRequiredService<TenantsClient>().GetTenantsAsync(Session.RequestsAborted);
+        if (!result.IsSuccess) return;
+
+        _tenants = TenantSwitcherOptions.Create(result.Value.Tenants, Session.Current?.User?.TenantId);
+        _tenantsLoaded = true;
+    }
+
+    private static string GetDisplayName(string? firstName, string? lastName, string? email)
+    {
+        var name = $"{firstName} {lastName}".Trim();
+        return name.Length > 0 ? name : email ?? "";
+    }
+
+    private void OnSessionChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    // The gateway turns the new session's tokens into cookies. The bootstrap is read again under the new identity, the
+    // validated tenant is remembered as the next login's preference, and the authenticated home is loaded as a new
+    // document, so no state of the previous tenant survives in memory
+    private async Task SwitchTenantAsync(TenantId tenantId)
+    {
+        _isSwitching = true;
+        var result = await Services.GetRequiredService<AuthenticationClient>().SwitchTenantAsync(new SwitchTenantCommand(tenantId), Session.RequestsAborted);
+        if (!result.IsSuccess)
+        {
+            _isSwitching = false;
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        var bootstrap = await Session.RefreshAsync();
+        var navigator = Services.GetRequiredService<AuthenticationNavigator>();
+        if (bootstrap.User?.TenantId is not { } switchedTenantId)
+        {
+            navigator.LeaveForLogin();
+            return;
+        }
+
+        await using var module = await Services.GetRequiredService<IJSRuntime>().InvokeAsync<IJSObjectReference>("import", "./js/preferred-tenant.js");
+        await module.InvokeVoidAsync("remember", PreferredTenant.CookieName, PreferredTenant.Format(switchedTenantId), (long)PreferredTenant.MaxAge.TotalSeconds);
+        navigator.LeaveForAuthenticatedHome();
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Services.GetRequiredService<AuthenticationClient>().LogoutAsync(CancellationToken.None);
+        Services.GetRequiredService<AuthenticationNavigator>().LeaveForLoggedOut();
+    }
+
+}

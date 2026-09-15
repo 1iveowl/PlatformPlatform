@@ -4,14 +4,15 @@
 @page "/Error"
 @using System.Diagnostics
 
-<PageTitle>@CommonStrings.SomethingWentWrong</PageTitle>
+<PageTitle>@(SessionMessage?.Title ?? CommonStrings.SomethingWentWrong)</PageTitle>
 
 @if (SessionMessage is { } message)
 {
     <h1 data-testid="error-title">@message.Title</h1>
     <p data-testid="error-message" data-error-code="@ErrorCode">@message.Detail</p>
+    <p>@CommonStrings.LogInAgainToContinue</p>
     <p>
-        <a href="@AppUrls.ToAbsolute("login")" data-testid="error-login">@CommonStrings.LogIn</a>
+        <a href="@AppUrls.ToAbsolute("login")" data-enhance-nav="false" data-testid="error-login">@CommonStrings.LogIn</a>
     </p>
 }
 else
@@ -43,7 +44,7 @@ else
     private SessionErrorMessage? SessionMessage => ErrorCode switch
     {
         "session_revoked" => new SessionErrorMessage(CommonStrings.SessionEndedTitle, CommonStrings.SessionRevokedMessage),
-        "session_not_found" => new SessionErrorMessage(CommonStrings.SessionEndedTitle, CommonStrings.SessionNotFoundMessage),
+        "session_not_found" or "session_expired" => new SessionErrorMessage(CommonStrings.SessionExpiredTitle, CommonStrings.SessionExpiredMessage),
         "tenant_deleted" => new SessionErrorMessage(CommonStrings.AccountUnavailableTitle, CommonStrings.TenantDeletedMessage),
         _ => null
     };

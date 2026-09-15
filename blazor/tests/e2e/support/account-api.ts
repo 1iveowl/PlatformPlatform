@@ -82,6 +82,54 @@ export function changeUserRoleThroughAccountApi(page: Page, userId: string, user
 }
 
 /**
+ * A session as the account API's sessions endpoint returns it
+ */
+export interface AccountApiSession {
+  id: string;
+  isCurrent: boolean;
+}
+
+/**
+ * List the signed-in user's sessions through the account API
+ * @param page Playwright page instance of a signed-in user
+ */
+export async function getSessionsThroughAccountApi(page: Page): Promise<AccountApiSession[]> {
+  const response = await sendAccountApiRequest(page, "GET", "/api/account/authentication/sessions");
+  expect(response.status, response.body).toBe(200);
+  return (JSON.parse(response.body) as { sessions: AccountApiSession[] }).sessions;
+}
+
+/**
+ * The id of the session the page's own cookies belong to, as the account API reports it
+ * @param page Playwright page instance of a signed-in user
+ */
+export async function getCurrentSessionIdThroughAccountApi(page: Page): Promise<string> {
+  const current = (await getSessionsThroughAccountApi(page)).filter((session) => session.isCurrent);
+  expect(current).toHaveLength(1);
+  return current[0].id;
+}
+
+/**
+ * Revoke one session of the signed-in user by its exact id through the account API
+ * @param page Playwright page instance of a signed-in user whose session is not the one revoked
+ * @param sessionId The id of the session to revoke
+ */
+export async function revokeSessionThroughAccountApi(page: Page, sessionId: string): Promise<void> {
+  const response = await sendAccountApiRequest(page, "DELETE", `/api/account/authentication/sessions/${encodeURIComponent(sessionId)}`);
+  expect(response.status, response.body).toBe(200);
+}
+
+/**
+ * Delete a user of the signed-in owner's account through the account API
+ * @param page Playwright page instance of a signed-in owner
+ * @param userId The id of the user to delete
+ */
+export async function deleteUserThroughAccountApi(page: Page, userId: string): Promise<void> {
+  const response = await sendAccountApiRequest(page, "DELETE", `/api/account/users/${encodeURIComponent(userId)}`);
+  expect(response.status, response.body).toBe(200);
+}
+
+/**
  * Expect an account API response to be a problem with the given status and detail
  * @param response The response to assert
  * @param status The expected HTTP status

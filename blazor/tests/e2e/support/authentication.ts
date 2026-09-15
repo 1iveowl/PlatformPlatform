@@ -94,13 +94,14 @@ export async function completeWelcomeThroughBlazor(page: Page, setup: WelcomeSet
  * started
  * @param page Playwright page instance in a fresh browser context
  * @param email A unique email address for the new user
+ * @param accountName The name of the new user's tenant
  */
-export async function signUpThroughBlazor(page: Page, email: string): Promise<void> {
+export async function signUpThroughBlazor(page: Page, email: string, accountName = "Blazor account"): Promise<void> {
   await gotoBlazor(page, "signup");
   await startEmailFlowThroughBlazor(page, "signup", email);
 
   await submitOneTimePassword(page);
-  await completeWelcomeThroughBlazor(page, { accountName: "Blazor account", firstName: "Blazor", lastName: "User" });
+  await completeWelcomeThroughBlazor(page, { accountName, firstName: "Blazor", lastName: "User" });
   await expect(page.getByTestId("logout")).toBeVisible();
 }
 
@@ -112,6 +113,21 @@ export async function logOutThroughBlazor(page: Page): Promise<void> {
   await page.getByTestId("logout").click();
 
   await expectBlazorUrl(page, "login");
+}
+
+/**
+ * Log in a user whose profile is set up through the Blazor public pages, landing on the authenticated workspace at
+ * /blazor/app once its runtime has started
+ * @param page Playwright page instance on any page of the gateway's origin, or a fresh browser context
+ * @param email The user's email address
+ */
+export async function logInThroughBlazor(page: Page, email: string): Promise<void> {
+  await gotoBlazor(page, "login");
+  await startEmailFlowThroughBlazor(page, "login", email);
+  await submitOneTimePassword(page);
+
+  await expectBlazorUrl(page, "app");
+  await expect(page.getByTestId("logout")).toBeVisible();
 }
 
 /**

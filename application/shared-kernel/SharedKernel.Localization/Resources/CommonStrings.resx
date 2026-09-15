@@ -175,13 +175,10 @@
         <comment>{0}: the row label</comment>
     </data>
     <data name="SessionEndedTitle" xml:space="preserve">
-        <value>Your session has ended</value>
-    </data>
-    <data name="SessionNotFoundMessage" xml:space="preserve">
-        <value>Your session could not be found. Log in again to continue.</value>
+        <value>Session ended</value>
     </data>
     <data name="SessionRevokedMessage" xml:space="preserve">
-        <value>You were signed out because this session was revoked. Log in again to continue.</value>
+        <value>Your session was ended from another device.</value>
     </data>
     <data name="SignUp" xml:space="preserve">
         <value>Sign up</value>
@@ -248,5 +245,14 @@
     </data>
     <data name="VerificationCodeFormat" xml:space="preserve">
         <value>The verification code must be 6 letters.</value>
+    </data>
+    <data name="SessionExpiredTitle" xml:space="preserve">
+        <value>Session expired</value>
+    </data>
+    <data name="SessionExpiredMessage" xml:space="preserve">
+        <value>Your session has expired.</value>
+    </data>
+    <data name="LogInAgainToContinue" xml:space="preserve">
+        <value>Please log in again to continue.</value>
     </data>
 </root>

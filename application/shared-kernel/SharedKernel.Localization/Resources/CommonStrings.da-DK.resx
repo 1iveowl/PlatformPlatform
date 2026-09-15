@@ -145,13 +145,10 @@
         <value>Vælg {0}</value>
     </data>
     <data name="SessionEndedTitle" xml:space="preserve">
-        <value>Din session er afsluttet</value>
-    </data>
-    <data name="SessionNotFoundMessage" xml:space="preserve">
-        <value>Din session blev ikke fundet. Log ind igen for at fortsætte.</value>
+        <value>Session afsluttet</value>
     </data>
     <data name="SessionRevokedMessage" xml:space="preserve">
-        <value>Du blev logget ud, fordi denne session blev tilbagekaldt. Log ind igen for at fortsætte.</value>
+        <value>Din session blev afsluttet fra en anden enhed.</value>
     </data>
     <data name="SignUp" xml:space="preserve">
         <value>Tilmeld dig</value>
@@ -206,5 +203,14 @@
     </data>
     <data name="VerificationCodeFormat" xml:space="preserve">
         <value>Bekræftelseskoden skal bestå af 6 bogstaver.</value>
+    </data>
+    <data name="SessionExpiredTitle" xml:space="preserve">
+        <value>Session udløbet</value>
+    </data>
+    <data name="SessionExpiredMessage" xml:space="preserve">
+        <value>Din session er udløbet.</value>
+    </data>
+    <data name="LogInAgainToContinue" xml:space="preserve">
+        <value>Log venligst ind igen for at fortsætte.</value>
     </data>
 </root>

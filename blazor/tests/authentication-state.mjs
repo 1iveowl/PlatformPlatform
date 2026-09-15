@@ -8,7 +8,8 @@
 //    then anonymous.
 // 3. Tenant switch: the client posts the switch, reads bootstrap again and loads the authenticated home as a new
 //    document; the bootstrap tenant changes and survives a reload.
-// 4. Logout: the client posts the logout and loads the login page as a new document; only the antiforgery cookie is left.
+// 4. Logout: the client posts the logout and loads the login page as a new document; of the authentication cookies only
+//    the antiforgery cookie is left.
 //
 // Prerequisites: the AppHost stack running through the aspire-restart skill, with the Blazor host resource started.
 // Run: dotnet run --project developer-cli -- blazor-harness authentication-state --browser chromium
@@ -191,14 +192,16 @@ await check("tenant switch changes the bootstrap tenant with a new document and 
   return { from: before.tenantId, to: after.tenantId, fullDocumentNavigation: true };
 });
 
-await check("logout loads the login page as a new document and leaves only the antiforgery cookie", async () => {
+// The preferred-tenant cookie a tenant switch writes is a login hint, not an authentication cookie, and outlives logout on
+// purpose so the next login prefers that tenant
+await check("logout loads the login page as a new document and leaves only the antiforgery cookie of the authentication cookies", async () => {
   assert(tenantSwitch.page !== undefined, "The tenant switch journey did not leave a signed-in page.");
   const page = tenantSwitch.page;
   const documentBefore = await documentOrigin(page);
   await page.locator('[data-testid="logout"]').click();
   await page.waitForURL(`${baseUrl}${pathBase}/login`, { timeout: interactiveTimeoutMs });
   const fullDocumentNavigation = (await documentOrigin(page)) !== documentBefore;
-  const names = await cookieNames(tenantSwitch.context);
+  const names = (await cookieNames(tenantSwitch.context)).filter((name) => name !== "preferred-tenant");
   const bootstrap = await inPageFetch(page, bootstrapPath);
   await tenantSwitch.context.close();
   assert(fullDocumentNavigation, "Logout did not load a new document.");

@@ -1,18 +1,19 @@
-@using Account.Client
 @using Account.Features.Authentication.Queries
-@using Account.Features.Authentication.Requests
 @using Blazor.Client.Bootstrap
-@using SharedKernel.Domain
+@using Blazor.Client.Session
 @* The interactive WebAssembly surface behind login. Prerendered by the host with the host's bootstrap adapter, then
    started in the browser, where the bootstrap comes from the account API. Leaving the authenticated state (logout, tenant
    switch, a lost session) is always a full document navigation, so nothing from the previous identity stays in memory. *@
-@inject IBootstrapSource BootstrapSource
+@inject SessionState Session
 @inject IServiceProvider Services
 
 <h1>@(Page == "details" ? AccountStrings.AccountDetails : AccountStrings.YourWorkspace)</h1>
 
+<AccountHeader/>
+
+<ToastRegion/>
+
 <nav>
-    <a href="@AppUrls.AuthenticatedHome" data-testid="nav-app">@AccountStrings.Workspace</a> |
     <a href="@AppUrls.ToAbsolute("app/details")" data-testid="nav-details">@AccountStrings.Details</a> |
     <a href="@AppUrls.ToAbsolute("legal/terms")" data-enhance-nav="false" data-testid="nav-terms">@CommonStrings.Terms</a>
 </nav>
@@ -46,23 +47,7 @@
 {
     <p>
         <button type="button" data-testid="reload-bootstrap" @onclick="ReloadBootstrapAsync">@AccountStrings.ReloadBootstrap</button>
-        <button type="button" data-testid="logout" @onclick="LogoutAsync">@AccountStrings.LogOut</button>
     </p>
-
-    @if (Page != "details")
-    {
-        <ul data-testid="tenants">
-            @foreach (var tenant in _tenants)
-            {
-                <li>
-                    <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.Id" disabled="@(tenant.Id == _bootstrap?.User?.TenantId)"
-                            @onclick="() => SwitchTenantAsync(tenant.Id)">
-                        @string.Format(CultureInfo.CurrentCulture, AccountStrings.SwitchTo, tenant.Name ?? tenant.Id.ToString())
-                    </button>
-                </li>
-            }
-        </ul>
-    }
 
     <p data-testid="status">@_status</p>
 }
@@ -74,80 +59,27 @@
 
     private BootstrapResponse? _bootstrap;
     private string _status = "";
-    private TenantOption[] _tenants = [];
 
     [Parameter]
     public string Page { get; set; } = "home";
 
     protected override async Task OnInitializedAsync()
     {
-        _bootstrap = await BootstrapSource.GetAsync();
-        if (!RendererInfo.IsInteractive) return;
-
-        if (!_bootstrap.IsAuthenticated)
-        {
-            GetNavigator().LeaveForLogin();
-            return;
-        }
-
-        if (Page != "details") await LoadTenantsAsync();
+        _bootstrap = await Session.GetAsync();
+        if (RendererInfo.IsInteractive && !_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
     }
 
     private async Task ReloadBootstrapAsync()
     {
-        _bootstrap = await BootstrapSource.GetAsync();
+        _bootstrap = await Session.RefreshAsync();
         _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.BootstrapReloaded, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
         if (!_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
     }
 
-    private async Task LoadTenantsAsync()
-    {
-        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
-        var result = await GetService<TenantsClient>().GetTenantsAsync(CancellationToken.None);
-        if (!result.IsSuccess) return;
-
-        _tenants = result.Value.Tenants.Select(tenant => new TenantOption(tenant.TenantId, tenant.TenantName)).ToArray();
-    }
-
-    // The gateway turns the new session's tokens into cookies. The bootstrap is read again under the new identity, and the
-    // authenticated home is then loaded as a new document, so no state of the previous tenant survives in memory
-    private async Task SwitchTenantAsync(TenantId tenantId)
-    {
-        var result = await GetService<AuthenticationClient>().SwitchTenantAsync(new SwitchTenantCommand(tenantId), CancellationToken.None);
-        if (!result.IsSuccess)
-        {
-            _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.SwitchAccountFailed, result.Problem.StatusCode);
-            return;
-        }
-
-        _bootstrap = await BootstrapSource.GetAsync();
-        if (!_bootstrap.IsAuthenticated)
-        {
-            GetNavigator().LeaveForLogin();
-            return;
-        }
-
-        GetNavigator().LeaveForAuthenticatedHome();
-    }
-
-    private async Task LogoutAsync()
-    {
-        await GetService<AuthenticationClient>().LogoutAsync(CancellationToken.None);
-        GetNavigator().LeaveForLoggedOut();
-    }
-
-    // Resolved lazily: the clients and the navigator are only used interactively, so prerendering never constructs them.
-    // The antiforgery token is added by the client's handler chain from the latest bootstrap.
-    private TService GetService<TService>() where TService : notnull
-    {
-        return Services.GetRequiredService<TService>();
-    }
-
+    // Resolved lazily: the navigator is only used interactively, so prerendering never constructs it
     private AuthenticationNavigator GetNavigator()
     {
-        return GetService<AuthenticationNavigator>();
+        return Services.GetRequiredService<AuthenticationNavigator>();
     }
-
-    private sealed record TenantOption(TenantId Id, string? Name);
 
 }

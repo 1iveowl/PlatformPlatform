@@ -184,6 +184,7 @@ h1:focus {
     content: "\2193";
 }
 
+.visually-hidden,
 .data-list-visually-hidden {
     position: absolute;
     width: 1px;

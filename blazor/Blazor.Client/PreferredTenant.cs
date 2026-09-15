@@ -13,6 +13,11 @@ public static class PreferredTenant
 
     public static readonly TimeSpan MaxAge = TimeSpan.FromDays(365);
 
+    public static string Format(TenantId tenantId)
+    {
+        return tenantId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     public static TenantId? Parse(string? cookieValue)
     {
         return long.TryParse(cookieValue, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value) && value > 0
