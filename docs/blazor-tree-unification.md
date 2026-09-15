@@ -80,7 +80,7 @@ Each step is one commit, with build, format, lint and test green before the next
 * Delete `blazor/global.json`, `Blazor.slnx`, `Blazor.slnx.DotSettings`, `.editorconfig`, `dotnet-tools.json` and `README.md`. The `application/` copies of the last three are identical to the ones removed.
 * Remove the `--blazor` target and `Configuration.BlazorFolder` from the developer CLI, and the flag from the build, format and lint skills. The Blazor projects are then built, formatted and linted as backend code.
 * Re-point the CI job that stage C (session C6) will have added for `blazor/`, and any Aspire resource added by path in stage B or C, to the new locations.
-* Update `docs/BLAZOR.md` and `blazor-run-plan.md` where they name `blazor/`.
+* Update `docs/BLAZOR.md` where it names `blazor/`.
 
 ## What the React edition needs until it is retired
 
