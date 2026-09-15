@@ -112,7 +112,9 @@ public class FormatCommand : Command
             if (formatDeveloperCli)
             {
                 Prerequisite.Ensure(Prerequisite.Dotnet);
-                RunSolutionFormat(new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx")), "developer-cli", noBuild, allFiles, quiet);
+                var developerCliSolutionFile = new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx"));
+                var changedFiles = allFiles ? null : GitHelper.GetChangedCsFilesInDirectory(developerCliSolutionFile.Directory!.FullName);
+                RunSolutionFormat(developerCliSolutionFile, "developer-cli", noBuild, changedFiles, quiet);
                 developerCliTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime;
             }
 
@@ -234,13 +236,15 @@ public class FormatCommand : Command
     // fully qualified FluentUI enum in QuickUsersGrid.razor by adding @using Microsoft.FluentUI.AspNetCore.Components,
     // which made the TemplateColumn tag ambiguous between QuickGrid and FluentUI (RZ9985) and broke the build.
     // The cleanup runs with its own cache, emptied first, for the reason given in LintCommand.RunBlazorLinting.
+    // Without --all-files the Blazor scope also formats untracked .cs and .razor files, so a new file is formatted before it is committed.
     private static void RunBlazorFormat(bool noBuild, bool allFiles, bool verifyBuild, bool quiet)
     {
         var solutionFile = new FileInfo(Path.Combine(Configuration.BlazorFolder, "Blazor.slnx"));
         var cachesHome = Path.Combine(Configuration.WorkspaceFolder, "developer-cli", "jetbrains-caches", "blazor-format");
         if (Directory.Exists(cachesHome)) Directory.Delete(cachesHome, true);
 
-        RunSolutionFormat(solutionFile, "Blazor", noBuild, allFiles, quiet, $" --caches-home={cachesHome}");
+        var changedFiles = allFiles ? null : GitHelper.GetChangedAndUntrackedSourceFilesInDirectory(solutionFile.Directory!.FullName);
+        RunSolutionFormat(solutionFile, "Blazor", noBuild, changedFiles, quiet, $" --caches-home={cachesHome}");
 
         if (!verifyBuild) return;
 
@@ -248,23 +252,22 @@ public class FormatCommand : Command
         ProcessHelper.Run($"dotnet build {solutionFile.Name}", solutionFile.Directory!.FullName, "Build after format", quiet);
     }
 
-    // Runs from the solution's own folder so the SDK in that folder's global.json is resolved
-    private static void RunSolutionFormat(FileInfo solutionFile, string displayName, bool noBuild, bool allFiles, bool quiet, string cleanupArguments = "")
+    // Runs from the solution's own folder so the SDK in that folder's global.json is resolved. Null changedFiles formats every file.
+    private static void RunSolutionFormat(FileInfo solutionFile, string displayName, bool noBuild, string[]? changedFiles, bool quiet, string cleanupArguments = "")
     {
         if (!quiet) AnsiConsole.MarkupLine($"[blue]Running {displayName} code format...[/]");
 
         var includeArgument = string.Empty;
-        if (!allFiles)
+        if (changedFiles is not null)
         {
-            var changedCsFiles = GitHelper.GetChangedCsFilesInDirectory(solutionFile.Directory!.FullName);
-            if (changedCsFiles.Length == 0)
+            if (changedFiles.Length == 0)
             {
                 if (!quiet) AnsiConsole.MarkupLine($"[green]No changed C# files found, skipping {displayName} format.[/]");
                 return;
             }
 
-            includeArgument = $""" --include="{string.Join(";", changedCsFiles)}" """.TrimEnd();
-            if (!quiet) AnsiConsole.MarkupLine($"[blue]Formatting {changedCsFiles.Length} changed file(s)...[/]");
+            includeArgument = $""" --include="{string.Join(";", changedFiles)}" """.TrimEnd();
+            if (!quiet) AnsiConsole.MarkupLine($"[blue]Formatting {changedFiles.Length} changed file(s)...[/]");
         }
 
         if (!noBuild)

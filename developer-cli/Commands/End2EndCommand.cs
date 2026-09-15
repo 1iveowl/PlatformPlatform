@@ -1,5 +1,7 @@
 using System.CommandLine;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using DeveloperCli.Installation;
 using DeveloperCli.Utilities;
@@ -9,15 +11,19 @@ namespace DeveloperCli.Commands;
 
 public partial class End2EndCommand : Command
 {
+    // npx cannot resolve Playwright from blazor/, which has no node_modules, so the Blazor run starts the CLI of the
+    // @playwright/test package pinned in application/package.json directly
+    private const string BlazorPlaywrightCli = "../application/node_modules/@playwright/test/cli.js";
     private static readonly string[] ValidBrowsers = ["chromium", "firefox", "webkit", "safari", "all"];
 
     // Get available self-contained systems
     private static readonly string[] AvailableSelfContainedSystems = SelfContainedSystemHelper.GetAvailableSelfContainedSystems();
 
-    private static readonly HttpClient HttpClient = new(new HttpClientHandler
+    private static readonly HttpClient HttpClient = new(new SocketsHttpHandler
         {
             AllowAutoRedirect = true,
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            SslOptions = { RemoteCertificateValidationCallback = (_, _, _, _) => true },
+            ConnectCallback = ConnectAsync
         }
     ) { Timeout = TimeSpan.FromSeconds(5) };
 
@@ -44,6 +50,7 @@ public partial class End2EndCommand : Command
         var workersOption = new Option<int?>("--workers", "-w") { Description = "Number of worker processes to use for running tests" };
         var configOption = new Option<bool>("--config") { Description = "Configure test performance profile for this machine (workers, timeouts)" };
         var noWaitForAspireOption = new Option<bool>("--no-wait-for-aspire") { Description = "Skip waiting for Aspire to start (by default, retries server check up to 30 seconds)" };
+        var blazorOption = new Option<bool>("--blazor") { Description = "Run the end-to-end tests of the Blazor build root (blazor/tests/e2e) instead of the self-contained systems" };
 
         Arguments.Add(searchTermsArgument);
         Options.Add(browserOption);
@@ -66,6 +73,7 @@ public partial class End2EndCommand : Command
         Options.Add(workersOption);
         Options.Add(configOption);
         Options.Add(noWaitForAspireOption);
+        Options.Add(blazorOption);
 
         // SetHandler only supports up to 8 parameters, so we use SetAction for this complex command
         SetAction(parseResult => Execute(
@@ -89,7 +97,8 @@ public partial class End2EndCommand : Command
                 parseResult.GetValue(uiOption),
                 parseResult.GetValue(workersOption),
                 parseResult.GetValue(configOption) || parseResult.GetValue(searchTermsArgument) is ["config"],
-                parseResult.GetValue(noWaitForAspireOption)
+                parseResult.GetValue(noWaitForAspireOption),
+                parseResult.GetValue(blazorOption)
             )
         );
     }
@@ -97,6 +106,116 @@ public partial class End2EndCommand : Command
     private static string BaseUrl => Environment.GetEnvironmentVariable("PUBLIC_URL") ?? $"https://app.dev.localhost:{RunCommand.Ports.AppGateway}";
 
     private static string DefaultsFilePath => Path.Combine(Configuration.WorkspaceFolder, "developer-cli", "end-to-end-tests", "e2e-defaults.json");
+
+    private static string BlazorTestsFolder => Path.Combine(Configuration.BlazorFolder, "tests");
+
+    // Browsers and curl resolve every *.localhost name to loopback (RFC 6761), but the operating system resolver does not
+    // have to: a container whose hosts file lists only localhost fails to resolve app.dev.localhost. The server check
+    // therefore connects to loopback itself for those names, so it probes the same server the browsers reach.
+    public static bool IsLoopbackHostName(string hostName)
+    {
+        var trimmedHostName = hostName.TrimEnd('.');
+        return trimmedHostName.Equals("localhost", StringComparison.OrdinalIgnoreCase) || trimmedHostName.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static string? ValidateBlazorOptions(bool blazor, string? selfContainedSystem)
+    {
+        return blazor && selfContainedSystem is not null ? "--blazor cannot be combined with --self-contained-system." : null;
+    }
+
+    // The Blazor host is served by the gateway under its /blazor/ path base, so the gateway root answering does not prove it is up
+    public static string GetServerCheckUrl(string baseUrl, bool blazor)
+    {
+        return blazor ? $"{baseUrl.TrimEnd('/')}/blazor/" : baseUrl;
+    }
+
+    public static string BuildSelfContainedSystemPlaywrightCommand(string playwrightArgs, bool isWindows)
+    {
+        return $"{(isWindows ? "cmd.exe /C npx" : "npx")} playwright test --config=./tests/playwright.config.ts {playwrightArgs}";
+    }
+
+    public static string BuildBlazorPlaywrightArguments(string playwrightArgs)
+    {
+        return $"{BlazorPlaywrightCli} test --config=./tests/playwright.config.ts {playwrightArgs}";
+    }
+
+    public static string BuildBlazorPlaywrightCommand(string playwrightArgs)
+    {
+        return $"node {BuildBlazorPlaywrightArguments(playwrightArgs)}";
+    }
+
+    public static (string Name, string Value)[] BuildPlaywrightEnvironmentVariables(string baseUrl, bool slowMo, bool debugTiming, int? assertionTimeout)
+    {
+        var environmentVariables = new List<(string Name, string Value)> { ("PUBLIC_URL", baseUrl), ("PLAYWRIGHT_HTML_OPEN", "never") };
+        if (slowMo) environmentVariables.Add(("PLAYWRIGHT_SLOW_MO", "500"));
+        if (baseUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase)) environmentVariables.Add(("PLAYWRIGHT_VIDEO_MODE", "on"));
+        if (debugTiming) environmentVariables.Add(("PLAYWRIGHT_SHOW_DEBUG_TIMING", "true"));
+        if (assertionTimeout is not null) environmentVariables.Add(("PLAYWRIGHT_EXPECT_TIMEOUT", (assertionTimeout.Value * 1000).ToString()));
+        return environmentVariables.ToArray();
+    }
+
+    public static string BuildPlaywrightArgs(
+        string[] testPatterns,
+        string browser,
+        bool debug,
+        string? grep,
+        bool showBrowser,
+        bool includeSlow,
+        bool lastFailed,
+        bool onlyChanged,
+        int? repeatEach,
+        int? retries,
+        bool runSequential,
+        bool smoke,
+        bool stopOnFirstFailure,
+        bool ui,
+        int? workers)
+    {
+        var args = new List<string>();
+
+        // Handle browser project first as it affects test selection
+        if (!browser.Equals("all", StringComparison.CurrentCultureIgnoreCase))
+        {
+            var playwrightBrowser = browser.ToLower() == "safari" ? "webkit" : browser.ToLower();
+            args.Add($"--project={playwrightBrowser}");
+        }
+
+        // Handle test patterns - they should be relative to the tests/e2e directory
+        if (testPatterns.Length > 0)
+        {
+            args.AddRange(testPatterns.Select(pattern =>
+                    pattern.StartsWith("./") || pattern.StartsWith("tests/e2e/") ? pattern : $"./tests/e2e/{pattern}"
+                )
+            );
+        }
+
+        // Handle test filtering
+        if (grep != null)
+        {
+            args.Add($"--grep=\"{grep}\"");
+        }
+
+        if (smoke) args.Add("--grep=\"@smoke\"");
+        if (!includeSlow) args.Add("--grep-invert=\"@slow\"");
+
+        // Handle test execution options
+        if (ui) args.Add("--ui");
+        if (debug) args.Add("--debug");
+        if (showBrowser) args.Add("--headed");
+        if (lastFailed) args.Add("--last-failed");
+        if (onlyChanged) args.Add("--only-changed");
+        if (repeatEach.HasValue) args.Add($"--repeat-each={repeatEach.Value}");
+        if (retries.HasValue) args.Add($"--retries={retries.Value}");
+        if (workers.HasValue)
+        {
+            args.Add($"--workers={workers.Value}");
+        }
+        else if (runSequential) args.Add("--workers=1");
+
+        if (stopOnFirstFailure) args.Add("-x");
+
+        return string.Join(" ", args);
+    }
 
     private static void Execute(
         string[] searchTerms,
@@ -119,9 +238,17 @@ public partial class End2EndCommand : Command
         bool ui,
         int? workers,
         bool configure,
-        bool noWaitForAspire)
+        bool noWaitForAspire,
+        bool blazor)
     {
         Prerequisite.Ensure(Prerequisite.Node);
+
+        var blazorOptionError = ValidateBlazorOptions(blazor, selfContainedSystem);
+        if (blazorOptionError is not null)
+        {
+            AnsiConsole.MarkupLine($"[red]{blazorOptionError}[/]");
+            Environment.Exit(1);
+        }
 
         if (configure)
         {
@@ -139,18 +266,32 @@ public partial class End2EndCommand : Command
 
         if (deleteArtifacts)
         {
-            DeleteAllTestArtifacts();
+            DeleteAllTestArtifacts(blazor);
             if (!quiet) AnsiConsole.MarkupLine("[yellow]Note: --delete-artifacts is a standalone operation and exits after cleaning artifacts.[/]");
             Environment.Exit(0);
         }
 
+        if (blazor && !Directory.Exists(Path.Combine(BlazorTestsFolder, "e2e")))
+        {
+            AnsiConsole.MarkupLine("[red]No end-to-end tests found in blazor/tests/e2e.[/]");
+            Environment.Exit(1);
+        }
+
         if (!quiet) AnsiConsole.MarkupLine("[blue]Checking server availability...[/]");
-        CheckWebsiteAccessibility(!noWaitForAspire, quiet);
+        CheckWebsiteAccessibility(GetServerCheckUrl(BaseUrl, blazor), !noWaitForAspire, quiet);
 
         PlaywrightInstaller.EnsurePlaywrightBrowsers(quiet);
 
         // Convert search terms to test patterns and grep patterns
         var (testPatterns, searchGrep) = ProcessSearchTerms(searchTerms);
+
+        if (blazor)
+        {
+            ExecuteBlazor(testPatterns, browser, debug, debugTiming, searchGrep, headed, includeSlow, lastFailed, onlyChanged, repeatEach, retries,
+                showReport, slowMo, smoke, stopOnFirstFailure, ui, workers, quiet
+            );
+            return;
+        }
 
         // Determine which self-contained systems to test based on the provided patterns or grep
         string[] selfContainedSystemsToTest;
@@ -261,6 +402,139 @@ public partial class End2EndCommand : Command
         }
 
         if (!overallSuccess) Environment.Exit(1);
+    }
+
+    private static void ExecuteBlazor(
+        string[] testPatterns,
+        string browser,
+        bool debug,
+        bool debugTiming,
+        string? searchGrep,
+        bool headed,
+        bool includeSlow,
+        bool lastFailed,
+        bool onlyChanged,
+        int? repeatEach,
+        int? retries,
+        bool showReport,
+        bool slowMo,
+        bool smoke,
+        bool stopOnFirstFailure,
+        bool ui,
+        int? workers,
+        bool quiet)
+    {
+        if (!ValidBrowsers.Contains(browser.ToLower()))
+        {
+            Console.WriteLine($"Invalid browser '{browser}'. Valid options are: {string.Join(", ", ValidBrowsers)}");
+            Environment.Exit(1);
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        var success = RunBlazorTests(testPatterns, browser, debug, debugTiming, searchGrep, headed, includeSlow, lastFailed, onlyChanged, repeatEach, retries,
+            showReport, slowMo, smoke, stopOnFirstFailure, ui, workers, quiet
+        );
+        stopwatch.Stop();
+
+        if (quiet)
+        {
+            Console.WriteLine(success
+                ? $"All tests completed in {stopwatch.Elapsed.TotalSeconds:F1}s."
+                : $"Some tests failed in {stopwatch.Elapsed.TotalSeconds:F1}s."
+            );
+        }
+        else
+        {
+            AnsiConsole.MarkupLine(success
+                ? $"[green]All tests completed in {stopwatch.Elapsed.TotalSeconds:F1} seconds[/]"
+                : $"[red]Some tests failed in {stopwatch.Elapsed.TotalSeconds:F1} seconds[/]"
+            );
+
+            if (showReport || !success) OpenBlazorHtmlReport();
+        }
+
+        if (!success) Environment.Exit(1);
+    }
+
+    private static bool RunBlazorTests(
+        string[] testPatterns,
+        string browser,
+        bool debug,
+        bool debugTiming,
+        string? searchGrep,
+        bool headed,
+        bool includeSlow,
+        bool lastFailed,
+        bool onlyChanged,
+        int? repeatEach,
+        int? retries,
+        bool showReport,
+        bool slowMo,
+        bool smoke,
+        bool stopOnFirstFailure,
+        bool ui,
+        int? workers,
+        bool quiet)
+    {
+        if (!quiet) AnsiConsole.MarkupLine("[blue]Running tests for blazor...[/]");
+
+        if (showReport)
+        {
+            var reportDirectory = Path.Combine(BlazorTestsFolder, "test-results", "playwright-report");
+            if (Directory.Exists(reportDirectory))
+            {
+                if (!quiet) AnsiConsole.MarkupLine("[blue]Cleaning up previous test report...[/]");
+                Directory.Delete(reportDirectory, true);
+            }
+        }
+
+        var showBrowser = headed || debug || slowMo;
+        var runSequential = showBrowser || debugTiming;
+
+        var playwrightArgs = BuildPlaywrightArgs(
+            testPatterns, browser, debug, searchGrep, showBrowser, includeSlow, lastFailed, onlyChanged, repeatEach,
+            retries, runSequential, smoke, stopOnFirstFailure, ui, workers
+        );
+
+        var command = BuildBlazorPlaywrightCommand(playwrightArgs);
+
+        if (!quiet) AnsiConsole.MarkupLine($"[cyan]Running command in blazor: {Markup.Escape(command)}[/]");
+
+        var environmentVariables = BuildPlaywrightEnvironmentVariables(BaseUrl, slowMo, debugTiming, LoadDefault("assertionTimeout"));
+
+        // The working directory is blazor/, so the playwright.config.ts under blazor/tests and the Playwright CLI path resolve from there
+        if (quiet)
+        {
+            var result = ProcessHelper.ExecuteQuietly(command, Configuration.BlazorFolder, environmentVariables);
+            Console.WriteLine(ExtractPlaywrightSummary(result.CombinedOutput) ?? (result.Success ? "blazor: all tests passed." : "blazor: tests failed."));
+            if (!result.Success) Console.WriteLine($"Full output: {result.TempFilePathWithSize}");
+            return result.Success;
+        }
+
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = "node",
+            Arguments = BuildBlazorPlaywrightArguments(playwrightArgs),
+            WorkingDirectory = Configuration.BlazorFolder,
+            UseShellExecute = false
+        };
+
+        foreach (var (name, value) in environmentVariables)
+        {
+            processStartInfo.EnvironmentVariables[name] = value;
+        }
+
+        try
+        {
+            ProcessHelper.StartProcess(processStartInfo, throwOnError: true);
+            AnsiConsole.MarkupLine("[green]Tests for blazor completed successfully[/]");
+            return true;
+        }
+        catch (Exception)
+        {
+            AnsiConsole.MarkupLine("[red]Tests for blazor failed[/]");
+            return false;
+        }
     }
 
     private static (string[] testPatterns, string? grep) ProcessSearchTerms(string[] searchTerms)
@@ -472,27 +746,21 @@ public partial class End2EndCommand : Command
 
         var showBrowser = headed || debug || slowMo;
         var runSequential = showBrowser || debugTiming;
-        var isLocalhost = BaseUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase);
 
         var playwrightArgs = BuildPlaywrightArgs(
             testPatterns, browser, debug, searchGrep, showBrowser, includeSlow, lastFailed, onlyChanged, repeatEach,
             retries, runSequential, smoke, stopOnFirstFailure, ui, workers
         );
 
-        var command = $"{(Configuration.IsWindows ? "cmd.exe /C npx" : "npx")} playwright test --config=./tests/playwright.config.ts {playwrightArgs}";
+        var command = BuildSelfContainedSystemPlaywrightCommand(playwrightArgs, Configuration.IsWindows);
 
         if (!quiet) AnsiConsole.MarkupLine($"[cyan]Running command in {selfContainedSystem}: npx playwright test --config=./tests/playwright.config.ts {playwrightArgs}[/]");
 
-        var environmentVariables = new List<(string Name, string Value)> { ("PUBLIC_URL", BaseUrl), ("PLAYWRIGHT_HTML_OPEN", "never") };
-        if (slowMo) environmentVariables.Add(("PLAYWRIGHT_SLOW_MO", "500"));
-        if (isLocalhost) environmentVariables.Add(("PLAYWRIGHT_VIDEO_MODE", "on"));
-        if (debugTiming) environmentVariables.Add(("PLAYWRIGHT_SHOW_DEBUG_TIMING", "true"));
-        var assertionTimeout = LoadDefault("assertionTimeout");
-        if (assertionTimeout is not null) environmentVariables.Add(("PLAYWRIGHT_EXPECT_TIMEOUT", (assertionTimeout.Value * 1000).ToString()));
+        var environmentVariables = BuildPlaywrightEnvironmentVariables(BaseUrl, slowMo, debugTiming, LoadDefault("assertionTimeout"));
 
         if (quiet)
         {
-            var result = ProcessHelper.ExecuteQuietly(command, systemPath, environmentVariables.ToArray());
+            var result = ProcessHelper.ExecuteQuietly(command, systemPath, environmentVariables);
             Console.WriteLine(ExtractPlaywrightSummary(result.CombinedOutput) ?? (result.Success ? $"{selfContainedSystem}: all tests passed." : $"{selfContainedSystem}: tests failed."));
             if (!result.Success) Console.WriteLine($"Full output: {result.TempFilePathWithSize}");
             return result.Success;
@@ -526,7 +794,7 @@ public partial class End2EndCommand : Command
         return !testsFailed;
     }
 
-    private static void CheckWebsiteAccessibility(bool waitForAspire, bool quiet = false)
+    private static void CheckWebsiteAccessibility(string url, bool waitForAspire, bool quiet = false)
     {
         var maxAttempts = waitForAspire ? 6 : 1; // 6 * 5s = 30 seconds
         var retryDelaySeconds = 5;
@@ -535,11 +803,11 @@ public partial class End2EndCommand : Command
         {
             try
             {
-                var response = HttpClient.Send(new HttpRequestMessage(HttpMethod.Head, BaseUrl));
+                var response = HttpClient.Send(new HttpRequestMessage(HttpMethod.Head, url));
 
                 if (response.IsSuccessStatusCode)
                 {
-                    if (!quiet) AnsiConsole.MarkupLine($"[green]Server is accessible at {BaseUrl}[/]");
+                    if (!quiet) AnsiConsole.MarkupLine($"[green]Server is accessible at {url}[/]");
                     return;
                 }
 
@@ -561,8 +829,31 @@ public partial class End2EndCommand : Command
             }
         }
 
-        Console.WriteLine($"Server is not accessible at {BaseUrl}. Please start AppHost before running '{Configuration.AliasName} e2e'.");
+        Console.WriteLine($"Server is not accessible at {url}. Please start AppHost before running '{Configuration.AliasName} e2e'.");
         Environment.Exit(1);
+    }
+
+    private static async ValueTask<Stream> ConnectAsync(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
+    {
+        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        try
+        {
+            if (IsLoopbackHostName(context.DnsEndPoint.Host))
+            {
+                await socket.ConnectAsync([IPAddress.Loopback, IPAddress.IPv6Loopback], context.DnsEndPoint.Port, cancellationToken);
+            }
+            else
+            {
+                await socket.ConnectAsync(context.DnsEndPoint, cancellationToken);
+            }
+
+            return new NetworkStream(socket, true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
     }
 
     private static string[] DetermineSystemsToTest(string[] testPatterns, string? grep, string[] availableSystems)
@@ -630,69 +921,6 @@ public partial class End2EndCommand : Command
         return availableSystems;
     }
 
-    private static string BuildPlaywrightArgs(
-        string[] testPatterns,
-        string browser,
-        bool debug,
-        string? grep,
-        bool showBrowser,
-        bool includeSlow,
-        bool lastFailed,
-        bool onlyChanged,
-        int? repeatEach,
-        int? retries,
-        bool runSequential,
-        bool smoke,
-        bool stopOnFirstFailure,
-        bool ui,
-        int? workers)
-    {
-        var args = new List<string>();
-
-        // Handle browser project first as it affects test selection
-        if (!browser.Equals("all", StringComparison.CurrentCultureIgnoreCase))
-        {
-            var playwrightBrowser = browser.ToLower() == "safari" ? "webkit" : browser.ToLower();
-            args.Add($"--project={playwrightBrowser}");
-        }
-
-        // Handle test patterns - they should be relative to the tests/e2e directory
-        if (testPatterns.Length > 0)
-        {
-            args.AddRange(testPatterns.Select(pattern =>
-                    pattern.StartsWith("./") || pattern.StartsWith("tests/e2e/") ? pattern : $"./tests/e2e/{pattern}"
-                )
-            );
-        }
-
-        // Handle test filtering
-        if (grep != null)
-        {
-            args.Add($"--grep=\"{grep}\"");
-        }
-
-        if (smoke) args.Add("--grep=\"@smoke\"");
-        if (!includeSlow) args.Add("--grep-invert=\"@slow\"");
-
-        // Handle test execution options
-        if (ui) args.Add("--ui");
-        if (debug) args.Add("--debug");
-        if (showBrowser) args.Add("--headed");
-        if (lastFailed) args.Add("--last-failed");
-        if (onlyChanged) args.Add("--only-changed");
-        if (repeatEach.HasValue) args.Add($"--repeat-each={repeatEach.Value}");
-        if (retries.HasValue) args.Add($"--retries={retries.Value}");
-        if (workers.HasValue)
-        {
-            args.Add($"--workers={workers.Value}");
-        }
-        else if (runSequential) args.Add("--workers=1");
-
-        if (stopOnFirstFailure) args.Add("-x");
-
-        return string.Join(" ", args);
-    }
-
     private static void OpenHtmlReport(string selfContainedSystem)
     {
         var reportPath = Path.Combine(Configuration.ApplicationFolder, selfContainedSystem, "WebApp", "tests", "test-results", "playwright-report", "index.html");
@@ -705,6 +933,21 @@ public partial class End2EndCommand : Command
         else
         {
             AnsiConsole.MarkupLine($"[yellow]No test report found for '{selfContainedSystem}' at '{reportPath}'[/]");
+        }
+    }
+
+    private static void OpenBlazorHtmlReport()
+    {
+        var reportPath = Path.Combine(BlazorTestsFolder, "test-results", "playwright-report", "index.html");
+
+        if (File.Exists(reportPath))
+        {
+            AnsiConsole.MarkupLine("[green]Opening test report for 'blazor'...[/]");
+            ProcessHelper.OpenBrowser(reportPath);
+        }
+        else
+        {
+            AnsiConsole.MarkupLine($"[yellow]No test report found for 'blazor' at '{reportPath}'[/]");
         }
     }
 
@@ -825,7 +1068,7 @@ public partial class End2EndCommand : Command
         }
     }
 
-    private static void DeleteAllTestArtifacts()
+    private static void DeleteAllTestArtifacts(bool blazor)
     {
         AnsiConsole.MarkupLine("[blue]Deleting test artifacts...[/]");
 
@@ -840,6 +1083,14 @@ public partial class End2EndCommand : Command
             Directory.Delete(testResultsDirectory, true);
             totalDeleted++;
             AnsiConsole.MarkupLine($"[green]Deleted test-results directory for {selfContainedSystemName}[/]");
+        }
+
+        var blazorTestResultsDirectory = Path.Combine(BlazorTestsFolder, "test-results");
+        if (blazor && Directory.Exists(blazorTestResultsDirectory))
+        {
+            Directory.Delete(blazorTestResultsDirectory, true);
+            totalDeleted++;
+            AnsiConsole.MarkupLine("[green]Deleted test-results directory for blazor[/]");
         }
 
         AnsiConsole.MarkupLine(totalDeleted > 0

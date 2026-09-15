@@ -102,7 +102,9 @@ public class LintCommand : Command
             if (lintDeveloperCli)
             {
                 Prerequisite.Ensure(Prerequisite.Dotnet);
-                var developerCliHasIssues = RunSolutionLinting(new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx")), "developer-cli", noBuild, changedOnly, quiet);
+                var developerCliSolutionFile = new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx"));
+                var changedFiles = changedOnly ? GitHelper.GetChangedCsFilesInDirectory(developerCliSolutionFile.Directory!.FullName) : null;
+                var developerCliHasIssues = RunSolutionLinting(developerCliSolutionFile, "developer-cli", noBuild, changedFiles, quiet);
                 hasIssues = hasIssues || developerCliHasIssues;
                 developerCliTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime;
             }
@@ -350,30 +352,31 @@ public class LintCommand : Command
     // Blazor root reported CSharpErrors (members of @code, @inherits and @using unresolved) in Razor files that compiled,
     // identically on every run, and reported none once that cache was removed. The step that leaves the cache in that
     // state was not identified, so no run trusts a cache an earlier run left behind.
+    // With --changed-only the Blazor scope also lints untracked .cs and .razor files, matching the files format selects.
     private static bool RunBlazorLinting(bool noBuild, bool changedOnly, bool quiet)
     {
         var solutionFile = new FileInfo(Path.Combine(Configuration.BlazorFolder, "Blazor.slnx"));
         var cachesHome = Path.Combine(Configuration.WorkspaceFolder, "developer-cli", "jetbrains-caches", "blazor-lint");
         if (Directory.Exists(cachesHome)) Directory.Delete(cachesHome, true);
 
-        return RunSolutionLinting(solutionFile, "Blazor", noBuild, changedOnly, quiet, $" --caches-home={cachesHome}");
+        var changedFiles = changedOnly ? GitHelper.GetChangedAndUntrackedSourceFilesInDirectory(solutionFile.Directory!.FullName) : null;
+        return RunSolutionLinting(solutionFile, "Blazor", noBuild, changedFiles, quiet, $" --caches-home={cachesHome}");
     }
 
-    // Runs from the solution's own folder so the SDK in that folder's global.json is resolved
-    private static bool RunSolutionLinting(FileInfo solutionFile, string displayName, bool noBuild, bool changedOnly, bool quiet, string inspectArguments = "")
+    // Runs from the solution's own folder so the SDK in that folder's global.json is resolved. Null changedFiles lints the full solution.
+    private static bool RunSolutionLinting(FileInfo solutionFile, string displayName, bool noBuild, string[]? changedFiles, bool quiet, string inspectArguments = "")
     {
         var includeArgument = string.Empty;
-        if (changedOnly)
+        if (changedFiles is not null)
         {
-            var changedCsFiles = GitHelper.GetChangedCsFilesInDirectory(solutionFile.Directory!.FullName);
-            if (changedCsFiles.Length == 0)
+            if (changedFiles.Length == 0)
             {
                 if (!quiet) AnsiConsole.MarkupLine($"[green]No changed C# files found, skipping {displayName} linting.[/]");
                 return false;
             }
 
-            includeArgument = $""" --include="{string.Join(";", changedCsFiles)}" """.TrimEnd();
-            if (!quiet) AnsiConsole.MarkupLine($"[blue]Linting {changedCsFiles.Length} changed file(s)...[/]");
+            includeArgument = $""" --include="{string.Join(";", changedFiles)}" """.TrimEnd();
+            if (!quiet) AnsiConsole.MarkupLine($"[blue]Linting {changedFiles.Length} changed file(s)...[/]");
         }
 
         if (!noBuild)

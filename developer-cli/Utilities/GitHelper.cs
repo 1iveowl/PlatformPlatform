@@ -146,26 +146,15 @@ public static class GitHelper
     // CI checkouts in this repo use fetch-depth: 0 and local developers fetch on the usual cadence.
     public static string[] GetChangedCsFilesInDirectory(string solutionDirectory)
     {
-        // A failed git call must stop the caller: treating it as "no changed files" makes format and lint skip their work
-        // and still report success
-        var result = ProcessHelper.ExecuteQuietly("git diff --name-only origin/main -- \"*.cs\"", Configuration.SourceCodeFolder);
-        if (!result.Success)
-        {
-            AnsiConsole.MarkupLine($"[red]Selecting changed files failed: git exited with code {result.ExitCode}.[/]");
-            AnsiConsole.WriteLine(result.StdErr.Trim());
-            Environment.Exit(1);
-        }
+        return RunGitFileSelection("git diff --name-only origin/main -- \"*.cs\"", solutionDirectory);
+    }
 
-        var output = result.StdOut;
-        if (string.IsNullOrWhiteSpace(output)) return [];
-
-        var repoRoot = Configuration.SourceCodeFolder;
-        return output
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(relativePath => Path.GetFullPath(Path.Combine(repoRoot, relativePath.Trim())))
-            .Where(fullPath => fullPath.StartsWith(solutionDirectory, StringComparison.OrdinalIgnoreCase) && File.Exists(fullPath))
-            .Select(fullPath => Path.GetRelativePath(solutionDirectory, fullPath))
-            .ToArray();
+    // The diff against origin/main does not list untracked files, so a new file would be skipped until it is committed.
+    // Returns the changed .cs files plus the untracked .cs and .razor files (not ignored), relative to solutionDirectory.
+    public static string[] GetChangedAndUntrackedSourceFilesInDirectory(string solutionDirectory)
+    {
+        var untrackedFiles = RunGitFileSelection("git ls-files --others --exclude-standard -- \"*.cs\" \"*.razor\"", solutionDirectory);
+        return GetChangedCsFilesInDirectory(solutionDirectory).Concat(untrackedFiles).Distinct().ToArray();
     }
 
     public static void StashChanges(string message = "Stashed by Developer CLI")
@@ -333,6 +322,31 @@ public static class GitHelper
                                     """
             );
         }
+    }
+
+    // Runs from the repository root, where git prints paths relative to that root
+    private static string[] RunGitFileSelection(string gitCommand, string solutionDirectory)
+    {
+        // A failed git call must stop the caller: treating it as "no changed files" makes format and lint skip their work
+        // and still report success
+        var result = ProcessHelper.ExecuteQuietly(gitCommand, Configuration.SourceCodeFolder);
+        if (!result.Success)
+        {
+            AnsiConsole.MarkupLine($"[red]Selecting changed files failed: git exited with code {result.ExitCode}.[/]");
+            AnsiConsole.WriteLine(result.StdErr.Trim());
+            Environment.Exit(1);
+        }
+
+        var output = result.StdOut;
+        if (string.IsNullOrWhiteSpace(output)) return [];
+
+        var repoRoot = Configuration.SourceCodeFolder;
+        return output
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(relativePath => Path.GetFullPath(Path.Combine(repoRoot, relativePath.Trim())))
+            .Where(fullPath => fullPath.StartsWith(solutionDirectory, StringComparison.OrdinalIgnoreCase) && File.Exists(fullPath))
+            .Select(fullPath => Path.GetRelativePath(solutionDirectory, fullPath))
+            .ToArray();
     }
 }
 

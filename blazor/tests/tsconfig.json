@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Blazor E2E Tests",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "typeRoots": ["../../application/node_modules/@types"],
+    "types": ["node"],
+    "paths": {
+      "@playwright/test": ["../../application/node_modules/@playwright/test"],
+      "@shared/e2e/utils/*": ["../../application/shared-webapp/tests/e2e/utils/*"],
+      "@blazor/e2e/*": ["./e2e/support/*"]
+    }
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["test-results/**"]
+}

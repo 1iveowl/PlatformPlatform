@@ -1335,7 +1335,7 @@ public sealed class UpdatePackagesCommand : Command
 
                 // Restore the manifest so the newly pinned tool versions are installed and available to later commands
                 var manifestDirectory = Path.GetDirectoryName(dotnetToolsPath)!;
-                ProcessHelper.StartProcess("dotnet tool restore", manifestDirectory, redirectOutput: _quietMode);
+                ProcessHelper.StartProcess("dotnet tool restore", manifestDirectory, _quietMode);
             }
             else if (dotnetToolUpdatesToApply.Count > 0 && !_quietMode)
             {

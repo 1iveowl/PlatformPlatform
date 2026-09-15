@@ -52,6 +52,10 @@ jobs:
         working-directory: developer-cli
         run: dotnet build DeveloperCli.slnx --no-restore
 
+      - name: Run Tests
+        working-directory: developer-cli
+        run: dotnet run --no-build -- test --cli --no-build
+
       - name: Run Code Linting
         working-directory: developer-cli
         run: |

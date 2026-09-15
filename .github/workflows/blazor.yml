@@ -1,0 +1,185 @@
+name: Blazor
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "blazor/**"
+      - "application/shared-kernel/**"
+      - "application/account/Contracts/**"
+      - "application/account/Client/**"
+      - "application/account/Core/**"
+      - "application/account/Api/**"
+      - "application/account/Directory.Build.props"
+      - "application/AppGateway/**"
+      - "application/platform-settings.jsonc"
+      - "application/Directory.Build.props"
+      - "application/Directory.Packages.props"
+      - "application/global.json"
+      - "developer-cli/**"
+      - ".github/workflows/blazor.yml"
+      - "!**.md"
+  pull_request:
+    paths:
+      - "blazor/**"
+      - "application/shared-kernel/**"
+      - "application/account/Contracts/**"
+      - "application/account/Client/**"
+      - "application/account/Core/**"
+      - "application/account/Api/**"
+      - "application/account/Directory.Build.props"
+      - "application/AppGateway/**"
+      - "application/platform-settings.jsonc"
+      - "application/Directory.Build.props"
+      - "application/Directory.Packages.props"
+      - "application/global.json"
+      - "developer-cli/**"
+      - ".github/workflows/blazor.yml"
+      - "!**.md"
+  workflow_dispatch:
+
+concurrency:
+  group: blazor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Generate and Set User Secret for Token Signing Key
+        working-directory: application/shared-kernel/SharedKernel
+        run: |
+          # Extract UserSecretsId from the .csproj file
+          USER_SECRETS_ID=$(grep -oP '(?<=<UserSecretsId>).*?(?=</UserSecretsId>)' SharedKernel.csproj)
+
+          # Generate a 512-bit key and set it as a user secret that can be use for token signing when running tests
+          dotnet user-secrets set "authentication-token-signing-key" "$(openssl rand -base64 64)" --id $USER_SECRETS_ID
+
+      - name: Build Blazor Solution
+        working-directory: developer-cli
+        run: dotnet run -- build --blazor
+
+      - name: Run Tests
+        working-directory: developer-cli
+        run: dotnet run -- test --blazor --no-build
+
+  code-style:
+    name: Code Linting and Formatting
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Restore .NET Tools
+        working-directory: blazor
+        run: dotnet tool restore
+
+      - name: Build Blazor Solution
+        working-directory: developer-cli
+        run: dotnet run -- build --blazor
+
+      - name: Check for Formatting Issues
+        working-directory: developer-cli
+        run: |
+          dotnet run -- format --blazor --no-build --all-files --verify-build
+
+          git diff --exit-code || {
+            echo "Formatting issues detected. Please run 'dotnet run --project developer-cli -- format --blazor --all-files' locally and commit the formatted code."
+            exit 1
+          }
+
+      - name: Run Code Linting
+        working-directory: developer-cli
+        run: |
+          set +e
+          dotnet run -- lint --blazor --no-build
+          LINT_EXIT_CODE=$?
+          set -e
+
+          if [ $LINT_EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "::error::Code linting issues found."
+            echo ""
+
+            RESULT_FILE="${GITHUB_WORKSPACE}/blazor/result.json"
+
+            if [ -f "$RESULT_FILE" ]; then
+              cat "$RESULT_FILE"
+              echo ""
+              echo "### Code Inspection Issues" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              cat "$RESULT_FILE" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Result file not found in blazor/"
+            fi
+            exit 1
+          fi
+
+  publish:
+    name: Trimmed Release Publish
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Publish Trimmed Release Build
+        working-directory: developer-cli
+        run: dotnet run -- blazor-publish

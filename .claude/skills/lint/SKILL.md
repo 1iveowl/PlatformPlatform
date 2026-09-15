@@ -17,7 +17,7 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 - `--blazor` - the Blazor build root in `blazor/`, which resolves the SDK in its own `global.json`
 - `--self-contained-system <name>` - narrows backend linting to one SCS (e.g. `account`, `main`)
 - `--no-build` - skip the rebuild step (faster after a recent build)
-- `--changed-only` - lint only `.cs` files changed against `origin/main` (much faster; see guidance below)
+- `--changed-only` - lint only `.cs` files changed against `origin/main` (much faster; see guidance below). For `--blazor` it also lints untracked `.cs` and `.razor` files under `blazor/`
 
 No arguments lints the whole solution. Every finding fails CI regardless of severity - fix all of them.
 
