@@ -1,4 +1,4 @@
-@* Spike code (Blazor edition, stage B3): the users list on QuickGrid. Not prerendered: the list is
+@* Spike code (Blazor edition, stage B3): the users list on the shared DataList. Not prerendered: the list is
    data behind login that the WebAssembly component fetches itself, so a prerender would render an empty grid twice. *@
 @page "/app/users/quick"
 @using Blazor.Client.Users
@@ -9,4 +9,4 @@
 
 <PageTitle>Users</PageTitle>
 
-<UsersSurface Grid="quick" @rendermode="new InteractiveWebAssemblyRenderMode(false)"/>
+<UsersSurface @rendermode="new InteractiveWebAssemblyRenderMode(false)"/>

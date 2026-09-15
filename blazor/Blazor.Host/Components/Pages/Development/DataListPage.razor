@@ -1,0 +1,15 @@
+@* Development-only fixture for the shared DataList, maintained for the browser harness in blazor/tests. The page is
+   server-rendered and hosts the WebAssembly fixture component without prerendering, like the users page, because the rows
+   are data behind login. Outside Development the request returns 404 before rendering. *@
+@page "/development/data-list"
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [DevelopmentOnly]
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>Data list</PageTitle>
+
+<h1>Data list</h1>
+
+<Blazor.Client.Development.DataListFixture @rendermode="new InteractiveWebAssemblyRenderMode(false)"/>

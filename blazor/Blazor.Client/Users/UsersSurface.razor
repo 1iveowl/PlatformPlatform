@@ -1,23 +1,17 @@
-@* Spike code (Blazor edition, stage B3): the users administration surface around a grid. Mirrors the React users page:
-   URL state, debounced search, filter dialog with active count, multi-select with bulk delete, owner-only role change and
-   delete, a side pane driven by ?userId= with focus restored to the row on close. Only the grid component differs. *@
 @using Account.Client
+@using Account.Features.Authentication.Queries
 @using Blazor.Client.Bootstrap
 @using Microsoft.FluentUI.AspNetCore.Components
-@implements IAsyncDisposable
+@* Spike code (Blazor edition, stage B3): the users administration surface, adapted to the shared DataList until the users
+   journey is rebuilt as production code. Mirrors the React users page: URL state, debounced search, filter dialog with
+   active count, multi-select with bulk delete, owner-only role change and delete, and a side pane driven by ?userId= with
+   focus returned to the row when it closes. *@
 @inject IBootstrapSource BootstrapSource
 @inject AuthenticationNavigator AuthenticationNavigator
-@inject NavigationManager Navigation
-@inject IJSRuntime JavaScriptRuntime
+@inject UsersClient UsersClient
 @inject UsersApiClient UsersApi
 
-<h1>Users (@(Grid == "quick" ? "QuickGrid" : "FluentDataGrid"))</h1>
-
-<nav class="users-nav">
-    <a href="@ModeHref(UsersListMode.Virtual)" data-testid="mode-virtual">Infinite scroll (virtualized)</a> |
-    <a href="@ModeHref(UsersListMode.Paged)" data-testid="mode-paged">Pages</a> |
-    <a href="@AppUrls.ToAbsolute($"app/users/{(Grid == "quick" ? "fluent" : "quick")}")" data-testid="other-grid">Other grid</a>
-</nav>
+<h1>Users</h1>
 
 @if (_loadError is not null)
 {
@@ -26,15 +20,15 @@
 
 <div class="users-toolbar" role="toolbar" aria-label="User filters">
     <FluentTextInput data-testid="search" AriaLabel="Search users" Placeholder="Search" Immediate="true" ImmediateDelay="500"
-                     Value="@_state.Search" ValueChanged="OnSearchChangedAsync"/>
+                     Value="@Filter(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
     <FluentButton data-testid="filters" OnClick="OpenFiltersAsync">
         Filters
-        @if (_state.ActiveFilterCount > 0)
+        @if (ActiveFilterCount > 0)
         {
-            <FluentBadge data-testid="filter-count" Content="@_state.ActiveFilterCount.ToString()"/>
+            <FluentBadge data-testid="filter-count" Content="@ActiveFilterCount.ToString()"/>
         }
     </FluentButton>
-    @if (_state.HasFilters)
+    @if (HasFilters)
     {
         <FluentButton data-testid="clear-filters" OnClick="ClearFiltersAsync">Clear filters</FluentButton>
     }
@@ -47,32 +41,24 @@
 </div>
 
 <div class="users-layout">
-    <div class="users-grid" data-testid="users-grid" data-grid="@Grid" data-state="@(_status.Error is not null ? "error" : _status.IsLoading ? "loading" : "ready")" data-error="@_status.Error"
-         data-total-count="@_status.TotalCount" data-page-index="@_status.PageIndex" data-query="@AccountApiRoutes.GetUsers(_state.ToUsersQuery())"
-         data-selected-count="@_selectedIds.Count" @ref="_gridRoot">
-        @if (_currentUserId is not null)
+    <div class="users-grid">
+        @if (_bootstrap is not null)
         {
-            @if (Grid == "quick")
-            {
-                <QuickUsersGrid @ref="_grid" @key="_gridKey" State="_state" SelectedIds="_selectedIds" CurrentUserId="@_currentUserId" IsOwner="_isOwner"
-                                OnOpenProfile="OpenProfileAsync" OnSelectionToggled="OnSelectionToggled" OnChangeRole="OpenRoleDialogAsync"
-                                OnDelete="OpenDeleteAsync" OnSortChanged="OnSortChangedAsync" OnPageChanged="OnPageChangedAsync" OnStatusChanged="OnStatusChanged"/>
-            }
-            else
-            {
-                <FluentUsersGrid @ref="_grid" @key="_gridKey" State="_state" SelectedIds="_selectedIds" CurrentUserId="@_currentUserId" IsOwner="_isOwner"
-                                 OnOpenProfile="OpenProfileAsync" OnSelectionToggled="OnSelectionToggled" OnChangeRole="OpenRoleDialogAsync"
-                                 OnDelete="OpenDeleteAsync" OnSortChanged="OnSortChangedAsync" OnPageChanged="OnPageChangedAsync" OnStatusChanged="OnStatusChanged"/>
-            }
-        }
-        @if (_status is { IsLoading: false, TotalCount: 0 } && _state.HasFilters)
-        {
-            <p data-testid="empty-state">No users match these filters.</p>
+            <DataList @ref="_list" TItem="UserDetails" data-testid="users-grid" ListId="@UsersListSource.ListId" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
+                      Label="Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
+                      SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
+                      FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="users-profile-pane"
+                      RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
+                      OnSelectionChanged="OnSelectionChangedAsync" OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
+                <EmptyContent>
+                    <p data-testid="empty-state">@(HasFilters ? "No users match these filters." : "No users.")</p>
+                </EmptyContent>
+            </DataList>
         }
     </div>
 
-    <aside class="profile-pane" data-testid="profile-pane" data-email="@_profile?.Email" hidden="@(_profile is null)" aria-label="User profile"
-           tabindex="-1" @ref="_paneRoot">
+    <aside class="profile-pane" id="users-profile-pane" data-testid="profile-pane" data-email="@_profile?.Email" hidden="@(_profile is null)" aria-label="User profile"
+           tabindex="-1">
         @if (_profile is { } profile)
         {
             <h2>@(profile.DisplayName.Length > 0 ? profile.DisplayName : profile.Email)</h2>
@@ -88,10 +74,6 @@
                 <dt>Created</dt>
                 <dd>@profile.CreatedAt.ToString("g")</dd>
             </dl>
-            @if (_grid?.IndexOf(profile.Id) is null)
-            {
-                <p data-testid="not-in-view">This user is not in the current view.</p>
-            }
 
             <FluentButton data-testid="profile-close" OnClick="CloseProfileAsync">Close</FluentButton>
             @if (_isOwner)
@@ -116,7 +98,7 @@
     </div>
 </FluentDialog>
 
-<FluentDialog @ref="_roleDialog" OnStateChange="OnDialogStateChanged">
+<FluentDialog @ref="_roleDialog">
     <div data-testid="role-dialog" class="dialog-body">
         <h2>Change role for @_roleUser?.Email</h2>
         <FluentRadioGroup TValue="UserRole" @bind-Value="_draftUserRole" Label="Role">
@@ -135,7 +117,7 @@
     </div>
 </FluentDialog>
 
-<FluentDialog @ref="_deleteDialog" OnStateChange="OnDialogStateChanged">
+<FluentDialog @ref="_deleteDialog">
     <div data-testid="delete-dialog" class="dialog-body">
         <h2>@(_deleteIds.Length == 1 ? "Delete user" : $"Delete {_deleteIds.Length} users")</h2>
         <p>Deleted users move to the recycle bin.</p>
@@ -155,12 +137,12 @@
     private static readonly string[] RoleOptions = ["", nameof(UserRole.Owner), nameof(UserRole.Admin), nameof(UserRole.Member)];
     private static readonly string[] StatusOptions = ["", nameof(UserStatus.Active), nameof(UserStatus.Pending)];
 
-    private readonly HashSet<string> _selectedIds = [];
+    private IReadOnlySet<string> _selectedIds = new HashSet<string>();
+    private BootstrapResponse? _bootstrap;
     private bool _busy;
+    private IReadOnlyList<DataListColumn<UserDetails>> _columns = [];
     private string? _currentUserId;
     private FluentDialog? _deleteDialog;
-    private DotNetObjectReference<UsersSurface>? _dotNetReference;
-    private IJSObjectReference? _surfaceKeys;
     private string[] _deleteIds = [];
     private string? _dialogError;
     private DateOnly? _draftEnd;
@@ -169,27 +151,41 @@
     private string? _draftStatus;
     private UserRole _draftUserRole;
     private FluentDialog? _filterDialog;
-    private UsersGridBase? _grid;
-    private int _gridKey;
-    private ElementReference _gridRoot;
     private bool _isOwner;
+    private DataList<UserDetails>? _list;
     private string? _loadError;
-    private IJSObjectReference? _module;
-    private ElementReference _paneRoot;
-    private string? _pendingScrollToProfile;
     private UserDetails? _profile;
     private FluentDialog? _roleDialog;
     private UserDetails? _roleUser;
-    private string? _returnFocusEmail;
-    private UsersListState _state = new();
-    private UsersGridStatus _status = new(true, -1, 0);
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
 
-    [Parameter]
-    public string Grid { get; set; } = "fluent";
+    private int ActiveFilterCount => (_filters.ContainsKey(UsersListSource.UserRoleParameter) ? 1 : 0) + (_filters.ContainsKey(UsersListSource.UserStatusParameter) ? 1 : 0) +
+                                     (_filters.ContainsKey(UsersListSource.StartDateParameter) && _filters.ContainsKey(UsersListSource.EndDateParameter) ? 1 : 0);
+
+    private bool HasFilters => _filters.Count > 0;
 
     protected override async Task OnInitializedAsync()
     {
-        _state = UsersListState.FromUri(Navigation.Uri);
+        _columns =
+        [
+            new DataListColumn<UserDetails>("Name", user => @<span data-user-row data-email="@user.Email">
+                                                                @(user.DisplayName.Length > 0 ? user.DisplayName : user.Email)
+                                                                @if (!user.EmailConfirmed)
+                                                                {
+                                                                    <FluentBadge Content="Pending"/>
+                                                                }
+                                                            </span>, nameof(SortableUserProperties.Name)
+            ),
+            new DataListColumn<UserDetails>("Email", user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email)
+            ),
+            new DataListColumn<UserDetails>("Created", user => @<text>@user.CreatedAt.ToString("d")</text>, nameof(SortableUserProperties.CreatedAt)
+            ),
+            new DataListColumn<UserDetails>("Last seen", user => @<text>@(user.LastSeenAt?.ToString("d") ?? "")</text>, nameof(SortableUserProperties.LastSeenAt)
+            ),
+            new DataListColumn<UserDetails>("Role", user => @<FluentBadge Content="@user.Role.ToString()"/>, nameof(SortableUserProperties.Role)
+            )
+        ];
+
         var bootstrap = await BootstrapSource.GetAsync();
         if (!bootstrap.IsAuthenticated)
         {
@@ -199,194 +195,129 @@
 
         _currentUserId = bootstrap.User?.Id.Value;
         _isOwner = bootstrap.User?.Role == nameof(UserRole.Owner);
+        _bootstrap = bootstrap;
+    }
 
-        if (_state.UserId is not null)
+    private string? Filter(string name)
+    {
+        return _filters.GetValueOrDefault(name);
+    }
+
+    private static string KeyOf(UserDetails user)
+    {
+        return user.Id.Value;
+    }
+
+    private static string RowLabel(UserDetails user)
+    {
+        return user.Email;
+    }
+
+    private RenderFragment<UserDetails> RowMenu => user =>
+        @<text>
+             <FluentButton Id="@($"actions-{user.Id}")" data-testid="row-actions" Title="User actions" Appearance="ButtonAppearance.Subtle" tabindex="-1">⋯</FluentButton>
+             <FluentMenu Trigger="@($"actions-{user.Id}")">
+                 <FluentMenuList>
+                     <FluentMenuItem data-testid="action-view" OnClick="@(() => OpenProfileAsync(user))">View profile</FluentMenuItem>
+                     @if (_isOwner)
+                     {
+                         <FluentMenuItem data-testid="action-change-role" Disabled="@(user.Id.Value == _currentUserId)" OnClick="@(() => OpenRoleDialogAsync(user))">Change role</FluentMenuItem>
+                         <FluentMenuItem data-testid="action-delete" Disabled="@(user.Id.Value == _currentUserId)" OnClick="@(() => OpenDeleteAsync(user))">Delete</FluentMenuItem>
+                     }
+                 </FluentMenuList>
+             </FluentMenu>
+    </text>;
+
+    private Task<DataListFetchResult<UserDetails>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return UsersListSource.FetchAsync(UsersClient, request, cancellationToken);
+    }
+
+    // A deep link with ?userId= opens the pane for that user even when the user is not on the current page
+    private async Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        if (state.SelectedKey is null)
+        {
+            _profile = null;
+        }
+        else if (_profile?.Id.Value != state.SelectedKey)
         {
             try
             {
-                _profile = await UsersApi.GetUserAsync(_state.UserId);
-                _selectedIds.Add(_profile.Id);
-                _pendingScrollToProfile = _profile.Id;
-                _returnFocusEmail = _profile.Email;
+                _profile = await UsersApi.GetUserAsync(state.SelectedKey);
             }
             catch (UsersApiException exception)
             {
                 _loadError = exception.Message;
             }
         }
-    }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender) return;
-        _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/users-grid.js");
-        _dotNetReference = DotNetObjectReference.Create(this);
-        _surfaceKeys = await _module.InvokeAsync<IJSObjectReference>("attachSurfaceKeys", _gridRoot, _paneRoot, _dotNetReference);
-    }
-
-    private string ModeHref(UsersListMode mode)
-    {
-        return new Uri((_state with { Mode = mode, PageOffset = 0, UserId = null }).ToUri(Navigation.Uri)).PathAndQuery;
-    }
-
-    private async Task ReplaceUrlAsync()
-    {
-        if (_module is not null) await _module.InvokeVoidAsync("replaceUrl", _state.ToUri(Navigation.Uri));
-    }
-
-    // Called from inside a grid's ItemsProvider. A loading status never renders; a finished one renders after the provider has
-    // returned (see UsersGridBase). The loading state shown for a filter change is set before the grid is recreated instead.
-    private Task OnStatusChanged(UsersGridStatus status)
-    {
-        _status = status;
-        if (!status.IsLoading) _ = RenderAfterProviderAsync();
-        return Task.CompletedTask;
-    }
-
-    private async Task RenderAfterProviderAsync()
-    {
-        await Task.Yield();
         StateHasChanged();
-        if (_status.IsLoading || _pendingScrollToProfile is null || _grid is null) return;
-
-        // Deep link: the row is scrolled to only when a page the grid already loaded contains it; the API has no query for
-        // the position of one user within a filtered, sorted list
-        var index = _grid.IndexOf(_pendingScrollToProfile);
-        _pendingScrollToProfile = null;
-        if (index is not null) await _grid.ScrollToIndexAsync(index.Value);
-    }
-
-    private async Task ApplyStateAsync(UsersListState state)
-    {
-        _state = state with { PageOffset = 0 };
-        _status = _status with { IsLoading = true, Error = null };
-        _selectedIds.Clear();
-        if (Grid == "quick" && HasQuickGridUrlState(Navigation.Uri))
-        {
-            // QuickGrid on .NET 11 keeps page and sort in ?page=, ?sort= and ?direction=, read through NavigationManager, which
-            // never sees history.replaceState. A new grid would restore the old page from the stale URL, so this one change
-            // goes through NavigationManager, at the cost of an enhanced navigation to the server.
-            Navigation.NavigateTo(_state.ToUri(Navigation.Uri), new NavigationOptions { ReplaceHistoryEntry = true });
-        }
-        else
-        {
-            await ReplaceUrlAsync();
-        }
-
-        if (_module is not null) await _module.InvokeVoidAsync("scrollToTop", _gridRoot);
-        // A new key recreates the grid, so its sort header, pagination and virtualization state start from the new state
-        _gridKey++;
-        UsersApi.Invalidate();
-    }
-
-    private static bool HasQuickGridUrlState(string uri)
-    {
-        var query = new Uri(uri).Query;
-        return query.Contains("page=", StringComparison.Ordinal) || query.Contains("sort=", StringComparison.Ordinal);
     }
 
     private Task OnSearchChangedAsync(string? search)
     {
-        return ApplyStateAsync(_state with { Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim() });
+        return _list?.SetFiltersAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = search?.Trim() }) ?? Task.CompletedTask;
     }
 
-    private async Task OnSortChangedAsync((SortableUserProperties OrderBy, SortOrder SortOrder) sort)
+    private Task OnSelectionChangedAsync(IReadOnlySet<string> selectedIds)
     {
-        _state = _state with { OrderBy = sort.OrderBy, SortOrder = sort.SortOrder, PageOffset = 0 };
-        _selectedIds.Clear();
-        await ReplaceUrlAsync();
-    }
-
-    private async Task OnPageChangedAsync(int pageIndex)
-    {
-        _state = _state with { PageOffset = pageIndex };
-        _selectedIds.Clear();
-        await ReplaceUrlAsync();
-    }
-
-    private void OnSelectionToggled((UserDetails User, bool Selected) selection)
-    {
-        if (selection.Selected) _selectedIds.Add(selection.User.Id);
-        else _selectedIds.Remove(selection.User.Id);
-        if (_selectedIds.Count > 1 && _profile is not null) _ = CloseProfileAsync();
+        _selectedIds = selectedIds.ToHashSet();
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
-    private async Task OpenProfileAsync(UserDetails user)
+    private Task OpenProfileAsync(UserDetails user)
     {
         _profile = user;
-        _returnFocusEmail = user.Email;
-        _state = _state with { UserId = user.Id };
-        await ReplaceUrlAsync();
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
-    private async Task CloseProfileAsync()
+    private Task OnProfileClosedAsync()
     {
         _profile = null;
-        _state = _state with { UserId = null };
-        await ReplaceUrlAsync();
         StateHasChanged();
-        await RestoreFocusAsync();
+        return Task.CompletedTask;
     }
 
-    private async Task RestoreFocusAsync()
+    private Task CloseProfileAsync()
     {
-        if (_module is null || _returnFocusEmail is null) return;
-        await Task.Yield();
-        await _module.InvokeAsync<bool>("focusRow", _gridRoot, _returnFocusEmail);
-    }
-
-    [JSInvokable]
-    public async Task OpenProfileFromKeyboard(string email)
-    {
-        var user = _grid?.FindLoaded(email);
-        if (user is null) return;
-        await OpenProfileAsync(user);
-    }
-
-    [JSInvokable]
-    public Task CloseProfileFromKeyboard()
-    {
-        return CloseProfileAsync();
+        return _list?.CloseAsync() ?? Task.CompletedTask;
     }
 
     private async Task OpenFiltersAsync()
     {
-        _draftRole = _state.UserRole?.ToString() ?? "";
-        _draftStatus = _state.UserStatus?.ToString() ?? "";
-        _draftStart = _state.StartDate;
-        _draftEnd = _state.EndDate;
+        _draftRole = Filter(UsersListSource.UserRoleParameter) ?? "";
+        _draftStatus = Filter(UsersListSource.UserStatusParameter) ?? "";
+        _draftStart = DateOnly.TryParse(Filter(UsersListSource.StartDateParameter), out var start) ? start : null;
+        _draftEnd = DateOnly.TryParse(Filter(UsersListSource.EndDateParameter), out var end) ? end : null;
         await _filterDialog!.ShowAsync();
     }
 
     private async Task ApplyFiltersAsync()
     {
         await _filterDialog!.HideAsync();
-        await ApplyStateAsync(_state with
-            {
-                UserRole = Enum.TryParse<UserRole>(_draftRole, out var role) ? role : null,
-                UserStatus = Enum.TryParse<UserStatus>(_draftStatus, out var status) ? status : null,
-                StartDate = _draftStart,
-                EndDate = _draftEnd
-            }
-        );
+        await (_list?.SetFiltersAsync(new Dictionary<string, string?>
+                    {
+                        [UsersListSource.UserRoleParameter] = _draftRole,
+                        [UsersListSource.UserStatusParameter] = _draftStatus,
+                        [UsersListSource.StartDateParameter] = _draftStart?.ToString("yyyy-MM-dd"),
+                        [UsersListSource.EndDateParameter] = _draftEnd?.ToString("yyyy-MM-dd")
+                    }
+                ) ?? Task.CompletedTask
+            );
     }
 
     private Task ClearFiltersAsync()
     {
-        return ApplyStateAsync(_state with { Search = null, UserRole = null, UserStatus = null, StartDate = null, EndDate = null });
-    }
-
-    private async Task OnDialogStateChanged(DialogEventArgs args)
-    {
-        if (args.State == DialogState.Closed) await RestoreFocusAsync();
+        return _list?.SetFiltersAsync(UsersListSource.FilterParameters.ToDictionary(name => name, _ => (string?)null)) ?? Task.CompletedTask;
     }
 
     private async Task OpenRoleDialogAsync(UserDetails user)
     {
         _roleUser = user;
-        _returnFocusEmail = user.Email;
         _draftUserRole = user.Role;
         _dialogError = null;
         await _roleDialog!.ShowAsync();
@@ -398,9 +329,9 @@
         _busy = true;
         try
         {
-            await UsersApi.ChangeRoleAsync(_roleUser.Id, _draftUserRole);
+            await UsersApi.ChangeRoleAsync(_roleUser.Id.Value, _draftUserRole);
             await _roleDialog!.HideAsync();
-            await _grid!.RefreshAsync();
+            await _list!.InvalidateAsync();
         }
         catch (UsersApiException exception)
         {
@@ -414,8 +345,7 @@
 
     private async Task OpenDeleteAsync(UserDetails user)
     {
-        _deleteIds = [user.Id];
-        _returnFocusEmail = null;
+        _deleteIds = [user.Id.Value];
         _dialogError = null;
         await _deleteDialog!.ShowAsync();
     }
@@ -423,7 +353,6 @@
     private async Task OpenBulkDeleteAsync()
     {
         _deleteIds = _selectedIds.ToArray();
-        _returnFocusEmail = null;
         _dialogError = null;
         await _deleteDialog!.ShowAsync();
     }
@@ -436,9 +365,8 @@
             if (_deleteIds.Length == 1) await UsersApi.DeleteAsync(_deleteIds[0]);
             else await UsersApi.BulkDeleteAsync(_deleteIds);
             await _deleteDialog!.HideAsync();
-            _selectedIds.Clear();
-            if (_profile is not null && _deleteIds.Contains(_profile.Id)) await CloseProfileAsync();
-            await _grid!.RefreshAsync();
+            if (_profile is not null && _deleteIds.Contains(_profile.Id.Value)) await _list!.CloseAsync();
+            await _list!.InvalidateAsync();
         }
         catch (UsersApiException exception)
         {
@@ -448,13 +376,6 @@
         {
             _busy = false;
         }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_surfaceKeys is not null) await _surfaceKeys.InvokeVoidAsync("dispose");
-        if (_module is not null) await _module.DisposeAsync();
-        _dotNetReference?.Dispose();
     }
 
 }

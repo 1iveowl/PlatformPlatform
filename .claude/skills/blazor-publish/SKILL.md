@@ -27,7 +27,7 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 
 ## Scripts
 
-- `trimmed-smoke` - signs up through the Blazor pages with the code read from the local mail server, opens the FluentDataGrid users page and proves a FluentButton click reaches .NET, with 0 page errors. Fails when the gateway does not serve this publish in Production.
+- `trimmed-smoke` - signs up through the Blazor pages with the code read from the local mail server, opens the users page on the shared DataList and proves a FluentButton click reaches .NET, with 0 page errors. Fails when the gateway does not serve this publish in Production.
 - `public-pages` - measures the six public pages: `--profile unthrottled|throttled|all`, `--samples 7`, `--observe-ms 3000`, `--label <name>`, `--check-budget` (Chromium with the throttled profile only).
 - `interactive-load` - cold and warm time to interactive of the authenticated WebAssembly page with the cache outcome of every runtime resource: `--samples 7`, `--label <name>`, `--firefox-preferences <name=value,...>`.
 - `shell-policy` - the content security policy cases; `--environment production` for the Production check.

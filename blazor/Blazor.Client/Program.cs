@@ -1,4 +1,5 @@
 using Blazor.Client.Bootstrap;
+using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 using Blazor.Client.Users;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -10,7 +11,8 @@ builder.Services.AddFluentUIComponents();
 
 builder.Services.AddAccountApiClients(new Uri(builder.HostEnvironment.BaseAddress), () => new HttpClientHandler());
 
-// The users calls and their page cache, shared by both grid components
+// The server-page cache of every DataList, one per application, and the users surface's mutations
+builder.Services.AddScoped<DataListPageCache>();
 builder.Services.AddScoped<UsersApiClient>();
 
 // The in-house toast region and the presentation of failed API calls on interactive surfaces

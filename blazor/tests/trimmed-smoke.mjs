@@ -11,7 +11,7 @@
 //
 // The test signs up a new user through the Blazor signup page with the one-time password read from the local mail server,
 // so it needs no stored cookies, secrets or debug-only codes. It fails unless the gateway serves this worktree's publish in
-// Production, the users page on FluentDataGrid loads its data, a click on a FluentButton runs its .NET handler (the filter
+// Production, the users page on the shared DataList loads its data, a click on a FluentButton runs its .NET handler (the filter
 // dialog opens), and the page raises no page error. Writes a JSON result file under .workspace/blazor-tests/.
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -53,14 +53,14 @@ try {
     if (/\/_framework\/Blazor\.Client\.[^/]*\.wasm$/.test(new URL(request.url()).pathname)) clientAssemblyRequests.push(new URL(request.url()).pathname);
   });
 
-  const usersUrl = `${baseUrl}${pathBase}/app/users/fluent`;
+  const usersUrl = `${baseUrl}${pathBase}/app/users/quick`;
   const response = await page.goto(usersUrl, { waitUntil: "load" });
   result.status = response.status();
   result.finalUrl = page.url();
   result.productionPolicy = isProductionPolicy(response.headers()["content-security-policy"]);
 
   const gridState = await page
-    .locator('[data-testid="users-grid"][data-state="ready"]')
+    .locator('[data-testid="users-grid"][data-list-state="ready"]')
     .waitFor({ timeout: interactiveTimeoutMs })
     .then(() => "ready", () => "not ready");
   result.gridState = gridState;

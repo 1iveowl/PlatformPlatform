@@ -1,0 +1,188 @@
+@* The WebAssembly side of the Development-only list fixture, maintained for the browser harness in blazor/tests. Two
+   DataList instances over the tenant's users on one page:
+   - the primary list: multiple selection, a debounced search filter, the selected-row parameter userId, a side pane that
+     Escape closes, a row menu button and a mutation stand-in that invalidates the list
+   - the secondary list: single selection with prefixed URL parameters, to prove that lists keep their own listeners,
+     focus, selection and URL state
+   The page shows what the lists report through their callbacks, so the harness can assert them. *@
+@using Account.Client
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Users
+@implements IDisposable
+@inject IBootstrapSource BootstrapSource
+@inject AuthenticationNavigator AuthenticationNavigator
+@inject UsersClient UsersClient
+
+<p data-testid="fixture-interactive">Interactive: @RendererInfo.IsInteractive</p>
+
+@if (_bootstrap is not null)
+{
+    <section>
+        <h2>Primary list</h2>
+        <label>
+            Search
+            <input type="search" data-testid="list-search" value="@_search" @oninput="OnSearchInput"/>
+        </label>
+        <button type="button" data-testid="invalidate" @onclick="InvalidateAsync">Invalidate</button>
+        <p>
+            Activated: <span data-testid="primary-activated">@_activated</span>,
+            closed: <span data-testid="primary-closed-count">@_closedCount</span>,
+            selection: <span data-testid="primary-selection">@string.Join(",", _selection.Order())</span>,
+            multiple selected: <span data-testid="primary-multiple-count">@_multipleCount</span>
+        </p>
+
+        <div class="users-layout">
+            <DataList @ref="_primary" TItem="UserDetails" data-testid="primary-list" ListId="development-primary" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
+                      Label="Primary users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
+                      SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
+                      FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="fixture-pane"
+                      RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OnActivatedAsync" OnClosed="OnClosedAsync" OnSelectionChanged="OnSelectionChangedAsync"
+                      OnMultipleSelected="OnMultipleSelectedAsync" OnStateChanged="OnStateChangedAsync">
+            </DataList>
+            <aside class="profile-pane" id="fixture-pane" data-testid="fixture-pane" hidden="@(_activated is null)" tabindex="-1">
+                <p data-testid="fixture-pane-email">@_activated</p>
+                <button type="button" data-testid="fixture-pane-close" @onclick="CloseAsync">Close</button>
+            </aside>
+        </div>
+    </section>
+
+    <section>
+        <h2>Secondary list</h2>
+        <DataList TItem="UserDetails" data-testid="secondary-list" ListId="development-secondary" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
+                  Label="Secondary users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
+                  SelectionMode="DataListSelectionMode.Single" ParameterPrefix="second" RowLabel="RowLabel">
+        </DataList>
+    </section>
+}
+
+@code {
+
+    private const int SearchDebounceMilliseconds = 500;
+
+    private string? _activated;
+    private BootstrapResponse? _bootstrap;
+    private int _closedCount;
+    private IReadOnlyList<DataListColumn<UserDetails>> _columns = [];
+    private int _multipleCount;
+    private DataList<UserDetails>? _primary;
+    private string? _search;
+    private CancellationTokenSource? _searchDebounce;
+    private IReadOnlySet<string> _selection = new HashSet<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _columns =
+        [
+            new DataListColumn<UserDetails>("Email", user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email)
+            ),
+            new DataListColumn<UserDetails>("Name", user => @<text>@user.DisplayName</text>, nameof(SortableUserProperties.Name)
+            ),
+            new DataListColumn<UserDetails>("Role", user => @<text>@user.Role</text>, nameof(SortableUserProperties.Role)
+            )
+        ];
+
+        var bootstrap = await BootstrapSource.GetAsync();
+        if (!bootstrap.IsAuthenticated)
+        {
+            AuthenticationNavigator.LeaveForLogin();
+            return;
+        }
+
+        _bootstrap = bootstrap;
+    }
+
+    private static string KeyOf(UserDetails user)
+    {
+        return user.Id.Value;
+    }
+
+    private static string RowLabel(UserDetails user)
+    {
+        return user.Email;
+    }
+
+    private static RenderFragment<UserDetails> RowMenu => user =>
+        @<button type="button" data-testid="row-menu" data-email="@user.Email">Menu</button>;
+
+    private Task<DataListFetchResult<UserDetails>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return UsersListSource.FetchAsync(UsersClient, request, cancellationToken);
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        _search = args.Value as string;
+        if (_searchDebounce is not null)
+        {
+            await _searchDebounce.CancelAsync();
+            _searchDebounce.Dispose();
+        }
+
+        var debounce = _searchDebounce = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(SearchDebounceMilliseconds, debounce.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await _primary!.SetFiltersAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = _search });
+    }
+
+    private Task InvalidateAsync()
+    {
+        return _primary!.InvalidateAsync();
+    }
+
+    private Task CloseAsync()
+    {
+        return _primary!.CloseAsync();
+    }
+
+    private Task OnActivatedAsync(UserDetails user)
+    {
+        _activated = user.Email;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnClosedAsync()
+    {
+        _activated = null;
+        _closedCount++;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSelectionChangedAsync(IReadOnlySet<string> keys)
+    {
+        _selection = keys.ToHashSet();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnMultipleSelectedAsync()
+    {
+        _multipleCount++;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnStateChangedAsync(DataListState state)
+    {
+        _search ??= state.Filters.GetValueOrDefault(UsersListSource.SearchParameter);
+        if (state.SelectedKey is null && _activated is not null) _activated = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
+    }
+
+}

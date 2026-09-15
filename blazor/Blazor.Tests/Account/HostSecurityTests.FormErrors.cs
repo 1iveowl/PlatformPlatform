@@ -19,6 +19,7 @@ public sealed partial class HostSecurityTests
 {
     private const string StaticFixturePath = "blazor/development/form-errors/static";
     private const string InteractiveFixturePath = "blazor/development/form-errors/interactive";
+    private const string DataListFixturePath = "blazor/development/data-list";
 
     [Fact]
     public async Task StaticFixturePost_WhenFieldsHaveSeveralMessages_ShouldRenderEveryMessageAtItsFieldAsEnglishText()
@@ -124,6 +125,7 @@ public sealed partial class HostSecurityTests
     [Theory]
     [InlineData(StaticFixturePath)]
     [InlineData(InteractiveFixturePath)]
+    [InlineData(DataListFixturePath)]
     public async Task FixturePages_WhenHostIsNotDevelopment_ShouldReturnNotFoundWithoutFixtureMarkup(string path)
     {
         // Arrange
@@ -139,7 +141,22 @@ public sealed partial class HostSecurityTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         var html = await response.Content.ReadAsStringAsync();
-        html.Should().NotContain("Form errors").And.NotContain("data-testid=\"scenario\"").And.NotContain("fixture-interactive");
+        html.Should().NotContain("Form errors").And.NotContain("Data list").And.NotContain("data-testid=\"scenario\"").And.NotContain("fixture-interactive");
+    }
+
+    [Fact]
+    public async Task DataListFixturePage_WhenHostIsDevelopment_ShouldHostTheWebAssemblyFixture()
+    {
+        // Arrange
+        using var request = new HttpRequestMessage(HttpMethod.Get, DataListFixturePath);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.CreateToken("fixture@example.com"));
+
+        // Act
+        using var response = await fixture.Client.SendAsync(request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("<h1>Data list</h1>").And.Contain("Blazor.Client.Development.DataListFixture");
     }
 
     [Theory]

@@ -37,8 +37,7 @@ h1:focus {
     text-align: start;
 }
 
-/* Layout for the users list in Blazor.Client/Users. The grid's scroll container needs a fixed height for virtualization to
-   have a viewport. Kept here rather than in component-scoped CSS because WebKit resolves the scoped bundle's @import
+/* Layout for the users list in Blazor.Client/Users. Kept here rather than in component-scoped CSS because WebKit resolves the scoped bundle's @import
    against the document URL under the path base, and the nonce-only style-src blocks style attributes */
 .users-toolbar {
     display: flex;
@@ -59,26 +58,97 @@ h1:focus {
     min-width: 0;
 }
 
-.users-grid-scroll {
-    height: 70vh;
-    overflow: auto;
+/* DataList in Blazor.Client/Components/Lists. Every size and state is a class here: the policy blocks style attributes */
+.data-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
 }
 
-.users-quickgrid tr {
-    height: 56px;
+.data-list-scroll {
+    overflow-x: auto;
 }
 
-.users-quickgrid tr.row-selected {
+.data-list-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-list-table th,
+.data-list-table td {
+    padding-block: 0.5rem;
+    padding-inline: 0.5rem;
+    text-align: start;
+}
+
+.data-list-table tr.data-list-row {
+    height: 3.5rem;
+    border-block-end: 1px solid #e5e5e5;
+    cursor: default;
+}
+
+.data-list-table tr.data-list-row.is-selected {
     background: var(--brand-primary-foreground, #eef);
 }
 
-.users-quickgrid .row-open {
+.data-list-table tr.data-list-row.is-active {
+    box-shadow: inset 0.25rem 0 0 #0f6cbd;
+}
+
+.data-list-table tr.data-list-row:focus-visible {
+    outline: 2px solid #0f6cbd;
+    outline-offset: -2px;
+}
+
+.data-list-select {
+    width: 2.5rem;
+}
+
+.data-list-sort {
     background: none;
     border: 0;
     padding: 0;
     font: inherit;
-    text-align: start;
+    font-weight: 600;
     cursor: pointer;
+}
+
+.data-list-sort-indicator::after {
+    margin-inline-start: 0.25rem;
+}
+
+.data-list-sorted-ascending .data-list-sort-indicator::after {
+    content: "\2191";
+}
+
+.data-list-sorted-descending .data-list-sort-indicator::after {
+    content: "\2193";
+}
+
+.data-list-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.data-list-paginator {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.data-list-total {
+    margin-inline-end: auto;
+}
+
+.data-list-empty,
+.data-list-loading {
+    padding-block: 1rem;
 }
 
 .profile-pane {
