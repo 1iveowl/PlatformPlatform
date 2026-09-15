@@ -3,7 +3,7 @@
 // lose its events in a publish that works in Development.
 //
 // Prerequisites, all through the developer CLI from the repository root:
-//   1. The stack is running (aspire-restart skill), and the Aspire resource blazor-host is stopped.
+//   1. dotnet run --project developer-cli -- start-stack --without-blazor-host   (with this worktree's stack stopped first)
 //   2. dotnet run --project developer-cli -- blazor-publish
 //   3. dotnet run --project developer-cli -- blazor-serve   (keeps running)
 // Run:
@@ -12,9 +12,10 @@
 // The test signs up a new user through the Blazor signup page with the one-time password read from the local mail server,
 // so it needs no stored cookies, secrets or debug-only codes. It fails unless the gateway serves this worktree's publish in
 // Production, the users page on the shared DataList loads its data, a click on a FluentButton runs its .NET handler (the filter
-// dialog opens), and the page raises no page error. Writes a JSON result file under .workspace/blazor-tests/.
+// dialog opens), and the page raises no page error. Writes a JSON result file under .workspace/blazor-tests/, and on failure a
+// browser trace of the signup or of the users page next to it.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   baseUrl,
@@ -27,7 +28,9 @@ import {
   playwrightVersion,
   readPublishedEndpoints,
   resultsFolder,
-  signUpThroughBlazor
+  signUpThroughBlazor,
+  startTrace,
+  stopTrace
 } from "./support/stack.mjs";
 
 const interactiveTimeoutMs = 60_000;
@@ -40,12 +43,19 @@ mkdirSync(resultsFolder, { recursive: true });
 const browser = await launchBrowser(options.browser);
 const result = { browser: options.browser, browserVersion: browser.version(), playwrightVersion, baseUrl, startedAt: new Date().toISOString() };
 const failures = [];
+const signupTraceFile = path.join(resultsFolder, `trimmed-smoke-${options.browser}-signup-trace.zip`);
+const usersPageTraceFile = path.join(resultsFolder, `trimmed-smoke-${options.browser}-trace.zip`);
+let context;
+// A trace from an earlier run would read as this run's failure
+for (const traceFile of [signupTraceFile, usersPageTraceFile]) rmSync(traceFile, { force: true });
 
 try {
-  const account = await signUpThroughBlazor(browser, options.browser, `smoke-${options.browser}-${Date.now()}@example.com`);
+  const email = `smoke-${options.browser}-${Date.now()}@example.com`;
+  const account = await signUpThroughBlazor(browser, options.browser, email, undefined, signupTraceFile);
   result.account = { email: account.email };
 
-  const context = await newContext(browser, options.browser, account.storageState);
+  context = await newContext(browser, options.browser, account.storageState);
+  await startTrace(context);
   const page = await context.newPage();
   const observations = observeErrors(page);
   const clientAssemblyRequests = [];
@@ -78,7 +88,6 @@ try {
   result.servedFromThisPublish = clientAssemblyRequests.length > 0 && clientAssemblyRequests.every((route) => publishedRoutes.has(route));
   result.violations = await page.evaluate(() => window.__policyViolations);
   Object.assign(result, observations);
-  await context.close();
 
   if (result.status !== 200) failures.push(`status ${result.status}`);
   if (result.finalUrl !== usersUrl) failures.push(`landed on ${result.finalUrl}`);
@@ -91,6 +100,10 @@ try {
 } catch (error) {
   failures.push(String(error.stack ?? error).slice(0, 1_000));
 } finally {
+  if (context !== undefined) {
+    await stopTrace(context, failures.length > 0 ? usersPageTraceFile : undefined);
+    await context.close();
+  }
   await browser.close();
 }
 

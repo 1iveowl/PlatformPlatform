@@ -6,6 +6,7 @@ description: Publish the Blazor host as a trimmed Release build, serve it in Pro
 # Blazor publish, serve and harness
 
 ```bash
+dotnet run --project developer-cli -- start-stack --without-blazor-host [--timeout <seconds>]
 dotnet run --project developer-cli -- blazor-publish [--quiet]
 dotnet run --project developer-cli -- blazor-serve
 dotnet run --project developer-cli -- blazor-harness <script> [--browser chromium|firefox|webkit|all] [script options]
@@ -19,15 +20,17 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 
 ## Order
 
-1. Start the stack with the **aspire-restart** skill. It writes the token signing key the published host reads from the shared user secrets store.
-2. Stop the Aspire resource `blazor-host` (Aspire MCP `execute_resource_command`, command `stop`), because the gateway routes `/blazor` to that port. `blazor-serve` refuses to start while the port is taken.
+1. Stop this worktree's stack with the **aspire-stop** skill. `start-stack` never reuses a running stack and refuses while any of its ports is taken.
+2. `dotnet run --project developer-cli -- start-stack --without-blazor-host`. It starts a fresh AppHost without the dashboard and without the `blazor-host` resource, with Google, Entra, MitID and Stripe turned off, and returns once the gateway answers over HTTPS and the account API is ready (`--timeout <seconds>`, default 600; on timeout it stops the AppHost and exits 1). The AppHost writes the token signing key the published host reads from the shared user secrets store. The gateway routes `/blazor` to the Blazor host port, which is now free for `blazor-serve`.
 3. `blazor-publish`, then `blazor-serve` in the background.
 4. `blazor-harness trimmed-smoke --browser all` and any other script.
-5. Stop `blazor-serve`, then start the `blazor-host` resource again (command `start`).
+5. Stop `blazor-serve`, stop the stack with **aspire-stop**, and start the everyday stack again with **aspire-restart**.
+
+The `smoke` job in `.github/workflows/blazor.yml` runs the same order with `--browser chromium`.
 
 ## Scripts
 
-- `trimmed-smoke` - signs up through the Blazor pages with the code read from the local mail server, opens the users page on the shared DataList and proves a FluentButton click reaches .NET, with 0 page errors. Fails when the gateway does not serve this publish in Production.
+- `trimmed-smoke` - signs up through the Blazor pages with the code read from the local mail server, opens the users page on the shared DataList and proves a FluentButton click reaches .NET, with 0 page errors. Fails when the gateway does not serve this publish in Production. On failure it also writes a browser trace (`trimmed-smoke-<browser>-signup-trace.zip` or `trimmed-smoke-<browser>-trace.zip`).
 - `public-pages` - measures the six public pages: `--profile unthrottled|throttled|all`, `--samples 7`, `--observe-ms 3000`, `--label <name>`, `--check-budget` (Chromium with the throttled profile only).
 - `interactive-load` - cold and warm time to interactive of the authenticated WebAssembly page with the cache outcome of every runtime resource: `--samples 7`, `--label <name>`, `--firefox-preferences <name=value,...>`.
 - `shell-policy` - the content security policy cases; `--environment production` for the Production check.

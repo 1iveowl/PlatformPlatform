@@ -39,6 +39,8 @@ public class RunCommand : Command
 
     internal static int ResourceServicePort => Ports.ResourceService;
 
+    internal static string AppHostLogPath => Path.Combine(Configuration.WorkspaceFolder, "developer-cli", "aspire-apphost.log");
+
     private static void Execute(bool watch, bool attach, string? publicUrl)
     {
         Prerequisite.Ensure(Prerequisite.Dotnet, Prerequisite.Node, Prerequisite.Docker);
@@ -293,19 +295,23 @@ public class RunCommand : Command
             return;
         }
 
-        var logPath = Path.Combine(Configuration.WorkspaceFolder, "developer-cli", "aspire-apphost.log");
+        var logPath = AppHostLogPath;
         Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
         if (File.Exists(logPath)) File.Delete(logPath);
 
-        var detachedCommand = Configuration.IsWindows
+        ProcessHelper.StartProcess(BuildDetachedCommand(command, logPath), Configuration.ApplicationFolder, waitForExit: false, environmentVariables: envVars);
+
+        TailLogUntilReady(logPath);
+    }
+
+    // Starts the command in the background with its output written to the log, so the CLI can return while it keeps running
+    internal static string BuildDetachedCommand(string command, string logPath)
+    {
+        return Configuration.IsWindows
             ? $"cmd /c start \"\" /min cmd /c \"{command} > \"{logPath}\" 2>&1\""
             : Configuration.IsMacOs
                 ? $"sh -c \"script -q -t 0 '{logPath}' {command} > /dev/null 2>&1 &\""
                 : $"sh -c \"script -q -f -c '{command}' '{logPath}' > /dev/null 2>&1 &\"";
-
-        ProcessHelper.StartProcess(detachedCommand, Configuration.ApplicationFolder, waitForExit: false, environmentVariables: envVars);
-
-        TailLogUntilReady(logPath);
     }
 
     private static void TailLogUntilReady(string logPath)

@@ -31,13 +31,13 @@ public sealed class BlazorServeCommand : Command
         var ports = PortAllocation.LoadFrom(Configuration.SourceCodeFolder);
         if (IsListening(ports.BlazorHost))
         {
-            AnsiConsole.MarkupLine($"[red]Port {ports.BlazorHost} is in use. Stop the Aspire resource 'blazor-host' first; the gateway routes /blazor to this port.[/]");
+            AnsiConsole.MarkupLine($"[red]Port {ports.BlazorHost} is in use; the gateway routes /blazor to this port. Start the stack with 'start-stack --without-blazor-host' instead of the full stack.[/]");
             Environment.Exit(1);
         }
 
         if (!IsListening(ports.AppGateway) || !IsListening(ports.AccountApi))
         {
-            AnsiConsole.MarkupLine("[red]The gateway or the account API is not running. Start the stack with the aspire-restart skill first.[/]");
+            AnsiConsole.MarkupLine("[red]The gateway or the account API is not running. Start the stack with 'start-stack --without-blazor-host' first.[/]");
             Environment.Exit(1);
         }
 

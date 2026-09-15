@@ -1,8 +1,8 @@
 // Measures the six static server-rendered public pages on the trimmed Release publish through the gateway, and checks them
 // against the public-page budget.
 //
-// Prerequisites are the same as for trimmed-smoke.mjs: the stack running, the Aspire resource blazor-host stopped, and
-// blazor-publish then blazor-serve run through the developer CLI. Run one browser at a time:
+// Prerequisites are the same as for trimmed-smoke.mjs: the stack started with start-stack --without-blazor-host,
+// and blazor-publish then blazor-serve run through the developer CLI. Run one browser at a time:
 //   dotnet run --project developer-cli -- blazor-harness public-pages --browser chromium
 //   dotnet run --project developer-cli -- blazor-harness public-pages --browser chromium --profile throttled --check-budget
 // Options: --profile unthrottled|throttled|all (default all), --samples 7, --observe-ms 3000, --label baseline.

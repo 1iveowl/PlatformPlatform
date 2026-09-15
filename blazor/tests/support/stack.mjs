@@ -1,6 +1,6 @@
 // Shared helpers for the browser harness scripts in blazor/tests. They run against the local stack through the gateway:
-// the AppHost started by the aspire-restart skill, with the Aspire resource blazor-host stopped and the trimmed Release
-// publish served in its place by the developer CLI (blazor-publish, then blazor-serve).
+// the AppHost started without its blazor-host resource (start-stack --without-blazor-host) and the trimmed Release publish
+// served in its place by the developer CLI (blazor-publish, then blazor-serve).
 
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -136,24 +136,43 @@ export async function readOneTimePassword(email, sentAfter) {
   throw new Error(`No mail to ${email} within ${mailTimeoutMs} ms.`);
 }
 
+// Records a trace of the context, with screenshots and DOM snapshots, for a script that keeps it when the run fails
+export async function startTrace(context) {
+  await context.tracing.start({ screenshots: true, snapshots: true });
+}
+
+// Ends the trace started by startTrace, writing it to traceFile only when it is given
+export async function stopTrace(context, traceFile) {
+  await context.tracing.stop(traceFile === undefined ? undefined : { path: traceFile });
+}
+
 // Signs up a new user through the Blazor public pages with the mailed code and returns the signed-in storage state. The
-// browser locale sets Accept-Language, which the signup stores as the user's locale.
-export async function signUpThroughBlazor(browser, browserName, email, locale = "en-US") {
+// browser locale sets Accept-Language, which the signup stores as the user's locale. With failureTraceFile, a failed signup
+// leaves a trace at that path.
+export async function signUpThroughBlazor(browser, browserName, email, locale = "en-US", failureTraceFile = undefined) {
   const context = await newContext(browser, browserName, undefined, locale);
-  const page = await context.newPage();
-  await page.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
-  await page.locator('[data-testid="email"]').fill(email);
-  const sentAfter = Date.now();
-  await page.locator('[data-testid="submit"]').click();
-  await page.waitForURL(/\/blazor\/signup\/verify\?/);
-  const verifyUrl = page.url();
-  const oneTimePassword = await readOneTimePassword(email, sentAfter);
-  await page.locator('[data-testid="code"]').fill(oneTimePassword);
-  await page.locator('[data-testid="submit"]').click();
-  await page.waitForURL(`${baseUrl}${pathBase}/app`);
-  const storageState = await context.storageState();
-  await context.close();
-  return { email, verifyUrl, storageState };
+  if (failureTraceFile !== undefined) await startTrace(context);
+  try {
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
+    await page.locator('[data-testid="email"]').fill(email);
+    const sentAfter = Date.now();
+    await page.locator('[data-testid="submit"]').click();
+    await page.waitForURL(/\/blazor\/signup\/verify\?/);
+    const verifyUrl = page.url();
+    const oneTimePassword = await readOneTimePassword(email, sentAfter);
+    await page.locator('[data-testid="code"]').fill(oneTimePassword);
+    await page.locator('[data-testid="submit"]').click();
+    await page.waitForURL(`${baseUrl}${pathBase}/app`);
+    const storageState = await context.storageState();
+    if (failureTraceFile !== undefined) await stopTrace(context);
+    return { email, verifyUrl, storageState };
+  } catch (error) {
+    if (failureTraceFile !== undefined) await stopTrace(context, failureTraceFile);
+    throw error;
+  } finally {
+    await context.close();
+  }
 }
 
 // Starts an email login for an existing user through the Blazor login page and returns the verification page URL it lands on
