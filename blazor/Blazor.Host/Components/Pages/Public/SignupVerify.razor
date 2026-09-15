@@ -9,22 +9,22 @@
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
-<PageTitle>Check your email</PageTitle>
+<PageTitle>@CommonStrings.EnterYourVerificationCode</PageTitle>
 
 <PublicNav/>
 
-<h1>Check your email</h1>
+<h1>@CommonStrings.EnterYourVerificationCode</h1>
 
-<p data-testid="verify-email">Enter the code sent to @Email</p>
+<p data-testid="verify-email">@string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.CheckEmailForVerificationCode, Email)</p>
 
 <EditForm EditContext="_editContext" FormName="signup-verify" OnValidSubmit="CompleteAsync">
     <DataAnnotationsValidator/>
     <label>
-        Code
+        @AuthenticationStrings.SignupVerificationCode
         <InputText @bind-Value="Input.OneTimePassword" autocomplete="one-time-code" data-testid="code"/>
     </label>
     <ValidationMessage For="() => Input.OneTimePassword"/>
-    <button type="submit" data-testid="submit">Verify</button>
+    <button type="submit" data-testid="submit">@AuthenticationStrings.Verify</button>
 </EditForm>
 
 <FormErrorAlert Errors="_formErrors"/>
@@ -67,7 +67,7 @@
         // A missing id and one that is not an email login id are both a signup that cannot be completed
         if (!EmailLoginId.TryParse(Id, out var emailLoginId))
         {
-            _formErrors.AddFormMessage("The signup has expired. Start again.");
+            _formErrors.AddFormMessage(AuthenticationStrings.SignupExpired);
             return;
         }
 

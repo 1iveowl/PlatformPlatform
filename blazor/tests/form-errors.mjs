@@ -26,7 +26,9 @@ const staticUrl = `${baseUrl}${pathBase}/development/form-errors/static`;
 const interactiveTimeoutMs = 60_000;
 const uiCulture = "da-DK";
 
-// The fixture's canned messages, as defined in Blazor.Client/Development/FormErrorScenarios.cs
+// The fixture's canned API messages, as defined in Blazor.Client/Development/FormErrorScenarios.cs, stay English; the
+// page's own texts (transport failure, antiforgery recovery, toast title and reload action) are the da-DK resources in
+// shared-kernel/SharedKernel.Localization
 const messages = {
   nameTooShort: "Name must be at least 3 characters.",
   nameReserved: "Name is reserved.",
@@ -34,8 +36,10 @@ const messages = {
   tenantLocked: "The tenant is locked.",
   conflictDetail: "The user was changed by someone else.",
   conflictTitle: "Conflict",
-  transportFailure: "The server could not be reached. Check your connection and try again.",
-  antiforgery: "This page has expired. Reload the page and try again.",
+  transportFailure: "Serveren kunne ikke nås. Tjek din forbindelse, og prøv igen.",
+  antiforgery: "Siden er udløbet. Genindlæs siden, og prøv igen.",
+  errorToastTitle: "Noget gik galt",
+  reloadPage: "Genindlæs siden",
   nameRequired: "The Name field is required."
 };
 
@@ -174,7 +178,7 @@ await check("static form renders API messages from the POST response and validat
     await postStatic(page, "antiforgery");
     assertEqual(await texts(page, "form-error-message"), [messages.antiforgery], "Antiforgery message");
     const reload = page.locator(testId("form-error-reload"));
-    assert((await reload.textContent()) === "Reload page", "No Reload page link.");
+    assert((await reload.textContent()) === messages.reloadPage, "No Reload page link.");
     const origin = await page.evaluate(() => performance.timeOrigin);
     await reload.click();
     await waitForNewDocument(page, origin);
@@ -263,7 +267,7 @@ await check("interactive failures show in the in-house toast region, with no toa
     };
 
     await present("detail", "detail: Message");
-    assertEqual(await toasts.last().locator(testId("toast-title")).textContent(), "Something went wrong", "Toast title");
+    assertEqual(await toasts.last().locator(testId("toast-title")).textContent(), messages.errorToastTitle, "Toast title");
     assertEqual(await toasts.last().locator(testId("toast-message")).textContent(), messages.conflictDetail, "Detail toast");
     assert((await toasts.last().getAttribute("role")) === "alert", "The toast is not an alert.");
     assert((await page.locator(testId("toast-region")).getAttribute("aria-live")) === "assertive", "The toast region is not a live region.");
@@ -300,7 +304,7 @@ await check("interactive antiforgery rejection shows a toast whose Reload page a
     await toast.waitFor();
     assertEqual(await toast.locator(testId("toast-title")).textContent(), messages.antiforgery, "Antiforgery toast");
     const action = toast.locator(testId("toast-action"));
-    assertEqual(await action.textContent(), "Reload page", "Recovery action");
+    assertEqual(await action.textContent(), messages.reloadPage, "Recovery action");
     const origin = await page.evaluate(() => performance.timeOrigin);
     await action.focus();
     await page.keyboard.press("Enter");

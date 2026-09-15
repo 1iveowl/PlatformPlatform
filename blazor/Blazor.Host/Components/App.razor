@@ -51,7 +51,8 @@
     protected override void OnInitialized()
     {
         _nonce = HostShell.GetNonce(HttpContext);
-        _locale = HostShell.GetLocale(HttpContext);
+        // The request culture that request localization chose, so the attribute always names the culture the page renders in
+        _locale = CultureInfo.CurrentUICulture.Name;
 
         var importMap = HttpContext.GetEndpoint()?.Metadata.GetMetadata<ImportMapDefinition>() ?? ImportMapDefinition.FromResourceCollection(Assets);
         _importMap = Shell.GetAbsoluteImportMap(importMap);

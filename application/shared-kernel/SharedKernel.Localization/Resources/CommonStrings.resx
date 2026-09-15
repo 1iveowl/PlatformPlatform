@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AccountName" xml:space="preserve">
+        <value>Account name</value>
+        <comment>React: Account name</comment>
+    </data>
+    <data name="AccountSettings" xml:space="preserve">
+        <value>Account settings</value>
+        <comment>React: Account settings</comment>
+    </data>
+    <data name="AccountUnavailableTitle" xml:space="preserve">
+        <value>Account no longer available</value>
+    </data>
+    <data name="AntiforgeryRecovery" xml:space="preserve">
+        <value>This page has expired. Reload the page and try again.</value>
+    </data>
+    <data name="Cancel" xml:space="preserve">
+        <value>Cancel</value>
+        <comment>React: Cancel</comment>
+    </data>
+    <data name="Close" xml:space="preserve">
+        <value>Close</value>
+        <comment>React: Close</comment>
+    </data>
+    <data name="Continue" xml:space="preserve">
+        <value>Continue</value>
+        <comment>React: Continue</comment>
+    </data>
+    <data name="DataListActions" xml:space="preserve">
+        <value>Actions</value>
+    </data>
+    <data name="DataListEmpty" xml:space="preserve">
+        <value>No items found.</value>
+    </data>
+    <data name="DataListLoading" xml:space="preserve">
+        <value>Loading</value>
+        <comment>React: Loading</comment>
+    </data>
+    <data name="DismissNotification" xml:space="preserve">
+        <value>Dismiss notification</value>
+    </data>
+    <data name="Email" xml:space="preserve">
+        <value>Email</value>
+        <comment>React: Email</comment>
+    </data>
+    <data name="EmailAddressInvalid" xml:space="preserve">
+        <value>Enter a valid email address.</value>
+        <comment>{0}: field name, not shown</comment>
+    </data>
+    <data name="EmailAddressRequired" xml:space="preserve">
+        <value>Email address required</value>
+        <comment>React: Email address required</comment>
+    </data>
+    <data name="EmailAddressTooLong" xml:space="preserve">
+        <value>The email address can be at most {1} characters.</value>
+        <comment>{0}: field name, not shown; {1}: maximum length</comment>
+    </data>
+    <data name="EnterYourVerificationCode" xml:space="preserve">
+        <value>Enter your verification code</value>
+        <comment>React: Enter your verification code</comment>
+    </data>
+    <data name="ImageTooLarge" xml:space="preserve">
+        <value>Image must be smaller than 1 MB.</value>
+        <comment>React: Image must be smaller than 1 MB.</comment>
+    </data>
+    <data name="ImageTypeNotSupported" xml:space="preserve">
+        <value>Please select a JPEG, PNG, GIF, or WebP image.</value>
+        <comment>React: Please select a JPEG, PNG, GIF, or WebP image.</comment>
+    </data>
+    <data name="InvalidResponse" xml:space="preserve">
+        <value>The server returned an unexpected response. Try again.</value>
+    </data>
+    <data name="Leave" xml:space="preserve">
+        <value>Leave</value>
+        <comment>React: Leave</comment>
+    </data>
+    <data name="Loading" xml:space="preserve">
+        <value>Loading...</value>
+        <comment>React: Loading...</comment>
+    </data>
+    <data name="LogIn" xml:space="preserve">
+        <value>Log in</value>
+        <comment>React: Log in</comment>
+    </data>
+    <data name="Logo" xml:space="preserve">
+        <value>Logo</value>
+        <comment>React: Logo</comment>
+    </data>
+    <data name="Next" xml:space="preserve">
+        <value>Next</value>
+        <comment>React: Next</comment>
+    </data>
+    <data name="NextPage" xml:space="preserve">
+        <value>Next page</value>
+    </data>
+    <data name="Notifications" xml:space="preserve">
+        <value>Notifications</value>
+    </data>
+    <data name="Ok" xml:space="preserve">
+        <value>OK</value>
+        <comment>React: OK</comment>
+    </data>
+    <data name="PageNotFound" xml:space="preserve">
+        <value>Page not found</value>
+        <comment>React: Page not found</comment>
+    </data>
+    <data name="PageNotFoundMessage" xml:space="preserve">
+        <value>Sorry, the content you are looking for does not exist.</value>
+    </data>
+    <data name="PageOf" xml:space="preserve">
+        <value>Page {0} of {1}</value>
+        <comment>{0}: current page number, {1}: page count</comment>
+    </data>
+    <data name="Pagination" xml:space="preserve">
+        <value>Pagination</value>
+        <comment>React: Pagination</comment>
+    </data>
+    <data name="Previous" xml:space="preserve">
+        <value>Previous</value>
+        <comment>React: Previous</comment>
+    </data>
+    <data name="PreviousPage" xml:space="preserve">
+        <value>Previous page</value>
+    </data>
+    <data name="PrivacyPolicies" xml:space="preserve">
+        <value>Privacy policies</value>
+        <comment>React: Privacy policies</comment>
+    </data>
+    <data name="Reload" xml:space="preserve">
+        <value>Reload</value>
+        <comment>React: Reload</comment>
+    </data>
+    <data name="ReloadPage" xml:space="preserve">
+        <value>Reload page</value>
+    </data>
+    <data name="RequestFailedTitle" xml:space="preserve">
+        <value>An error occurred while processing your request.</value>
+    </data>
+    <data name="RequestFailedWithStatus" xml:space="preserve">
+        <value>The request failed with status {0}.</value>
+        <comment>{0}: HTTP status code</comment>
+    </data>
+    <data name="RequestId" xml:space="preserve">
+        <value>Request ID:</value>
+    </data>
+    <data name="SaveChanges" xml:space="preserve">
+        <value>Save changes</value>
+        <comment>React: Save changes</comment>
+    </data>
+    <data name="Saving" xml:space="preserve">
+        <value>Saving...</value>
+        <comment>React: Saving...</comment>
+    </data>
+    <data name="Search" xml:space="preserve">
+        <value>Search</value>
+        <comment>React: Search</comment>
+    </data>
+    <data name="SelectAllRowsOnPage" xml:space="preserve">
+        <value>Select all rows on this page</value>
+    </data>
+    <data name="SelectRow" xml:space="preserve">
+        <value>Select {0}</value>
+        <comment>{0}: the row label</comment>
+    </data>
+    <data name="SessionEndedTitle" xml:space="preserve">
+        <value>Your session has ended</value>
+    </data>
+    <data name="SessionNotFoundMessage" xml:space="preserve">
+        <value>Your session could not be found. Log in again to continue.</value>
+    </data>
+    <data name="SessionRevokedMessage" xml:space="preserve">
+        <value>You were signed out because this session was revoked. Log in again to continue.</value>
+    </data>
+    <data name="SignUp" xml:space="preserve">
+        <value>Sign up</value>
+        <comment>React: Sign up</comment>
+    </data>
+    <data name="SomethingWentWrong" xml:space="preserve">
+        <value>Something went wrong</value>
+        <comment>React: Something went wrong</comment>
+    </data>
+    <data name="SortedAscending" xml:space="preserve">
+        <value>sorted ascending</value>
+    </data>
+    <data name="SortedDescending" xml:space="preserve">
+        <value>sorted descending</value>
+    </data>
+    <data name="Stay" xml:space="preserve">
+        <value>Stay</value>
+        <comment>React: Stay</comment>
+    </data>
+    <data name="TenantDeletedMessage" xml:space="preserve">
+        <value>The account you were signed in to has been deleted.</value>
+    </data>
+    <data name="Terms" xml:space="preserve">
+        <value>Terms</value>
+        <comment>React: Terms</comment>
+    </data>
+    <data name="TermsOfUse" xml:space="preserve">
+        <value>Terms of use</value>
+        <comment>React: Terms of use</comment>
+    </data>
+    <data name="TotalCount" xml:space="preserve">
+        <value>{0} total</value>
+        <comment>{0}: total number of items</comment>
+    </data>
+    <data name="TransportFailure" xml:space="preserve">
+        <value>The server could not be reached. Check your connection and try again.</value>
+    </data>
+    <data name="TryAgain" xml:space="preserve">
+        <value>Try again</value>
+        <comment>React: Try again</comment>
+    </data>
+    <data name="UnhandledError" xml:space="preserve">
+        <value>An unhandled error has occurred.</value>
+    </data>
+    <data name="UnsavedChanges" xml:space="preserve">
+        <value>Unsaved changes</value>
+        <comment>React: Unsaved changes</comment>
+    </data>
+    <data name="UnsavedChangesMessage" xml:space="preserve">
+        <value>You have unsaved changes. If you leave now, your changes will be lost.</value>
+        <comment>React: You have unsaved changes. If you leave now, your changes will be lost.</comment>
+    </data>
+    <data name="UserProfile" xml:space="preserve">
+        <value>User profile</value>
+        <comment>React: User profile</comment>
+    </data>
+    <data name="Users" xml:space="preserve">
+        <value>Users</value>
+        <comment>React: Users</comment>
+    </data>
+    <data name="VerificationCodeLength" xml:space="preserve">
+        <value>The verification code must be {1} characters.</value>
+        <comment>{0}: field name, not shown; {1}: required length</comment>
+    </data>
+</root>

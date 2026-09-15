@@ -3,12 +3,12 @@
 @page "/"
 @using Microsoft.FluentUI.AspNetCore.Components
 
-<PageTitle>Welcome</PageTitle>
+<PageTitle>@AuthenticationStrings.Welcome</PageTitle>
 
 <PublicNav/>
 
-<h1>Welcome</h1>
+<h1>@AuthenticationStrings.Welcome</h1>
 
-<p data-testid="landing-text">A server-rendered public page. No WebAssembly runtime is downloaded here.</p>
+<p data-testid="landing-text">@AuthenticationStrings.LandingText</p>
 
-<FluentLabel data-testid="fluent-label">Rendered by the host with a FluentUI component</FluentLabel>
+<FluentLabel data-testid="fluent-label">@AuthenticationStrings.LandingComponentText</FluentLabel>

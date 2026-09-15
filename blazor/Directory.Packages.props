@@ -11,6 +11,7 @@
         <PackageVersion Include="Microsoft.AspNetCore.Components.QuickGrid" Version="11.0.0-rc.1.26425.128" />
         <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="11.0.0-rc.1.26425.128" />
         <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="11.0.0-rc.1.26425.128" />
+        <PackageVersion Include="Microsoft.Extensions.Localization" Version="11.0.0-rc.1.26425.128" />
         <!-- Pinned to a nightly built from dev-v5 commit f3574653d and restored from the feed mapped in nuget.config. It carries
              upstream commit c813a4a6b, without which 5.0.0-rc.5-26219.1 throws two custom event registration errors on every
              load under .NET 11 RC1. SemVer orders this preview below 5.0.0-rc.5-26219.1, so the upgrade-packages skill and

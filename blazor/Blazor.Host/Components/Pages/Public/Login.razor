@@ -7,25 +7,27 @@
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
-<PageTitle>Log in</PageTitle>
+<PageTitle>@CommonStrings.LogIn</PageTitle>
 
 <PublicNav/>
 
-<h1>Log in</h1>
+<h1>@AuthenticationStrings.HiWelcomeBack</h1>
+
+<p>@AuthenticationStrings.EnterEmailToLogIn</p>
 
 @if (LoggedOut is not null)
 {
-    <p data-testid="logged-out">You have been logged out.</p>
+    <p data-testid="logged-out">@AuthenticationStrings.LoggedOut</p>
 }
 
 <EditForm EditContext="_editContext" FormName="login-start" OnValidSubmit="StartAsync" Enhance>
     <DataAnnotationsValidator/>
     <label>
-        Email
+        @CommonStrings.Email
         <InputText @bind-Value="Input.Email" type="email" autocomplete="email" data-testid="email"/>
     </label>
     <ValidationMessage For="() => Input.Email"/>
-    <button type="submit" data-testid="submit">Continue</button>
+    <button type="submit" data-testid="submit">@AuthenticationStrings.LogInWithEmail</button>
 </EditForm>
 
 <FormErrorAlert Errors="_formErrors"/>

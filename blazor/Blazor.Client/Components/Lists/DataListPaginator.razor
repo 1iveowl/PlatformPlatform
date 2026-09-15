@@ -2,14 +2,14 @@
    is not used, because its texts cannot be localized and its links write the page to the URL. Both buttons are disabled
    at the ends and while the list is empty. *@
 
-<nav class="data-list-paginator" aria-label="@DataListText.Pagination" data-list-paginator>
-    <span class="data-list-total" data-list-total-count>@DataListText.Format(DataListText.TotalCount, TotalCount)</span>
+<nav class="data-list-paginator" aria-label="@CommonStrings.Pagination" data-list-paginator>
+    <span class="data-list-total" data-list-total-count>@string.Format(CultureInfo.CurrentCulture, CommonStrings.TotalCount, TotalCount.ToString("N0", CultureInfo.CurrentCulture))</span>
     <button type="button" class="data-list-page-button" data-list-previous disabled="@(PageOffset <= 0)" @onclick="() => OnPageRequested(PageOffset - 1)">
-        @DataListText.PreviousPage
+        @CommonStrings.PreviousPage
     </button>
-    <span class="data-list-page" data-list-page aria-live="polite">@DataListText.Format(DataListText.PageOf, PageOffset + 1, Math.Max(1, TotalPages))</span>
+    <span class="data-list-page" data-list-page aria-live="polite">@string.Format(CultureInfo.CurrentCulture, CommonStrings.PageOf, PageOffset + 1, Math.Max(1, TotalPages))</span>
     <button type="button" class="data-list-page-button" data-list-next disabled="@(PageOffset >= TotalPages - 1)" @onclick="() => OnPageRequested(PageOffset + 1)">
-        @DataListText.NextPage
+        @CommonStrings.NextPage
     </button>
 </nav>
 

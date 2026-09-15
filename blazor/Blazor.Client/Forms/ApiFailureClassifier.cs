@@ -3,6 +3,7 @@
 // which the authentication handling already acts on, or for a 400 whose title names antiforgery, which gets a recovery
 // action instead. API text is passed through unchanged, in English in every UI culture.
 
+using System.Globalization;
 using Account.Client;
 
 namespace Blazor.Client.Forms;
@@ -27,12 +28,6 @@ public sealed record ApiFailure(ApiFailureKind Kind, string? Message);
 
 public static class ApiFailureClassifier
 {
-    // English UI strings, to be moved to resources by the localization task
-    public const string TransportFailureMessage = "The server could not be reached. Check your connection and try again.";
-    public const string InvalidResponseMessage = "The server returned an unexpected response. Try again.";
-    public const string AntiforgeryRecoveryMessage = "This page has expired. Reload the page and try again.";
-    public const string ReloadPageActionLabel = "Reload page";
-
     public static ApiFailure Cancellation { get; } = new(ApiFailureKind.Suppressed, null);
 
     public static ApiFailure Classify(ApiCallResult result)
@@ -55,12 +50,12 @@ public static class ApiFailureClassifier
 
         if (outcome == ApiCallOutcome.Unauthorized || problem.StatusCode == 401) return new ApiFailure(ApiFailureKind.Suppressed, null);
 
-        if (IsAntiforgeryFailure(problem)) return new ApiFailure(ApiFailureKind.AntiforgeryRecovery, AntiforgeryRecoveryMessage);
+        if (IsAntiforgeryFailure(problem)) return new ApiFailure(ApiFailureKind.AntiforgeryRecovery, CommonStrings.AntiforgeryRecovery);
 
         return outcome switch
         {
-            ApiCallOutcome.TransportFailure => new ApiFailure(ApiFailureKind.Message, TransportFailureMessage),
-            ApiCallOutcome.InvalidResponse => new ApiFailure(ApiFailureKind.Message, InvalidResponseMessage),
+            ApiCallOutcome.TransportFailure => new ApiFailure(ApiFailureKind.Message, CommonStrings.TransportFailure),
+            ApiCallOutcome.InvalidResponse => new ApiFailure(ApiFailureKind.Message, CommonStrings.InvalidResponse),
             _ when problem.Errors.Count > 0 => new ApiFailure(ApiFailureKind.FieldValidation, null),
             _ => new ApiFailure(ApiFailureKind.Message, GetMessage(problem))
         };
@@ -75,6 +70,6 @@ public static class ApiFailureClassifier
     {
         if (!string.IsNullOrWhiteSpace(problem.Detail)) return problem.Detail;
         if (!string.IsNullOrWhiteSpace(problem.Title)) return problem.Title;
-        return problem.StatusCode is { } statusCode ? $"The request failed with status {statusCode}." : TransportFailureMessage;
+        return problem.StatusCode is { } statusCode ? string.Format(CultureInfo.CurrentCulture, CommonStrings.RequestFailedWithStatus, statusCode) : CommonStrings.TransportFailure;
     }
 }

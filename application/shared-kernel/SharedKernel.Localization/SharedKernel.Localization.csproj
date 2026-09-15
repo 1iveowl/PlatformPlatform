@@ -1,0 +1,50 @@
+<!--
+    Platform-neutral localization resources shared by every client (the Blazor host and WebAssembly client today, a native
+    client later): the supported cultures, the culture selection order, and the user-visible strings in en-US (the neutral
+    resource files) and da-DK. Each resource file generates a public strongly typed class at build, so components never
+    type a resource key as a string.
+    Nothing here may depend on a web host, a UI framework or a package; the dependency-boundary architecture test in
+    account/Tests/ArchitectureTests fails when a resolved reference crosses that line.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Library</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyName>SharedKernel.Localization</AssemblyName>
+        <RootNamespace>SharedKernel.Localization</RootNamespace>
+        <!-- The neutral resources are the en-US strings, so an en-US lookup never loads a satellite assembly -->
+        <NeutralLanguage>en-US</NeutralLanguage>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Inherited server-only global usings that a portable assembly must not depend on -->
+        <Using Remove="JetBrains.Annotations"/>
+        <Using Remove="MediatR"/>
+        <Using Remove="Microsoft.Extensions.Logging"/>
+        <Using Remove="SharedKernel.StronglyTypedIds"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Update="Resources\*.resx">
+            <StronglyTypedLanguage>CSharp</StronglyTypedLanguage>
+            <StronglyTypedNamespace>SharedKernel.Localization</StronglyTypedNamespace>
+            <StronglyTypedManifestPrefix>SharedKernel.Localization.Resources</StronglyTypedManifestPrefix>
+            <StronglyTypedClassName>%(Filename)</StronglyTypedClassName>
+            <StronglyTypedFileName>$(IntermediateOutputPath)%(Filename).Designer.cs</StronglyTypedFileName>
+            <PublicClass>true</PublicClass>
+        </EmbeddedResource>
+        <!-- Culture files only add a satellite assembly; the neutral file's class reads them through its ResourceManager -->
+        <EmbeddedResource Update="Resources\*.da-DK.resx">
+            <StronglyTypedLanguage></StronglyTypedLanguage>
+            <StronglyTypedNamespace></StronglyTypedNamespace>
+            <StronglyTypedManifestPrefix></StronglyTypedManifestPrefix>
+            <StronglyTypedClassName></StronglyTypedClassName>
+            <StronglyTypedFileName></StronglyTypedFileName>
+            <PublicClass></PublicClass>
+        </EmbeddedResource>
+    </ItemGroup>
+
+</Project>

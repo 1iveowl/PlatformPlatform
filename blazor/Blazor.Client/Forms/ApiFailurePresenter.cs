@@ -11,9 +11,6 @@ namespace Blazor.Client.Forms;
 
 public sealed class ApiFailurePresenter(ToastService toastService, NavigationManager navigationManager)
 {
-    // English UI string, to be moved to resources by the localization task
-    public const string ErrorToastTitle = "Something went wrong";
-
     public const string ErrorToastTestId = "api-failure-toast";
     public const string AntiforgeryToastTestId = "antiforgery-recovery-toast";
 
@@ -37,13 +34,13 @@ public sealed class ApiFailurePresenter(ToastService toastService, NavigationMan
                 break;
             case ApiFailureKind.FieldValidation:
                 // No form to place the field errors on: every message is kept, in one toast
-                toastService.Show(ToastKind.Error, ErrorToastTitle, string.Join(" ", problem.Errors.Values.SelectMany(messages => messages)), ErrorToastTestId);
+                toastService.Show(ToastKind.Error, CommonStrings.SomethingWentWrong, string.Join(" ", problem.Errors.Values.SelectMany(messages => messages)), ErrorToastTestId);
                 break;
             case ApiFailureKind.Message:
-                toastService.Show(ToastKind.Error, ErrorToastTitle, failure.Message, ErrorToastTestId);
+                toastService.Show(ToastKind.Error, CommonStrings.SomethingWentWrong, failure.Message, ErrorToastTestId);
                 break;
             case ApiFailureKind.AntiforgeryRecovery:
-                toastService.Show(ToastKind.Warning, failure.Message!, null, AntiforgeryToastTestId, ApiFailureClassifier.ReloadPageActionLabel, ReloadPage);
+                toastService.Show(ToastKind.Warning, failure.Message!, null, AntiforgeryToastTestId, CommonStrings.ReloadPage, ReloadPage);
                 break;
             case ApiFailureKind.Suppressed:
                 break;

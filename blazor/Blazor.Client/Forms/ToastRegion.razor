@@ -4,7 +4,7 @@
 @implements IDisposable
 @inject ToastService Toasts
 
-<section class="toast-region" aria-label="Notifications" aria-live="assertive" data-testid="toast-region">
+<section class="toast-region" aria-label="@CommonStrings.Notifications" aria-live="assertive" data-testid="toast-region">
     @foreach (var toast in Toasts.Toasts)
     {
         <div @key="toast.Id" role="alert" class="toast @(toast.Kind == ToastKind.Error ? "toast-error" : "toast-warning")" data-testid="@toast.TestId">
@@ -20,16 +20,13 @@
                 {
                     <button type="button" class="toast-action" data-testid="toast-action" @onclick="() => toast.OnAction?.Invoke()">@toast.ActionLabel</button>
                 }
-                <button type="button" class="toast-dismiss" aria-label="@DismissLabel" data-testid="toast-dismiss" @onclick="() => Toasts.Dismiss(toast.Id)">×</button>
+                <button type="button" class="toast-dismiss" aria-label="@CommonStrings.DismissNotification" data-testid="toast-dismiss" @onclick="() => Toasts.Dismiss(toast.Id)">×</button>
             </div>
         </div>
     }
 </section>
 
 @code {
-
-    // English UI string, to be moved to resources by the localization task
-    public const string DismissLabel = "Dismiss notification";
 
     protected override void OnInitialized()
     {

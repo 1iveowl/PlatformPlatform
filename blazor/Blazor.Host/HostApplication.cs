@@ -8,13 +8,16 @@ using Account.Client;
 using Blazor.Client;
 using Blazor.Client.Bootstrap;
 using Blazor.Client.Forms;
+using Blazor.Client.Localization;
 using Blazor.Host.Account;
 using Blazor.Host.Components;
 using Blazor.Host.Shell;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 using SharedKernel.Authentication.TokenSigning;
 using SharedKernel.Configuration;
+using SharedKernel.Localization;
 using _Imports = Blazor.Client._Imports;
 using IPNetwork = System.Net.IPNetwork;
 
@@ -35,7 +38,8 @@ public static class HostApplication
         builder.Services.AddRazorComponents().AddInteractiveWebAssemblyComponents();
 
         // Prerendering runs client components on the server, so the server registers the same component services as the client
-        builder.Services.AddFluentUIComponents();
+        builder.Services.AddLocalization();
+        builder.Services.AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer());
 
         builder.Services.AddSingleton<HostShell>();
         builder.Services.AddHttpContextAccessor();
@@ -110,6 +114,8 @@ public static class HostApplication
         app.Use(hostShell.ApplyPageHeadersAsync);
 
         app.UseAuthentication();
+        // After authentication, so a signed-in user's locale claim decides; the culture is set for this request only
+        app.UseRequestLocalization(CreateRequestLocalizationOptions());
         app.UseAuthorization();
         app.UseAntiforgery();
 
@@ -153,6 +159,20 @@ public static class HostApplication
         options.KnownIPNetworks.Add(new IPNetwork(IPAddress.IPv6Loopback, 128));
         options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("100.64.0.0"), 10));
         options.KnownProxies.Clear();
+        return options;
+    }
+
+    // The platform's selection order in HostShell.GetLocale is the only provider, so the query string, the culture cookie and
+    // the framework's own Accept-Language matching never pick a culture
+    public static RequestLocalizationOptions CreateRequestLocalizationOptions()
+    {
+        var options = new RequestLocalizationOptions()
+            .AddSupportedCultures(SupportedCultures.Locales)
+            .AddSupportedUICultures(SupportedCultures.Locales)
+            .SetDefaultCulture(SupportedCultures.DefaultLocale);
+        options.RequestCultureProviders.Clear();
+        options.RequestCultureProviders.Add(new CustomRequestCultureProvider(context => Task.FromResult<ProviderCultureResult?>(new ProviderCultureResult(HostShell.GetLocale(context))))
+        );
         return options;
     }
 

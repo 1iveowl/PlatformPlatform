@@ -1,7 +1,8 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.Encodings.Web;
 using Blazor.Client.Development;
-using Blazor.Client.Forms;
 using Blazor.Host;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Localization;
 
 namespace Blazor.Tests.Account;
 
@@ -62,7 +64,7 @@ public sealed partial class HostSecurityTests
     [Theory]
     [InlineData(FormErrorScenarios.Detail, FormErrorScenarios.ConflictDetail)]
     [InlineData(FormErrorScenarios.TitleFallback, FormErrorScenarios.ConflictTitle)]
-    [InlineData(FormErrorScenarios.TransportFailure, ApiFailureClassifier.TransportFailureMessage)]
+    [InlineData(FormErrorScenarios.TransportFailure, "Serveren kunne ikke nås. Tjek din forbindelse, og prøv igen.")]
     public async Task StaticFixturePost_WhenFailureIsNotValidation_ShouldRenderDetailThenTitleAsFormMessage(string scenario, string expectedMessage)
     {
         // Act
@@ -80,9 +82,9 @@ public sealed partial class HostSecurityTests
         var html = await PostStaticFixtureAsync(FormErrorScenarios.Antiforgery);
 
         // Assert
-        html.Should().Contain(FormMessage(ApiFailureClassifier.AntiforgeryRecoveryMessage));
+        html.Should().Contain(FormMessage(DanishText(nameof(CommonStrings.AntiforgeryRecovery))));
         html.Should().NotContain("The antiforgery token was not accepted.");
-        html.Should().Contain($"<a href=\"/{StaticFixturePath}\" data-enhance-nav=\"false\" data-testid=\"form-error-reload\">{ApiFailureClassifier.ReloadPageActionLabel}</a>");
+        html.Should().Contain($"<a href=\"/{StaticFixturePath}\" data-enhance-nav=\"false\" data-testid=\"form-error-reload\">{HtmlEncoder.Default.Encode(DanishText(nameof(CommonStrings.ReloadPage)))}</a>");
     }
 
     [Fact]
@@ -205,7 +207,7 @@ public sealed partial class HostSecurityTests
 
     private static string FormMessage(string message)
     {
-        return $"<p data-testid=\"form-error-message\">{message}</p>";
+        return $"<p data-testid=\"form-error-message\">{HtmlEncoder.Default.Encode(message)}</p>";
     }
 
     private static HttpClient CreateHostClient(WebApplication host)
@@ -215,5 +217,11 @@ public sealed partial class HostSecurityTests
         client.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
         client.DefaultRequestHeaders.Add("X-Forwarded-Host", HostFixture.PublicHost);
         return client;
+    }
+
+    // The fixture posts in a Danish UI culture, so the page's own texts are the da-DK resources while API messages stay English
+    private static string DanishText(string key)
+    {
+        return CommonStrings.ResourceManager.GetString(key, CultureInfo.GetCultureInfo("da-DK"))!;
     }
 }

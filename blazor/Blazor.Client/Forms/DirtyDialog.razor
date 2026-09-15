@@ -7,7 +7,7 @@
 <ModalDialog Open="Open" TitleId="@_titleId" ClosesOnBackdrop OnDismissRequested="RequestCloseAsync" TestId="@TestId">
     <div class="modal-dialog-header">
         <h2 id="@_titleId" class="modal-dialog-title">@Title</h2>
-        <button type="button" class="modal-dialog-close" aria-label="@CloseLabel" data-testid="dialog-close" @onclick="RequestCloseAsync">×</button>
+        <button type="button" class="modal-dialog-close" aria-label="@CommonStrings.Close" data-testid="dialog-close" @onclick="RequestCloseAsync">×</button>
     </div>
     @ChildContent
 </ModalDialog>
@@ -15,9 +15,6 @@
 <UnsavedChangesGuard @ref="_guard" HasUnsavedChanges="Open && HasUnsavedChanges"/>
 
 @code {
-
-    // English UI string, to be moved to resources by the localization task
-    public const string CloseLabel = "Close";
 
     private readonly string _titleId = $"dirty-dialog-{Guid.NewGuid():N}-title";
     private UnsavedChangesGuard _guard = null!;

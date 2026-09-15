@@ -9,8 +9,7 @@ namespace Account.Tests.ArchitectureTests;
 // The contracts and client assemblies are compiled into the Blazor WebAssembly client and a future native client, so
 // they must never pull in a web host, a UI framework or a server dependency. The compiler drops a reference that no
 // type uses, so the check reads what restore resolved (declared packages, framework references and the full transitive
-// package and project graph) as well as the references compiled into the assembly. A localization assembly added for
-// the clients joins PortableProjects.
+// package and project graph) as well as the references compiled into the assembly.
 public sealed class PortableAssemblyDependencyTests
 {
     private static readonly string[] ForbiddenDependencyPrefixes =
@@ -29,7 +28,8 @@ public sealed class PortableAssemblyDependencyTests
     {
         { "shared-kernel/SharedKernel.Contracts", "SharedKernel.Contracts" },
         { "account/Contracts", "Account.Contracts" },
-        { "account/Client", "Account.Client" }
+        { "account/Client", "Account.Client" },
+        { "shared-kernel/SharedKernel.Localization", "SharedKernel.Localization" }
     };
 
     [Theory]

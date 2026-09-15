@@ -3,6 +3,7 @@ using Account.Client;
 using Blazor.Client.Forms;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components.Forms;
+using SharedKernel.Localization;
 
 namespace Blazor.Tests.Client;
 
@@ -28,7 +29,7 @@ public sealed class ApiFailurePresenterTests
         failure.Kind.Should().Be(ApiFailureKind.Message);
         var toast = _toasts.Toasts.Should().ContainSingle().Subject;
         toast.Kind.Should().Be(ToastKind.Error);
-        toast.Title.Should().Be(ApiFailurePresenter.ErrorToastTitle);
+        toast.Title.Should().Be(CommonStrings.SomethingWentWrong);
         toast.Message.Should().Be("The user was changed by someone else.");
         toast.TestId.Should().Be(ApiFailurePresenter.ErrorToastTestId);
         toast.ActionLabel.Should().BeNull();
@@ -76,8 +77,8 @@ public sealed class ApiFailurePresenterTests
         // Assert
         var toast = _toasts.Toasts.Should().ContainSingle().Subject;
         toast.Kind.Should().Be(ToastKind.Warning);
-        toast.Title.Should().Be(ApiFailureClassifier.AntiforgeryRecoveryMessage);
-        toast.ActionLabel.Should().Be(ApiFailureClassifier.ReloadPageActionLabel);
+        toast.Title.Should().Be(CommonStrings.AntiforgeryRecovery);
+        toast.ActionLabel.Should().Be(CommonStrings.ReloadPage);
         toast.TestId.Should().Be(ApiFailurePresenter.AntiforgeryToastTestId);
         _navigation.Navigations.Should().BeEmpty();
 

@@ -9,32 +9,35 @@
 @inject IBootstrapSource BootstrapSource
 @inject IServiceProvider Services
 
-<h1>@(Page == "details" ? "Account details" : "Your workspace")</h1>
+<h1>@(Page == "details" ? AccountStrings.AccountDetails : AccountStrings.YourWorkspace)</h1>
 
 <nav>
-    <a href="@AppUrls.AuthenticatedHome" data-testid="nav-app">Workspace</a> |
-    <a href="@AppUrls.ToAbsolute("app/details")" data-testid="nav-details">Details</a> |
-    <a href="@AppUrls.ToAbsolute("legal/terms")" data-enhance-nav="false" data-testid="nav-terms">Terms</a>
+    <a href="@AppUrls.AuthenticatedHome" data-testid="nav-app">@AccountStrings.Workspace</a> |
+    <a href="@AppUrls.ToAbsolute("app/details")" data-testid="nav-details">@AccountStrings.Details</a> |
+    <a href="@AppUrls.ToAbsolute("legal/terms")" data-enhance-nav="false" data-testid="nav-terms">@CommonStrings.Terms</a>
 </nav>
 
-<p data-testid="render-mode">Interactive: @RendererInfo.IsInteractive</p>
+<p data-testid="render-mode">@string.Format(CultureInfo.InvariantCulture, AccountStrings.InteractiveState, RendererInfo.IsInteractive)</p>
+
+@* A fixed number and date in the page culture, so prerendered and interactive formatting can be compared *@
+<p data-testid="culture-format">@AccountStrings.NumberAndDateFormat: @SampleNumber.ToString("N2", CultureInfo.CurrentCulture) @SampleDate.ToString("d", CultureInfo.CurrentCulture)</p>
 
 @if (_bootstrap is { } bootstrap)
 {
     <dl>
-        <dt>Authenticated</dt>
+        <dt>@AccountStrings.Authenticated</dt>
         <dd data-testid="bootstrap-authenticated">@bootstrap.IsAuthenticated</dd>
-        <dt>Email</dt>
+        <dt>@CommonStrings.Email</dt>
         <dd data-testid="bootstrap-email">@bootstrap.User?.Email</dd>
-        <dt>Tenant</dt>
+        <dt>@AccountStrings.Account</dt>
         <dd data-testid="bootstrap-tenant-id">@bootstrap.User?.TenantId</dd>
-        <dt>Tenant name</dt>
+        <dt>@CommonStrings.AccountName</dt>
         <dd data-testid="bootstrap-tenant-name">@bootstrap.User?.TenantName</dd>
-        <dt>Locale</dt>
+        <dt>@AccountStrings.Language</dt>
         <dd data-testid="bootstrap-locale">@bootstrap.Locale</dd>
-        <dt>System feature flags</dt>
+        <dt>@AccountStrings.SystemFeatureFlags</dt>
         <dd data-testid="bootstrap-flags">@string.Join(", ", bootstrap.SystemFeatureFlags.Select(flag => $"{flag.Key}={flag.Value}"))</dd>
-        <dt>Runtime configuration keys</dt>
+        <dt>@AccountStrings.RuntimeConfigurationKeys</dt>
         <dd data-testid="bootstrap-runtime-keys">@string.Join(", ", bootstrap.RuntimeConfiguration.Keys)</dd>
     </dl>
 }
@@ -42,8 +45,8 @@
 @if (RendererInfo.IsInteractive)
 {
     <p>
-        <button type="button" data-testid="reload-bootstrap" @onclick="ReloadBootstrapAsync">Reload bootstrap</button>
-        <button type="button" data-testid="logout" @onclick="LogoutAsync">Log out</button>
+        <button type="button" data-testid="reload-bootstrap" @onclick="ReloadBootstrapAsync">@AccountStrings.ReloadBootstrap</button>
+        <button type="button" data-testid="logout" @onclick="LogoutAsync">@AccountStrings.LogOut</button>
     </p>
 
     @if (Page != "details")
@@ -54,7 +57,7 @@
                 <li>
                     <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.Id" disabled="@(tenant.Id == _bootstrap?.User?.TenantId)"
                             @onclick="() => SwitchTenantAsync(tenant.Id)">
-                        Switch to @(tenant.Name ?? tenant.Id.ToString())
+                        @string.Format(CultureInfo.CurrentCulture, AccountStrings.SwitchTo, tenant.Name ?? tenant.Id.ToString())
                     </button>
                 </li>
             }
@@ -65,6 +68,9 @@
 }
 
 @code {
+
+    private const double SampleNumber = 1234567.891;
+    private static readonly DateTime SampleDate = new(2026, 9, 15);
 
     private BootstrapResponse? _bootstrap;
     private string _status = "";
@@ -90,7 +96,7 @@
     private async Task ReloadBootstrapAsync()
     {
         _bootstrap = await BootstrapSource.GetAsync();
-        _status = $"Bootstrap reloaded at {DateTime.UtcNow:O}";
+        _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.BootstrapReloaded, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
         if (!_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
     }
 
@@ -110,7 +116,7 @@
         var result = await GetService<AuthenticationClient>().SwitchTenantAsync(new SwitchTenantCommand(tenantId), CancellationToken.None);
         if (!result.IsSuccess)
         {
-            _status = $"Switch tenant failed with {result.Problem.StatusCode}";
+            _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.SwitchAccountFailed, result.Problem.StatusCode);
             return;
         }
 

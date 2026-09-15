@@ -10,6 +10,7 @@ using System.Text.Json;
 using Blazor.Client;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
+using SharedKernel.Localization;
 
 namespace Blazor.Host.Shell;
 
@@ -45,10 +46,8 @@ public sealed class HostShell
     public const string AntiforgeryCookieName = "__Host-xsrf-token";
     public const string AntiforgeryHeaderName = "x-xsrf-token";
 
-    private const string DefaultLocale = "en-US";
     private const string NonceItemKey = "csp-nonce";
     private const int NonceByteCount = 16;
-    private static readonly string[] SupportedLocalizations = ["en-US", "da-DK"];
 
     private readonly ConditionalWeakTable<ImportMapDefinition, ImportMapDefinition> _absoluteImportMaps = new();
     private readonly string _trustedHosts;
@@ -137,23 +136,14 @@ public sealed class HostShell
         return string.Join(";", directives);
     }
 
-    // The locale claim for a signed-in user; for an anonymous visitor the best supported Accept-Language entry
+    // The locale claim for a signed-in user; for an anonymous visitor the best supported Accept-Language entry. Request
+    // localization sets the request culture from this value, so rendering and the API calls of the request use the same one.
     public static string GetLocale(HttpContext context)
     {
-        var claimLocale = context.User.FindFirstValue("locale");
-        if (!string.IsNullOrEmpty(claimLocale)) return ToSupportedLocale(claimLocale) ?? DefaultLocale;
-
-        var acceptLanguages = context.Request.GetTypedHeaders().AcceptLanguage.OrderByDescending(language => language.Quality ?? 1);
-        return acceptLanguages.Select(language => ToSupportedLocale(language.Value.ToString())).FirstOrDefault(locale => locale is not null) ?? DefaultLocale;
-    }
-
-    private static string? ToSupportedLocale(string locale)
-    {
-        if (locale.Length < 2) return null;
-        if (SupportedLocalizations.Contains(locale, StringComparer.OrdinalIgnoreCase)) return SupportedLocalizations.First(l => l.Equals(locale, StringComparison.OrdinalIgnoreCase));
-
-        var baseLanguageCode = locale[..2];
-        return SupportedLocalizations.FirstOrDefault(l => l.StartsWith(baseLanguageCode, StringComparison.OrdinalIgnoreCase));
+        var acceptLanguages = context.Request.GetTypedHeaders().AcceptLanguage
+            .OrderByDescending(language => language.Quality ?? 1)
+            .Select(language => language.Value.ToString());
+        return SupportedCultures.SelectLocale(context.User.FindFirstValue("locale"), acceptLanguages);
     }
 
     // Relative ("./") specifiers and targets become root-absolute; bare specifiers such as "_framework/resource-collection.js"

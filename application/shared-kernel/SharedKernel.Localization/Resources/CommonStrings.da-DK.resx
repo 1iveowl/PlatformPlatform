@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AccountName" xml:space="preserve">
+        <value>Kontonavn</value>
+    </data>
+    <data name="AccountSettings" xml:space="preserve">
+        <value>Kontoindstillinger</value>
+    </data>
+    <data name="AccountUnavailableTitle" xml:space="preserve">
+        <value>Kontoen er ikke længere tilgængelig</value>
+    </data>
+    <data name="AntiforgeryRecovery" xml:space="preserve">
+        <value>Siden er udløbet. Genindlæs siden, og prøv igen.</value>
+    </data>
+    <data name="Cancel" xml:space="preserve">
+        <value>Annuller</value>
+    </data>
+    <data name="Close" xml:space="preserve">
+        <value>Luk</value>
+    </data>
+    <data name="Continue" xml:space="preserve">
+        <value>Fortsæt</value>
+    </data>
+    <data name="DataListActions" xml:space="preserve">
+        <value>Handlinger</value>
+    </data>
+    <data name="DataListEmpty" xml:space="preserve">
+        <value>Ingen elementer fundet.</value>
+    </data>
+    <data name="DataListLoading" xml:space="preserve">
+        <value>Indlæser</value>
+    </data>
+    <data name="DismissNotification" xml:space="preserve">
+        <value>Luk notifikationen</value>
+    </data>
+    <data name="Email" xml:space="preserve">
+        <value>E-mail</value>
+    </data>
+    <data name="EmailAddressInvalid" xml:space="preserve">
+        <value>Indtast en gyldig e-mailadresse.</value>
+    </data>
+    <data name="EmailAddressRequired" xml:space="preserve">
+        <value>E-mailadresse påkrævet</value>
+    </data>
+    <data name="EmailAddressTooLong" xml:space="preserve">
+        <value>E-mailadressen må højst være på {1} tegn.</value>
+    </data>
+    <data name="EnterYourVerificationCode" xml:space="preserve">
+        <value>Indtast din bekræftelseskode</value>
+    </data>
+    <data name="ImageTooLarge" xml:space="preserve">
+        <value>Billedet skal være mindre end 1 MB.</value>
+    </data>
+    <data name="ImageTypeNotSupported" xml:space="preserve">
+        <value>Vælg et JPEG-, PNG-, GIF- eller WebP-billede.</value>
+    </data>
+    <data name="InvalidResponse" xml:space="preserve">
+        <value>Serveren returnerede et uventet svar. Prøv igen.</value>
+    </data>
+    <data name="Leave" xml:space="preserve">
+        <value>Forlad</value>
+    </data>
+    <data name="Loading" xml:space="preserve">
+        <value>Indlæser...</value>
+    </data>
+    <data name="LogIn" xml:space="preserve">
+        <value>Log ind</value>
+    </data>
+    <data name="Logo" xml:space="preserve">
+        <value>Logo</value>
+    </data>
+    <data name="Next" xml:space="preserve">
+        <value>Næste</value>
+    </data>
+    <data name="NextPage" xml:space="preserve">
+        <value>Næste side</value>
+    </data>
+    <data name="Notifications" xml:space="preserve">
+        <value>Notifikationer</value>
+    </data>
+    <data name="Ok" xml:space="preserve">
+        <value>OK</value>
+    </data>
+    <data name="PageNotFound" xml:space="preserve">
+        <value>Siden blev ikke fundet</value>
+    </data>
+    <data name="PageNotFoundMessage" xml:space="preserve">
+        <value>Beklager, det indhold, du leder efter, findes ikke.</value>
+    </data>
+    <data name="PageOf" xml:space="preserve">
+        <value>Side {0} af {1}</value>
+    </data>
+    <data name="Pagination" xml:space="preserve">
+        <value>Paginering</value>
+    </data>
+    <data name="Previous" xml:space="preserve">
+        <value>Forrige</value>
+    </data>
+    <data name="PreviousPage" xml:space="preserve">
+        <value>Forrige side</value>
+    </data>
+    <data name="PrivacyPolicies" xml:space="preserve">
+        <value>Fortrolighedspolitikker</value>
+    </data>
+    <data name="Reload" xml:space="preserve">
+        <value>Genindlæs</value>
+    </data>
+    <data name="ReloadPage" xml:space="preserve">
+        <value>Genindlæs siden</value>
+    </data>
+    <data name="RequestFailedTitle" xml:space="preserve">
+        <value>Der opstod en fejl under behandlingen af din anmodning.</value>
+    </data>
+    <data name="RequestFailedWithStatus" xml:space="preserve">
+        <value>Anmodningen mislykkedes med status {0}.</value>
+    </data>
+    <data name="RequestId" xml:space="preserve">
+        <value>Anmodnings-id:</value>
+    </data>
+    <data name="SaveChanges" xml:space="preserve">
+        <value>Gem ændringer</value>
+    </data>
+    <data name="Saving" xml:space="preserve">
+        <value>Gemmer...</value>
+    </data>
+    <data name="Search" xml:space="preserve">
+        <value>Søg</value>
+    </data>
+    <data name="SelectAllRowsOnPage" xml:space="preserve">
+        <value>Vælg alle rækker på denne side</value>
+    </data>
+    <data name="SelectRow" xml:space="preserve">
+        <value>Vælg {0}</value>
+    </data>
+    <data name="SessionEndedTitle" xml:space="preserve">
+        <value>Din session er afsluttet</value>
+    </data>
+    <data name="SessionNotFoundMessage" xml:space="preserve">
+        <value>Din session blev ikke fundet. Log ind igen for at fortsætte.</value>
+    </data>
+    <data name="SessionRevokedMessage" xml:space="preserve">
+        <value>Du blev logget ud, fordi denne session blev tilbagekaldt. Log ind igen for at fortsætte.</value>
+    </data>
+    <data name="SignUp" xml:space="preserve">
+        <value>Tilmeld dig</value>
+    </data>
+    <data name="SomethingWentWrong" xml:space="preserve">
+        <value>Noget gik galt</value>
+    </data>
+    <data name="SortedAscending" xml:space="preserve">
+        <value>sorteret stigende</value>
+    </data>
+    <data name="SortedDescending" xml:space="preserve">
+        <value>sorteret faldende</value>
+    </data>
+    <data name="Stay" xml:space="preserve">
+        <value>Bliv</value>
+    </data>
+    <data name="TenantDeletedMessage" xml:space="preserve">
+        <value>Den konto, du var logget ind på, er blevet slettet.</value>
+    </data>
+    <data name="Terms" xml:space="preserve">
+        <value>Vilkår</value>
+    </data>
+    <data name="TermsOfUse" xml:space="preserve">
+        <value>Brugsvilkår</value>
+    </data>
+    <data name="TotalCount" xml:space="preserve">
+        <value>{0} i alt</value>
+    </data>
+    <data name="TransportFailure" xml:space="preserve">
+        <value>Serveren kunne ikke nås. Tjek din forbindelse, og prøv igen.</value>
+    </data>
+    <data name="TryAgain" xml:space="preserve">
+        <value>Prøv igen</value>
+    </data>
+    <data name="UnhandledError" xml:space="preserve">
+        <value>Der opstod en uventet fejl.</value>
+    </data>
+    <data name="UnsavedChanges" xml:space="preserve">
+        <value>Ugemte ændringer</value>
+    </data>
+    <data name="UnsavedChangesMessage" xml:space="preserve">
+        <value>Du har ugemte ændringer. Hvis du forlader nu, vil dine ændringer gå tabt.</value>
+    </data>
+    <data name="UserProfile" xml:space="preserve">
+        <value>Brugerprofil</value>
+    </data>
+    <data name="Users" xml:space="preserve">
+        <value>Brugere</value>
+    </data>
+    <data name="VerificationCodeLength" xml:space="preserve">
+        <value>Bekræftelseskoden skal være på {1} tegn.</value>
+    </data>
+</root>

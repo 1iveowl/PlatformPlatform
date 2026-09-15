@@ -1,13 +1,16 @@
 using Blazor.Client.Bootstrap;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
+using Blazor.Client.Localization;
 using Blazor.Client.Users;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-builder.Services.AddFluentUIComponents();
+builder.Services.AddLocalization();
+builder.Services.AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer());
 
 builder.Services.AddAccountApiClients(new Uri(builder.HostEnvironment.BaseAddress), () => new HttpClientHandler());
 
@@ -19,4 +22,9 @@ builder.Services.AddScoped<UsersApiClient>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<ApiFailurePresenter>();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+
+// Before RunAsync, which loads the satellite resources of the current culture and renders the root components
+ClientCulture.Apply((IJSInProcessRuntime)host.Services.GetRequiredService<IJSRuntime>());
+
+await host.RunAsync();

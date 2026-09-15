@@ -26,8 +26,8 @@
                    aria-busy="@(_controller.Status == DataListStatus.Loading ? "true" : "false")">
             @if (SelectionMode == DataListSelectionMode.Multiple)
             {
-                <TemplateColumn TGridItem="TItem" Title="@DataListText.SelectAll" Class="data-list-select" HeaderTemplate="SelectAllHeader">
-                    <input type="checkbox" tabindex="-1" data-list-select aria-label="@DataListText.Format(DataListText.SelectRow, RowLabel?.Invoke(context) ?? KeySelector(context))"
+                <TemplateColumn TGridItem="TItem" Title="@CommonStrings.SelectAllRowsOnPage" Class="data-list-select" HeaderTemplate="SelectAllHeader">
+                    <input type="checkbox" tabindex="-1" data-list-select aria-label="@string.Format(CultureInfo.CurrentCulture, CommonStrings.SelectRow, RowLabel?.Invoke(context) ?? KeySelector(context))"
                            checked="@_controller.Selection.Keys.Contains(KeySelector(context))" @onchange="() => ToggleItemAsync(context)"/>
                 </TemplateColumn>
             }
@@ -38,13 +38,13 @@
             }
             @if (RowMenu is not null)
             {
-                <TemplateColumn TGridItem="TItem" Title="@DataListText.Actions" Class="data-list-menu" ChildContent="RowMenu"/>
+                <TemplateColumn TGridItem="TItem" Title="@CommonStrings.DataListActions" Class="data-list-menu" ChildContent="RowMenu"/>
             }
         </QuickGrid>
     </div>
     @if (_controller is { Status: DataListStatus.Loading, Items.Count: 0 })
     {
-        <p class="data-list-loading" data-list-loading>@DataListText.Loading</p>
+        <p class="data-list-loading" data-list-loading>@CommonStrings.DataListLoading</p>
     }
     @if (_controller.Status == DataListStatus.Empty)
     {
@@ -55,7 +55,7 @@
             }
             else
             {
-                @DataListText.Empty
+                @CommonStrings.DataListEmpty
             }
         </div>
     }
@@ -163,7 +163,7 @@
     private DataListHeaderSelection HeaderSelection => _controller.Selection.GetHeaderSelection(_controller.PageKeys);
 
     private RenderFragment<ColumnBase<TItem>> SelectAllHeader => _ =>
-        @<input type="checkbox" data-list-select-all aria-label="@DataListText.SelectAll" checked="@(HeaderSelection == DataListHeaderSelection.All)"
+        @<input type="checkbox" data-list-select-all aria-label="@CommonStrings.SelectAllRowsOnPage" checked="@(HeaderSelection == DataListHeaderSelection.All)"
                 disabled="@(_controller.Items.Count == 0)" @onchange="ToggleAllAsync"/>;
 
     protected override void OnInitialized()
@@ -290,7 +290,7 @@
     private RenderFragment<ColumnBase<TItem>> SortHeader(DataListColumn<TItem> column)
     {
         var isSorted = column.SortKey == _controller.State.OrderBy;
-        var sortState = !isSorted ? "" : _controller.State.SortOrder == SortOrder.Ascending ? DataListText.SortedAscending : DataListText.SortedDescending;
+        var sortState = !isSorted ? "" : _controller.State.SortOrder == SortOrder.Ascending ? CommonStrings.SortedAscending : CommonStrings.SortedDescending;
         return _ =>
             @<button type="button" class="data-list-sort" data-list-sort="@column.SortKey" @onclick="() => SortAsync(column.SortKey!)">
                 @column.Title<span class="data-list-visually-hidden">@(isSorted ? $", {sortState}" : "")</span><span class="data-list-sort-indicator" aria-hidden="true"></span>

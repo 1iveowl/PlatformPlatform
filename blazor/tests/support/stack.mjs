@@ -136,9 +136,10 @@ export async function readOneTimePassword(email, sentAfter) {
   throw new Error(`No mail to ${email} within ${mailTimeoutMs} ms.`);
 }
 
-// Signs up a new user through the Blazor public pages with the mailed code and returns the signed-in storage state
-export async function signUpThroughBlazor(browser, browserName, email) {
-  const context = await newContext(browser, browserName);
+// Signs up a new user through the Blazor public pages with the mailed code and returns the signed-in storage state. The
+// browser locale sets Accept-Language, which the signup stores as the user's locale.
+export async function signUpThroughBlazor(browser, browserName, email, locale = "en-US") {
+  const context = await newContext(browser, browserName, undefined, locale);
   const page = await context.newPage();
   await page.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
   await page.locator('[data-testid="email"]').fill(email);

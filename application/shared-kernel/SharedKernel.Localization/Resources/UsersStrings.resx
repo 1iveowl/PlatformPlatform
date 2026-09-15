@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AddYourAccountName" xml:space="preserve">
+        <value>Add your account name</value>
+        <comment>React: Add your account name</comment>
+    </data>
+    <data name="Admin" xml:space="preserve">
+        <value>Admin</value>
+        <comment>React: Admin</comment>
+    </data>
+    <data name="AdminDescription" xml:space="preserve">
+        <value>Full access except changing user roles and account settings</value>
+        <comment>React: Full access except changing user roles and account settings</comment>
+    </data>
+    <data name="AllUsers" xml:space="preserve">
+        <value>All users</value>
+        <comment>React: All users</comment>
+    </data>
+    <data name="AnyRole" xml:space="preserve">
+        <value>Any role</value>
+        <comment>React: Any role</comment>
+    </data>
+    <data name="AnyStatus" xml:space="preserve">
+        <value>Any status</value>
+        <comment>React: Any status</comment>
+    </data>
+    <data name="CannotChangeOwnRole" xml:space="preserve">
+        <value>You cannot change your own role</value>
+        <comment>React: You cannot change your own role</comment>
+    </data>
+    <data name="CannotDeleteYourself" xml:space="preserve">
+        <value>You cannot delete yourself</value>
+        <comment>React: You cannot delete yourself</comment>
+    </data>
+    <data name="ChangeRole" xml:space="preserve">
+        <value>Change role</value>
+        <comment>React: Change role</comment>
+    </data>
+    <data name="ChangeUserRole" xml:space="preserve">
+        <value>Change user role</value>
+        <comment>React: Change user role</comment>
+    </data>
+    <data name="ChangeUserRoleFor" xml:space="preserve">
+        <value>Change user role for {0}</value>
+        <comment>React: Change user role for {0}</comment>
+    </data>
+    <data name="Clear" xml:space="preserve">
+        <value>Clear</value>
+        <comment>React: Clear</comment>
+    </data>
+    <data name="ClearFilters" xml:space="preserve">
+        <value>Clear filters</value>
+        <comment>React: Clear filters</comment>
+    </data>
+    <data name="ClearSearch" xml:space="preserve">
+        <value>Clear search</value>
+        <comment>React: Clear search</comment>
+    </data>
+    <data name="CloseUserProfile" xml:space="preserve">
+        <value>Close user profile</value>
+        <comment>React: Close user profile</comment>
+    </data>
+    <data name="ConfirmDeleteCountUsers" xml:space="preserve">
+        <value>Are you sure you want to delete {0} users?</value>
+        <comment>React: Are you sure you want to delete &lt;0&gt;{0} users&lt;/0&gt;?</comment>
+    </data>
+    <data name="ConfirmDeleteUser" xml:space="preserve">
+        <value>Are you sure you want to delete {0}?</value>
+        <comment>React: Are you sure you want to delete &lt;0&gt;{userDisplayName}&lt;/0&gt;?</comment>
+    </data>
+    <data name="Created" xml:space="preserve">
+        <value>Created</value>
+        <comment>React: Created</comment>
+    </data>
+    <data name="Delete" xml:space="preserve">
+        <value>Delete</value>
+        <comment>React: Delete</comment>
+    </data>
+    <data name="DeleteCountUsers" xml:space="preserve">
+        <value>Delete {0} users</value>
+        <comment>React: Delete {0} users</comment>
+    </data>
+    <data name="DeleteUser" xml:space="preserve">
+        <value>Delete user</value>
+        <comment>React: Delete user</comment>
+    </data>
+    <data name="DeleteUsers" xml:space="preserve">
+        <value>Delete users</value>
+        <comment>React: Delete users</comment>
+    </data>
+    <data name="Filters" xml:space="preserve">
+        <value>Filters</value>
+        <comment>React: Filters</comment>
+    </data>
+    <data name="GoToAccountSettings" xml:space="preserve">
+        <value>Go to account settings</value>
+        <comment>React: Go to account settings</comment>
+    </data>
+    <data name="InviteEmailPlaceholder" xml:space="preserve">
+        <value>user@email.com</value>
+        <comment>React: user@email.com</comment>
+    </data>
+    <data name="InviteInstructions" xml:space="preserve">
+        <value>An email with login instructions will be sent to the user.</value>
+        <comment>React: An email with login instructions will be sent to the user.</comment>
+    </data>
+    <data name="InviteUser" xml:space="preserve">
+        <value>Invite user</value>
+        <comment>React: Invite user</comment>
+    </data>
+    <data name="LastSeen" xml:space="preserve">
+        <value>Last seen</value>
+        <comment>React: Last seen</comment>
+    </data>
+    <data name="ManageUsers" xml:space="preserve">
+        <value>Manage your users and permissions here.</value>
+        <comment>React: Manage your users and permissions here.</comment>
+    </data>
+    <data name="Member" xml:space="preserve">
+        <value>Member</value>
+        <comment>React: Member</comment>
+    </data>
+    <data name="MemberDescription" xml:space="preserve">
+        <value>Standard user access</value>
+        <comment>React: Standard user access</comment>
+    </data>
+    <data name="ModifiedDate" xml:space="preserve">
+        <value>Modified date</value>
+        <comment>React: Modified date</comment>
+    </data>
+    <data name="Name" xml:space="preserve">
+        <value>Name</value>
+        <comment>React: Name</comment>
+    </data>
+    <data name="NoUsersFound" xml:space="preserve">
+        <value>No users found</value>
+        <comment>React: No users found</comment>
+    </data>
+    <data name="OnlyOwnersCanChangeRoles" xml:space="preserve">
+        <value>Only owners can change user roles</value>
+        <comment>React: Only owners can change user roles</comment>
+    </data>
+    <data name="Owner" xml:space="preserve">
+        <value>Owner</value>
+        <comment>React: Owner</comment>
+    </data>
+    <data name="OwnerDescription" xml:space="preserve">
+        <value>Full access including user roles and account settings</value>
+        <comment>React: Full access including user roles and account settings</comment>
+    </data>
+    <data name="Pending" xml:space="preserve">
+        <value>Pending</value>
+        <comment>React: Pending</comment>
+    </data>
+    <data name="RecycleBin" xml:space="preserve">
+        <value>Recycle bin</value>
+        <comment>React: Recycle bin</comment>
+    </data>
+    <data name="Role" xml:space="preserve">
+        <value>Role</value>
+        <comment>React: Role</comment>
+    </data>
+    <data name="SelectAllUsers" xml:space="preserve">
+        <value>Select all users</value>
+        <comment>React: Select all users</comment>
+    </data>
+    <data name="SelectDates" xml:space="preserve">
+        <value>Select dates</value>
+        <comment>React: Select dates</comment>
+    </data>
+    <data name="SendInvite" xml:space="preserve">
+        <value>Send invite</value>
+        <comment>React: Send invite</comment>
+    </data>
+    <data name="Sending" xml:space="preserve">
+        <value>Sending...</value>
+        <comment>React: Sending...</comment>
+    </data>
+    <data name="ShowSearchFilters" xml:space="preserve">
+        <value>Show search filters</value>
+        <comment>React: Show search filters</comment>
+    </data>
+    <data name="TenantNameRequiredMessage" xml:space="preserve">
+        <value>Your team needs to know who's inviting them. Add an account name to get started.</value>
+        <comment>React: Your team needs to know who's inviting them. Add an account name to get started.</comment>
+    </data>
+    <data name="TenantNameRequiredTitle" xml:space="preserve">
+        <value>Help your team recognize your invites</value>
+        <comment>React: Help your team recognize your invites</comment>
+    </data>
+    <data name="TryAdjustingSearch" xml:space="preserve">
+        <value>Try adjusting your search or filters</value>
+        <comment>React: Try adjusting your search or filters</comment>
+    </data>
+    <data name="UserActions" xml:space="preserve">
+        <value>User actions</value>
+        <comment>React: User actions</comment>
+    </data>
+    <data name="UserDataUpdated" xml:space="preserve">
+        <value>User data updated</value>
+        <comment>React: User data updated</comment>
+    </data>
+    <data name="UserDeleted" xml:space="preserve">
+        <value>User deleted successfully: {0}</value>
+        <comment>React: User deleted successfully: {userDisplayName}</comment>
+    </data>
+    <data name="UserInvited" xml:space="preserve">
+        <value>User invited successfully</value>
+        <comment>React: User invited successfully</comment>
+    </data>
+    <data name="UserNotInCurrentView" xml:space="preserve">
+        <value>User not in current view</value>
+        <comment>React: User not in current view</comment>
+    </data>
+    <data name="UserRole" xml:space="preserve">
+        <value>User role</value>
+        <comment>React: User role</comment>
+    </data>
+    <data name="UserRoleUpdated" xml:space="preserve">
+        <value>User role updated successfully for {0}</value>
+        <comment>React: User role updated successfully for {userDisplayName}</comment>
+    </data>
+    <data name="UserStatus" xml:space="preserve">
+        <value>User status</value>
+        <comment>React: User status</comment>
+    </data>
+    <data name="UserTabs" xml:space="preserve">
+        <value>User tabs</value>
+        <comment>React: User tabs</comment>
+    </data>
+    <data name="UsersDeleted" xml:space="preserve">
+        <value>{0} users deleted successfully</value>
+        <comment>React: {0} users deleted successfully</comment>
+    </data>
+    <data name="UsersLoading" xml:space="preserve">
+        <value>Users loading</value>
+        <comment>React: Users loading</comment>
+    </data>
+    <data name="Verified" xml:space="preserve">
+        <value>Verified</value>
+        <comment>React: Verified</comment>
+    </data>
+    <data name="ViewProfile" xml:space="preserve">
+        <value>View profile</value>
+        <comment>React: View profile</comment>
+    </data>
+</root>

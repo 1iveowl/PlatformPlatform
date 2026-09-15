@@ -15,21 +15,15 @@
 @inject IJSRuntime JavaScriptRuntime
 
 <ModalDialog Open="_isAlertOpen" Role="alertdialog" TitleId="@TitleId" DescriptionId="@DescriptionId" OnDismissRequested="Stay" TestId="unsaved-changes-dialog">
-    <h2 id="@TitleId" class="modal-dialog-title">@Title</h2>
-    <p id="@DescriptionId">@Message</p>
+    <h2 id="@TitleId" class="modal-dialog-title">@CommonStrings.UnsavedChanges</h2>
+    <p id="@DescriptionId">@CommonStrings.UnsavedChangesMessage</p>
     <div class="modal-dialog-actions">
-        <button type="button" class="button-secondary" autofocus data-testid="unsaved-changes-stay" @onclick="Stay">@StayLabel</button>
-        <button type="button" class="button-destructive" data-testid="unsaved-changes-leave" @onclick="LeaveAsync">@LeaveLabel</button>
+        <button type="button" class="button-secondary" autofocus data-testid="unsaved-changes-stay" @onclick="Stay">@CommonStrings.Stay</button>
+        <button type="button" class="button-destructive" data-testid="unsaved-changes-leave" @onclick="LeaveAsync">@CommonStrings.Leave</button>
     </div>
 </ModalDialog>
 
 @code {
-
-    // English UI strings, to be moved to resources by the localization task
-    public const string Title = "Unsaved changes";
-    public const string Message = "You have unsaved changes. If you leave now, your changes will be lost.";
-    public const string StayLabel = "Stay";
-    public const string LeaveLabel = "Leave";
 
     private readonly string _idPrefix = $"unsaved-changes-{Guid.NewGuid():N}";
     private DotNetObjectReference<UnsavedChangesGuard>? _dotNet;

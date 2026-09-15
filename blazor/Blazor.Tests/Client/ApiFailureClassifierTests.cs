@@ -1,6 +1,7 @@
 using Account.Client;
 using Blazor.Client.Forms;
 using FluentAssertions;
+using SharedKernel.Localization;
 
 namespace Blazor.Tests.Client;
 
@@ -87,7 +88,7 @@ public sealed class ApiFailureClassifierTests
         var failure = ApiFailureClassifier.Classify(ApiCallOutcome.Failure, problem);
 
         // Assert
-        failure.Should().Be(new ApiFailure(ApiFailureKind.AntiforgeryRecovery, ApiFailureClassifier.AntiforgeryRecoveryMessage));
+        failure.Should().Be(new ApiFailure(ApiFailureKind.AntiforgeryRecovery, CommonStrings.AntiforgeryRecovery));
     }
 
     [Fact]
@@ -104,9 +105,9 @@ public sealed class ApiFailureClassifierTests
     }
 
     [Theory]
-    [InlineData(ApiCallOutcome.TransportFailure, ApiFailureClassifier.TransportFailureMessage)]
-    [InlineData(ApiCallOutcome.InvalidResponse, ApiFailureClassifier.InvalidResponseMessage)]
-    public void Classify_WhenNoProblemDetailsWereRead_ShouldUseDefinedMessage(ApiCallOutcome outcome, string expectedMessage)
+    [InlineData(ApiCallOutcome.TransportFailure, nameof(CommonStrings.TransportFailure))]
+    [InlineData(ApiCallOutcome.InvalidResponse, nameof(CommonStrings.InvalidResponse))]
+    public void Classify_WhenNoProblemDetailsWereRead_ShouldUseDefinedMessage(ApiCallOutcome outcome, string expectedMessageKey)
     {
         // Arrange
         var problem = new ApiCallProblem(outcome == ApiCallOutcome.InvalidResponse ? 200 : null, "OK", "Connection refused (127.0.0.1:5000)", NoErrors, null);
@@ -115,7 +116,7 @@ public sealed class ApiFailureClassifierTests
         var failure = ApiFailureClassifier.Classify(outcome, problem);
 
         // Assert
-        failure.Should().Be(new ApiFailure(ApiFailureKind.Message, expectedMessage));
+        failure.Should().Be(new ApiFailure(ApiFailureKind.Message, CommonStrings.ResourceManager.GetString(expectedMessageKey)));
     }
 
     [Fact]

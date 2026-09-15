@@ -6,20 +6,20 @@
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
-<PageTitle>Sign up</PageTitle>
+<PageTitle>@CommonStrings.SignUp</PageTitle>
 
 <PublicNav/>
 
-<h1>Sign up</h1>
+<h1>@AuthenticationStrings.CreateYourAccount</h1>
 
 <EditForm EditContext="_editContext" FormName="signup-start" OnValidSubmit="StartAsync" Enhance>
     <DataAnnotationsValidator/>
     <label>
-        Email
+        @CommonStrings.Email
         <InputText @bind-Value="Input.Email" type="email" autocomplete="email" data-testid="email"/>
     </label>
     <ValidationMessage For="() => Input.Email"/>
-    <button type="submit" data-testid="submit">Create account</button>
+    <button type="submit" data-testid="submit">@AuthenticationStrings.SignUpWithEmail</button>
 </EditForm>
 
 <FormErrorAlert Errors="_formErrors"/>

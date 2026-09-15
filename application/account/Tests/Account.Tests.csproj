@@ -14,6 +14,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Api\Account.Api.csproj"/>
         <ProjectReference Include="..\Client\Account.Client.csproj"/>
+        <ProjectReference Include="..\..\shared-kernel\SharedKernel.Localization\SharedKernel.Localization.csproj"/>
         <ProjectReference Include="..\Workers\Account.Workers.csproj">
             <Aliases>workers</Aliases>
         </ProjectReference>
