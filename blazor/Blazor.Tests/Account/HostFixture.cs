@@ -83,14 +83,14 @@ public sealed partial class HostFixture : IAsyncLifetime
         return client;
     }
 
-    public string CreateToken(string email, string? issuer = null, string? audience = null, SigningCredentials? signingCredentials = null, DateTime? expires = null, string? locale = null)
+    public string CreateToken(string email, string? issuer = null, string? audience = null, SigningCredentials? signingCredentials = null, DateTime? expires = null, string? locale = null, string? firstName = "Ann")
     {
         var now = DateTime.UtcNow;
         var descriptor = new SecurityTokenDescriptor
         {
             Issuer = issuer ?? TokenSigningClient.Issuer,
             Audience = audience ?? TokenSigningClient.Audience,
-            Subject = new ClaimsIdentity([new Claim("sub", $"usr_{email}"), new Claim("email", email), new Claim("tenant_id", TenantIdClaimValue), new Claim("tenant_name", $"tenant-of-{email}")]),
+            Subject = new ClaimsIdentity([new Claim("sub", $"usr_{email}"), new Claim("email", email), new Claim("tenant_id", TenantIdClaimValue), new Claim("tenant_name", $"tenant-of-{email}"), ..firstName is null ? Array.Empty<Claim>() : [new Claim("given_name", firstName)]]),
             Claims = locale is null ? null : new Dictionary<string, object> { ["locale"] = locale },
             IssuedAt = (expires ?? now).AddMinutes(-10),
             NotBefore = (expires ?? now).AddMinutes(-10),

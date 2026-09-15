@@ -246,4 +246,7 @@
         <value>The verification code must be {1} characters.</value>
         <comment>{0}: field name, not shown; {1}: required length</comment>
     </data>
+    <data name="VerificationCodeFormat" xml:space="preserve">
+        <value>The verification code must be 6 letters.</value>
+    </data>
 </root>

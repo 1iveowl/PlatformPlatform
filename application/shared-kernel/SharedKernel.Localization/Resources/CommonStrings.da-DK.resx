@@ -204,4 +204,7 @@
     <data name="VerificationCodeLength" xml:space="preserve">
         <value>Bekræftelseskoden skal være på {1} tegn.</value>
     </data>
+    <data name="VerificationCodeFormat" xml:space="preserve">
+        <value>Bekræftelseskoden skal bestå af 6 bogstaver.</value>
+    </data>
 </root>

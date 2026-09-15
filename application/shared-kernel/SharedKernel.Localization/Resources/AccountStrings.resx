@@ -197,4 +197,20 @@
     <data name="YourWorkspace" xml:space="preserve">
         <value>Your workspace</value>
     </data>
+    <data name="TenantNameLength" xml:space="preserve">
+        <value>Name must be between 1 and 30 characters.</value>
+        <comment>API validation: Name must be between 1 and 30 characters.</comment>
+    </data>
+    <data name="FirstNameLength" xml:space="preserve">
+        <value>First name must be between 1 and 30 characters.</value>
+        <comment>API validation: First name must be between 1 and 30 characters.</comment>
+    </data>
+    <data name="LastNameLength" xml:space="preserve">
+        <value>Last name must be between 1 and 30 characters.</value>
+        <comment>API validation: Last name must be between 1 and 30 characters.</comment>
+    </data>
+    <data name="TitleTooLong" xml:space="preserve">
+        <value>Title must be no longer than 50 characters.</value>
+        <comment>API validation: Title must be no longer than 50 characters.</comment>
+    </data>
 </root>

@@ -27,4 +27,14 @@ public sealed class EmailAuthenticationClient(HttpClient httpClient)
     {
         return _transport.SendAsync(HttpMethod.Post, AccountApiRoutes.CompleteEmailSignup(emailLoginId), command, cancellationToken);
     }
+
+    public Task<ApiCallResult<ResendEmailLoginCodeResponse>> ResendLoginCodeAsync(EmailLoginId emailLoginId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync<ResendEmailLoginCodeResponse>(HttpMethod.Post, AccountApiRoutes.ResendEmailLoginCode(emailLoginId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<ResendEmailLoginCodeResponse>> ResendSignupCodeAsync(EmailLoginId emailLoginId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync<ResendEmailLoginCodeResponse>(HttpMethod.Post, AccountApiRoutes.ResendEmailSignupCode(emailLoginId), cancellationToken);
+    }
 }

@@ -111,4 +111,27 @@ public sealed class EmailAuthenticationClientTests
     {
         return JsonSerializer.Serialize(command, ApiJsonSerializerOptions.Create());
     }
+
+    [Theory]
+    [InlineData(false, "/api/account/authentication/email/login/emlog_01JMVAW4T4320KJ3A7EJMCG8R0/resend-code")]
+    [InlineData(true, "/api/account/authentication/email/signup/emlog_01JMVAW4T4320KJ3A7EJMCG8R0/resend-code")]
+    public async Task ResendCodeAsync_WhenCalled_ShouldPostWithoutBodyAndReadValidity(bool isSignup, string expectedPath)
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.OK, """{"validForSeconds":300}""");
+        var client = new EmailAuthenticationClient(StubHttpMessageHandler.CreateHttpClient(handler));
+        var emailLoginId = new EmailLoginId("emlog_01JMVAW4T4320KJ3A7EJMCG8R0");
+
+        // Act
+        var result = isSignup
+            ? await client.ResendSignupCodeAsync(emailLoginId, CancellationToken.None)
+            : await client.ResendLoginCodeAsync(emailLoginId, CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Post);
+        request.PathAndQuery.Should().Be(expectedPath);
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.ValidForSeconds.Should().Be(300);
+    }
 }

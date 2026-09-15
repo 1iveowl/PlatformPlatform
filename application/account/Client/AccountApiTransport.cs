@@ -24,6 +24,11 @@ internal sealed class AccountApiTransport(HttpClient httpClient)
         return SendAsync(new HttpRequestMessage(method, path), cancellationToken);
     }
 
+    public Task<ApiCallResult<TResponse>> SendAsync<TResponse>(HttpMethod method, string path, CancellationToken cancellationToken)
+    {
+        return SendAsync<TResponse>(new HttpRequestMessage(method, path), cancellationToken);
+    }
+
     public Task<ApiCallResult> SendAsync<TRequest>(HttpMethod method, string path, TRequest body, CancellationToken cancellationToken)
     {
         return SendAsync(CreateRequest(method, path, body), cancellationToken);

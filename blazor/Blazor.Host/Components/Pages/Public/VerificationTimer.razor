@@ -1,0 +1,38 @@
+@* The code's remaining validity, the expired message and the resend action on a static verification page. The server
+   renders the state at the time of the request; js/verification-timer.js, loaded by the host page, counts down from it
+   and reveals the resend action without the WebAssembly runtime. Without the module a reload shows the current state. *@
+<div data-verification-timer data-remaining-seconds="@_remaining" data-resend-in-seconds="@_resendIn"
+     data-valid-for-template="@AuthenticationStrings.VerificationCodeValidFor">
+    <p data-valid-for data-testid="code-valid-for" hidden="@(_remaining == 0)">
+        @string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.VerificationCodeValidFor, VerificationFlow.FormatDuration(_remaining))
+    </p>
+    <p data-expired data-testid="code-expired" hidden="@(_remaining > 0)">@AuthenticationStrings.VerificationCodeExpired</p>
+    <p>@AuthenticationStrings.CantFindYourCode @AuthenticationStrings.CheckSpamFolder</p>
+    <div data-resend-reveal data-testid="resend" hidden="@(_resendIn > 0)">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+
+    private int _remaining;
+    private int _resendIn;
+
+    [Parameter]
+    [EditorRequired]
+    public VerificationFlow Flow { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public DateTimeOffset Now { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        _remaining = Flow.GetRemainingSeconds(Now);
+        _resendIn = Flow.GetResendInSeconds(Now);
+    }
+
+}

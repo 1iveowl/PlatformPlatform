@@ -17,6 +17,7 @@ public sealed class EmailForm
 public sealed class OneTimePasswordForm
 {
     [Required(ErrorMessageResourceType = typeof(CommonStrings), ErrorMessageResourceName = nameof(CommonStrings.EnterYourVerificationCode))]
-    [StringLength(6, MinimumLength = 6, ErrorMessageResourceType = typeof(CommonStrings), ErrorMessageResourceName = nameof(CommonStrings.VerificationCodeLength))]
+    // Six letters A to Z in any case; the page sends the code upper case
+    [RegularExpression("^[A-Za-z]{6}$", ErrorMessageResourceType = typeof(CommonStrings), ErrorMessageResourceName = nameof(CommonStrings.VerificationCodeFormat))]
     public string OneTimePassword { get; set; } = "";
 }

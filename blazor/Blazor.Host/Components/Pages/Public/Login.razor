@@ -74,9 +74,8 @@
             return;
         }
 
-        Navigation.NavigateTo(
-            $"{AppUrls.ToAbsolute("login/verify")}?id={Uri.EscapeDataString(result.Value.EmailLoginId.Value)}&email={Uri.EscapeDataString(Input.Email)}&returnPath={Uri.EscapeDataString(AppUrls.SanitizeReturnPath(ReturnPath))}"
-        );
+        var flow = VerificationFlow.Start(DateTimeOffset.UtcNow, result.Value.ValidForSeconds);
+        Navigation.NavigateTo(flow.GetVerifyUrl("login/verify", result.Value.EmailLoginId, Input.Email, ReturnPath ?? "", false));
     }
 
 }

@@ -60,7 +60,8 @@
             return;
         }
 
-        Navigation.NavigateTo($"{AppUrls.ToAbsolute("signup/verify")}?id={Uri.EscapeDataString(result.Value.EmailLoginId.Value)}&email={Uri.EscapeDataString(Input.Email)}");
+        var flow = VerificationFlow.Start(DateTimeOffset.UtcNow, result.Value.ValidForSeconds);
+        Navigation.NavigateTo(flow.GetVerifyUrl("signup/verify", result.Value.EmailLoginId, Input.Email, null, false));
     }
 
 }

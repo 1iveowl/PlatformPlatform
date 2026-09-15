@@ -1,7 +1,10 @@
-@* One-time password verification for login, static server-side rendering. The form is deliberately not
-   enhanced: a successful submission crosses the authentication boundary, so the browser follows the redirect with a full
-   document load and the session cookies set on that redirect by the gateway. *@
+@* One-time password verification for login, static server-side rendering. The forms are deliberately not enhanced: a
+   successful completion crosses the authentication boundary, so the browser follows the redirect with a full document
+   load and the session cookies set on that redirect by the gateway. The flow state (id, email, when the code was sent,
+   its validity and the sanitized return path) travels in the query string, so it survives the form round trips and
+   reloads. *@
 @page "/login/verify"
+@using Blazor.Host.Components.Pages.App
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Domain
 @using global::Account.Features.EmailAuthentication.Requests
@@ -21,18 +24,32 @@
     <DataAnnotationsValidator/>
     <label>
         @AuthenticationStrings.LoginVerificationCode
-        <InputText @bind-Value="Input.OneTimePassword" autocomplete="one-time-code" data-testid="code"/>
+        <InputText @bind-Value="Input.OneTimePassword" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" autofocus data-testid="code"/>
     </label>
     <ValidationMessage For="() => Input.OneTimePassword"/>
     <button type="submit" data-testid="submit">@AuthenticationStrings.Verify</button>
 </EditForm>
+
+<VerificationTimer Flow="_flow" Now="_now">
+    <form method="post" @formname="login-resend" @onsubmit="ResendAsync" data-testid="resend-form">
+        <AntiforgeryToken/>
+        <button type="submit" data-testid="resend-code">@AuthenticationStrings.RequestNewCode</button>
+    </form>
+</VerificationTimer>
+
+@if (Resent)
+{
+    <p role="status" data-testid="code-resent">@AuthenticationStrings.NewCodeSent</p>
+}
 
 <FormErrorAlert Errors="_formErrors"/>
 
 @code {
 
     private EditContext _editContext = null!;
+    private VerificationFlow _flow = null!;
     private FormErrorMapper _formErrors = null!;
+    private DateTimeOffset _now;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -54,8 +71,19 @@
     [SupplyParameterFromQuery]
     public string? ReturnPath { get; set; }
 
+    [SupplyParameterFromQuery]
+    public string? Sent { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ValidFor { get; set; }
+
+    [SupplyParameterFromQuery]
+    public bool Resent { get; set; }
+
     protected override void OnInitialized()
     {
+        _now = DateTimeOffset.UtcNow;
+        _flow = VerificationFlow.FromQuery(Sent, ValidFor, _now);
         _editContext = new EditContext(Input);
         _formErrors = new FormErrorMapper(_editContext);
     }
@@ -74,14 +102,36 @@
             return;
         }
 
-        var result = await EmailAuthentication.CompleteLoginAsync(emailLoginId, new CompleteEmailLoginCommand(Input.OneTimePassword), HttpContext.RequestAborted);
+        var preferredTenantId = PreferredTenant.Parse(HttpContext.Request.Cookies[PreferredTenant.CookieName]);
+        var command = new CompleteEmailLoginCommand(Input.OneTimePassword.ToUpperInvariant(), preferredTenantId);
+        var result = await EmailAuthentication.CompleteLoginAsync(emailLoginId, command, HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
             _formErrors.ApplyFailure(result);
             return;
         }
 
-        Navigation.NavigateTo(AppUrls.SanitizeReturnPath(ReturnPath), true);
+        // Welcome decides with the new session whether setup is required, then continues to the requested destination
+        Navigation.NavigateTo(WelcomeGate.GetWelcomeUrl(ReturnPath), true);
+    }
+
+    private async Task ResendAsync()
+    {
+        if (!EmailLoginId.TryParse(Id, out var emailLoginId))
+        {
+            _formErrors.AddFormMessage(AuthenticationStrings.LoginExpired);
+            return;
+        }
+
+        var result = await EmailAuthentication.ResendLoginCodeAsync(emailLoginId, HttpContext.RequestAborted);
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        var flow = VerificationFlow.Start(DateTimeOffset.UtcNow, result.Value.ValidForSeconds);
+        Navigation.NavigateTo(flow.GetVerifyUrl("login/verify", emailLoginId, Email, ReturnPath ?? "", true), true);
     }
 
 }

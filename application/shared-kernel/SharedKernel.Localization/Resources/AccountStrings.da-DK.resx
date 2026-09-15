@@ -159,4 +159,16 @@
     <data name="YourWorkspace" xml:space="preserve">
         <value>Dit arbejdsområde</value>
     </data>
+    <data name="TenantNameLength" xml:space="preserve">
+        <value>Navnet skal være mellem 1 og 30 tegn.</value>
+    </data>
+    <data name="FirstNameLength" xml:space="preserve">
+        <value>Fornavnet skal være mellem 1 og 30 tegn.</value>
+    </data>
+    <data name="LastNameLength" xml:space="preserve">
+        <value>Efternavnet skal være mellem 1 og 30 tegn.</value>
+    </data>
+    <data name="TitleTooLong" xml:space="preserve">
+        <value>Titlen må højst være på 50 tegn.</value>
+    </data>
 </root>

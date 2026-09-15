@@ -41,6 +41,16 @@ public static class AccountApiRoutes
         return $"/api/account/authentication/email/signup/{Uri.EscapeDataString(emailLoginId.Value)}/complete";
     }
 
+    public static string ResendEmailLoginCode(EmailLoginId emailLoginId)
+    {
+        return $"/api/account/authentication/email/login/{Uri.EscapeDataString(emailLoginId.Value)}/resend-code";
+    }
+
+    public static string ResendEmailSignupCode(EmailLoginId emailLoginId)
+    {
+        return $"/api/account/authentication/email/signup/{Uri.EscapeDataString(emailLoginId.Value)}/resend-code";
+    }
+
     public static string User(UserId userId)
     {
         return $"{Users}/{Uri.EscapeDataString(userId.Value)}";

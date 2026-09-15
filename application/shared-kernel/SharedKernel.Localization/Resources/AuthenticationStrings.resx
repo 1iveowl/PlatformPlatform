@@ -203,4 +203,8 @@
     <data name="Welcome" xml:space="preserve">
         <value>Welcome</value>
     </data>
+    <data name="NewCodeSent" xml:space="preserve">
+        <value>A new verification code has been sent to your email.</value>
+        <comment>React: A new verification code has been sent to your email.</comment>
+    </data>
 </root>

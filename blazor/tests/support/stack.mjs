@@ -163,7 +163,7 @@ export async function signUpThroughBlazor(browser, browserName, email, locale = 
     const oneTimePassword = await readOneTimePassword(email, sentAfter);
     await page.locator('[data-testid="code"]').fill(oneTimePassword);
     await page.locator('[data-testid="submit"]').click();
-    await page.waitForURL(`${baseUrl}${pathBase}/app`);
+    await completeWelcomeThroughBlazor(page);
     const storageState = await context.storageState();
     if (failureTraceFile !== undefined) await stopTrace(context);
     return { email, verifyUrl, storageState };
@@ -173,6 +173,19 @@ export async function signUpThroughBlazor(browser, browserName, email, locale = 
   } finally {
     await context.close();
   }
+}
+
+// Completes the welcome setup a new account owner is sent to after signup: names the tenant, sets up the profile and waits
+// for the authenticated home
+export async function completeWelcomeThroughBlazor(page, accountName = "Harness account") {
+  await page.waitForURL(/\/blazor\/welcome\?/);
+  await page.locator('[data-testid="account-name"]').fill(accountName);
+  await page.locator('[data-testid="continue"]').click();
+  await page.locator('[data-testid="first-name"]').waitFor();
+  await page.locator('[data-testid="first-name"]').fill("Harness");
+  await page.locator('[data-testid="last-name"]').fill("User");
+  await page.locator('[data-testid="continue"]').click();
+  await page.waitForURL(`${baseUrl}${pathBase}/app`);
 }
 
 // Starts an email login for an existing user through the Blazor login page and returns the verification page URL it lands on

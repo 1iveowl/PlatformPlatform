@@ -162,4 +162,7 @@
     <data name="Welcome" xml:space="preserve">
         <value>Velkommen</value>
     </data>
+    <data name="NewCodeSent" xml:space="preserve">
+        <value>En ny bekræftelseskode er blevet sendt til din e-mail.</value>
+    </data>
 </root>

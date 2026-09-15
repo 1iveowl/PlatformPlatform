@@ -1,11 +1,28 @@
 @* The authenticated workspace page. The page is server-rendered; the render mode is on the WebAssembly component it
-   hosts, never on the document root, so a failed runtime start still leaves the prerendered content. *@
+   hosts, never on the document root, so a failed runtime start still leaves the prerendered content. Until the welcome
+   setup is finished, the page sends the user to welcome with itself as the destination. *@
 @page "/app"
 @using Blazor.Host.Shell
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @attribute [InteractiveSurface]
+@inject NavigationManager Navigation
 
 <PageTitle>@AccountStrings.Workspace</PageTitle>
 
 <AuthenticatedApp Page="home" @rendermode="InteractiveWebAssembly"/>
+
+@code {
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        if (WelcomeGate.GetStep(HttpContext.User) != WelcomeStep.Done)
+        {
+            Navigation.NavigateTo(WelcomeGate.GetWelcomeUrl(AppUrls.AuthenticatedHome), true);
+        }
+    }
+
+}

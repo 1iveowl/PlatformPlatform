@@ -2,7 +2,7 @@
 @* The host page. HostShell.ApplyPageHeadersAsync serves it with no-store, like every component page, because it carries a
    per-request nonce and an authenticated route prerenders for the requesting user, so no cache may share the document
    between visitors; identity reaches the client through the bootstrap endpoint. The per-request nonce is only on the
-   import map, the stylesheet links and the two scripts, none of which enhanced navigation re-inserts. Every URL is
+   import map, the stylesheet links and the three scripts, none of which enhanced navigation re-inserts. Every URL is
    root-absolute through AppUrls, because base-uri 'none' makes the browser ignore <base href>. *@
 @inject HostShell Shell
 
@@ -34,6 +34,8 @@
 <Routes/>
 <script src="@AppUrls.ToAbsolute(Assets["js/document-base-uri.js"])" data-base="@AppUrls.PathBase/" nonce="@_nonce"></script>
 <script src="@AppUrls.ToAbsolute(Assets["_framework/blazor.web.js"])" nonce="@_nonce"></script>
+@* After blazor.web.js, so the module can subscribe to enhanced navigation; it acts only on a verification page *@
+<script type="module" src="@AppUrls.ToAbsolute(Assets["js/verification-timer.js"])" nonce="@_nonce"></script>
 </body>
 
 </html>
