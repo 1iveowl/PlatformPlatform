@@ -9,7 +9,8 @@ using Spectre.Console;
 namespace DeveloperCli.Commands;
 
 /// <summary>
-///     Command to start a fresh Aspire AppHost without the dashboard and wait until it serves requests. Continuous integration
+///     Command to start a fresh Aspire AppHost without the dashboard and wait until it serves requests. Continuous
+///     integration
 ///     uses it to run the same stack developers run; it never reuses a stack that is already running.
 /// </summary>
 public sealed class StartStackCommand : Command
