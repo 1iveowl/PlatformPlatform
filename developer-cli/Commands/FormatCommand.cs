@@ -18,6 +18,7 @@ public class FormatCommand : Command
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope backend formatting to AppGateway and AppGateway.Tests" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring before formatting" };
         var allFilesOption = new Option<bool>("--all-files") { Description = "Format every file in the solution. Default is to format only .cs files changed against origin/main." };
+        var verifyBuildOption = new Option<bool>("--verify-build") { Description = "Build the Blazor build root after formatting it and fail when the formatted tree no longer builds" };
         var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
         var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
 
@@ -29,6 +30,7 @@ public class FormatCommand : Command
         Options.Add(gatewayOption);
         Options.Add(noBuildOption);
         Options.Add(allFilesOption);
+        Options.Add(verifyBuildOption);
         Options.Add(quietOption);
         Options.Add(verboseOption);
 
@@ -41,12 +43,13 @@ public class FormatCommand : Command
                 parseResult.GetValue(gatewayOption),
                 parseResult.GetValue(noBuildOption),
                 parseResult.GetValue(allFilesOption),
+                parseResult.GetValue(verifyBuildOption),
                 !parseResult.GetValue(verboseOption)
             )
         );
     }
 
-    private static void Execute(bool backend, bool frontend, bool developerCli, bool blazor, string? selfContainedSystem, bool gateway, bool noBuild, bool allFiles, bool quiet)
+    private static void Execute(bool backend, bool frontend, bool developerCli, bool blazor, string? selfContainedSystem, bool gateway, bool noBuild, bool allFiles, bool verifyBuild, bool quiet)
     {
         if (gateway) AppGatewayHelper.EnsureNotCombinedWithSelfContainedSystem(selfContainedSystem);
 
@@ -56,9 +59,16 @@ public class FormatCommand : Command
         var formatDeveloperCli = developerCli || noFlags;
         var formatBlazor = blazor || noFlags;
 
+        if (verifyBuild && !formatBlazor)
+        {
+            AnsiConsole.MarkupLine("[red]--verify-build applies to the Blazor build root. Add --blazor.[/]");
+            Environment.Exit(1);
+        }
+
         try
         {
-            const string cacheKey = "format";
+            // A plain format run must not let a later --verify-build run skip its build
+            var cacheKey = verifyBuild ? "format-verify-build" : "format";
             if (SourceStateCache.IsUpToDate(cacheKey))
             {
                 if (quiet)
@@ -109,7 +119,7 @@ public class FormatCommand : Command
             if (formatBlazor)
             {
                 Prerequisite.Ensure(Prerequisite.Dotnet);
-                RunSolutionFormat(new FileInfo(Path.Combine(Configuration.BlazorFolder, "Blazor.slnx")), "Blazor", noBuild, allFiles, quiet);
+                RunBlazorFormat(noBuild, allFiles, verifyBuild, quiet);
                 blazorTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime - developerCliTime;
             }
 
@@ -220,8 +230,26 @@ public class FormatCommand : Command
         ProcessHelper.Run("npm run format", Configuration.ApplicationFolder, "Frontend format", quiet);
     }
 
+    // The cleanup profile in blazor/Blazor.slnx.DotSettings turns reference shortening off. With it on, cleanup shortened a
+    // fully qualified FluentUI enum in QuickUsersGrid.razor by adding @using Microsoft.FluentUI.AspNetCore.Components,
+    // which made the TemplateColumn tag ambiguous between QuickGrid and FluentUI (RZ9985) and broke the build.
+    // The cleanup runs with its own cache, emptied first, for the reason given in LintCommand.RunBlazorLinting.
+    private static void RunBlazorFormat(bool noBuild, bool allFiles, bool verifyBuild, bool quiet)
+    {
+        var solutionFile = new FileInfo(Path.Combine(Configuration.BlazorFolder, "Blazor.slnx"));
+        var cachesHome = Path.Combine(Configuration.WorkspaceFolder, "developer-cli", "jetbrains-caches", "blazor-format");
+        if (Directory.Exists(cachesHome)) Directory.Delete(cachesHome, true);
+
+        RunSolutionFormat(solutionFile, "Blazor", noBuild, allFiles, quiet, $" --caches-home={cachesHome}");
+
+        if (!verifyBuild) return;
+
+        if (!quiet) AnsiConsole.MarkupLine("[blue]Building the formatted Blazor build root...[/]");
+        ProcessHelper.Run($"dotnet build {solutionFile.Name}", solutionFile.Directory!.FullName, "Build after format", quiet);
+    }
+
     // Runs from the solution's own folder so the SDK in that folder's global.json is resolved
-    private static void RunSolutionFormat(FileInfo solutionFile, string displayName, bool noBuild, bool allFiles, bool quiet)
+    private static void RunSolutionFormat(FileInfo solutionFile, string displayName, bool noBuild, bool allFiles, bool quiet, string cleanupArguments = "")
     {
         if (!quiet) AnsiConsole.MarkupLine($"[blue]Running {displayName} code format...[/]");
 
@@ -245,7 +273,7 @@ public class FormatCommand : Command
         }
 
         ProcessHelper.Run(
-            $"""dotnet jb cleanupcode {solutionFile.FullName} --profile=".NET only" --no-build{includeArgument}""",
+            $"""dotnet jb cleanupcode {solutionFile.FullName} --profile=".NET only" --no-build{cleanupArguments}{includeArgument}""",
             solutionFile.Directory!.FullName,
             "Format",
             quiet

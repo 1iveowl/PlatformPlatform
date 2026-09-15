@@ -35,12 +35,12 @@
             <FluentButton Id="@($"actions-{context.Id}")" data-testid="row-actions" Title="User actions" Appearance="ButtonAppearance.Subtle" StopPropagation="true">⋯</FluentButton>
             <FluentMenu Trigger="@($"actions-{context.Id}")">
                 <FluentMenuList>
-                <FluentMenuItem data-testid="action-view" OnClick="@(() => OnOpenProfile.InvokeAsync(context))">View profile</FluentMenuItem>
-                @if (IsOwner)
-                {
-                    <FluentMenuItem data-testid="action-change-role" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnChangeRole.InvokeAsync(context))">Change role</FluentMenuItem>
-                    <FluentMenuItem data-testid="action-delete" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnDelete.InvokeAsync(context))">Delete</FluentMenuItem>
-                }
+                    <FluentMenuItem data-testid="action-view" OnClick="@(() => OnOpenProfile.InvokeAsync(context))">View profile</FluentMenuItem>
+                    @if (IsOwner)
+                    {
+                        <FluentMenuItem data-testid="action-change-role" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnChangeRole.InvokeAsync(context))">Change role</FluentMenuItem>
+                        <FluentMenuItem data-testid="action-delete" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnDelete.InvokeAsync(context))">Delete</FluentMenuItem>
+                    }
                 </FluentMenuList>
             </FluentMenu>
         </TemplateColumn>

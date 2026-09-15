@@ -1,12 +1,11 @@
-@* The interactive WebAssembly surface behind login. Prerendered by the host with the host's bootstrap adapter, then
-   started in the browser, where the bootstrap comes from the account API. Leaving the authenticated state (logout, tenant
-   switch, a lost session) is always a full document navigation, so nothing from the previous identity stays in memory. *@
 @using Account.Client
 @using Account.Features.Authentication.Queries
 @using Account.Features.Authentication.Requests
-@using SharedKernel.Domain
-@using Microsoft.Extensions.DependencyInjection
 @using Blazor.Client.Bootstrap
+@using SharedKernel.Domain
+@* The interactive WebAssembly surface behind login. Prerendered by the host with the host's bootstrap adapter, then
+   started in the browser, where the bootstrap comes from the account API. Leaving the authenticated state (logout, tenant
+   switch, a lost session) is always a full document navigation, so nothing from the previous identity stays in memory. *@
 @inject IBootstrapSource BootstrapSource
 @inject IServiceProvider Services
 

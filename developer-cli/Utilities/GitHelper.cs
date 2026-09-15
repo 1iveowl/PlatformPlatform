@@ -146,7 +146,17 @@ public static class GitHelper
     // CI checkouts in this repo use fetch-depth: 0 and local developers fetch on the usual cadence.
     public static string[] GetChangedCsFilesInDirectory(string solutionDirectory)
     {
-        var output = ProcessHelper.StartProcess("git diff --name-only origin/main -- \"*.cs\"", Configuration.SourceCodeFolder, true, exitOnError: false);
+        // A failed git call must stop the caller: treating it as "no changed files" makes format and lint skip their work
+        // and still report success
+        var result = ProcessHelper.ExecuteQuietly("git diff --name-only origin/main -- \"*.cs\"", Configuration.SourceCodeFolder);
+        if (!result.Success)
+        {
+            AnsiConsole.MarkupLine($"[red]Selecting changed files failed: git exited with code {result.ExitCode}.[/]");
+            AnsiConsole.WriteLine(result.StdErr.Trim());
+            Environment.Exit(1);
+        }
+
+        var output = result.StdOut;
         if (string.IsNullOrWhiteSpace(output)) return [];
 
         var repoRoot = Configuration.SourceCodeFolder;

@@ -37,7 +37,11 @@
 
     [SupplyParameterFromForm(FormName = "login-verify")]
     // Null when the request is not this form's post; the getter then supplies an empty model
-    private OneTimePasswordForm Input { get => field ??= new OneTimePasswordForm(); set; }
+    private OneTimePasswordForm Input
+    {
+        get => field ??= new OneTimePasswordForm();
+        set;
+    }
 
     [SupplyParameterFromQuery]
     public string? Id { get; set; }

@@ -1,8 +1,8 @@
 @* Spike code (Blazor edition, stage B3): the users list on QuickGrid. QuickGrid has no selection column, no row keyboard
    model and no menu, so the select checkbox, the row open button, arrow-key movement (users-grid.js) and the action menu
    (FluentMenu) are added here. *@
-@using Microsoft.AspNetCore.Components.QuickGrid
 @inherits UsersGridBase
+@using Microsoft.AspNetCore.Components.QuickGrid
 @implements IAsyncDisposable
 @inject IJSRuntime JavaScriptRuntime
 
@@ -41,12 +41,12 @@
             <Microsoft.FluentUI.AspNetCore.Components.FluentButton Id="@($"actions-{context.Id}")" data-testid="row-actions" Title="User actions" Appearance="Microsoft.FluentUI.AspNetCore.Components.ButtonAppearance.Subtle" tabindex="-1">⋯</Microsoft.FluentUI.AspNetCore.Components.FluentButton>
             <Microsoft.FluentUI.AspNetCore.Components.FluentMenu Trigger="@($"actions-{context.Id}")">
                 <Microsoft.FluentUI.AspNetCore.Components.FluentMenuList>
-                <Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem data-testid="action-view" OnClick="@(() => OnOpenProfile.InvokeAsync(context))">View profile</Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem>
-                @if (IsOwner)
-                {
-                    <Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem data-testid="action-change-role" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnChangeRole.InvokeAsync(context))">Change role</Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem>
-                    <Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem data-testid="action-delete" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnDelete.InvokeAsync(context))">Delete</Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem>
-                }
+                    <Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem data-testid="action-view" OnClick="@(() => OnOpenProfile.InvokeAsync(context))">View profile</Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem>
+                    @if (IsOwner)
+                    {
+                        <Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem data-testid="action-change-role" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnChangeRole.InvokeAsync(context))">Change role</Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem>
+                        <Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem data-testid="action-delete" Disabled="@(context.Id == CurrentUserId)" OnClick="@(() => OnDelete.InvokeAsync(context))">Delete</Microsoft.FluentUI.AspNetCore.Components.FluentMenuItem>
+                    }
                 </Microsoft.FluentUI.AspNetCore.Components.FluentMenuList>
             </Microsoft.FluentUI.AspNetCore.Components.FluentMenu>
         </TemplateColumn>

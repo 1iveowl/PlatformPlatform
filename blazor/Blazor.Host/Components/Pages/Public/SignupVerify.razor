@@ -1,10 +1,10 @@
 @* One-time password verification for signup, static server-side rendering, not enhanced for the same reason as the
    login verification *@
 @page "/signup/verify"
+@using Blazor.Host.Shell
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Domain
 @using global::Account.Features.EmailAuthentication.Requests
-@using Blazor.Host.Shell
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
 
@@ -37,7 +37,11 @@
 
     [SupplyParameterFromForm(FormName = "signup-verify")]
     // Null when the request is not this form's post; the getter then supplies an empty model
-    private OneTimePasswordForm Input { get => field ??= new OneTimePasswordForm(); set; }
+    private OneTimePasswordForm Input
+    {
+        get => field ??= new OneTimePasswordForm();
+        set;
+    }
 
     [SupplyParameterFromQuery]
     public string? Id { get; set; }

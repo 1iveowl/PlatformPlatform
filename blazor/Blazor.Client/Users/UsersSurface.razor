@@ -28,7 +28,8 @@
     <FluentTextInput data-testid="search" AriaLabel="Search users" Placeholder="Search" Immediate="true" ImmediateDelay="500"
                      Value="@_state.Search" ValueChanged="OnSearchChangedAsync"/>
     <FluentButton data-testid="filters" OnClick="OpenFiltersAsync">
-        Filters @if (_state.ActiveFilterCount > 0)
+        Filters
+        @if (_state.ActiveFilterCount > 0)
         {
             <FluentBadge data-testid="filter-count" Content="@_state.ActiveFilterCount.ToString()"/>
         }
@@ -91,6 +92,7 @@
             {
                 <p data-testid="not-in-view">This user is not in the current view.</p>
             }
+
             <FluentButton data-testid="profile-close" OnClick="CloseProfileAsync">Close</FluentButton>
             @if (_isOwner)
             {

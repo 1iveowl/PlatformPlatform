@@ -9,8 +9,8 @@ namespace Blazor.Client.Bootstrap;
 
 public sealed class BootstrapAntiforgeryTokenSource(IServiceProvider serviceProvider) : IAntiforgeryTokenSource
 {
-    private bool _hasBootstrap;
     private string? _antiforgeryToken;
+    private bool _hasBootstrap;
 
     public async ValueTask<string?> GetTokenAsync(CancellationToken cancellationToken)
     {
