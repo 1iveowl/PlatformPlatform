@@ -128,6 +128,7 @@ public static class ApiDependencyConfiguration
                         options.HeaderName = AuthenticationTokenHttpKeys.AntiforgeryTokenHttpHeaderKey;
                     }
                 )
+                .AddSingleton<IAntiforgeryTokenIssuer, AntiforgeryTokenIssuer>()
                 .AddHttpForwardHeaders();
 
             // BackOffice:Host is required only when this API hosts the back-office route group.

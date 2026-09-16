@@ -1,5 +1,4 @@
 using JetBrains.Annotations;
-using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
 using SharedKernel.Authentication;
 using SharedKernel.Cqrs;
@@ -12,8 +11,9 @@ public sealed record GetBootstrapQuery : IRequest<Result<BootstrapResponse>>;
 
 // Reaches into HttpContext for the three things the bootstrap contract carries that are not user data: the response
 // must never be stored, the antiforgery pair is issued per browser, and the request's Authorization header tells a
-// rejected credential apart from a caller that sent none.
-public sealed class GetBootstrapHandler(IExecutionContext executionContext, IHttpContextAccessor httpContextAccessor, IAntiforgery antiforgery)
+// rejected credential apart from a caller that sent none. Tokens are issued through IAntiforgeryTokenIssuer rather
+// than IAntiforgery, because this handler is registered in the worker host too, which has no antiforgery services.
+public sealed class GetBootstrapHandler(IExecutionContext executionContext, IHttpContextAccessor httpContextAccessor, IAntiforgeryTokenIssuer antiforgeryTokenIssuer)
     : IRequestHandler<GetBootstrapQuery, Result<BootstrapResponse>>
 {
     private static readonly string ApplicationVersion =
@@ -57,27 +57,10 @@ public sealed class GetBootstrapHandler(IExecutionContext executionContext, IHtt
             userInfo.Locale!,
             BootstrapConfiguration.CreateRuntimeConfiguration(Environment.GetEnvironmentVariable, ApplicationVersion),
             BootstrapConfiguration.CreateSystemFeatureFlags(Environment.GetEnvironmentVariable),
-            IssueAntiforgeryRequestToken(httpContext)
+            antiforgeryTokenIssuer.IssueRequestToken(httpContext)
         );
 
         return Task.FromResult<Result<BootstrapResponse>>(response);
-    }
-
-    // The same issuance as the React shell: the cookie is written once with the attributes a __Host- cookie requires,
-    // and the request token is bound to the caller's identity, so a client reads bootstrap again after that changes
-    private string IssueAntiforgeryRequestToken(HttpContext httpContext)
-    {
-        var tokens = antiforgery.GetAndStoreTokens(httpContext);
-        if (tokens.CookieToken is not null)
-        {
-            httpContext.Response.Cookies.Append(
-                AuthenticationTokenHttpKeys.AntiforgeryTokenCookieName,
-                tokens.CookieToken,
-                new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = "/" }
-            );
-        }
-
-        return tokens.RequestToken!;
     }
 
     // The access token carries an empty string for an unset optional claim
