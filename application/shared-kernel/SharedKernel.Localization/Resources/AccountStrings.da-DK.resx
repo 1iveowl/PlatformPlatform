@@ -183,4 +183,10 @@
     <data name="CurrentAccount" xml:space="preserve">
         <value>Nuværende konto</value>
     </data>
+    <data name="User" xml:space="preserve">
+        <value>Bruger</value>
+    </data>
+    <data name="Sessions" xml:space="preserve">
+        <value>Sessioner</value>
+    </data>
 </root>

@@ -1,0 +1,66 @@
+@* The iOS add-to-home-screen banner, the React edition's AddToHomescreen: shown only when InstallPromptPolicy decides so
+   from the browser facts shell.js reads, dismissed for 7 days by its close button and for the session by an upward
+   swipe. Nothing renders during prerender or before the facts are read. *@
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+
+<div @ref="_element" class="install-prompt-slot">
+    @if (_isShown)
+    {
+        <section class="install-prompt" aria-labelledby="install-prompt-title">
+            <img class="install-prompt-icon" src="@AppUrls.ToAbsolute("icons/icon-192.png")" alt=""/>
+            <div class="install-prompt-text">
+                <p class="install-prompt-title" id="install-prompt-title">@CommonStrings.InstallTheApp</p>
+                <p class="install-prompt-instructions">@CommonStrings.AddToHomeScreenInstructions</p>
+            </div>
+            <button type="button" class="install-prompt-dismiss" aria-label="@CommonStrings.Close" @onclick="DismissAsync">×</button>
+        </section>
+    }
+</div>
+
+@code {
+
+    private DotNetObjectReference<InstallPrompt>? _dotNet;
+    private ElementReference _element;
+    private ShellInterop? _interop;
+    private bool _isShown;
+
+    [JSInvokable]
+    public async Task OnInstallPromptSwiped()
+    {
+        await InvokeAsync(async () =>
+            {
+                _isShown = false;
+                StateHasChanged();
+                if (_interop is not null) await _interop.StoreInstallPromptDismissalAsync(null);
+            }
+        );
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interop is not null) await _interop.DisposeAsync();
+        _dotNet?.Dispose();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive) return;
+
+        _interop = new ShellInterop(JavaScriptRuntime);
+        _dotNet = DotNetObjectReference.Create(this);
+        var environment = await _interop.ReadInstallPromptEnvironmentAsync();
+        if (!InstallPromptPolicy.ShouldShow(environment, TimeProvider.System.GetUtcNow())) return;
+
+        _isShown = true;
+        await _interop.AttachInstallPromptSwipeAsync(_element, _dotNet);
+        StateHasChanged();
+    }
+
+    private async Task DismissAsync()
+    {
+        _isShown = false;
+        if (_interop is not null) await _interop.StoreInstallPromptDismissalAsync(InstallPromptPolicy.FormatDismissedUntil(TimeProvider.System.GetUtcNow()));
+    }
+
+}

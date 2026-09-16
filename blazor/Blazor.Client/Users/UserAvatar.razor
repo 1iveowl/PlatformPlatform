@@ -1,21 +1,24 @@
 @* A user's avatar: the image when the user has one, otherwise the initials. Decorative, because the name is always shown
-   beside it. *@
+   beside it or names the control it sits in. *@
 
 <span class="user-avatar" aria-hidden="true">
-    @if (!string.IsNullOrEmpty(User.AvatarUrl))
+    @if (!string.IsNullOrEmpty(AvatarUrl))
     {
-        <img class="user-avatar-image" src="@User.AvatarUrl" alt=""/>
+        <img class="user-avatar-image" src="@AvatarUrl" alt=""/>
     }
     else
     {
-        @User.Initials
+        @Initials
     }
 </span>
 
 @code {
 
     [Parameter]
+    public string? AvatarUrl { get; set; }
+
+    [Parameter]
     [EditorRequired]
-    public UserDetails User { get; set; } = null!;
+    public string Initials { get; set; } = "";
 
 }

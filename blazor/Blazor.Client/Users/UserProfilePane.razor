@@ -37,7 +37,7 @@
                 break;
             case UserProfileStatus.Ready when State.User is { } user:
                 <div class="profile-pane-identity">
-                    <UserAvatar User="user"/>
+                    <UserAvatar AvatarUrl="@user.AvatarUrl" Initials="@user.Initials"/>
                     <p class="profile-pane-name" data-testid="profile-name">@user.DisplayNameOrEmail</p>
                     @if (!string.IsNullOrEmpty(user.Title))
                     {

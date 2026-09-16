@@ -1,0 +1,13 @@
+@* The top region of the shell that features fill with banners. It is a normal-flow row of the shell's grid, so the sidebar
+   and the mobile header below it move down by its height without a script measuring it or a style being written. *@
+
+<div class="app-banner-region">
+    @ChildContent
+</div>
+
+@code {
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+}

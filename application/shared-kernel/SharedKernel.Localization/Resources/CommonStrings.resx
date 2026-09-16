@@ -255,4 +255,28 @@
     <data name="LogInAgainToContinue" xml:space="preserve">
         <value>Please log in again to continue.</value>
     </data>
+    <data name="MainNavigation" xml:space="preserve">
+        <value>Main navigation</value>
+    </data>
+    <data name="MainContent" xml:space="preserve">
+        <value>Main content</value>
+    </data>
+    <data name="ToggleSidebar" xml:space="preserve">
+        <value>Toggle sidebar</value>
+    </data>
+    <data name="OpenNavigationMenu" xml:space="preserve">
+        <value>Open navigation menu</value>
+    </data>
+    <data name="MobileNavigationMenu" xml:space="preserve">
+        <value>Mobile navigation menu</value>
+    </data>
+    <data name="CloseMenu" xml:space="preserve">
+        <value>Close menu</value>
+    </data>
+    <data name="InstallTheApp" xml:space="preserve">
+        <value>Install the app</value>
+    </data>
+    <data name="AddToHomeScreenInstructions" xml:space="preserve">
+        <value>Add to your home screen for a faster, app-like experience. Tap Share, then &quot;Add to Home Screen&quot;.</value>
+    </data>
 </root>

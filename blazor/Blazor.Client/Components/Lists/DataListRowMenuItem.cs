@@ -1,3 +1,5 @@
+using Blazor.Client.Components.Menus;
+
 namespace Blazor.Client.Components.Lists;
 
 // One action of a row menu. A disabled item stays visible, so the reason for an unavailable action can be explained.
@@ -9,12 +11,6 @@ public static class DataListRowMenuNavigation
     // for the first enabled item and from the item count for the last.
     public static int NextEnabled(IReadOnlyList<DataListRowMenuItem> items, int from, int step)
     {
-        for (var offset = 1; offset <= items.Count; offset++)
-        {
-            var index = ((from + step * offset) % items.Count + items.Count) % items.Count;
-            if (!items[index].Disabled) return index;
-        }
-
-        return -1;
+        return MenuNavigation.NextEnabled(items, item => item.Disabled, from, step);
     }
 }

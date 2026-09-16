@@ -7,50 +7,48 @@
 @inject SessionState Session
 @inject IServiceProvider Services
 
-<h1>@(Page == "details" ? AccountStrings.AccountDetails : AccountStrings.YourWorkspace)</h1>
+<AppShell>
+    <h1>@(Page == "details" ? AccountStrings.AccountDetails : AccountStrings.YourWorkspace)</h1>
 
-<AccountHeader/>
+    <nav>
+        <a href="@AppUrls.ToAbsolute("app/details")" data-testid="nav-details">@AccountStrings.Details</a> |
+        <a href="@AppUrls.ToAbsolute("legal/terms")" data-enhance-nav="false" data-testid="nav-terms">@CommonStrings.Terms</a>
+    </nav>
 
-<ToastRegion/>
+    <p data-testid="render-mode">@string.Format(CultureInfo.InvariantCulture, AccountStrings.InteractiveState, RendererInfo.IsInteractive)</p>
 
-<nav>
-    <a href="@AppUrls.ToAbsolute("app/details")" data-testid="nav-details">@AccountStrings.Details</a> |
-    <a href="@AppUrls.ToAbsolute("legal/terms")" data-enhance-nav="false" data-testid="nav-terms">@CommonStrings.Terms</a>
-</nav>
+    @* A fixed number and date in the page culture, so prerendered and interactive formatting can be compared *@
+    <p data-testid="culture-format">@AccountStrings.NumberAndDateFormat: @SampleNumber.ToString("N2", CultureInfo.CurrentCulture) @SampleDate.ToString("d", CultureInfo.CurrentCulture)</p>
 
-<p data-testid="render-mode">@string.Format(CultureInfo.InvariantCulture, AccountStrings.InteractiveState, RendererInfo.IsInteractive)</p>
+    @if (_bootstrap is { } bootstrap)
+    {
+        <dl>
+            <dt>@AccountStrings.Authenticated</dt>
+            <dd data-testid="bootstrap-authenticated">@bootstrap.IsAuthenticated</dd>
+            <dt>@CommonStrings.Email</dt>
+            <dd data-testid="bootstrap-email">@bootstrap.User?.Email</dd>
+            <dt>@AccountStrings.Account</dt>
+            <dd data-testid="bootstrap-tenant-id">@bootstrap.User?.TenantId</dd>
+            <dt>@CommonStrings.AccountName</dt>
+            <dd data-testid="bootstrap-tenant-name">@bootstrap.User?.TenantName</dd>
+            <dt>@AccountStrings.Language</dt>
+            <dd data-testid="bootstrap-locale">@bootstrap.Locale</dd>
+            <dt>@AccountStrings.SystemFeatureFlags</dt>
+            <dd data-testid="bootstrap-flags">@string.Join(", ", bootstrap.SystemFeatureFlags.Select(flag => $"{flag.Key}={flag.Value}"))</dd>
+            <dt>@AccountStrings.RuntimeConfigurationKeys</dt>
+            <dd data-testid="bootstrap-runtime-keys">@string.Join(", ", bootstrap.RuntimeConfiguration.Keys)</dd>
+        </dl>
+    }
 
-@* A fixed number and date in the page culture, so prerendered and interactive formatting can be compared *@
-<p data-testid="culture-format">@AccountStrings.NumberAndDateFormat: @SampleNumber.ToString("N2", CultureInfo.CurrentCulture) @SampleDate.ToString("d", CultureInfo.CurrentCulture)</p>
+    @if (RendererInfo.IsInteractive)
+    {
+        <p>
+            <button type="button" data-testid="reload-bootstrap" @onclick="ReloadBootstrapAsync">@AccountStrings.ReloadBootstrap</button>
+        </p>
 
-@if (_bootstrap is { } bootstrap)
-{
-    <dl>
-        <dt>@AccountStrings.Authenticated</dt>
-        <dd data-testid="bootstrap-authenticated">@bootstrap.IsAuthenticated</dd>
-        <dt>@CommonStrings.Email</dt>
-        <dd data-testid="bootstrap-email">@bootstrap.User?.Email</dd>
-        <dt>@AccountStrings.Account</dt>
-        <dd data-testid="bootstrap-tenant-id">@bootstrap.User?.TenantId</dd>
-        <dt>@CommonStrings.AccountName</dt>
-        <dd data-testid="bootstrap-tenant-name">@bootstrap.User?.TenantName</dd>
-        <dt>@AccountStrings.Language</dt>
-        <dd data-testid="bootstrap-locale">@bootstrap.Locale</dd>
-        <dt>@AccountStrings.SystemFeatureFlags</dt>
-        <dd data-testid="bootstrap-flags">@string.Join(", ", bootstrap.SystemFeatureFlags.Select(flag => $"{flag.Key}={flag.Value}"))</dd>
-        <dt>@AccountStrings.RuntimeConfigurationKeys</dt>
-        <dd data-testid="bootstrap-runtime-keys">@string.Join(", ", bootstrap.RuntimeConfiguration.Keys)</dd>
-    </dl>
-}
-
-@if (RendererInfo.IsInteractive)
-{
-    <p>
-        <button type="button" data-testid="reload-bootstrap" @onclick="ReloadBootstrapAsync">@AccountStrings.ReloadBootstrap</button>
-    </p>
-
-    <p data-testid="status">@_status</p>
-}
+        <p data-testid="status">@_status</p>
+    }
+</AppShell>
 
 @code {
 

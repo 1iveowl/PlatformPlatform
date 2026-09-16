@@ -1,0 +1,181 @@
+@* The shell's user menu, the React edition's UserMenu: a button with the avatar that opens a menu of UserMenuModel items.
+   In-house rather than the component library's menu, which positions its popover by writing style attributes. The keyboard
+   model is the row menu's, shared through MenuNavigation: Arrow keys, Home and End move between enabled items, Escape
+   closes the menu and returns focus to the button, Tab and a click outside close it. The tenants are a group inside the
+   menu. Choosing a tenant or Log out keeps the menu open with its items disabled while the transition runs. *@
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Components.Menus
+@using Blazor.Client.Users
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+
+<div class="user-menu">
+    <button type="button" id="@TriggerId" class="user-menu-trigger" aria-label="@AccountStrings.UserMenu" aria-describedby="@DescribedBy" aria-haspopup="menu"
+            aria-expanded="@(_isOpen ? "true" : "false")" aria-controls="@(_isOpen ? MenuId : null)" @onclick="Toggle">
+        @if (User is not null)
+        {
+            <UserAvatar AvatarUrl="@User.AvatarUrl" Initials="@ShellUser.GetInitials(User)"/>
+        }
+    </button>
+    @if (_isOpen)
+    {
+        <div class="menu-backdrop" @onclick="Close"></div>
+        <div id="@MenuId" role="menu" class="user-menu-list" aria-labelledby="@TriggerId" @onkeydown="OnKeyDown">
+            @for (var index = 0; index < Items.Count; index++)
+            {
+                var item = Items[index];
+                if (item.Kind == UserMenuItemKind.SwitchTenant)
+                {
+                    if (index > 0 && Items[index - 1].Kind == UserMenuItemKind.SwitchTenant) continue;
+
+                    <div role="group" class="user-menu-group" aria-labelledby="user-menu-switch-account">
+                        <p class="user-menu-group-label" id="user-menu-switch-account" role="presentation">@AccountStrings.SwitchAccount</p>
+                        @for (var tenantIndex = index; tenantIndex < Items.Count && Items[tenantIndex].Kind == UserMenuItemKind.SwitchTenant; tenantIndex++)
+                        {
+                            @RenderItem(tenantIndex)
+                        }
+                    </div>
+                    continue;
+                }
+
+                @RenderItem(index)
+            }
+        </div>
+    }
+</div>
+
+@code {
+
+    private const string MenuId = "user-menu";
+    private const string TriggerId = "user-menu-trigger";
+
+    private int _activeIndex = -1;
+    private ShellInterop? _interop;
+    private bool _isOpen;
+    private string? _pendingFocusId;
+
+    // Null once the session has cleared the identity while leaving; the menu stays with its items disabled until the
+    // document is replaced
+    [Parameter]
+    public BootstrapUser? User { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<UserMenuItem> Items { get; set; } = [];
+
+    [Parameter]
+    public string? DescribedBy { get; set; }
+
+    [Parameter]
+    public EventCallback<UserMenuItem> OnSelect { get; set; }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interop is not null) await _interop.DisposeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingFocusId is not { } elementId) return;
+
+        _pendingFocusId = null;
+        _interop ??= new ShellInterop(JavaScriptRuntime);
+        await _interop.FocusAsync(elementId);
+    }
+
+    private RenderFragment RenderItem(int index)
+    {
+        var item = Items[index];
+        var id = ItemId(index);
+        if (item.Href is not null)
+        {
+            return @<a id="@id" role="menuitem" class="menu-item" tabindex="-1" href="@item.Href" @onclick="() => SelectAsync(item)">@ItemLabel(item)</a>;
+        }
+
+        return @<button id="@id" type="button" role="menuitem" class="menu-item" tabindex="-1" disabled="@item.Disabled" data-tenant-id="@item.Tenant?.TenantId"
+                        aria-current="@(item.Tenant?.IsCurrent == true ? "true" : null)" @onclick="() => SelectAsync(item)">
+                   @ItemLabel(item)
+                   @if (item.Tenant is { IsCurrent: true })
+                   {
+                       <span class="visually-hidden"> (@AccountStrings.CurrentAccount)</span>
+                   }
+                   @if (item.Tenant is { IsNew: true })
+                   {
+                       <span class="menu-item-badge">@AccountStrings.InvitationPending</span>
+                   }
+               </button>;
+    }
+
+    private static string ItemLabel(UserMenuItem item)
+    {
+        return item.Kind switch
+        {
+            UserMenuItemKind.Profile => AccountStrings.Profile,
+            UserMenuItemKind.Preferences => AccountStrings.Preferences,
+            UserMenuItemKind.SwitchTenant => item.Tenant!.Name,
+            UserMenuItemKind.AccountSettings => CommonStrings.AccountSettings,
+            _ => AccountStrings.LogOut
+        };
+    }
+
+    private static string ItemId(int index)
+    {
+        return $"user-menu-item-{index}";
+    }
+
+    private void Toggle()
+    {
+        if (_isOpen)
+        {
+            CloseAndReturnFocus();
+            return;
+        }
+
+        _isOpen = true;
+        MoveTo(MenuNavigation.NextEnabled(Items, item => item.Disabled, -1, 1));
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+        _activeIndex = -1;
+    }
+
+    private void CloseAndReturnFocus()
+    {
+        Close();
+        _pendingFocusId = TriggerId;
+    }
+
+    private async Task SelectAsync(UserMenuItem item)
+    {
+        if (item.Disabled) return;
+
+        if (UserMenuModel.ClosesOnSelect(item)) Close();
+        await OnSelect.InvokeAsync(item);
+    }
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "Escape":
+                CloseAndReturnFocus();
+                return;
+            case "Tab":
+                Close();
+                return;
+        }
+
+        if (MenuNavigation.MoveForKey(args.Key, Items, item => item.Disabled, _activeIndex) is { } index) MoveTo(index);
+    }
+
+    private void MoveTo(int index)
+    {
+        if (index < 0) return;
+
+        _activeIndex = index;
+        _pendingFocusId = ItemId(index);
+    }
+
+}

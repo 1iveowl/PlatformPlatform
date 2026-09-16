@@ -213,4 +213,28 @@
     <data name="LogInAgainToContinue" xml:space="preserve">
         <value>Log venligst ind igen for at fortsætte.</value>
     </data>
+    <data name="MainNavigation" xml:space="preserve">
+        <value>Hovednavigation</value>
+    </data>
+    <data name="MainContent" xml:space="preserve">
+        <value>Hovedindhold</value>
+    </data>
+    <data name="ToggleSidebar" xml:space="preserve">
+        <value>Skift sidepanel</value>
+    </data>
+    <data name="OpenNavigationMenu" xml:space="preserve">
+        <value>Åbn navigationsmenu</value>
+    </data>
+    <data name="MobileNavigationMenu" xml:space="preserve">
+        <value>Mobilnavigationsmenu</value>
+    </data>
+    <data name="CloseMenu" xml:space="preserve">
+        <value>Luk menu</value>
+    </data>
+    <data name="InstallTheApp" xml:space="preserve">
+        <value>Installér appen</value>
+    </data>
+    <data name="AddToHomeScreenInstructions" xml:space="preserve">
+        <value>Føj til din hjemmeskærm for en hurtigere oplevelse, der minder om en app. Tryk på Del og derefter &quot;Føj til hjemmeskærm&quot;.</value>
+    </data>
 </root>

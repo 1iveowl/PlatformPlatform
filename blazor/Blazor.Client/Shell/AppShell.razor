@@ -1,0 +1,178 @@
+@* The shell every authenticated surface renders inside, the React edition's AppLayout with its side menu: the banner region
+   on top, the collapsible sidebar with the main navigation, the tenant and the user menu, the mobile menu below the small
+   breakpoint, and the main content with the transition alerts and the toasts. Tenants come from the tenants client after
+   the bootstrap read. Logout and the tenant switch run through SessionTransition, which serializes them, reconciles
+   uncertain outcomes and leaves the runtime with one full document navigation; the shell only renders its state. The
+   collapsed state and Ctrl+B or Cmd+B come from shell.js; the state is a data attribute, never a style. *@
+@using Account.Client
+@using Blazor.Client.Session
+@implements IAsyncDisposable
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+@inject IJSRuntime JavaScriptRuntime
+
+<div class="app-shell" data-testid="app-shell" data-tenants-state="@(_tenantsLoaded ? "loaded" : "loading")"
+     data-transition-status="@_transition?.Status.ToString().ToLowerInvariant()" data-sidebar="@(_collapsed ? "collapsed" : "expanded")">
+    <BannerRegion>
+        <InstallPrompt/>
+    </BannerRegion>
+
+    <aside class="app-sidebar">
+        <div class="app-sidebar-header">
+            <button type="button" class="app-sidebar-toggle" aria-label="@CommonStrings.ToggleSidebar" aria-expanded="@(_collapsed ? "false" : "true")"
+                    aria-controls="app-sidebar-navigation" aria-keyshortcuts="Control+B Meta+B" @onclick="ToggleSidebar">
+                <span aria-hidden="true">☰</span>
+            </button>
+            @if (Session.Current?.User is { } user)
+            {
+                <span class="app-sidebar-tenant" id="shell-tenant-name">@TenantSwitcherOptions.GetDisplayName(user.TenantName)</span>
+            }
+        </div>
+
+        <nav class="app-sidebar-navigation" id="app-sidebar-navigation" aria-label="@CommonStrings.MainNavigation">
+            <ShellNavigationLinks Items="NavigationItems" IdPrefix="sidebar-nav"/>
+        </nav>
+
+        @* The menu stays mounted while a transition leaves the surface and the session has already cleared the identity, so
+           its disabled items remain until the document is replaced *@
+        <div class="app-sidebar-footer">
+            @if (RendererInfo.IsInteractive)
+            {
+                <UserMenu User="Session.Current?.User" Items="MenuItems" DescribedBy="shell-user-name shell-tenant-name" OnSelect="OnMenuSelectAsync"/>
+            }
+            @if (Session.Current?.User is { } currentUser)
+            {
+                <span class="app-sidebar-user-name" id="shell-user-name">@ShellUser.GetDisplayName(currentUser)</span>
+            }
+        </div>
+    </aside>
+
+    @if (RendererInfo.IsInteractive)
+    {
+        <div class="app-mobile-header">
+            <MobileMenu User="Session.Current?.User" Items="NavigationItems" Tenants="MenuItems.Where(item => item.Kind == UserMenuItemKind.SwitchTenant).ToArray()"
+                        IsTransitionBusy="IsTransitionBusy" OnSelect="OnMenuSelectAsync"/>
+        </div>
+    }
+
+    <main id="main-content" class="app-main" aria-label="@CommonStrings.MainContent">
+        @switch (_transition?.Status)
+        {
+            case SessionTransitionStatus.LogoutFailed:
+                <p role="alert" data-testid="logout-failed">@AccountStrings.LogoutFailed</p>
+                break;
+            case SessionTransitionStatus.LogoutUnconfirmed:
+                <p role="alert" data-testid="logout-unconfirmed">@AccountStrings.LogoutUnconfirmed</p>
+                break;
+        }
+
+        <ToastRegion/>
+
+        @ChildContent
+    </main>
+</div>
+
+@code {
+
+    private bool _collapsed;
+    private DotNetObjectReference<AppShell>? _dotNet;
+    private ShellInterop? _interop;
+    private bool _isWide = true;
+    private TenantSwitcherOption[] _tenants = [];
+    private bool _tenantsLoaded;
+    private SessionTransition? _transition;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool IsTransitionBusy => _transition?.IsBusy != false;
+
+    private IReadOnlyList<ShellNavigationItem> NavigationItems => ShellNavigation.Create(Session.Current?.User?.Role, Navigation.Uri);
+
+    private IReadOnlyList<UserMenuItem> MenuItems => UserMenuModel.Create(Session.Current?.User?.Role, _tenants, IsTransitionBusy);
+
+    [JSInvokable]
+    public async Task ToggleSidebar()
+    {
+        await InvokeAsync(async () =>
+            {
+                _collapsed = !_collapsed;
+                StateHasChanged();
+                if (_interop is not null && ShellSidebarState.ShouldPersist(_isWide)) await _interop.StoreCollapsedAsync(_collapsed);
+            }
+        );
+    }
+
+    [JSInvokable]
+    public async Task OnViewportChanged(ShellViewport viewport)
+    {
+        await InvokeAsync(() =>
+            {
+                _isWide = viewport.IsWide;
+                if (!_isWide) _collapsed = true;
+                StateHasChanged();
+            }
+        );
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Session.Changed -= OnSessionChanged;
+        if (_transition is not null) _transition.Changed -= OnSessionChanged;
+        if (_interop is not null) await _interop.DisposeAsync();
+        _dotNet?.Dispose();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Session.Changed += OnSessionChanged;
+        if (RendererInfo.IsInteractive)
+        {
+            _transition = Services.GetRequiredService<SessionTransition>();
+            _transition.Changed += OnSessionChanged;
+        }
+
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
+
+        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetTenantsAsync);
+        if (result is null || !result.IsSuccess) return;
+
+        _tenants = TenantSwitcherOptions.Create(result.Value.Tenants, Session.Current?.User?.TenantId);
+        _tenantsLoaded = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive) return;
+
+        _interop = new ShellInterop(JavaScriptRuntime);
+        _dotNet = DotNetObjectReference.Create(this);
+        var state = await _interop.AttachShellAsync(_dotNet);
+        _isWide = state.IsWide;
+        _collapsed = ShellSidebarState.IsCollapsed(state.StoredCollapsed, state.IsWide);
+        StateHasChanged();
+    }
+
+    private void OnSessionChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnMenuSelectAsync(UserMenuItem item)
+    {
+        switch (item.Kind)
+        {
+            case UserMenuItemKind.SwitchTenant when item.Tenant is { } tenant:
+                var result = await _transition!.SwitchTenantAsync(tenant.TenantId);
+                if (result is { Outcome: TenantSwitchOutcome.Failed, Failure: { } failure }) Services.GetRequiredService<ApiFailurePresenter>().Present(failure);
+                break;
+            case UserMenuItemKind.LogOut:
+                await _transition!.LogoutAsync();
+                break;
+        }
+    }
+
+}

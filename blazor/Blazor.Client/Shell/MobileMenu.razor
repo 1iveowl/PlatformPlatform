@@ -1,0 +1,123 @@
+@* The shell's navigation below the small breakpoint, the React edition's MobileMenu: a floating button opens a full-screen
+   modal dialog with the navigation links, the user block with Log out and the tenant block whose Switch account button
+   shows the tenants. The dialog is the in-house ModalDialog on the native <dialog>, which traps focus without a
+   dependency; Close menu and Escape close it and focus returns to the button. *@
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Session
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+
+<button type="button" id="@OpenButtonId" class="mobile-menu-button" aria-label="@CommonStrings.OpenNavigationMenu" aria-haspopup="dialog" aria-expanded="@(_isOpen ? "true" : "false")"
+        @onclick="Open">
+    <span aria-hidden="true">☰</span>
+</button>
+
+<ModalDialog Open="_isOpen" AriaLabel="@CommonStrings.MobileNavigationMenu" OnDismissRequested="Close">
+    <div class="mobile-menu">
+        <button type="button" class="mobile-menu-close" @onclick="Close">@CommonStrings.CloseMenu</button>
+
+        <nav aria-label="@CommonStrings.MainNavigation">
+            <ShellNavigationLinks Items="Items" IdPrefix="mobile-nav" OnNavigate="Close"/>
+        </nav>
+
+        <div class="mobile-menu-user">
+            @if (User is not null)
+            {
+                <p class="mobile-menu-user-name">@ShellUser.GetDisplayName(User)</p>
+                <p class="mobile-menu-user-email">@User.Email</p>
+            }
+            <button type="button" class="mobile-menu-action" disabled="@IsTransitionBusy" @onclick="() => OnSelect.InvokeAsync(LogOutItem)">@AccountStrings.LogOut</button>
+        </div>
+
+        @if (Tenants.Count > 0)
+        {
+            <div class="mobile-menu-tenants">
+                @if (User is not null)
+                {
+                    <p class="mobile-menu-tenant-name">@TenantSwitcherOptions.GetDisplayName(User.TenantName)</p>
+                }
+                <button type="button" class="mobile-menu-action" aria-expanded="@(_showTenants ? "true" : "false")" @onclick="() => _showTenants = !_showTenants">
+                    @AccountStrings.SwitchAccount
+                </button>
+                @if (_showTenants)
+                {
+                    <ul class="mobile-menu-tenant-list" aria-label="@AccountStrings.SwitchAccount">
+                        @foreach (var item in Tenants)
+                        {
+                            <li>
+                                <button type="button" class="mobile-menu-tenant" disabled="@item.Disabled" aria-current="@(item.Tenant!.IsCurrent ? "true" : null)"
+                                        @onclick="() => OnSelect.InvokeAsync(item)">
+                                    @item.Tenant.Name
+                                    @if (item.Tenant.IsCurrent)
+                                    {
+                                        <span class="visually-hidden"> (@AccountStrings.CurrentAccount)</span>
+                                    }
+                                    @if (item.Tenant.IsNew)
+                                    {
+                                        <span class="menu-item-badge">@AccountStrings.InvitationPending</span>
+                                    }
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+    </div>
+</ModalDialog>
+
+@code {
+
+    private const string OpenButtonId = "mobile-menu-button";
+    private static readonly UserMenuItem LogOutItem = new(UserMenuItemKind.LogOut);
+
+    private ShellInterop? _interop;
+    private bool _isOpen;
+    private bool _returnFocus;
+    private bool _showTenants;
+
+    // Null once the session has cleared the identity while leaving
+    [Parameter]
+    public BootstrapUser? User { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<ShellNavigationItem> Items { get; set; } = [];
+
+    // The tenant items of the user menu model; empty for a user with one tenant
+    [Parameter]
+    public IReadOnlyList<UserMenuItem> Tenants { get; set; } = [];
+
+    [Parameter]
+    public bool IsTransitionBusy { get; set; }
+
+    [Parameter]
+    public EventCallback<UserMenuItem> OnSelect { get; set; }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interop is not null) await _interop.DisposeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_returnFocus) return;
+
+        _returnFocus = false;
+        _interop ??= new ShellInterop(JavaScriptRuntime);
+        await _interop.FocusAsync(OpenButtonId);
+    }
+
+    private void Open()
+    {
+        _isOpen = true;
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+        _showTenants = false;
+        _returnFocus = true;
+    }
+
+}

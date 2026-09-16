@@ -92,11 +92,29 @@ export async function completeWelcomeThroughBlazor(page: Page, setup: WelcomeSet
 }
 
 /**
- * The header's logout button on an interactive authenticated Blazor page
+ * The shell's user menu button, rendered once an authenticated Blazor page is interactive; the signed-in marker
+ * @param page Playwright page instance
+ */
+export function userMenuButton(page: Page): Locator {
+  return page.getByRole("button", { name: blazorTexts().userMenu, exact: true });
+}
+
+/**
+ * Open the shell's user menu unless it is already open
+ * @param page Playwright page instance on an interactive authenticated Blazor page
+ */
+export async function openUserMenu(page: Page): Promise<void> {
+  const button = userMenuButton(page);
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  await expect(page.getByRole("menu", { name: blazorTexts().userMenu, exact: true })).toBeVisible();
+}
+
+/**
+ * The Log out item of the shell's user menu; open the menu with openUserMenu first
  * @param page Playwright page instance
  */
 export function logOutButton(page: Page): Locator {
-  return page.getByRole("button", { name: blazorTexts().logOut, exact: true });
+  return page.getByRole("menuitem", { name: blazorTexts().logOut, exact: true });
 }
 
 /**
@@ -113,7 +131,7 @@ export async function signUpThroughBlazor(page: Page, email: string, accountName
 
   await submitOneTimePassword(page);
   await completeWelcomeThroughBlazor(page, { accountName, firstName: "Blazor", lastName: "User" });
-  await expect(logOutButton(page)).toBeVisible();
+  await expect(userMenuButton(page)).toBeVisible();
 }
 
 /**
@@ -121,6 +139,7 @@ export async function signUpThroughBlazor(page: Page, email: string, accountName
  * @param page Playwright page instance on an interactive authenticated Blazor page
  */
 export async function logOutThroughBlazor(page: Page): Promise<void> {
+  await openUserMenu(page);
   await logOutButton(page).click();
 
   await expectBlazorUrl(page, "login");
@@ -138,7 +157,7 @@ export async function logInThroughBlazor(page: Page, email: string): Promise<voi
   await submitOneTimePassword(page);
 
   await expectBlazorUrl(page, "app");
-  await expect(logOutButton(page)).toBeVisible();
+  await expect(userMenuButton(page)).toBeVisible();
 }
 
 /**
@@ -160,5 +179,5 @@ export async function logInInvitedUserThroughBlazor(page: Page, email: string, p
   await page.getByRole("button", { name: texts.continue, exact: true }).click();
 
   await expectBlazorUrl(page, "app");
-  await expect(logOutButton(page)).toBeVisible();
+  await expect(userMenuButton(page)).toBeVisible();
 }

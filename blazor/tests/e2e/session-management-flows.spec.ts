@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { getCurrentSessionIdThroughAccountApi, getSessionsThroughAccountApi, revokeSessionThroughAccountApi, sendAccountApiRequest } from "@blazor/e2e/account-api";
-import { logInThroughBlazor, logOutButton, logOutThroughBlazor, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
+import { logInThroughBlazor, logOutButton, logOutThroughBlazor, openUserMenu, userMenuButton, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
 import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
 import { blazorLocale, blazorTexts } from "@blazor/e2e/texts";
@@ -94,7 +94,7 @@ async function expectErrorBannerNeverShown(page: Page, context: TestContext): Pr
 
 async function expectAuthenticatedWorkspace(page: Page, email: string): Promise<void> {
   await expectBlazorUrl(page, "app");
-  await expect(logOutButton(page)).toBeVisible();
+  await expect(userMenuButton(page)).toBeVisible();
   await expect(page.getByTestId("bootstrap-authenticated")).toHaveText("True");
   await expect(page.getByTestId("bootstrap-email")).toHaveText(email);
 }
@@ -131,6 +131,7 @@ test.describe("@comprehensive", () => {
       await signUpThroughBlazor(page, email);
       await page.route(logoutRoute, (route) => route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" }));
 
+      await openUserMenu(page);
       await logOutButton(page).click();
 
       await expect(page.getByRole("alert").filter({ hasText: texts.logoutFailed })).toBeVisible();
@@ -159,6 +160,7 @@ test.describe("@comprehensive", () => {
         await route.abort("connectionreset");
       });
 
+      await openUserMenu(page);
       await logOutButton(page).click();
 
       await expect(page.getByRole("alert").filter({ hasText: texts.logoutUnconfirmed })).toBeVisible();

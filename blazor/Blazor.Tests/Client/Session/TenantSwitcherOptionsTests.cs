@@ -34,7 +34,7 @@ public sealed class TenantSwitcherOptionsTests
     }
 
     [Fact]
-    public void IsVisible_WhenUserHasTwoTenants_ShouldBeTrueWithTheCurrentOneMarked()
+    public void IsVisible_WhenUserHasTwoTenants_ShouldBeTrueWithTheCurrentAndPendingOnesMarked()
     {
         // Arrange
         TenantInfo[] tenants = [new(new TenantId(1), "Acme", UserId, null, false), new(new TenantId(2), "Globex", UserId, null, true)];
@@ -44,7 +44,7 @@ public sealed class TenantSwitcherOptionsTests
 
         // Assert
         TenantSwitcherOptions.IsVisible(options).Should().BeTrue();
-        options.Should().Equal(new TenantSwitcherOption(new TenantId(1), "Acme", false), new TenantSwitcherOption(new TenantId(2), "Globex", true));
+        options.Should().Equal(new TenantSwitcherOption(new TenantId(1), "Acme", false), new TenantSwitcherOption(new TenantId(2), "Globex", true, true));
     }
 
     [Theory]

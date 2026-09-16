@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { deleteUserThroughAccountApi, findUserThroughAccountApi, inviteUsersThroughAccountApi } from "@blazor/e2e/account-api";
-import { logInThroughBlazor, logOutButton, logOutThroughBlazor, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
+import { logInThroughBlazor, logOutButton, logOutThroughBlazor, openUserMenu, signUpThroughBlazor, test, userMenuButton } from "@blazor/e2e/authentication";
 import { trackPolicyViolations } from "@blazor/e2e/policy";
 import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
@@ -32,8 +32,8 @@ const inaccessibleTenantId = "999999999999";
  * @param tenantName The name of the current tenant
  */
 async function expectTenantsLoaded(page: Page, tenantName: string): Promise<void> {
-  await expect(page.getByTestId("account-header")).toHaveAttribute("data-tenants-state", "loaded");
-  await expect(page.getByTestId("header-tenant-name")).toHaveText(tenantName);
+  await expect(page.getByTestId("app-shell")).toHaveAttribute("data-tenants-state", "loaded");
+  await expect(userMenuButton(page)).toHaveAccessibleDescription(new RegExp(` ${tenantName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
 }
 
 /**
@@ -80,17 +80,17 @@ function trackWritesAfterSwitch(page: Page): { requests: string[] } {
 }
 
 /**
- * The tenant switcher, shown to a user with more than one tenant
+ * The switch account group of the open user menu, shown to a user with more than one tenant
  */
 function tenantSwitcher(page: Page): Locator {
-  return page.getByRole("navigation", { name: blazorTexts().switchAccount, exact: true });
+  return page.getByRole("menu", { name: blazorTexts().userMenu, exact: true }).getByRole("group", { name: blazorTexts().switchAccount, exact: true });
 }
 
 /**
- * The switcher's button for a tenant, named by the tenant's name and, for the current tenant, a hidden current marker
+ * The switch account item for a tenant, named by the tenant's name and, for the current tenant, a hidden current marker
  */
 function switchTenantButton(page: Page, tenantName: string): Locator {
-  return tenantSwitcher(page).getByRole("button", { name: tenantName });
+  return tenantSwitcher(page).getByRole("menuitem", { name: tenantName });
 }
 
 async function getPreferredTenantCookie(page: Page): Promise<string | undefined> {
@@ -137,6 +137,7 @@ test.describe("@comprehensive", () => {
       await signUpThroughBlazor(page, userEmail, primaryTenantName);
 
       await expectTenantsLoaded(page, primaryTenantName);
+      await openUserMenu(page);
       await expect(tenantSwitcher(page)).toHaveCount(0);
       primaryTenantId = (await page.getByTestId("bootstrap-tenant-id").textContent())!.trim();
       expect(primaryTenantId).not.toBe("");
@@ -165,9 +166,10 @@ test.describe("@comprehensive", () => {
       await logInThroughBlazor(page, userEmail);
 
       await expectTenantsLoaded(page, primaryTenantName);
+      await openUserMenu(page);
       const switcher = tenantSwitcher(page);
       await expect(switcher).toContainText(texts.switchAccount);
-      await expect(switcher.getByRole("button")).toHaveCount(2);
+      await expect(switcher.getByRole("menuitem")).toHaveCount(2);
       await expect(switchTenantButton(page, primaryTenantName)).toHaveAttribute("aria-current", "true");
       await expect(switchTenantButton(page, primaryTenantName)).toBeDisabled();
       await expect(switchTenantButton(page, primaryTenantName)).toContainText(primaryTenantName);
@@ -186,6 +188,7 @@ test.describe("@comprehensive", () => {
       await expect(page.getByTestId("bootstrap-tenant-id")).toHaveText(secondaryTenantId);
       await expectBlazorUrl(page, "app");
       await expectTenantsLoaded(page, secondaryTenantName);
+      await openUserMenu(page);
       await expect(switchTenantButton(page, secondaryTenantName)).toHaveAttribute("aria-current", "true");
       expect(await page.evaluate(() => window.__documentBeforeSwitch)).toBeUndefined();
       expect(await getPreferredTenantCookie(page)).toBe(secondaryTenantId);
@@ -204,7 +207,7 @@ test.describe("@comprehensive", () => {
       await expect(page.getByRole("heading", { name: texts.profile, exact: true })).toBeVisible();
       await expectTenantsLoaded(page, secondaryTenantName);
 
-      await page.getByRole("link", { name: texts.workspace, exact: true }).click();
+      await page.getByRole("link", { name: texts.home, exact: true }).click();
       await expectBlazorUrl(page, "app");
       await expect(page.getByTestId("bootstrap-tenant-id")).toHaveText(secondaryTenantId);
     })();
@@ -213,6 +216,7 @@ test.describe("@comprehensive", () => {
     await step("Switch to the primary tenant while the preference module fails to load & verify a new document on it")(async () => {
       await page.route(preferredTenantModuleRoute, (route) => route.abort("failed"));
       await markDocument(page);
+      await openUserMenu(page);
 
       await switchTenantButton(page, primaryTenantName).click();
 
@@ -230,6 +234,7 @@ test.describe("@comprehensive", () => {
         switchResponded.value ? route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" }) : route.continue()
       );
       await markDocument(page);
+      await openUserMenu(page);
 
       await switchTenantButton(page, secondaryTenantName).click();
 
@@ -245,6 +250,7 @@ test.describe("@comprehensive", () => {
       const switchResponded = trackSwitchResponse(page);
       await page.route(bootstrapRoute, (route) => (switchResponded.value ? route.abort("internetdisconnected") : route.continue()));
       await markDocument(page);
+      await openUserMenu(page);
 
       await switchTenantButton(page, primaryTenantName).click();
 
@@ -283,10 +289,11 @@ test.describe("@comprehensive", () => {
       await markDocument(page);
       const writesAfterSwitch = trackWritesAfterSwitch(page);
 
+      await openUserMenu(page);
       const switchResponse = page.waitForResponse((response) => response.url().endsWith(switchTenantPath));
       await switchTenantButton(page, secondaryTenantName).click();
       expect((await switchResponse).status()).toBe(200);
-      await expect(page.getByTestId("account-header")).toHaveAttribute("data-transition-status", "leaving");
+      await expect(page.getByTestId("app-shell")).toHaveAttribute("data-transition-status", "leaving");
       await heldProfileRead!.fulfill();
 
       await expect(pane).not.toHaveAttribute("data-status", "ready");
@@ -311,6 +318,7 @@ test.describe("@comprehensive", () => {
         if (request.method() === "POST" && (path === logoutPath || path === switchTenantPath)) transitionRequests.push(path);
       });
 
+      await openUserMenu(page);
       const logout = await logOutButton(page).elementHandle();
       const switchTenant = await switchTenantButton(page, primaryTenantName).elementHandle();
 
@@ -349,6 +357,7 @@ test.describe("@comprehensive", () => {
     })();
 
     await step("Remove the user from the preferred tenant and login & verify login lands on the remaining tenant")(async () => {
+      await openUserMenu(page);
       await switchTenantButton(page, secondaryTenantName).click();
       await expect(page.getByTestId("bootstrap-tenant-id")).toHaveText(secondaryTenantId);
       await logOutThroughBlazor(page);
@@ -359,6 +368,7 @@ test.describe("@comprehensive", () => {
 
       await expect(page.getByTestId("bootstrap-tenant-id")).toHaveText(primaryTenantId);
       await expectTenantsLoaded(page, primaryTenantName);
+      await openUserMenu(page);
       await expect(tenantSwitcher(page)).toHaveCount(0);
     })();
 

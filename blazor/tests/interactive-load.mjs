@@ -134,7 +134,7 @@ async function readLoad(page, pageErrors) {
   // The page loads the tenant list once it runs; a reload while that request is in flight aborts it, which WebKit reports as
   // a page error of the old document. The header marks the finished request, since the switcher itself only renders for a user
   // with more than one tenant
-  await page.locator('[data-testid="account-header"][data-tenants-state="loaded"]').waitFor({ timeout: interactiveTimeoutMs }).catch(() => {});
+  await page.locator('[data-testid="app-shell"][data-tenants-state="loaded"]').waitFor({ timeout: interactiveTimeoutMs }).catch(() => {});
   const timeline = await page.evaluate(() => {
     const resources = performance.getEntriesByType("resource");
     const navigation = performance.getEntriesByType("navigation")[0];

@@ -116,8 +116,25 @@ export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
   const onClick = (event) => {
     if (closesOnBackdrop && event.target === dialog) dotNet.invokeMethodAsync("RequestDismiss");
   };
+  // A modal dialog keeps Tab inside itself: past the last focusable element focus wraps to the first and back, instead of
+  // leaving for the browser's own controls
+  const onKeyDown = (event) => {
+    if (event.key !== "Tab") return;
+    const focusable = [...dialog.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])")];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
   dialog.addEventListener("cancel", onCancel);
   dialog.addEventListener("click", onClick);
+  dialog.addEventListener("keydown", onKeyDown);
 
   return {
     show: () => {
@@ -129,6 +146,7 @@ export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
     dispose: () => {
       dialog.removeEventListener("cancel", onCancel);
       dialog.removeEventListener("click", onClick);
+      dialog.removeEventListener("keydown", onKeyDown);
       if (dialog.open) dialog.close();
     }
   };

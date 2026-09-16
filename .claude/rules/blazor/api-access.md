@@ -44,7 +44,7 @@ private async Task StartAsync()
 ### Example 2 - An Interactive Read and Write
 
 ```csharp
-// ✅ DO: a 401 is handled by the chain, so a failed read returns quietly (blazor/Blazor.Client/Session/AccountHeader.razor)
+// ✅ DO: a 401 is handled by the chain, so a failed read returns quietly (blazor/Blazor.Client/Shell/AppShell.razor)
 var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetTenantsAsync);
 if (result is null || !result.IsSuccess) return;
 

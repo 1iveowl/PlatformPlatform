@@ -13,46 +13,44 @@
 @inject IServiceProvider Services
 @inject ToastService Toasts
 
-<h1>@CommonStrings.Users</h1>
-<p>@UsersStrings.ManageUsers</p>
+<AppShell>
+    <h1>@CommonStrings.Users</h1>
+    <p>@UsersStrings.ManageUsers</p>
 
-<AccountHeader/>
-
-<ToastRegion/>
-
-<div class="users-toolbar" role="search">
-    <FluentTextInput Id="@SearchId" data-testid="search" AriaLabel="@CommonStrings.Search" Placeholder="@CommonStrings.Search" Immediate="true" ImmediateDelay="500"
-                     Value="@_filters.GetValueOrDefault(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
-</div>
-
-<div class="users-layout">
-    <div class="users-grid">
-        @if (_bootstrap is not null)
-        {
-            <DataList @ref="_list" TItem="UserDetails" data-testid="users-grid" ListId="@UsersListSource.ListId" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
-                      Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
-                      SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
-                      FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="@PaneId"
-                      FocusFallbackId="@SearchId" RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
-                      OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
-                <EmptyContent>
-                    <div data-testid="empty-state">
-                        <p>@UsersStrings.NoUsersFound</p>
-                        @if (_filters.Count > 0)
-                        {
-                            <p>@UsersStrings.TryAdjustingSearch</p>
-                        }
-                    </div>
-                </EmptyContent>
-            </DataList>
-        }
+    <div class="users-toolbar" role="search">
+        <FluentTextInput Id="@SearchId" data-testid="search" AriaLabel="@CommonStrings.Search" Placeholder="@CommonStrings.Search" Immediate="true" ImmediateDelay="500"
+                         Value="@_filters.GetValueOrDefault(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
     </div>
 
-    <UserProfilePane Id="@PaneId" State="_profile" Permission="ProfilePermission" IsNotInCurrentView="IsProfileNotInCurrentView" IsDataUpdated="IsProfileDataUpdated"
-                     OnClose="CloseProfileAsync" OnChangeRole="OpenRoleDialog"/>
-</div>
+    <div class="users-layout">
+        <div class="users-grid">
+            @if (_bootstrap is not null)
+            {
+                <DataList @ref="_list" TItem="UserDetails" data-testid="users-grid" ListId="@UsersListSource.ListId" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
+                          Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
+                          SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
+                          FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="@PaneId"
+                          FocusFallbackId="@SearchId" RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
+                          OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
+                    <EmptyContent>
+                        <div data-testid="empty-state">
+                            <p>@UsersStrings.NoUsersFound</p>
+                            @if (_filters.Count > 0)
+                            {
+                                <p>@UsersStrings.TryAdjustingSearch</p>
+                            }
+                        </div>
+                    </EmptyContent>
+                </DataList>
+            }
+        </div>
 
-<ChangeUserRoleDialog Open="_isRoleDialogOpen" OpenChanged="OnRoleDialogOpenChanged" User="_roleUser" OnSaved="OnRoleSavedAsync"/>
+        <UserProfilePane Id="@PaneId" State="_profile" Permission="ProfilePermission" IsNotInCurrentView="IsProfileNotInCurrentView" IsDataUpdated="IsProfileDataUpdated"
+                         OnClose="CloseProfileAsync" OnChangeRole="OpenRoleDialog"/>
+    </div>
+
+    <ChangeUserRoleDialog Open="_isRoleDialogOpen" OpenChanged="OnRoleDialogOpenChanged" User="_roleUser" OnSaved="OnRoleSavedAsync"/>
+</AppShell>
 
 @code {
 
@@ -83,7 +81,7 @@
         _columns =
         [
             new DataListColumn<UserDetails>(UsersStrings.Name, user => @<span class="user-name-cell" data-user-row data-email="@user.Email">
-                                                                           <UserAvatar User="user"/>
+                                                                           <UserAvatar AvatarUrl="@user.AvatarUrl" Initials="@user.Initials"/>
                                                                            <span>
                                                                                <span class="user-name" data-testid="user-name">@user.DisplayNameOrEmail</span>
                                                                                @if (!string.IsNullOrEmpty(user.Title))

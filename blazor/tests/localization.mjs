@@ -85,7 +85,7 @@ async function assertCleanPage(page, observations, expectedLocale) {
 
 // Records every text value the translated elements take from the first parse on, before any framework script runs
 function recordTextHistory() {
-  const selectors = ["h1", '[data-testid="culture-format"]', '[data-testid="nav-app"]', '[data-testid="nav-details"]'];
+  const selectors = ["h1", '[data-testid="culture-format"]', '.app-sidebar-navigation a[href$="/app"]', '[data-testid="nav-details"]'];
   window.__textHistory = {};
   const record = () => {
     for (const selector of selectors) {
@@ -160,10 +160,12 @@ for (const [claimLocale, browserLocale] of [
       assert(prerendered.includes(expected.formatSample), "The prerendered format sample is not in the claim culture.");
 
       await page.locator(testId("render-mode"), { hasText: expected.interactive }).waitFor({ timeout: interactiveTimeoutMs });
-      await page.locator(testId("logout")).waitFor();
+      await page.locator("#user-menu-trigger").click({ timeout: interactiveTimeoutMs });
+      const logOut = page.locator('[role="menu"] [role="menuitem"]').last();
+      await logOut.waitFor();
       assertEqual((await page.locator("h1").textContent()).trim(), expected.workspaceHeading, "Interactive heading");
       assertEqual((await page.locator(testId("culture-format")).textContent()).trim(), expected.formatSample, "Interactive format sample");
-      assertEqual((await page.locator(testId("logout")).textContent()).trim(), expected.logOut, "Interactive-only text");
+      assertEqual((await logOut.textContent()).trim(), expected.logOut, "Interactive-only text");
 
       const history = await page.evaluate(() => window.__textHistory);
       assertEqual(history.h1, [expected.workspaceHeading], "Heading values over time");

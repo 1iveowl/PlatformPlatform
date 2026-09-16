@@ -1,12 +1,12 @@
 // What the header's tenant switcher shows, matching the React edition's TenantSwitcher: it is hidden for a user with one
-// tenant, lists every tenant by name with the current one marked, and names a tenant without a name with a placeholder.
+// tenant, lists every tenant by name with the current one and a pending invitation marked, and names a tenant without a name with a placeholder.
 
 using Account.Features.Tenants.Queries;
 using SharedKernel.Domain;
 
 namespace Blazor.Client.Session;
 
-public sealed record TenantSwitcherOption(TenantId TenantId, string Name, bool IsCurrent);
+public sealed record TenantSwitcherOption(TenantId TenantId, string Name, bool IsCurrent, bool IsNew = false);
 
 public static class TenantSwitcherOptions
 {
@@ -17,7 +17,7 @@ public static class TenantSwitcherOptions
 
     public static TenantSwitcherOption[] Create(IEnumerable<TenantInfo> tenants, TenantId? currentTenantId)
     {
-        return tenants.Select(tenant => new TenantSwitcherOption(tenant.TenantId, GetDisplayName(tenant.TenantName), tenant.TenantId == currentTenantId)).ToArray();
+        return tenants.Select(tenant => new TenantSwitcherOption(tenant.TenantId, GetDisplayName(tenant.TenantName), tenant.TenantId == currentTenantId, tenant.IsNew)).ToArray();
     }
 
     public static string GetDisplayName(string? tenantName)

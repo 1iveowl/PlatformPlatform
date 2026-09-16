@@ -1,0 +1,56 @@
+@* The shell's navigation links by group, rendered by the sidebar and by the mobile menu from the same ShellNavigation items.
+   Group labels are plain text naming each list, not headings, so they never compete with the page's own headings. *@
+
+@foreach (var group in Items.GroupBy(item => item.Group))
+{
+    var labelId = $"{IdPrefix}-{group.Key.ToString().ToLowerInvariant()}";
+    <div class="shell-nav-group">
+        <p class="shell-nav-group-label" id="@labelId">@GroupLabel(group.Key)</p>
+        <ul class="shell-nav-list" aria-labelledby="@labelId">
+            @foreach (var item in group)
+            {
+                <li>
+                    <a class="shell-nav-link" href="@item.Href" aria-current="@(item.IsCurrent ? "page" : null)" @onclick="OnNavigate">@ItemLabel(item.Target)</a>
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<ShellNavigationItem> Items { get; set; } = [];
+
+    [Parameter]
+    [EditorRequired]
+    public string IdPrefix { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnNavigate { get; set; }
+
+    private static string GroupLabel(ShellNavigationGroup group)
+    {
+        return group switch
+        {
+            ShellNavigationGroup.Workspace => AccountStrings.Workspace,
+            ShellNavigationGroup.User => AccountStrings.User,
+            _ => AccountStrings.Account
+        };
+    }
+
+    private static string ItemLabel(ShellNavigationTarget target)
+    {
+        return target switch
+        {
+            ShellNavigationTarget.Home => AuthenticationStrings.Home,
+            ShellNavigationTarget.Profile => AccountStrings.Profile,
+            ShellNavigationTarget.Preferences => AccountStrings.Preferences,
+            ShellNavigationTarget.Sessions => AccountStrings.Sessions,
+            ShellNavigationTarget.AccountSettings => AccountStrings.Settings,
+            _ => CommonStrings.Users
+        };
+    }
+
+}

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { sendAccountApiRequest } from "@blazor/e2e/account-api";
-import { signUpThroughBlazor, test } from "@blazor/e2e/authentication";
+import { signUpThroughBlazor, test, userMenuButton } from "@blazor/e2e/authentication";
 import { expectNoPolicyViolations, trackPolicyViolations } from "@blazor/e2e/policy";
 import { expectBlazorUrl } from "@blazor/e2e/routes";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
@@ -46,7 +46,7 @@ test.describe("@smoke", () => {
     const lastNameInput = page.getByLabel(texts.lastName, { exact: true });
     const titleInput = page.getByLabel(texts.title, { exact: true });
     const saveButton = page.getByRole("button", { name: texts.saveChanges, exact: true });
-    const workspaceLink = page.getByRole("link", { name: texts.workspace, exact: true });
+    const workspaceLink = page.getByRole("link", { name: texts.home, exact: true });
 
     // === PROFILE ===
     await step("Sign up and open the profile from the header & verify email, role and saved names")(async () => {
@@ -60,7 +60,7 @@ test.describe("@smoke", () => {
       await expect(page.getByText(texts.owner, { exact: true })).toBeVisible();
       await expect(firstNameInput).toHaveValue("Blazor");
       await expect(lastNameInput).toHaveValue("User");
-      await expect(page.getByTestId("header-user-name")).toHaveText("Blazor User");
+      await expect(userMenuButton(page)).toHaveAccessibleDescription(/^Blazor User /);
     })();
 
     await step("Update first name, last name and title & verify the toast and the header name without a reload")(async () => {
@@ -75,7 +75,7 @@ test.describe("@smoke", () => {
 
       const toast = blazorToast(page, texts.profileUpdated);
       await expect(toast).toBeVisible();
-      await expect(page.getByTestId("header-user-name")).toHaveText("Ada Lovelace");
+      await expect(userMenuButton(page)).toHaveAccessibleDescription(/^Ada Lovelace /);
       await expect(firstNameInput).toHaveValue("Ada");
       expect(await page.evaluate(() => window.__documentBeforeSave)).toBe(true);
       await dismissBlazorToast(page, toast);
@@ -89,7 +89,7 @@ test.describe("@smoke", () => {
       await expect(firstNameInput).toHaveValue("Ada");
       await expect(lastNameInput).toHaveValue("Lovelace");
       await expect(titleInput).toHaveValue("Engineer");
-      await expect(page.getByTestId("header-user-name")).toHaveText("Ada Lovelace");
+      await expect(userMenuButton(page)).toHaveAccessibleDescription(/^Ada Lovelace /);
     })();
 
     // === VALIDATION ===
@@ -156,7 +156,7 @@ test.describe("@smoke", () => {
       await page.getByRole("button", { name: texts.leave }).click();
 
       await expectBlazorUrl(page, "app");
-      await expect(page.getByTestId("header-user-name")).toHaveText("Ada Lovelace");
+      await expect(userMenuButton(page)).toHaveAccessibleDescription(/^Ada Lovelace /);
       await expectNoPolicyViolations(page);
     })();
   });

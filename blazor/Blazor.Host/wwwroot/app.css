@@ -487,3 +487,316 @@ h1:focus {
     color: #fff;
     border: 1px solid #b3261e;
 }
+
+/* The authenticated shell (Blazor.Client/Shell). The banner region is a normal-flow grid row, so the sidebar and the mobile
+   header sit below it at its height without a measured offset. The breakpoints are literals because a media query
+   condition cannot read a custom property; ShellBreakpoints and shell.js hold the same values and ShellBreakpointsTests
+   fails when they drift: 40rem (small) and 80rem (extra large). */
+.app-shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "banner" "mobile-header" "main";
+    min-height: 100dvh;
+}
+
+.app-banner-region {
+    grid-area: banner;
+}
+
+.app-banner-region:empty,
+.install-prompt-slot:empty {
+    display: none;
+}
+
+.install-prompt {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-block-end: 1px solid #ddd;
+    background: #fff;
+}
+
+.install-prompt-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+}
+
+.install-prompt-text {
+    flex: 1;
+}
+
+.install-prompt-title {
+    margin: 0;
+    font-weight: 600;
+}
+
+.install-prompt-instructions {
+    margin: 0;
+    font-size: 0.75rem;
+}
+
+.install-prompt-dismiss,
+.app-sidebar-toggle,
+.mobile-menu-button {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    background: transparent;
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+
+.app-sidebar {
+    display: none;
+}
+
+.app-mobile-header {
+    grid-area: mobile-header;
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 10;
+}
+
+.mobile-menu-button {
+    position: fixed;
+    inset-block-end: 1rem;
+    inset-inline-end: 1rem;
+    border-color: #ccc;
+    background: #fff;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.app-main {
+    grid-area: main;
+    min-width: 0;
+    padding: 1rem;
+}
+
+.mobile-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.modal-dialog:has(.mobile-menu) {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+}
+
+.mobile-menu-close {
+    align-self: flex-end;
+}
+
+.mobile-menu-user,
+.mobile-menu-tenants {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-block-start: 1rem;
+    border-block-start: 1px solid #ddd;
+}
+
+.mobile-menu-user p,
+.mobile-menu-tenants p {
+    margin: 0;
+}
+
+.mobile-menu-tenant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.shell-nav-group {
+    margin-block-end: 1rem;
+}
+
+.shell-nav-group-label {
+    margin: 0 0 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.shell-nav-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.shell-nav-link {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.shell-nav-link:hover,
+.shell-nav-link[aria-current="page"] {
+    background: #eee;
+}
+
+.shell-nav-link[aria-current="page"] {
+    font-weight: 600;
+}
+
+.user-menu {
+    position: relative;
+}
+
+.user-menu-trigger {
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+}
+
+.menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+}
+
+.user-menu-list {
+    position: absolute;
+    inset-block-end: 100%;
+    inset-inline-start: 0;
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+    min-width: 14rem;
+    padding-block: 0.25rem;
+    border: 1px solid #ccc;
+    border-radius: 0.375rem;
+    background: #fff;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.user-menu-group {
+    display: flex;
+    flex-direction: column;
+    border-block: 1px solid #eee;
+}
+
+.user-menu-group-label {
+    margin: 0;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.menu-item {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+    background: #eee;
+    outline: none;
+}
+
+.menu-item:disabled {
+    color: #888;
+    cursor: default;
+}
+
+.menu-item-badge {
+    padding: 0 0.375rem;
+    border-radius: 0.25rem;
+    background: #eee;
+    font-size: 0.75rem;
+}
+
+@media (min-width: 40rem) {
+    .app-shell {
+        grid-template-columns: auto 1fr;
+        grid-template-rows: auto 1fr;
+        grid-template-areas: "banner banner" "sidebar main";
+    }
+
+    .app-mobile-header,
+    .mobile-menu-button {
+        display: none;
+    }
+
+    .app-sidebar {
+        grid-area: sidebar;
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 15;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        align-self: start;
+        box-sizing: border-box;
+        width: 15rem;
+        height: 100dvh;
+        padding: 0.75rem;
+        border-inline-end: 1px solid #ddd;
+        background: #fff;
+    }
+
+    .app-sidebar-header,
+    .app-sidebar-footer {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .app-sidebar-navigation {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .app-shell[data-sidebar="collapsed"] .app-sidebar {
+        width: 4rem;
+    }
+
+    .app-shell[data-sidebar="collapsed"] .app-sidebar-tenant,
+    .app-shell[data-sidebar="collapsed"] .app-sidebar-navigation,
+    .app-shell[data-sidebar="collapsed"] .app-sidebar-user-name {
+        display: none;
+    }
+}
+
+/* Below the extra large breakpoint an expanded sidebar overlays the content instead of pushing it aside */
+@media (min-width: 40rem) and (max-width: 79.99rem) {
+    .app-shell {
+        grid-template-columns: 4rem 1fr;
+    }
+
+    .app-shell[data-sidebar="expanded"] .app-sidebar {
+        box-shadow: 4px 0 12px rgb(0 0 0 / 15%);
+    }
+}
+
+@media (min-width: 80rem) {
+    .app-shell[data-sidebar="collapsed"] {
+        grid-template-columns: 4rem 1fr;
+    }
+}

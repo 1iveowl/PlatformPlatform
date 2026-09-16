@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import { logOutButton, signUpThroughBlazor, startEmailFlowThroughBlazor, test, trackWebAssemblyRequests } from "@blazor/e2e/authentication";
+import { userMenuButton, signUpThroughBlazor, startEmailFlowThroughBlazor, test, trackWebAssemblyRequests } from "@blazor/e2e/authentication";
 import { requestNewCodeButton, revealResendThroughBlazor, submitOneTimePassword, verificationCodeInput } from "@blazor/e2e/one-time-password";
 import { blazorPath, expectBlazorUrl, gotoBlazor } from "@blazor/e2e/routes";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
@@ -137,7 +137,7 @@ test.describe("@smoke", () => {
       await page.reload();
 
       await expectBlazorUrl(page, "app");
-      await expect(logOutButton(page)).toBeVisible();
+      await expect(userMenuButton(page)).toBeVisible();
     })();
   });
 });

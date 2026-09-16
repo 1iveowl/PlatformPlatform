@@ -12,7 +12,7 @@
     {
         <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" class="change-role-form" data-testid="change-role-form">
             <div class="change-role-user">
-                <UserAvatar User="user"/>
+                <UserAvatar AvatarUrl="@user.AvatarUrl" Initials="@user.Initials"/>
                 <div>
                     <p class="change-role-user-name" data-testid="change-role-name">@user.DisplayNameOrEmail</p>
                     @if (!string.IsNullOrEmpty(user.Title))

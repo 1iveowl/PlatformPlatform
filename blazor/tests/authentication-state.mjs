@@ -238,9 +238,10 @@ await check("tenant switch changes the bootstrap tenant with a new document and 
   tenantSwitch.context = await newContext(browser, options.browser);
   const page = await logIn(tenantSwitch.context, userA);
   tenantSwitch.page = page;
-  await page.locator('[data-testid="switch-tenant"]').nth(1).waitFor({ timeout: interactiveTimeoutMs });
+  await page.locator("#user-menu-trigger").click({ timeout: interactiveTimeoutMs });
+  await page.locator('[role="menuitem"][data-tenant-id]').nth(1).waitFor({ timeout: interactiveTimeoutMs });
   const before = (await inPageFetch(page, bootstrapPath)).json.user;
-  const target = page.locator('[data-testid="switch-tenant"]:not([disabled])').first();
+  const target = page.locator('[role="menuitem"][data-tenant-id]:not([disabled])').first();
   const targetTenantId = await target.getAttribute("data-tenant-id");
   const documentBefore = await documentOrigin(page);
 
@@ -265,7 +266,8 @@ await check("logout loads the login page as a new document and leaves only the a
   assert(tenantSwitch.page !== undefined, "The tenant switch journey did not leave a signed-in page.");
   const page = tenantSwitch.page;
   const documentBefore = await documentOrigin(page);
-  await page.locator('[data-testid="logout"]').click();
+  await page.locator("#user-menu-trigger").click({ timeout: interactiveTimeoutMs });
+  await page.locator('[role="menu"] [role="menuitem"]').last().click();
   await page.waitForURL(`${baseUrl}${pathBase}/login`, { timeout: interactiveTimeoutMs });
   const fullDocumentNavigation = (await documentOrigin(page)) !== documentBefore;
   const names = (await cookieNames(tenantSwitch.context)).filter((name) => name !== "preferred-tenant");

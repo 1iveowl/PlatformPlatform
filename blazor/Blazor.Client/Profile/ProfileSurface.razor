@@ -1,6 +1,6 @@
 @* The profile page, the React edition's user profile without the avatar and identity verification sections: email and
    role are shown, first name, last name and title are edited. The host prerenders the heading; the profile loads once
-   the component runs in the browser. After a save the bootstrap is read again, so the header shows the new name from the
+   the component runs in the browser. After a save the bootstrap is read again, so the shell shows the new name from the
    refreshed session claims without a reload. *@
 @using Account.Client
 @using Blazor.Client.Bootstrap
@@ -11,57 +11,55 @@
 @inject IServiceProvider Services
 @inject ToastService Toasts
 
-<h1>@AccountStrings.Profile</h1>
-<p>@AccountStrings.ProfileDescription</p>
+<AppShell>
+    <h1>@AccountStrings.Profile</h1>
+    <p>@AccountStrings.ProfileDescription</p>
 
-<AccountHeader/>
+    @if (_user is { } user)
+    {
+        <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" data-testid="profile-form">
+            <DataAnnotationsValidator/>
+            <dl>
+                <dt>@CommonStrings.Email</dt>
+                <dd data-testid="profile-email">@user.Email</dd>
+                <dt>@UsersStrings.Role</dt>
+                <dd data-testid="profile-role">@UserRoleText.Label(user.Role)</dd>
+            </dl>
+            <p>
+                <label>
+                    @AccountStrings.FirstName
+                    <InputText @bind-Value="_form.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" data-testid="first-name"/>
+                </label>
+                <ValidationMessage For="() => _form.FirstName"/>
+            </p>
+            <p>
+                <label>
+                    @AccountStrings.LastName
+                    <InputText @bind-Value="_form.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"/>
+                </label>
+                <ValidationMessage For="() => _form.LastName"/>
+            </p>
+            <p>
+                <label>
+                    @AccountStrings.Title
+                    <InputText @bind-Value="_form.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"/>
+                </label>
+                <ValidationMessage For="() => _form.Title"/>
+            </p>
+            <button type="submit" disabled="@_isSaving" data-testid="save-profile">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
+        </EditForm>
 
-<ToastRegion/>
-
-@if (_user is { } user)
-{
-    <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" data-testid="profile-form">
-        <DataAnnotationsValidator/>
-        <dl>
-            <dt>@CommonStrings.Email</dt>
-            <dd data-testid="profile-email">@user.Email</dd>
-            <dt>@UsersStrings.Role</dt>
-            <dd data-testid="profile-role">@UserRoleText.Label(user.Role)</dd>
-        </dl>
-        <p>
-            <label>
-                @AccountStrings.FirstName
-                <InputText @bind-Value="_form.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" data-testid="first-name"/>
-            </label>
-            <ValidationMessage For="() => _form.FirstName"/>
-        </p>
-        <p>
-            <label>
-                @AccountStrings.LastName
-                <InputText @bind-Value="_form.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"/>
-            </label>
-            <ValidationMessage For="() => _form.LastName"/>
-        </p>
-        <p>
-            <label>
-                @AccountStrings.Title
-                <InputText @bind-Value="_form.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"/>
-            </label>
-            <ValidationMessage For="() => _form.Title"/>
-        </p>
-        <button type="submit" disabled="@_isSaving" data-testid="save-profile">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
-    </EditForm>
-
-    <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges"/>
-}
-else if (_loadFailed)
-{
-    <p role="alert" data-testid="profile-load-failed">@AccountStrings.UnableToLoadProfile</p>
-}
-else
-{
-    <p data-testid="profile-loading">@CommonStrings.Loading</p>
-}
+        <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges"/>
+    }
+    else if (_loadFailed)
+    {
+        <p role="alert" data-testid="profile-load-failed">@AccountStrings.UnableToLoadProfile</p>
+    }
+    else
+    {
+        <p data-testid="profile-loading">@CommonStrings.Loading</p>
+    }
+</AppShell>
 
 @code {
 

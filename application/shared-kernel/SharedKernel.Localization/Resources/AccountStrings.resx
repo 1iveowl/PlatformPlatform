@@ -225,4 +225,10 @@
     <data name="CurrentAccount" xml:space="preserve">
         <value>Current account</value>
     </data>
+    <data name="User" xml:space="preserve">
+        <value>User</value>
+    </data>
+    <data name="Sessions" xml:space="preserve">
+        <value>Sessions</value>
+    </data>
 </root>

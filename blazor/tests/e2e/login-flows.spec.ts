@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import {
-  logOutButton,
+  userMenuButton,
   logOutThroughBlazor,
   signUpThroughBlazor,
   startEmailFlowThroughBlazor,
@@ -136,7 +136,7 @@ test.describe("@smoke", () => {
       await submitOneTimePassword(page, getVerificationCode().toLowerCase());
 
       await expectBlazorUrl(page, "app/details");
-      await expect(logOutButton(page)).toBeVisible();
+      await expect(userMenuButton(page)).toBeVisible();
     })();
 
     // === RETURN PATH OUTSIDE THE PATH BASE ===

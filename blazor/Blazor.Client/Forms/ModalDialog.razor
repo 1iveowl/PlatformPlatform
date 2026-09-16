@@ -5,7 +5,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JavaScriptRuntime
 
-<dialog @ref="_element" class="modal-dialog" role="@Role" aria-modal="true" aria-labelledby="@TitleId" aria-describedby="@DescriptionId" data-testid="@TestId" data-open="@(Open ? "true" : "false")">
+<dialog @ref="_element" class="modal-dialog" role="@Role" aria-modal="true" aria-label="@AriaLabel" aria-labelledby="@TitleId" aria-describedby="@DescriptionId" data-testid="@TestId" data-open="@(Open ? "true" : "false")">
     @if (Open)
     {
         <div class="modal-dialog-surface">
@@ -31,6 +31,10 @@
 
     [Parameter]
     public string? TitleId { get; set; }
+
+    // The accessible name of a dialog without a visible title; a dialog with one names itself through TitleId
+    [Parameter]
+    public string? AriaLabel { get; set; }
 
     [Parameter]
     public string? DescriptionId { get; set; }
