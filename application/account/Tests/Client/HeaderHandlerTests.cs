@@ -227,8 +227,10 @@ public sealed class HeaderHandlerTests
         featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures).Should().BeTrue();
     }
 
-    [Fact]
-    public async Task FeatureFlagsHeaderHandler_WhenResponseIsTheBootstrap_ShouldLeaveStateUnchanged()
+    [Theory]
+    [InlineData("GET", AccountApiRoutes.Bootstrap)]
+    [InlineData("POST", AccountApiRoutes.SwitchTenant)]
+    public async Task FeatureFlagsHeaderHandler_WhenResponseIsTheBootstrapOrTheTenantSwitch_ShouldLeaveStateUnchanged(string method, string path)
     {
         // Arrange
         var featureFlagState = new FeatureFlagState();
@@ -243,7 +245,7 @@ public sealed class HeaderHandlerTests
         var httpClient = CreateHttpClient(new FeatureFlagsHeaderHandler(featureFlagState), stubHandler);
 
         // Act
-        await httpClient.GetAsync(AccountApiRoutes.Bootstrap);
+        await httpClient.SendAsync(new HttpRequestMessage(new HttpMethod(method), path));
 
         // Assert
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeTrue();

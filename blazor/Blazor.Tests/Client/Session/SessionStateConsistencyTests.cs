@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Account.Client;
 using Account.Features.Authentication.Queries;
+using Account.Features.Authentication.Requests;
 using Blazor.Client.Bootstrap;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
@@ -119,6 +120,45 @@ public sealed class SessionStateConsistencyTests
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeFalse();
         session.Current!.User!.TenantId.Should().Be(new TenantId(2));
         notifications.Should().BeEmpty();
+        (await SendStateChangingCallAsync(services, network)).Should().Be("tenant-two-token");
+    }
+
+    [Fact]
+    public async Task FeatureFlagsHeader_WhenTheSwitchTenantResponseCarriesTheNewTenantsFlags_ShouldNotReportThemBesideTheOldTenant()
+    {
+        // Arrange
+        var network = new ControlledNetwork();
+        await using var services = CreateServices(network);
+        var session = services.GetRequiredService<SessionState>();
+        var featureFlagState = services.GetRequiredService<FeatureFlagState>();
+        var initialRead = session.GetAsync();
+        await network.WaitForRequestsAsync(1);
+        network.Respond(0, CreateBootstrapResponse(UserId, 1, "Ann", "tenant-one-token", FeatureFlagRegistry.CompactView.Key));
+        await initialRead;
+        var observations = new List<string>();
+        featureFlagState.Changed += () => observations.Add(
+            $"tenant:{featureFlagState.TenantId?.Value}:{(featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures) ? "beta" : "")}:{(featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView) ? "compact" : "")}"
+        );
+
+        // Act
+        var switchCall = services.GetRequiredService<AuthenticationClient>().SwitchTenantAsync(new SwitchTenantCommand(new TenantId(2)), CancellationToken.None);
+        await network.WaitForRequestsAsync(2);
+        var switchResponse = new HttpResponseMessage(HttpStatusCode.OK);
+        switchResponse.Headers.Add(AccountApiHeaders.UserFeatureFlags, FeatureFlagRegistry.BetaFeatures.Key);
+        network.Respond(1, switchResponse);
+        (await switchCall).IsSuccess.Should().BeTrue();
+        var flagsAfterSwitchResponse = (featureFlagState.TenantId, featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures));
+        var refresh = session.RefreshAsync();
+        await network.WaitForRequestsAsync(3);
+        network.Respond(2, CreateBootstrapResponse(UserId, 2, "Ann", "tenant-two-token", FeatureFlagRegistry.BetaFeatures.Key));
+        await refresh;
+
+        // Assert
+        network.Requests[1].Path.Should().Be(AccountApiRoutes.SwitchTenant);
+        flagsAfterSwitchResponse.Should().Be((new TenantId(1), false));
+        observations.Should().Equal("tenant:2:beta:");
+        featureFlagState.TenantId.Should().Be(new TenantId(2));
+        session.Current!.User!.TenantId.Should().Be(new TenantId(2));
         (await SendStateChangingCallAsync(services, network)).Should().Be("tenant-two-token");
     }
 
