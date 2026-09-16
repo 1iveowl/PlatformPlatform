@@ -1,0 +1,67 @@
+@* Email signup start, static server-side rendering, enhanced for the same reason as the login start *@
+@page "/signup"
+@using global::Account.Client
+@using global::Account.Features.EmailAuthentication.Requests
+@implements IDisposable
+@inject EmailAuthenticationClient EmailAuthentication
+@inject NavigationManager Navigation
+
+<PageTitle>@CommonStrings.SignUp</PageTitle>
+
+<PublicNav/>
+
+<h1>@AuthenticationStrings.CreateYourAccount</h1>
+
+<EditForm EditContext="_editContext" FormName="signup-start" OnValidSubmit="StartAsync" Enhance>
+    <DataAnnotationsValidator/>
+    <label>
+        @CommonStrings.Email
+        <InputText @bind-Value="Input.Email" type="email" autocomplete="email" data-testid="email"/>
+    </label>
+    <ValidationMessage For="() => Input.Email"/>
+    <button type="submit" data-testid="submit">@AuthenticationStrings.SignUpWithEmail</button>
+</EditForm>
+
+<FormErrorAlert Errors="_formErrors"/>
+
+@code {
+
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    [SupplyParameterFromForm(FormName = "signup-start")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private EmailForm Input
+    {
+        get => field ??= new EmailForm();
+        set;
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(Input);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    private async Task StartAsync()
+    {
+        var result = await EmailAuthentication.StartSignupAsync(new StartEmailSignupCommand(Input.Email), HttpContext.RequestAborted);
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        var flow = VerificationFlow.Start(DateTimeOffset.UtcNow, result.Value.ValidForSeconds);
+        Navigation.NavigateTo(flow.GetVerifyUrl("signup/verify", result.Value.EmailLoginId, Input.Email, null, false));
+    }
+
+}

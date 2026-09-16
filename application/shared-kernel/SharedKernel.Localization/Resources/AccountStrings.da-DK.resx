@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="Account" xml:space="preserve">
+        <value>Konto</value>
+    </data>
+    <data name="AccountDetails" xml:space="preserve">
+        <value>Kontooplysninger</value>
+    </data>
+    <data name="AccountOverview" xml:space="preserve">
+        <value>Kontooversigt</value>
+    </data>
+    <data name="AddProfilePicture" xml:space="preserve">
+        <value>Tilføj profilbillede</value>
+    </data>
+    <data name="Authenticated" xml:space="preserve">
+        <value>Logget ind</value>
+    </data>
+    <data name="BackToApp" xml:space="preserve">
+        <value>Tilbage til appen</value>
+    </data>
+    <data name="Billing" xml:space="preserve">
+        <value>Fakturering</value>
+    </data>
+    <data name="BootstrapReloaded" xml:space="preserve">
+        <value>Opstartsdata genindlæst {0}</value>
+    </data>
+    <data name="ChangeProfilePicture" xml:space="preserve">
+        <value>Skift profilbillede</value>
+    </data>
+    <data name="ChangeUserPreferences" xml:space="preserve">
+        <value>Skift brugerpræferencer</value>
+    </data>
+    <data name="ContactSupport" xml:space="preserve">
+        <value>Kontakt support</value>
+    </data>
+    <data name="Details" xml:space="preserve">
+        <value>Detaljer</value>
+    </data>
+    <data name="EditProfile" xml:space="preserve">
+        <value>Rediger profil</value>
+    </data>
+    <data name="EditUserProfile" xml:space="preserve">
+        <value>Rediger brugerprofil</value>
+    </data>
+    <data name="EmailCannotBeChanged" xml:space="preserve">
+        <value>Din e-mailadresse kan ikke ændres. En ejer skal slette din konto og invitere dig igen med den nye e-mailadresse.</value>
+    </data>
+    <data name="FirstName" xml:space="preserve">
+        <value>Fornavn</value>
+    </data>
+    <data name="FirstNamePlaceholder" xml:space="preserve">
+        <value>F.eks. Anders</value>
+    </data>
+    <data name="InteractiveState" xml:space="preserve">
+        <value>Interaktiv: {0}</value>
+    </data>
+    <data name="InvitationPending" xml:space="preserve">
+        <value>Invitation afventer</value>
+    </data>
+    <data name="Language" xml:space="preserve">
+        <value>Sprog</value>
+    </data>
+    <data name="LastName" xml:space="preserve">
+        <value>Efternavn</value>
+    </data>
+    <data name="LastNamePlaceholder" xml:space="preserve">
+        <value>F.eks. Jensen</value>
+    </data>
+    <data name="LogOut" xml:space="preserve">
+        <value>Log ud</value>
+    </data>
+    <data name="NumberAndDateFormat" xml:space="preserve">
+        <value>Tal- og datoformat</value>
+    </data>
+    <data name="Overview" xml:space="preserve">
+        <value>Overblik</value>
+    </data>
+    <data name="Preferences" xml:space="preserve">
+        <value>Præferencer</value>
+    </data>
+    <data name="ProfileAvatar" xml:space="preserve">
+        <value>Profilavatar</value>
+    </data>
+    <data name="ProfileDescription" xml:space="preserve">
+        <value>Opdater dit profilbillede og personlige oplysninger her.</value>
+    </data>
+    <data name="ProfilePhoto" xml:space="preserve">
+        <value>Profilbillede</value>
+    </data>
+    <data name="ProfileUpdated" xml:space="preserve">
+        <value>Profil opdateret succesfuldt</value>
+    </data>
+    <data name="ReloadBootstrap" xml:space="preserve">
+        <value>Genindlæs opstartsdata</value>
+    </data>
+    <data name="RemoveProfilePicture" xml:space="preserve">
+        <value>Fjern profilbillede</value>
+    </data>
+    <data name="RuntimeConfigurationKeys" xml:space="preserve">
+        <value>Nøgler i kørselskonfigurationen</value>
+    </data>
+    <data name="SelectAccount" xml:space="preserve">
+        <value>Vælg konto</value>
+    </data>
+    <data name="Settings" xml:space="preserve">
+        <value>Indstillinger</value>
+    </data>
+    <data name="SwitchAccount" xml:space="preserve">
+        <value>Skift konto</value>
+    </data>
+    <data name="SwitchAccountFailed" xml:space="preserve">
+        <value>Skift af konto mislykkedes med status {0}</value>
+    </data>
+    <data name="SwitchTo" xml:space="preserve">
+        <value>Skift til {0}</value>
+    </data>
+    <data name="SwitchingAccount" xml:space="preserve">
+        <value>Skifter konto...</value>
+    </data>
+    <data name="SystemFeatureFlags" xml:space="preserve">
+        <value>Systemfunktionsflag</value>
+    </data>
+    <data name="Title" xml:space="preserve">
+        <value>Titel</value>
+    </data>
+    <data name="TitlePlaceholder" xml:space="preserve">
+        <value>F.eks. Softwareingeniør</value>
+    </data>
+    <data name="UnableToLoadProfile" xml:space="preserve">
+        <value>Kunne ikke indlæse profil</value>
+    </data>
+    <data name="UnnamedAccount" xml:space="preserve">
+        <value>Unavngivet konto</value>
+    </data>
+    <data name="UploadProfilePicture" xml:space="preserve">
+        <value>Upload profilbillede</value>
+    </data>
+    <data name="UserId" xml:space="preserve">
+        <value>Bruger-id</value>
+    </data>
+    <data name="UserMenu" xml:space="preserve">
+        <value>Brugermenu</value>
+    </data>
+    <data name="Workspace" xml:space="preserve">
+        <value>Arbejdsområde</value>
+    </data>
+    <data name="YourWorkspace" xml:space="preserve">
+        <value>Dit arbejdsområde</value>
+    </data>
+    <data name="TenantNameLength" xml:space="preserve">
+        <value>Navnet skal være mellem 1 og 30 tegn.</value>
+    </data>
+    <data name="FirstNameLength" xml:space="preserve">
+        <value>Fornavnet skal være mellem 1 og 30 tegn.</value>
+    </data>
+    <data name="LastNameLength" xml:space="preserve">
+        <value>Efternavnet skal være mellem 1 og 30 tegn.</value>
+    </data>
+    <data name="TitleTooLong" xml:space="preserve">
+        <value>Titlen må højst være på 50 tegn.</value>
+    </data>
+    <data name="Profile" xml:space="preserve">
+        <value>Profil</value>
+    </data>
+    <data name="CurrentAccount" xml:space="preserve">
+        <value>Nuværende konto</value>
+    </data>
+</root>

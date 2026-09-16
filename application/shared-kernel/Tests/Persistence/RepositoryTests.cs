@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.ExecutionContext;
-using SharedKernel.StronglyTypedIds;
 using SharedKernel.Tests.TestEntities;
 using Xunit;
 

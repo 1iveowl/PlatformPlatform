@@ -1,15 +1,13 @@
 using System.Text.Json;
-using Azure.Security.KeyVault.Keys;
-using Azure.Security.KeyVault.Keys.Cryptography;
 using Azure.Security.KeyVault.Secrets;
 using FluentValidation;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using SharedKernel.ApiResults;
 using SharedKernel.Authentication;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Authentication.TokenSigning;
@@ -24,32 +22,12 @@ namespace SharedKernel.Configuration;
 
 public static class SharedDependencyConfiguration
 {
-    // Ensure that enums are serialized as strings and use CamelCase
-    public static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
-    {
-        Converters = { new JsonStringEnumConverter() },
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    // Ensure that enums are serialized as strings and use CamelCase, with the same options the clients use
+    public static readonly JsonSerializerOptions DefaultJsonSerializerOptions = ApiJsonSerializerOptions.Create();
 
     public static ITokenSigningClient GetTokenSigningService()
     {
-        if (SharedInfrastructureConfiguration.IsRunningInAzure)
-        {
-            var keyVaultUri = new Uri(Environment.GetEnvironmentVariable("KEYVAULT_URL")!);
-            var keyClient = new KeyClient(keyVaultUri, SharedInfrastructureConfiguration.DefaultAzureCredential);
-            var cryptographyClient = new CryptographyClient(
-                keyClient.GetKey("authentication-token-signing-key").Value.Id,
-                SharedInfrastructureConfiguration.DefaultAzureCredential
-            );
-
-            var secretClient = new SecretClient(keyVaultUri, SharedInfrastructureConfiguration.DefaultAzureCredential);
-            var issuer = secretClient.GetSecret("authentication-token-issuer").Value.Value;
-            var audience = secretClient.GetSecret("authentication-token-audience").Value.Value;
-
-            return new AzureTokenSigningClient(cryptographyClient, issuer, audience);
-        }
-
-        return new DevelopmentTokenSigningClient();
+        return SecurityDependencyConfiguration.GetTokenSigningService();
     }
 
     extension(IServiceCollection services)
@@ -65,7 +43,7 @@ public static class SharedDependencyConfiguration
             return services
                 .AddServiceDiscovery()
                 .AddSingleton(GetTokenSigningService())
-                .AddCrossServiceDataProtection()
+                .AddCrossServiceDataProtection(Settings.Current.Branding.ProductName)
                 .AddSingleton(Settings.Current)
                 .AddTimeProvider()
                 .AddAuthentication()
@@ -76,20 +54,6 @@ public static class SharedDependencyConfiguration
                 .AddMediatRPipelineBehaviors()
                 .RegisterMediatRRequest(assemblies)
                 .RegisterRepositories(assemblies);
-        }
-
-        private IServiceCollection AddCrossServiceDataProtection()
-        {
-            // Configure shared data protection to ensure encrypted data can be shared across all self-contained systems
-            var dataProtection = services.AddDataProtection();
-
-            if (!SharedInfrastructureConfiguration.IsRunningInAzure)
-            {
-                // Set a common application name for all self-contained systems for local development (handled automatically by Azure Container Apps Environment)
-                dataProtection.SetApplicationName(Settings.Current.Branding.ProductName);
-            }
-
-            return services;
         }
 
         private IServiceCollection AddTimeProvider()

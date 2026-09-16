@@ -6,7 +6,7 @@ description: Run end-to-end Playwright tests via the developer CLI.
 # End-to-end Tests
 
 ```bash
-dotnet run --project developer-cli -- e2e [search-terms...] [--smoke] [--browser <name>] [--retries <n>] [--last-failed] [--only-changed] [--stop-on-first-failure] [--include-slow] [--self-contained-system <name>] [--no-wait-for-aspire] --quiet
+dotnet run --project developer-cli -- e2e [search-terms...] [--smoke] [--browser <name>] [--retries <n>] [--last-failed] [--only-changed] [--stop-on-first-failure] [--include-slow] [--self-contained-system <name>] [--blazor] [--no-wait-for-aspire] --quiet
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -20,9 +20,21 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 - `--stop-on-first-failure`, `-x` - exit on first failure
 - `--include-slow` - include `@slow`-tagged tests (excluded by default)
 - `--self-contained-system <name>` - narrows to one SCS (e.g. `main`, `account`)
+- `--blazor` - runs the specs of the Blazor build root in `blazor/tests/e2e` with `blazor/tests/playwright.config.ts` instead of the self-contained systems; not combinable with `--self-contained-system`. Every other option works the same
 - `--no-wait-for-aspire` - skip the Aspire readiness check (use only when Aspire is already up)
 
-Aspire must be running. If not, start it via the `aspire-restart` skill first.
+Aspire must be running. If not, start it via the `aspire-restart` skill first. The command never starts it.
+
+## Blazor
+
+- Prerequisites: the stack is running with the `blazor-host` resource, so the gateway serves `/blazor/`; the server check probes that URL. The specs live in `blazor/tests/e2e`; when that folder is missing the command fails.
+- After `build --blazor`, restart the stack with the aspire-restart skill before running the specs: a `blazor-host` started before the build can reference framework files the build replaced, and the WebAssembly runtime then fails to start ("Interactive: False").
+- It runs from `blazor/` with the Playwright CLI pinned in `application/package.json` (from `application/node_modules`), so `application/` needs its npm packages installed.
+- The report is written to `blazor/tests/test-results/playwright-report`. `--delete-artifacts --blazor` also deletes `blazor/tests/test-results`.
+
+```bash
+dotnet run --project developer-cli -- e2e --blazor --smoke --quiet
+```
 
 ## Strategy: pick the smallest run that proves the fix
 

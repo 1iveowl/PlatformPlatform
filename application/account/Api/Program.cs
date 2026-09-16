@@ -27,7 +27,8 @@ builder
 
 // Configure dependency injection services like Repositories, MediatR, Pipelines, FluentValidation validators, etc.
 builder.Services
-    .AddApiServices([Assembly.GetExecutingAssembly(), Configuration.Assembly], ApiDocumentLayout.AccountAndBackOffice)
+    // The contracts assembly precedes Core so the OpenAPI enum schemas keep the order they had before the contracts split
+    .AddApiServices([Assembly.GetExecutingAssembly(), Configuration.ContractsAssembly, Configuration.Assembly], ApiDocumentLayout.AccountAndBackOffice)
     .AddAccountServices()
     .AddBackOfficeDevStaticProxy();
 

@@ -1,0 +1,67 @@
+@using Blazor.Host.Shell
+@* The host page. HostShell.ApplyPageHeadersAsync serves it with no-store, like every component page, because it carries a
+   per-request nonce and an authenticated route prerenders for the requesting user, so no cache may share the document
+   between visitors; identity reaches the client through the bootstrap endpoint. The per-request nonce is only on the
+   import map, the stylesheet links and the three scripts, none of which enhanced navigation re-inserts. Every URL is
+   root-absolute through AppUrls, because base-uri 'none' makes the browser ignore <base href>. *@
+@inject HostShell Shell
+
+<!DOCTYPE html>
+@* no-fuib-style: FluentUI's initializer otherwise fetches "./_content/.../css/default-fuib.css" with the native fetch, which
+   resolves against the document URL and returns 404 below the path base; the host links the same file absolutely instead *@
+<html lang="@_locale" no-fuib-style>
+
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="theme-color" content="@Shell.Brand.ThemeColorLight"/>
+    <title>@Shell.Brand.ProductName</title>
+    <link rel="manifest" href="@AppUrls.ToAbsolute(HostShell.ManifestPath)"/>
+    @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce *@
+    @foreach (var link in _preloadLinks)
+    {
+        <link href="@link.Href" rel="@link.Rel" as="@link.As" fetchpriority="@link.FetchPriority" crossorigin="@link.CrossOrigin" integrity="@link.Integrity"/>
+    }
+    <link rel="stylesheet" href="@Shell.BrandStylesheetUrl" nonce="@_nonce"/>
+    <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["_content/Microsoft.FluentUI.AspNetCore.Components/css/default-fuib.css"])" nonce="@_nonce"/>
+    <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["app.css"])" nonce="@_nonce"/>
+    <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["Blazor.Host.styles.css"])" nonce="@_nonce"/>
+    <ImportMap ImportMapDefinition="_importMap" nonce="@_nonce"/>
+    <HeadOutlet/>
+</head>
+
+<body>
+<Routes/>
+<script src="@AppUrls.ToAbsolute(Assets["js/document-base-uri.js"])" data-base="@AppUrls.PathBase/" nonce="@_nonce"></script>
+<script src="@AppUrls.ToAbsolute(Assets["_framework/blazor.web.js"])" nonce="@_nonce"></script>
+@* After blazor.web.js, so the module can subscribe to enhanced navigation; it acts only on a verification page *@
+<script type="module" src="@AppUrls.ToAbsolute(Assets["js/verification-timer.js"])" nonce="@_nonce"></script>
+</body>
+
+</html>
+
+@code {
+
+    private ImportMapDefinition? _importMap;
+    private string _locale = "";
+    private string _nonce = "";
+    private PreloadLink[] _preloadLinks = [];
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        _nonce = HostShell.GetNonce(HttpContext);
+        // The request culture that request localization chose, so the attribute always names the culture the page renders in
+        _locale = CultureInfo.CurrentUICulture.Name;
+
+        var importMap = HttpContext.GetEndpoint()?.Metadata.GetMetadata<ImportMapDefinition>() ?? ImportMapDefinition.FromResourceCollection(Assets);
+        _importMap = Shell.GetAbsoluteImportMap(importMap);
+        // The import map is on every page so enhanced navigation can still start the runtime, but only pages that host a
+        // WebAssembly component preload it; a static server-rendered public page therefore downloads no runtime
+        var isInteractiveSurface = HttpContext.GetEndpoint()?.Metadata.GetMetadata<InteractiveSurfaceAttribute>() is not null;
+        _preloadLinks = isInteractiveSurface ? HostShell.GetPreloadLinks(Assets, _importMap).OrderBy(link => link.Order).ToArray() : [];
+    }
+
+}

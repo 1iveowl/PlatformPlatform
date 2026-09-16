@@ -1,7 +1,5 @@
 using System.Security;
-using JetBrains.Annotations;
 using SharedKernel.Domain;
-using SharedKernel.StronglyTypedIds;
 
 namespace Account.Features.EmailAuthentication.Domain;
 
@@ -79,16 +77,5 @@ public sealed class EmailLogin : AggregateRoot<EmailLoginId>
 
         OneTimePasswordHash = oneTimePasswordHash;
         ResendCount++;
-    }
-}
-
-[PublicAPI]
-[IdPrefix("emlog")]
-[JsonConverter(typeof(StronglyTypedIdJsonConverter<string, EmailLoginId>))]
-public sealed record EmailLoginId(string Value) : StronglyTypedUlid<EmailLoginId>(Value)
-{
-    public override string ToString()
-    {
-        return Value;
     }
 }

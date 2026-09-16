@@ -1,0 +1,85 @@
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Session
+@* The interactive WebAssembly surface behind login. Prerendered by the host with the host's bootstrap adapter, then
+   started in the browser, where the bootstrap comes from the account API. Leaving the authenticated state (logout, tenant
+   switch, a lost session) is always a full document navigation, so nothing from the previous identity stays in memory. *@
+@inject SessionState Session
+@inject IServiceProvider Services
+
+<h1>@(Page == "details" ? AccountStrings.AccountDetails : AccountStrings.YourWorkspace)</h1>
+
+<AccountHeader/>
+
+<ToastRegion/>
+
+<nav>
+    <a href="@AppUrls.ToAbsolute("app/details")" data-testid="nav-details">@AccountStrings.Details</a> |
+    <a href="@AppUrls.ToAbsolute("legal/terms")" data-enhance-nav="false" data-testid="nav-terms">@CommonStrings.Terms</a>
+</nav>
+
+<p data-testid="render-mode">@string.Format(CultureInfo.InvariantCulture, AccountStrings.InteractiveState, RendererInfo.IsInteractive)</p>
+
+@* A fixed number and date in the page culture, so prerendered and interactive formatting can be compared *@
+<p data-testid="culture-format">@AccountStrings.NumberAndDateFormat: @SampleNumber.ToString("N2", CultureInfo.CurrentCulture) @SampleDate.ToString("d", CultureInfo.CurrentCulture)</p>
+
+@if (_bootstrap is { } bootstrap)
+{
+    <dl>
+        <dt>@AccountStrings.Authenticated</dt>
+        <dd data-testid="bootstrap-authenticated">@bootstrap.IsAuthenticated</dd>
+        <dt>@CommonStrings.Email</dt>
+        <dd data-testid="bootstrap-email">@bootstrap.User?.Email</dd>
+        <dt>@AccountStrings.Account</dt>
+        <dd data-testid="bootstrap-tenant-id">@bootstrap.User?.TenantId</dd>
+        <dt>@CommonStrings.AccountName</dt>
+        <dd data-testid="bootstrap-tenant-name">@bootstrap.User?.TenantName</dd>
+        <dt>@AccountStrings.Language</dt>
+        <dd data-testid="bootstrap-locale">@bootstrap.Locale</dd>
+        <dt>@AccountStrings.SystemFeatureFlags</dt>
+        <dd data-testid="bootstrap-flags">@string.Join(", ", bootstrap.SystemFeatureFlags.Select(flag => $"{flag.Key}={flag.Value}"))</dd>
+        <dt>@AccountStrings.RuntimeConfigurationKeys</dt>
+        <dd data-testid="bootstrap-runtime-keys">@string.Join(", ", bootstrap.RuntimeConfiguration.Keys)</dd>
+    </dl>
+}
+
+@if (RendererInfo.IsInteractive)
+{
+    <p>
+        <button type="button" data-testid="reload-bootstrap" @onclick="ReloadBootstrapAsync">@AccountStrings.ReloadBootstrap</button>
+    </p>
+
+    <p data-testid="status">@_status</p>
+}
+
+@code {
+
+    private const double SampleNumber = 1234567.891;
+    private static readonly DateTime SampleDate = new(2026, 9, 15);
+
+    private BootstrapResponse? _bootstrap;
+    private string _status = "";
+
+    [Parameter]
+    public string Page { get; set; } = "home";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _bootstrap = await Session.GetAsync();
+        if (RendererInfo.IsInteractive && !_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
+    }
+
+    private async Task ReloadBootstrapAsync()
+    {
+        _bootstrap = await Session.RefreshAsync();
+        _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.BootstrapReloaded, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+        if (!_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
+    }
+
+    // Resolved lazily: the navigator is only used interactively, so prerendering never constructs it
+    private AuthenticationNavigator GetNavigator()
+    {
+        return Services.GetRequiredService<AuthenticationNavigator>();
+    }
+
+}

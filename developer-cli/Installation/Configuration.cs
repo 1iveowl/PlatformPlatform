@@ -34,6 +34,9 @@ public static class Configuration
 
     public static readonly string CliFolder = new(Path.Combine(SourceCodeFolder, "developer-cli"));
 
+    // A sibling build root with its own global.json, so commands run from this folder resolve its SDK rather than application's
+    public static readonly string BlazorFolder = new(Path.Combine(SourceCodeFolder, "blazor"));
+
     public static readonly string WorkspaceFolder = new(Path.Combine(SourceCodeFolder, ".workspace"));
 
     public static bool IsDebugMode => Environment.ProcessPath!.Contains("debug");

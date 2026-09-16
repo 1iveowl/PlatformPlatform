@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AddYourAccountName" xml:space="preserve">
+        <value>Tilføj dit kontonavn</value>
+    </data>
+    <data name="Admin" xml:space="preserve">
+        <value>Admin</value>
+    </data>
+    <data name="AdminDescription" xml:space="preserve">
+        <value>Fuld adgang undtagen ændring af brugerroller og kontoindstillinger</value>
+    </data>
+    <data name="AllUsers" xml:space="preserve">
+        <value>Alle brugere</value>
+    </data>
+    <data name="AnyRole" xml:space="preserve">
+        <value>Enhver rolle</value>
+    </data>
+    <data name="AnyStatus" xml:space="preserve">
+        <value>Enhver status</value>
+    </data>
+    <data name="CannotChangeOwnRole" xml:space="preserve">
+        <value>Du kan ikke ændre din egen rolle</value>
+    </data>
+    <data name="CannotDeleteYourself" xml:space="preserve">
+        <value>Du kan ikke slette dig selv</value>
+    </data>
+    <data name="ChangeRole" xml:space="preserve">
+        <value>Skift rolle</value>
+    </data>
+    <data name="ChangeUserRole" xml:space="preserve">
+        <value>Skift brugerrolle</value>
+    </data>
+    <data name="ChangeUserRoleFor" xml:space="preserve">
+        <value>Skift brugerrolle for {0}</value>
+    </data>
+    <data name="Clear" xml:space="preserve">
+        <value>Ryd</value>
+    </data>
+    <data name="ClearFilters" xml:space="preserve">
+        <value>Ryd filtre</value>
+    </data>
+    <data name="ClearSearch" xml:space="preserve">
+        <value>Ryd søgning</value>
+    </data>
+    <data name="CloseUserProfile" xml:space="preserve">
+        <value>Luk brugerprofil</value>
+    </data>
+    <data name="ConfirmDeleteCountUsers" xml:space="preserve">
+        <value>Er du sikker på, at du vil slette {0} brugere?</value>
+    </data>
+    <data name="ConfirmDeleteUser" xml:space="preserve">
+        <value>Er du sikker på, at du vil slette {0}?</value>
+    </data>
+    <data name="Created" xml:space="preserve">
+        <value>Oprettet</value>
+    </data>
+    <data name="Delete" xml:space="preserve">
+        <value>Slet</value>
+    </data>
+    <data name="DeleteCountUsers" xml:space="preserve">
+        <value>Slet {0} brugere</value>
+    </data>
+    <data name="DeleteUser" xml:space="preserve">
+        <value>Slet bruger</value>
+    </data>
+    <data name="DeleteUsers" xml:space="preserve">
+        <value>Slet brugere</value>
+    </data>
+    <data name="Filters" xml:space="preserve">
+        <value>Filtre</value>
+    </data>
+    <data name="GoToAccountSettings" xml:space="preserve">
+        <value>Gå til kontoindstillinger</value>
+    </data>
+    <data name="InviteEmailPlaceholder" xml:space="preserve">
+        <value>user@email.com</value>
+    </data>
+    <data name="InviteInstructions" xml:space="preserve">
+        <value>En e-mail med login-instruktioner vil blive sendt til brugeren.</value>
+    </data>
+    <data name="InviteUser" xml:space="preserve">
+        <value>Inviter bruger</value>
+    </data>
+    <data name="LastSeen" xml:space="preserve">
+        <value>Sidst set</value>
+    </data>
+    <data name="ManageUsers" xml:space="preserve">
+        <value>Administrer dine brugere og tilladelser her.</value>
+    </data>
+    <data name="Member" xml:space="preserve">
+        <value>Medlem</value>
+    </data>
+    <data name="MemberDescription" xml:space="preserve">
+        <value>Standard brugeradgang</value>
+    </data>
+    <data name="ModifiedDate" xml:space="preserve">
+        <value>Ændret dato</value>
+    </data>
+    <data name="Name" xml:space="preserve">
+        <value>Navn</value>
+    </data>
+    <data name="NoUsersFound" xml:space="preserve">
+        <value>Ingen brugere fundet</value>
+    </data>
+    <data name="OnlyOwnersCanChangeRoles" xml:space="preserve">
+        <value>Kun ejere kan ændre brugerroller</value>
+    </data>
+    <data name="Owner" xml:space="preserve">
+        <value>Ejer</value>
+    </data>
+    <data name="OwnerDescription" xml:space="preserve">
+        <value>Fuld adgang inklusive brugerroller og kontoindstillinger</value>
+    </data>
+    <data name="Pending" xml:space="preserve">
+        <value>Afventer</value>
+    </data>
+    <data name="RecycleBin" xml:space="preserve">
+        <value>Papirkurv</value>
+    </data>
+    <data name="Role" xml:space="preserve">
+        <value>Rolle</value>
+    </data>
+    <data name="SelectAllUsers" xml:space="preserve">
+        <value>Vælg alle brugere</value>
+    </data>
+    <data name="SelectDates" xml:space="preserve">
+        <value>Vælg datoer</value>
+    </data>
+    <data name="SendInvite" xml:space="preserve">
+        <value>Send invitation</value>
+    </data>
+    <data name="Sending" xml:space="preserve">
+        <value>Sender...</value>
+    </data>
+    <data name="ShowSearchFilters" xml:space="preserve">
+        <value>Vis søgefiltre</value>
+    </data>
+    <data name="TenantNameRequiredMessage" xml:space="preserve">
+        <value>Dit team skal vide, hvem der inviterer dem. Tilføj et kontonavn for at komme i gang.</value>
+    </data>
+    <data name="TenantNameRequiredTitle" xml:space="preserve">
+        <value>Hjælp dit team med at genkende dine invitationer</value>
+    </data>
+    <data name="TryAdjustingSearch" xml:space="preserve">
+        <value>Prøv at justere din søgning eller filtre</value>
+    </data>
+    <data name="UserActions" xml:space="preserve">
+        <value>Brugerhandlinger</value>
+    </data>
+    <data name="UserDataUpdated" xml:space="preserve">
+        <value>Brugerdata opdateret</value>
+    </data>
+    <data name="UserDeleted" xml:space="preserve">
+        <value>Bruger slettet succesfuldt: {0}</value>
+    </data>
+    <data name="UserInvited" xml:space="preserve">
+        <value>Bruger inviteret succesfuldt</value>
+    </data>
+    <data name="UserNotFound" xml:space="preserve">
+        <value>Brugeren blev ikke fundet</value>
+    </data>
+    <data name="UserNotFoundMessage" xml:space="preserve">
+        <value>Brugeren findes ikke eller er ikke tilgængelig på denne konto.</value>
+    </data>
+    <data name="UserNotInCurrentView" xml:space="preserve">
+        <value>Bruger ikke i nuværende visning</value>
+    </data>
+    <data name="UserRole" xml:space="preserve">
+        <value>Brugerrolle</value>
+    </data>
+    <data name="UserRoleUpdated" xml:space="preserve">
+        <value>Brugerrolle opdateret succesfuldt for {0}</value>
+    </data>
+    <data name="UserStatus" xml:space="preserve">
+        <value>Brugerstatus</value>
+    </data>
+    <data name="UserTabs" xml:space="preserve">
+        <value>Brugerfaner</value>
+    </data>
+    <data name="UsersDeleted" xml:space="preserve">
+        <value>{0} brugere slettet succesfuldt</value>
+    </data>
+    <data name="UsersLoading" xml:space="preserve">
+        <value>Brugere indlæses</value>
+    </data>
+    <data name="Verified" xml:space="preserve">
+        <value>Bekræftet</value>
+    </data>
+    <data name="ViewProfile" xml:space="preserve">
+        <value>Se profil</value>
+    </data>
+</root>

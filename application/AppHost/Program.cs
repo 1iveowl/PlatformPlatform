@@ -17,7 +17,13 @@ var ports = PortAllocation.Load();
 
 OverrideAspireDashboardEnvironmentVariables(ports);
 
-var builder = DistributedApplication.CreateBuilder(args);
+// Both switches are set only by the developer CLI's start-stack command, which continuous integration uses. Without the
+// blazor-host resource the gateway reaches whatever listens on the Blazor host port, which is how the trimmed Release
+// publish served by blazor-serve is tested. Unset, the stack is the one every developer runs.
+var disableDashboard = Environment.GetEnvironmentVariable("APPHOST_DISABLE_DASHBOARD") == "true";
+var excludeBlazorHost = Environment.GetEnvironmentVariable("APPHOST_EXCLUDE_BLAZOR_HOST") == "true";
+
+var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions { Args = args, DisableDashboard = disableDashboard });
 
 CheckPortAvailability(ports);
 
@@ -171,6 +177,22 @@ var mainApi = builder
     .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
     .WaitFor(mainWorkers);
+
+// Spike (Blazor edition, stage B): added by path rather than by generated project type, because the
+// Blazor build root resolves its own SDK from blazor/global.json and is not referenced by AppHost.csproj.
+if (!excludeBlazorHost)
+{
+    builder
+        .AddProject("blazor-host", "../../blazor/Blazor.Host/Blazor.Host.csproj")
+        .WithEnvironment("ASPNETCORE_URLS", "https://localhost:" + ports.BlazorHost)
+        .WithEnvironment("ACCOUNT_API_URL", "https://localhost:" + ports.AccountApi)
+        .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
+        .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
+        .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")
+        .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
+        .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
+        .WithUrlConfiguration(appHostname, ports.AppGateway, "/blazor");
+}
 
 builder
     .AddProject<AppGateway>("app-gateway")

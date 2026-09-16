@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AcceptPolicies" xml:space="preserve">
+        <value>By continuing, you accept our policies</value>
+        <comment>React: By continuing, you accept our policies</comment>
+    </data>
+    <data name="AccountLogo" xml:space="preserve">
+        <value>Account logo</value>
+        <comment>React: Account logo</comment>
+    </data>
+    <data name="AccountNamePlaceholder" xml:space="preserve">
+        <value>E.g. Acme Corp</value>
+        <comment>React: E.g. Acme Corp</comment>
+    </data>
+    <data name="AddAccountNameAndLogo" xml:space="preserve">
+        <value>Add your account name and logo.</value>
+        <comment>React: Add your account name and logo.</comment>
+    </data>
+    <data name="AlreadyHaveAnAccount" xml:space="preserve">
+        <value>Do you already have an account?</value>
+        <comment>React: Do you already have an account?</comment>
+    </data>
+    <data name="BackToLogin" xml:space="preserve">
+        <value>Back to login</value>
+        <comment>React: Back to login</comment>
+    </data>
+    <data name="BackToSignup" xml:space="preserve">
+        <value>Back to signup</value>
+        <comment>React: Back to signup</comment>
+    </data>
+    <data name="CantFindYourCode" xml:space="preserve">
+        <value>Can't find your code?</value>
+        <comment>React: Can't find your code?</comment>
+    </data>
+    <data name="ChangeLogo" xml:space="preserve">
+        <value>Change logo</value>
+        <comment>React: Change logo</comment>
+    </data>
+    <data name="CheckEmailForVerificationCode" xml:space="preserve">
+        <value>Please check your email for a verification code sent to {0}</value>
+        <comment>React: Please check your email for a verification code sent to &lt;0&gt;{email}&lt;/0&gt;</comment>
+    </data>
+    <data name="CheckSpamFolder" xml:space="preserve">
+        <value>Check your spam folder.</value>
+        <comment>React: Check your spam folder.</comment>
+    </data>
+    <data name="CreateNewAccount" xml:space="preserve">
+        <value>Create new account</value>
+        <comment>React: Create new account</comment>
+    </data>
+    <data name="CreateOne" xml:space="preserve">
+        <value>Create one</value>
+        <comment>React: Don't have an account? &lt;0&gt;Create one&lt;/0&gt;</comment>
+    </data>
+    <data name="CreateYourAccount" xml:space="preserve">
+        <value>Create your account</value>
+        <comment>React: Create your account</comment>
+    </data>
+    <data name="DontHaveAnAccount" xml:space="preserve">
+        <value>Don't have an account?</value>
+        <comment>React: Don't have an account? &lt;0&gt;Create one&lt;/0&gt;</comment>
+    </data>
+    <data name="EmailPlaceholder" xml:space="preserve">
+        <value>yourname@example.com</value>
+        <comment>React: yourname@example.com</comment>
+    </data>
+    <data name="EnterEmailToLogIn" xml:space="preserve">
+        <value>Enter your email below to log in</value>
+        <comment>React: Enter your email below to log in</comment>
+    </data>
+    <data name="HiWelcomeBack" xml:space="preserve">
+        <value>Hi! Welcome back</value>
+        <comment>React: Hi! Welcome back</comment>
+    </data>
+    <data name="Home" xml:space="preserve">
+        <value>Home</value>
+    </data>
+    <data name="LandingComponentText" xml:space="preserve">
+        <value>Rendered by the host with a FluentUI component</value>
+    </data>
+    <data name="LandingText" xml:space="preserve">
+        <value>A server-rendered public page. No WebAssembly runtime is downloaded here.</value>
+    </data>
+    <data name="LogInWithEmail" xml:space="preserve">
+        <value>Log in with email</value>
+        <comment>React: Log in with email</comment>
+    </data>
+    <data name="LogInWithGoogle" xml:space="preserve">
+        <value>Log in with Google</value>
+        <comment>React: Log in with Google</comment>
+    </data>
+    <data name="LogInWithMicrosoft" xml:space="preserve">
+        <value>Log in with Microsoft</value>
+        <comment>React: Log in with Microsoft</comment>
+    </data>
+    <data name="LogOnWith" xml:space="preserve">
+        <value>Log on with</value>
+        <comment>React: Log on with &lt;0/&gt;</comment>
+    </data>
+    <data name="LoggedOut" xml:space="preserve">
+        <value>You have been logged out.</value>
+    </data>
+    <data name="LoginExpired" xml:space="preserve">
+        <value>The login has expired. Start again.</value>
+    </data>
+    <data name="LoginVerificationCode" xml:space="preserve">
+        <value>Login verification code</value>
+        <comment>React: Login verification code</comment>
+    </data>
+    <data name="OpenTheApp" xml:space="preserve">
+        <value>Open the app</value>
+    </data>
+    <data name="Or" xml:space="preserve">
+        <value>or</value>
+        <comment>React: or</comment>
+    </data>
+    <data name="Redirecting" xml:space="preserve">
+        <value>Redirecting...</value>
+        <comment>React: Redirecting...</comment>
+    </data>
+    <data name="RemoveLogo" xml:space="preserve">
+        <value>Remove logo</value>
+        <comment>React: Remove logo</comment>
+    </data>
+    <data name="RequestNewCode" xml:space="preserve">
+        <value>Request a new code</value>
+        <comment>React: Request a new code</comment>
+    </data>
+    <data name="SendingVerificationCode" xml:space="preserve">
+        <value>Sending verification code...</value>
+        <comment>React: Sending verification code...</comment>
+    </data>
+    <data name="SetUpYourAccount" xml:space="preserve">
+        <value>Let's set up your account</value>
+        <comment>React: Let's set up your account</comment>
+    </data>
+    <data name="SetUpYourProfile" xml:space="preserve">
+        <value>Let's set up your profile</value>
+        <comment>React: Let's set up your profile</comment>
+    </data>
+    <data name="SignUpInSeconds" xml:space="preserve">
+        <value>Sign up in seconds to start building on {0} – just like thousands of others.</value>
+        <comment>React: Sign up in seconds to start building on {productName} – just like thousands of others.</comment>
+    </data>
+    <data name="SignUpWithEmail" xml:space="preserve">
+        <value>Sign up with email</value>
+        <comment>React: Sign up with email</comment>
+    </data>
+    <data name="SignUpWithGoogle" xml:space="preserve">
+        <value>Sign up with Google</value>
+        <comment>React: Sign up with Google</comment>
+    </data>
+    <data name="SignUpWithMicrosoft" xml:space="preserve">
+        <value>Sign up with Microsoft</value>
+        <comment>React: Sign up with Microsoft</comment>
+    </data>
+    <data name="SignupExpired" xml:space="preserve">
+        <value>The signup has expired. Start again.</value>
+    </data>
+    <data name="SignupVerificationCode" xml:space="preserve">
+        <value>Signup verification code</value>
+        <comment>React: Signup verification code</comment>
+    </data>
+    <data name="TellUsAboutYourself" xml:space="preserve">
+        <value>Tell us a bit about yourself to get started.</value>
+        <comment>React: Tell us a bit about yourself to get started.</comment>
+    </data>
+    <data name="TermsPlaceholder" xml:space="preserve">
+        <value>Placeholder terms of service.</value>
+    </data>
+    <data name="UploadLogo" xml:space="preserve">
+        <value>Upload logo</value>
+        <comment>React: Upload logo</comment>
+    </data>
+    <data name="VerificationCodeExpired" xml:space="preserve">
+        <value>Your verification code has expired</value>
+        <comment>React: Your verification code has expired</comment>
+    </data>
+    <data name="VerificationCodeValidFor" xml:space="preserve">
+        <value>Your verification code is valid for {0}</value>
+        <comment>React: Your verification code is valid for {expiresInString}</comment>
+    </data>
+    <data name="Verify" xml:space="preserve">
+        <value>Verify</value>
+        <comment>React: Verify</comment>
+    </data>
+    <data name="Verifying" xml:space="preserve">
+        <value>Verifying...</value>
+        <comment>React: Verifying...</comment>
+    </data>
+    <data name="Welcome" xml:space="preserve">
+        <value>Welcome</value>
+    </data>
+    <data name="NewCodeSent" xml:space="preserve">
+        <value>A new verification code has been sent to your email.</value>
+        <comment>React: A new verification code has been sent to your email.</comment>
+    </data>
+</root>

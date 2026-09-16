@@ -16,6 +16,8 @@
 <a href="https://sonarcloud.io/component_measures?id=PlatformPlatform_platformplatform&metric=Reliability" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=PlatformPlatform_platformplatform&metric=reliability_rating" alt="Reliability Rating" /></a>
 <a href="https://sonarcloud.io/component_measures?id=PlatformPlatform_platformplatform&metric=Maintainability" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=PlatformPlatform_platformplatform&metric=sqale_rating" alt="Maintainability Rating" /></a>
 
+<a href="docs/BLAZOR.md"><img src="https://img.shields.io/badge/New-Blazor%20WebAssembly-512BD4?logo=blazor&logoColor=white" alt="Blazor WebAssembly frontend" title="Blazor WebAssembly frontend" /></a>
+
 </h4>
 
 # 👋 Welcome to PlatformPlatform
@@ -25,6 +27,21 @@ Kick-start building top-tier B2B & B2C cloud SaaS products with sleek design, fu
 Ships with signup and login via Google, Microsoft or email one-time password, Stripe-powered subscription and payment management with plan upgrades, downgrades, and invoicing, feature flags with A/B-rollout, plan-gating, and per-user/tenant overrides, and a back-office dashboard with MRR and revenue trends, plan distribution, and tenant growth.
 
 Built to demonstrate seamless flow: backend contracts feed a fully-typed React UI, pipelines make fully automated deployments to Azure, and a multi-agent workflow built on Claude Code's native [Agent Teams](https://code.claude.com/docs/en/agent-teams) where PlatformPlatform-expert agents collaborate to deliver complete features following the opinionated architecture. Think of it as a ready-made blueprint, not a pile of parts to assemble.
+
+## About this fork
+
+This is a friendly fork of [PlatformPlatform](https://github.com/platformplatform/PlatformPlatform). It adds Microsoft Entra ID as a login and signup provider, Danish MitID for identity verification and login, and it is heading for a frontend written entirely in C# and Razor with Blazor WebAssembly.
+
+That last one is not a verdict on React. Upstream's React frontend is genuinely excellent, and it is the reason this fork had such a good place to start from: fully typed against the backend contracts, localized, accessible, and a pleasure to read. Blazor is not the better framework either. It is the better fit for an all-C# team, where a second language in the stack is a cost somebody has to keep paying. If you have frontend people, or you want the deepest component ecosystem available, upstream is the stronger choice and will stay ahead of this fork. The backend architecture is identical in both, so whichever you pick, you get the part that took the longest to get right.
+
+The sign-in options, including the two this fork adds:
+
+| | <img src="application/account/WebApp/shared/images/google-icon.svg" alt="Google" height="24" /> | <img src="application/account/WebApp/shared/images/microsoft-icon.svg" alt="Microsoft Entra ID" height="24" /> | <img src="application/account/WebApp/shared/images/mitid-logo-blue.svg" alt="MitID" height="24" /> | ✉️ |
+| -- | :-: | :-: | :-: | :-: |
+| **Service** | [Google](https://developers.google.com/identity) | [Microsoft Entra ID](https://www.microsoft.com/en-us/security/business/identity-access/microsoft-entra-id) | [MitID](https://www.mitid.dk) through [Idura](https://idura.eu) | Email one-time password, built in |
+| **What it is** | Google OAuth over OpenID Connect with PKCE. Optional on localhost. | Work, school and personal Microsoft accounts through one multi-tenant app registration, over OpenID Connect with PKCE. An account is only created at signup when the token carries a verified email. | The Danish national electronic ID. A signed-in user proves who they are, and once verified can use it to sign in. It can never be used to sign up. | A code sent to the email address, so there is no password to store. Needs no configuration, and `UNLOCK` stands in for the code on localhost. |
+
+[Advantages and disadvantages of a Blazor frontend](docs/BLAZOR.md) makes the case in full, including the parts that get worse.
 
 ## What's inside
 

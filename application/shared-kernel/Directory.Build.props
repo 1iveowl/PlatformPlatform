@@ -9,6 +9,8 @@
     <ItemGroup>
         <Using Include="JetBrains.Annotations"/>
         <Using Include="MediatR"/>
+        <!-- Brings the server-side NewId() static extension members of strongly typed IDs into scope everywhere -->
+        <Using Include="SharedKernel.StronglyTypedIds"/>
         <Using Include="Microsoft.Extensions.Logging"/>
         <Using Include="System.ComponentModel"/>
         <Using Include="System.Diagnostics"/>

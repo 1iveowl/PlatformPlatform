@@ -1,0 +1,34 @@
+@* The paginator of DataList: previous and next buttons, the current page and the total count. QuickGrid's own paginator
+   is not used, because its texts cannot be localized and its links write the page to the URL. Both buttons are disabled
+   at the ends and while the list is empty. *@
+
+<nav class="data-list-paginator" aria-label="@CommonStrings.Pagination" data-list-paginator>
+    <span class="data-list-total" data-list-total-count>@string.Format(CultureInfo.CurrentCulture, CommonStrings.TotalCount, TotalCount.ToString("N0", CultureInfo.CurrentCulture))</span>
+    <button type="button" class="data-list-page-button" data-list-previous disabled="@(PageOffset <= 0)" @onclick="() => OnPageRequested(PageOffset - 1)">
+        @CommonStrings.PreviousPage
+    </button>
+    <span class="data-list-page" data-list-page aria-live="polite">@string.Format(CultureInfo.CurrentCulture, CommonStrings.PageOf, PageOffset + 1, Math.Max(1, TotalPages))</span>
+    <button type="button" class="data-list-page-button" data-list-next disabled="@(PageOffset >= TotalPages - 1)" @onclick="() => OnPageRequested(PageOffset + 1)">
+        @CommonStrings.NextPage
+    </button>
+</nav>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public int PageOffset { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public int TotalPages { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public int TotalCount { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public Func<int, Task> OnPageRequested { get; set; } = null!;
+
+}

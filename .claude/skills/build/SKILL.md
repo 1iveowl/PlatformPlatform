@@ -6,7 +6,7 @@ description: Build (compile) the solution via the developer CLI - backend (.NET)
 # Build
 
 ```bash
-dotnet run --project developer-cli -- build [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--verbose]
+dotnet run --project developer-cli -- build [--backend] [--frontend] [--cli] [--blazor] [--self-contained-system <name>] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -14,6 +14,7 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 - `--backend` - .NET
 - `--frontend` - React/TypeScript
 - `--cli` - the developer CLI itself
+- `--blazor` - the Blazor build root in `blazor/`, which resolves the SDK in its own `global.json`
 - `--self-contained-system <name>` - narrows the backend build to one SCS (e.g. `account`, `main`)
 
 No arguments builds everything.

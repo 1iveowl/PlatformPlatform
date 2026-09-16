@@ -1,0 +1,109 @@
+@* The user profile side pane, the React edition's UserProfileSidePane and UserProfileContent. It renders what
+   UserProfileState holds: the user's details once loaded, a defined not-found state that shows nothing about the user,
+   the notices that compare the pane with the list's page, and the role action with the reason it is disabled. *@
+
+<aside class="profile-pane" id="@Id" data-testid="profile-pane" data-status="@State.Status.ToString().ToLowerInvariant()" hidden="@(!State.IsOpen)"
+       aria-labelledby="@TitleId" tabindex="-1">
+    @if (State.IsOpen)
+    {
+        <div class="profile-pane-header">
+            <h2 id="@TitleId" class="profile-pane-title">@CommonStrings.UserProfile</h2>
+            <button type="button" class="modal-dialog-close" aria-label="@UsersStrings.CloseUserProfile" data-testid="profile-close" @onclick="OnClose">×</button>
+        </div>
+
+        @if (IsNotInCurrentView)
+        {
+            <p class="profile-pane-notice" data-testid="profile-not-in-view">@UsersStrings.UserNotInCurrentView</p>
+        }
+
+        @if (IsDataUpdated)
+        {
+            <p class="profile-pane-notice" data-testid="profile-data-updated">@UsersStrings.UserDataUpdated</p>
+        }
+
+        @switch (State.Status)
+        {
+            case UserProfileStatus.Loading:
+                <p data-testid="profile-loading">@CommonStrings.Loading</p>
+                break;
+            case UserProfileStatus.NotFound:
+                <div data-testid="profile-not-found">
+                    <p class="profile-pane-name">@UsersStrings.UserNotFound</p>
+                    <p>@UsersStrings.UserNotFoundMessage</p>
+                </div>
+                break;
+            case UserProfileStatus.Failed:
+                <p role="alert" data-testid="profile-error">@State.ErrorMessage</p>
+                break;
+            case UserProfileStatus.Ready when State.User is { } user:
+                <div class="profile-pane-identity">
+                    <UserAvatar User="user"/>
+                    <p class="profile-pane-name" data-testid="profile-name">@user.DisplayNameOrEmail</p>
+                    @if (!string.IsNullOrEmpty(user.Title))
+                    {
+                        <p class="profile-pane-detail" data-testid="profile-title">@user.Title</p>
+                    }
+                    <p class="profile-pane-detail profile-pane-id" data-testid="profile-id">@user.Id</p>
+                </div>
+                <dl class="profile-pane-fields">
+                    <dt>@CommonStrings.Email</dt>
+                    <dd>
+                        <span data-testid="profile-email">@user.Email</span>
+                        <span class="profile-pane-badge" data-testid="profile-email-status">@(user.EmailConfirmed ? UsersStrings.Verified : UsersStrings.Pending)</span>
+                    </dd>
+                    <dt>@UsersStrings.Role</dt>
+                    <dd>
+                        @if (Permission == RoleChangePermission.Allowed)
+                        {
+                            <button type="button" class="button-secondary" data-testid="profile-role"
+                                    aria-label="@string.Format(CultureInfo.CurrentCulture, UsersStrings.ChangeUserRoleFor, user.DisplayNameOrEmail)"
+                                    @onclick="() => OnChangeRole.InvokeAsync(user)">
+                                @UserRoleText.Label(user.Role)
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="button-secondary" data-testid="profile-role" disabled aria-describedby="@ReasonId">@UserRoleText.Label(user.Role)</button>
+                            <span class="profile-pane-reason" id="@ReasonId" role="tooltip" data-testid="profile-role-reason">@UserRolePermissions.DisabledReason(Permission)</span>
+                        }
+                    </dd>
+                    <dt>@UsersStrings.Created</dt>
+                    <dd data-testid="profile-created">@user.CreatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)</dd>
+                    <dt>@UsersStrings.LastSeen</dt>
+                    <dd data-testid="profile-last-seen">@(user.LastSeenAt?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) ?? "")</dd>
+                </dl>
+                break;
+        }
+    }
+</aside>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public string Id { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public UserProfileState State { get; set; } = null!;
+
+    [Parameter]
+    public RoleChangePermission Permission { get; set; }
+
+    [Parameter]
+    public bool IsNotInCurrentView { get; set; }
+
+    [Parameter]
+    public bool IsDataUpdated { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<UserDetails> OnChangeRole { get; set; }
+
+    private string TitleId => $"{Id}-title";
+
+    private string ReasonId => $"{Id}-role-reason";
+
+}

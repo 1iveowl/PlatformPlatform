@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PublicClientSpike.Gateway.Tests/PublicClientSpike.Gateway.Tests.csproj" />
+  <Project Path="PublicClientSpike.Tests/PublicClientSpike.Tests.csproj" />
+</Solution>

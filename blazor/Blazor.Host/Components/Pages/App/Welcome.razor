@@ -1,0 +1,129 @@
+@* Welcome setup behind login, static server-side rendering. An owner whose tenant has no name names it, then a user
+   without a first name sets up the profile, then the page continues to the requested destination with a full document
+   navigation. Each step posts to the host, which calls the account API through the typed client and redirects back here,
+   so the next step is decided on the next request with the refreshed claims. The forms are not enhanced because the
+   final step crosses into the interactive surface. Logo and avatar upload are not part of this page. *@
+@page "/welcome"
+@attribute [Authorize]
+@using global::Account.Client
+@using global::Account.Features.Tenants.Requests
+@using global::Account.Features.Users.Requests
+@using Microsoft.AspNetCore.Authorization
+@implements IDisposable
+@inject TenantsClient Tenants
+@inject UsersClient Users
+@inject NavigationManager Navigation
+
+<PageTitle>@(_step == WelcomeStep.Account ? AuthenticationStrings.SetUpYourAccount : AuthenticationStrings.SetUpYourProfile)</PageTitle>
+
+@if (_step == WelcomeStep.Account)
+{
+    <h1>@AuthenticationStrings.SetUpYourAccount</h1>
+
+    <EditForm EditContext="_editContext" FormName="welcome-account" OnValidSubmit="SaveAccountAsync">
+        <DataAnnotationsValidator/>
+        <label>
+            @CommonStrings.AccountName
+            <InputText @bind-Value="AccountInput.Name" autocomplete="organization" placeholder="@AuthenticationStrings.AccountNamePlaceholder" autofocus data-testid="account-name"/>
+        </label>
+        <ValidationMessage For="() => AccountInput.Name"/>
+        <button type="submit" data-testid="continue">@CommonStrings.Continue</button>
+    </EditForm>
+}
+else if (_step == WelcomeStep.Profile)
+{
+    <h1>@AuthenticationStrings.SetUpYourProfile</h1>
+
+    <p>@AuthenticationStrings.TellUsAboutYourself</p>
+
+    <EditForm EditContext="_editContext" FormName="welcome-profile" OnValidSubmit="SaveProfileAsync">
+        <DataAnnotationsValidator/>
+        <label>
+            @AccountStrings.FirstName
+            <InputText @bind-Value="ProfileInput.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" autofocus data-testid="first-name"/>
+        </label>
+        <ValidationMessage For="() => ProfileInput.FirstName"/>
+        <label>
+            @AccountStrings.LastName
+            <InputText @bind-Value="ProfileInput.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"/>
+        </label>
+        <ValidationMessage For="() => ProfileInput.LastName"/>
+        <label>
+            @AccountStrings.Title
+            <InputText @bind-Value="ProfileInput.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"/>
+        </label>
+        <ValidationMessage For="() => ProfileInput.Title"/>
+        <button type="submit" data-testid="continue">@CommonStrings.Continue</button>
+    </EditForm>
+}
+
+<FormErrorAlert Errors="_formErrors"/>
+
+@code {
+
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private WelcomeStep _step;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    [SupplyParameterFromForm(FormName = "welcome-account")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private AccountSetupForm AccountInput
+    {
+        get => field ??= new AccountSetupForm();
+        set;
+    }
+
+    [SupplyParameterFromForm(FormName = "welcome-profile")]
+    private ProfileSetupForm ProfileInput
+    {
+        get => field ??= new ProfileSetupForm();
+        set;
+    }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnPath { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _step = WelcomeGate.GetStep(HttpContext.User);
+        _editContext = new EditContext(_step == WelcomeStep.Account ? AccountInput : ProfileInput);
+        _formErrors = new FormErrorMapper(_editContext);
+        if (_step == WelcomeStep.Done && !HttpMethods.IsPost(HttpContext.Request.Method))
+        {
+            Navigation.NavigateTo(WelcomeGate.GetDestination(ReturnPath), true);
+        }
+    }
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    private async Task SaveAccountAsync()
+    {
+        var result = await Tenants.UpdateCurrentTenantAsync(new UpdateCurrentTenantCommand { Name = AccountInput.Name.Trim() }, HttpContext.RequestAborted);
+        ContinueOrShow(result);
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        var command = new UpdateCurrentUserCommand(ProfileInput.FirstName.Trim(), ProfileInput.LastName.Trim(), ProfileInput.Title?.Trim() ?? "");
+        var result = await Users.UpdateCurrentUserAsync(command, HttpContext.RequestAborted);
+        ContinueOrShow(result);
+    }
+
+    private void ContinueOrShow(ApiCallResult result)
+    {
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        Navigation.NavigateTo(WelcomeGate.GetWelcomeUrl(ReturnPath), true);
+    }
+
+}

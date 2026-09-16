@@ -1,4 +1,5 @@
 using Account.Database;
+using Account.Features.EmailAuthentication.Domain;
 using Account.Features.EmailAuthentication.Shared;
 using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
@@ -24,6 +25,8 @@ namespace Account;
 public static class Configuration
 {
     public static Assembly Assembly => Assembly.GetExecutingAssembly();
+
+    public static Assembly ContractsAssembly => typeof(EmailLoginId).Assembly;
 
     extension(IHostApplicationBuilder builder)
     {

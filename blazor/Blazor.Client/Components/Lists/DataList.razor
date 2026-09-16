@@ -1,0 +1,396 @@
+@* The one list component every Blazor list uses: QuickGrid for the table, with server pages of 25 rows, the list state in
+   the URL, an optional selection column with a select-all header, row activation, an optional row menu, the localized
+   paginator and the server-page cache. See DataListController for the state and loading rules and data-list.js for the
+   keyboard model.
+
+   QuickGrid gets no sortable column and no pagination state: the wrapper renders its own sort buttons and paginator, so
+   QuickGrid never writes its sort, direction or page parameters to the URL. The rows come from a synchronous items provider
+   over the page the wrapper has already loaded, so no QuickGrid provider call is in flight when anything renders.
+
+   No element carries a style attribute; sizes and states are classes in the host stylesheet (the data-list rules). *@
+@typeparam TItem
+@using Microsoft.AspNetCore.Components.QuickGrid
+@implements IAsyncDisposable
+@inject DataListPageCache PageCache
+@inject NavigationManager Navigation
+@inject IJSRuntime JavaScriptRuntime
+
+<div class="data-list" id="@_rootId" data-list-state="@_controller.Status.ToString().ToLowerInvariant()" data-list-total-count="@_controller.TotalCount"
+     data-list-page-offset="@_controller.State.PageOffset" data-list-selected-count="@_controller.Selection.Keys.Count" @attributes="AdditionalAttributes" @ref="_root">
+    @if (_controller.Status == DataListStatus.Error)
+    {
+        <p role="alert" class="data-list-error" data-list-error>@_controller.ErrorMessage</p>
+    }
+    <div class="data-list-scroll">
+        <QuickGrid @ref="_grid" TGridItem="TItem" ItemsProvider="_itemsProvider" ItemKey="ItemKey" RowClass="RowClass" class="data-list-table" aria-label="@Label"
+                   aria-busy="@(_controller.Status == DataListStatus.Loading ? "true" : "false")">
+            @if (SelectionMode == DataListSelectionMode.Multiple)
+            {
+                <TemplateColumn TGridItem="TItem" Title="@CommonStrings.SelectAllRowsOnPage" Class="data-list-select" HeaderTemplate="SelectAllHeader">
+                    <input type="checkbox" tabindex="-1" data-list-select aria-label="@string.Format(CultureInfo.CurrentCulture, CommonStrings.SelectRow, RowLabel?.Invoke(context) ?? KeySelector(context))"
+                           checked="@_controller.Selection.Keys.Contains(KeySelector(context))" @onchange="() => ToggleItemAsync(context)"/>
+                </TemplateColumn>
+            }
+            @foreach (var column in Columns)
+            {
+                <TemplateColumn TGridItem="TItem" Title="@column.Title" Class="@ColumnClass(column)" HeaderTemplate="@(column.SortKey is null ? null : SortHeader(column))"
+                                ChildContent="column.Cell"/>
+            }
+            @if (RowMenu is not null)
+            {
+                <TemplateColumn TGridItem="TItem" Title="@CommonStrings.DataListActions" Class="data-list-menu" ChildContent="RowMenu"/>
+            }
+        </QuickGrid>
+    </div>
+    @if (_controller is { Status: DataListStatus.Loading, Items.Count: 0 })
+    {
+        <p class="data-list-loading" data-list-loading>@CommonStrings.DataListLoading</p>
+    }
+    @if (_controller.Status == DataListStatus.Empty)
+    {
+        <div class="data-list-empty" data-list-empty>
+            @if (EmptyContent is not null)
+            {
+                @EmptyContent
+            }
+            else
+            {
+                @CommonStrings.DataListEmpty
+            }
+        </div>
+    }
+    <DataListPaginator PageOffset="_controller.State.PageOffset" TotalPages="_controller.TotalPages" TotalCount="_controller.TotalCount" OnPageRequested="GoToPageAsync"/>
+</div>
+
+@code {
+
+    private readonly string _rootId = $"data-list-{Guid.NewGuid():N}";
+    private DataListController<TItem> _controller = null!;
+    private bool _disposed;
+    private QuickGrid<TItem>? _grid;
+    private IJSObjectReference? _handle;
+    private GridItemsProvider<TItem> _itemsProvider = null!;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<DataList<TItem>>? _reference;
+    private ElementReference _root;
+
+    // Identifies the list in the page cache; a mutation invalidates every cached page of this id
+    [Parameter]
+    [EditorRequired]
+    public string ListId { get; set; } = null!;
+
+    // The identity the pages belong to, such as the tenant and user id; a different scope clears the cache
+    [Parameter]
+    [EditorRequired]
+    public string CacheScope { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public string Label { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<DataListColumn<TItem>> Columns { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public DataListFetch<TItem> FetchPage { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public Func<TItem, string> KeySelector { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public string DefaultOrderBy { get; set; } = null!;
+
+    [Parameter]
+    public DataListSelectionMode SelectionMode { get; set; }
+
+    // The URL parameter that holds the key of the activated row, such as userId; none when omitted
+    [Parameter]
+    public string? SelectedKeyParameter { get; set; }
+
+    // The page's filter parameters, carried in the URL and passed to FetchPage without interpretation
+    [Parameter]
+    public IReadOnlyList<string> FilterParameters { get; set; } = [];
+
+    [Parameter]
+    public Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? NormalizeFilters { get; set; }
+
+    // Prefixes the wrapper's own parameter names when a page shows more than one list
+    [Parameter]
+    public string ParameterPrefix { get; set; } = "";
+
+    // The id of an element outside the list, such as a side pane, from which Escape also closes the activated row
+    [Parameter]
+    public string? EscapeScopeId { get; set; }
+
+    // The id of a stable control outside the list, such as a search box, that receives focus when the activated row is
+    // closed while it is not on the loaded page; the first sort button otherwise
+    [Parameter]
+    public string? FocusFallbackId { get; set; }
+
+    [Parameter]
+    public Func<TItem, string>? RowLabel { get; set; }
+
+    [Parameter]
+    public RenderFragment<TItem>? RowMenu { get; set; }
+
+    [Parameter]
+    public RenderFragment? EmptyContent { get; set; }
+
+    // The callbacks are plain delegates: invoking them does not render this component again
+    [Parameter]
+    public Func<TItem, Task>? OnActivated { get; set; }
+
+    [Parameter]
+    public Func<Task>? OnClosed { get; set; }
+
+    [Parameter]
+    public Func<IReadOnlySet<string>, Task>? OnSelectionChanged { get; set; }
+
+    // Raised when a selection change leaves more than one row selected, for example to close a detail pane
+    [Parameter]
+    public Func<Task>? OnMultipleSelected { get; set; }
+
+    // Raised after a page has loaded or the URL state has changed
+    [Parameter]
+    public Func<DataListState, Task>? OnStateChanged { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    public DataListState State => _controller.State;
+
+    public IReadOnlySet<string> SelectedKeys => _controller.Selection.Keys;
+
+    // The rows of the loaded page
+    public IReadOnlyList<TItem> Items => _controller.Items;
+
+    public DataListStatus Status => _controller.Status;
+
+    private DataListHeaderSelection HeaderSelection => _controller.Selection.GetHeaderSelection(_controller.PageKeys);
+
+    private RenderFragment<ColumnBase<TItem>> SelectAllHeader => _ =>
+        @<input type="checkbox" data-list-select-all aria-label="@CommonStrings.SelectAllRowsOnPage" checked="@(HeaderSelection == DataListHeaderSelection.All)"
+                disabled="@(_controller.Items.Count == 0)" @onchange="ToggleAllAsync"/>;
+
+    protected override void OnInitialized()
+    {
+        var options = new DataListUrlOptions(DefaultOrderBy, Columns.Where(column => column.SortKey is not null).Select(column => column.SortKey!).ToArray(),
+            FilterParameters, SelectedKeyParameter, ParameterPrefix, NormalizeFilters
+        );
+        _controller = new DataListController<TItem>(PageCache, options, SelectionMode, KeySelector, () => Navigation.Uri, NavigateTo)
+        {
+            ListId = ListId, CacheScope = CacheScope, Fetch = FetchPage, SelectionChanged = SelectionChangedAsync
+        };
+        _itemsProvider = _ => ValueTask.FromResult(GridItemsProviderResult.From(_controller.Items.ToArray(), _controller.Items.Count));
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        _controller.ListId = ListId;
+        _controller.CacheScope = CacheScope;
+        _controller.Fetch = FetchPage;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+        await LoadAndRefreshAsync(_controller.LoadAsync);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/data-list.js");
+            _reference = DotNetObjectReference.Create(this);
+            var options = new { selectionMode = SelectionMode.ToString(), escapeScopeId = EscapeScopeId, focusFallbackId = FocusFallbackId };
+            _handle = await _module.InvokeAsync<IJSObjectReference>("attach", _root, _reference, options);
+        }
+
+        if (_handle is not null && !_disposed) await _handle.InvokeVoidAsync("sync", _controller.ActiveIndex, HeaderSelection.ToString(), _controller.State.SelectedKey is not null);
+    }
+
+    // Invalidates every cached page of this list, clears the selection and loads the current page again
+    public Task InvalidateAsync()
+    {
+        return LoadAndRefreshAsync(_controller.InvalidateAsync);
+    }
+
+    // Filter and search changes replace the history entry and start on the first page
+    public Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return LoadAndRefreshAsync(() => _controller.SetFiltersAsync(changes));
+    }
+
+    // Closes the activated row, for example from a side pane's close button; focus returns to the row, or to the fallback
+    // control when the row is not on the loaded page
+    public async Task CloseAsync()
+    {
+        var activeIndex = _controller.ActiveIndex;
+        if (!_controller.Close()) return;
+        StateHasChanged();
+        if (OnClosed is not null) await OnClosed();
+        if (_handle is null) return;
+        if (activeIndex < 0 || !await _handle.InvokeAsync<bool>("focusRow", activeIndex)) await _handle.InvokeVoidAsync("focusFallback");
+    }
+
+    // Activates a row of the loaded page from outside the list, such as a row menu's view action; the same as Enter on the row
+    public Task ActivateItemAsync(TItem item)
+    {
+        var index = _controller.PageKeys.ToList().IndexOf(KeySelector(item));
+        return index < 0 ? Task.CompletedTask : ActivateRow(index);
+    }
+
+    [JSInvokable]
+    public async Task ClickRow(int index, bool toggle, bool range)
+    {
+        var (activated, item) = await _controller.ClickAsync(index, toggle, range);
+        StateHasChanged();
+        if (activated && OnActivated is not null) await OnActivated(item!);
+    }
+
+    [JSInvokable]
+    public async Task ActivateRow(int index)
+    {
+        var (activated, item) = await _controller.ActivateAsync(index);
+        StateHasChanged();
+        if (activated && OnActivated is not null) await OnActivated(item!);
+    }
+
+    [JSInvokable]
+    public async Task ToggleRow(int index)
+    {
+        await _controller.ToggleAsync(index);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task ExtendSelection(int fromIndex, int toIndex)
+    {
+        await _controller.ExtendAsync(fromIndex, toIndex);
+        StateHasChanged();
+    }
+
+    // The module returns focus to the row after this completes
+    [JSInvokable]
+    public async Task CloseFromKeyboard()
+    {
+        if (!_controller.Close()) return;
+        StateHasChanged();
+        if (OnClosed is not null) await OnClosed();
+    }
+
+    private object ItemKey(TItem item)
+    {
+        return KeySelector(item);
+    }
+
+    private string RowClass(TItem item)
+    {
+        var key = KeySelector(item);
+        var selected = _controller.Selection.Keys.Contains(key) ? " is-selected" : "";
+        var active = key == _controller.State.SelectedKey ? " is-active" : "";
+        return $"data-list-row{selected}{active}";
+    }
+
+    private string ColumnClass(DataListColumn<TItem> column)
+    {
+        var sorted = column.SortKey is not null && column.SortKey == _controller.State.OrderBy
+            ? _controller.State.SortOrder == SortOrder.Ascending ? " data-list-sorted-ascending" : " data-list-sorted-descending"
+            : "";
+        return $"{column.Class}{sorted}".Trim();
+    }
+
+    private RenderFragment<ColumnBase<TItem>> SortHeader(DataListColumn<TItem> column)
+    {
+        var isSorted = column.SortKey == _controller.State.OrderBy;
+        var sortState = !isSorted ? "" : _controller.State.SortOrder == SortOrder.Ascending ? CommonStrings.SortedAscending : CommonStrings.SortedDescending;
+        return _ =>
+            @<button type="button" class="data-list-sort" data-list-sort="@column.SortKey" @onclick="() => SortAsync(column.SortKey!)">
+                @column.Title<span class="data-list-visually-hidden">@(isSorted ? $", {sortState}" : "")</span><span class="data-list-sort-indicator" aria-hidden="true"></span>
+            </button>;
+    }
+
+    private Task SortAsync(string sortKey)
+    {
+        return LoadAndRefreshAsync(() => _controller.SortAsync(sortKey));
+    }
+
+    private Task GoToPageAsync(int pageOffset)
+    {
+        return LoadAndRefreshAsync(() => _controller.GoToPageAsync(pageOffset));
+    }
+
+    private async Task ToggleItemAsync(TItem item)
+    {
+        var index = _controller.PageKeys.ToList().IndexOf(KeySelector(item));
+        await _controller.ToggleAsync(index);
+    }
+
+    private Task ToggleAllAsync()
+    {
+        return _controller.ToggleAllAsync();
+    }
+
+    private void NavigateTo(string uri, bool replace)
+    {
+        Navigation.NavigateTo(uri, new NavigationOptions { ReplaceHistoryEntry = replace });
+    }
+
+    private async Task LoadAndRefreshAsync(Func<Task> change)
+    {
+        await change();
+        if (_disposed) return;
+        if (_grid is not null) await _grid.RefreshDataAsync();
+        StateHasChanged();
+        if (OnStateChanged is not null) await OnStateChanged(_controller.State);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        _ = InvokeAsync(() => ApplyLocationAsync(args.Location));
+    }
+
+    // Back, Forward and navigations the list did not start itself; the list's own navigations leave the state unchanged
+    private async Task ApplyLocationAsync(string location)
+    {
+        try
+        {
+            if (!await _controller.LocationChangedAsync(location) || _disposed) return;
+            if (_grid is not null) await _grid.RefreshDataAsync();
+            StateHasChanged();
+            if (OnStateChanged is not null) await OnStateChanged(_controller.State);
+        }
+        catch (Exception exception)
+        {
+            await DispatchExceptionAsync(exception);
+        }
+    }
+
+    private async Task SelectionChangedAsync(IReadOnlySet<string> keys, bool isMultiple)
+    {
+        if (OnSelectionChanged is not null) await OnSelectionChanged(keys);
+        if (isMultiple && OnMultipleSelected is not null) await OnMultipleSelected();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        Navigation.LocationChanged -= OnLocationChanged;
+        _controller.Dispose();
+        if (_handle is not null)
+        {
+            await _handle.InvokeVoidAsync("dispose");
+            await _handle.DisposeAsync();
+        }
+
+        if (_module is not null) await _module.DisposeAsync();
+        _reference?.Dispose();
+    }
+
+}

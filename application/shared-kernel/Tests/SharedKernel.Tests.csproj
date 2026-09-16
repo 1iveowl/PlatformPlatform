@@ -13,6 +13,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\SharedKernel\SharedKernel.csproj"/>
+        <!-- Only for the JSON round-trip test of a self-contained system's ID through the shared converter -->
+        <ProjectReference Include="..\..\account\Contracts\Account.Contracts.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

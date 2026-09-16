@@ -9,6 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Contracts\Account.Contracts.csproj"/>
         <ProjectReference Include="..\..\shared-kernel\SharedKernel\SharedKernel.csproj"/>
     </ItemGroup>
 

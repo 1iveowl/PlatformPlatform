@@ -1,0 +1,129 @@
+@* The change user role dialog, the React edition's ChangeUserRoleDialog. A guarded dialog: once another role is selected,
+   Escape, the close button, the backdrop and Cancel ask before the selection is discarded. The server decides the rule;
+   a rejection (your own role, not an owner, an unknown user) is shown in the dialog as the API returned it. The role options
+   are native radio inputs, so nothing writes a style attribute. *@
+@using Account.Client
+@using Account.Features.Users.Requests
+@implements IDisposable
+@inject IServiceProvider Services
+
+<DirtyDialog @ref="_dialog" Open="Open" OpenChanged="OpenChanged" HasUnsavedChanges="HasUnsavedChanges" Title="@UsersStrings.ChangeUserRole" TestId="change-role-dialog">
+    @if (User is { } user)
+    {
+        <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" class="change-role-form" data-testid="change-role-form">
+            <div class="change-role-user">
+                <UserAvatar User="user"/>
+                <div>
+                    <p class="change-role-user-name" data-testid="change-role-name">@user.DisplayNameOrEmail</p>
+                    @if (!string.IsNullOrEmpty(user.Title))
+                    {
+                        <p class="change-role-user-detail">@user.Title</p>
+                    }
+                    <p class="change-role-user-detail">@user.Email</p>
+                </div>
+            </div>
+
+            <FormErrorAlert Errors="_formErrors"/>
+
+            <InputRadioGroup TValue="UserRole" @bind-Value="_form.Role">
+                <fieldset class="change-role-options">
+                    <legend class="data-list-visually-hidden">@UsersStrings.Role</legend>
+                    @foreach (var role in Roles)
+                    {
+                        <label class="change-role-option">
+                            <InputRadio TValue="UserRole" Value="role" aria-label="@UserRoleText.Label(role)" aria-describedby="@DescriptionId(role)" data-testid="@($"role-{role.ToString().ToLowerInvariant()}")"/>
+                            <span>
+                                <span class="change-role-option-title">@UserRoleText.Label(role)</span>
+                                <span class="change-role-option-description" id="@DescriptionId(role)">@UserRoleText.Description(role)</span>
+                            </span>
+                        </label>
+                    }
+                </fieldset>
+            </InputRadioGroup>
+
+            <div class="modal-dialog-actions">
+                <button type="button" class="button-secondary" disabled="@_isSaving" data-testid="change-role-cancel" @onclick="() => _dialog.RequestCloseAsync()">@CommonStrings.Cancel</button>
+                <button type="submit" class="button-primary" disabled="@_isSaving" data-testid="change-role-save">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
+            </div>
+        </EditForm>
+    }
+</DirtyDialog>
+
+@code {
+
+    private static readonly UserRole[] Roles = [UserRole.Owner, UserRole.Admin, UserRole.Member];
+
+    private readonly string _idPrefix = $"change-role-{Guid.NewGuid():N}";
+    private readonly ChangeUserRoleForm _form = new();
+    private DirtyDialog _dialog = null!;
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private bool _isSaving;
+    private string? _preparedFor;
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public UserDetails? User { get; set; }
+
+    // Raised after the server accepted the change, with the user and the new role; the owner closes the dialog
+    [Parameter]
+    public EventCallback<(UserDetails User, UserRole Role)> OnSaved { get; set; }
+
+    private bool HasUnsavedChanges => User is not null && _form.Role != User.Role;
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_form);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    // Every opening starts from the user's current role with no messages
+    protected override void OnParametersSet()
+    {
+        var openedFor = Open && User is not null ? User.Id.Value : null;
+        if (openedFor == _preparedFor) return;
+
+        _preparedFor = openedFor;
+        if (User is not null) _form.Role = User.Role;
+        _formErrors.Clear();
+    }
+
+    private string DescriptionId(UserRole role)
+    {
+        return $"{_idPrefix}-{role.ToString().ToLowerInvariant()}";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (User is not { } user || _isSaving) return;
+
+        _isSaving = true;
+        var role = _form.Role;
+        var result = await Services.GetRequiredService<UsersClient>().ChangeUserRoleAsync(user.Id, new ChangeUserRoleCommand { UserRole = role }, CancellationToken.None);
+        _isSaving = false;
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        await OnSaved.InvokeAsync((user, role));
+    }
+
+    private sealed class ChangeUserRoleForm
+    {
+        public UserRole Role { get; set; }
+    }
+
+}

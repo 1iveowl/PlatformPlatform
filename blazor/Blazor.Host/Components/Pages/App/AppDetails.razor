@@ -1,0 +1,11 @@
+@* A second authenticated page, two segments below the path base. Enhanced navigation between it and the workspace page
+   keeps the one running WebAssembly runtime. *@
+@page "/app/details"
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>@AccountStrings.Details</PageTitle>
+
+<AuthenticatedApp Page="details" @rendermode="InteractiveWebAssembly"/>

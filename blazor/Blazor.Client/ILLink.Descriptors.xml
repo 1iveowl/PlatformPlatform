@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spike (B1): known workaround. FluentUI 5.0.0-preview.26254.1 deserializes the overflowchange event into
+     OverflowChangedEventArgs, whose Items elements are OverflowChangedItem. The trimmer keeps the event args type but
+     removes the element type's constructor, so a trimmed publish throws DeserializeNoConstructor and FluentOverflow's
+     OnOverflowRaised never runs; an untrimmed publish delivers the event. Delete once FluentUI preserves the type. -->
+<linker>
+    <assembly fullname="Microsoft.FluentUI.AspNetCore.Components">
+        <type fullname="Microsoft.FluentUI.AspNetCore.Components.OverflowChangedItem" preserve="all"/>
+    </assembly>
+</linker>

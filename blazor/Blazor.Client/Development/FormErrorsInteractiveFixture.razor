@@ -1,0 +1,194 @@
+@* The WebAssembly side of the Development-only forms fixture, maintained for the browser harness in blazor/tests:
+   - form mapping: DataAnnotations validation in the browser and a canned field validation failure applied through the
+     same FormErrorMapper the static form uses, so client and server messages share one EditContext with independent
+     lifetimes
+   - error presentation: canned failures through ApiFailurePresenter into the in-house toast region
+   - unsaved changes: a guarded page edit with save outcomes, in-app links, a navigation from .NET, an authentication loss,
+     a guard that can be mounted again, and a dirty dialog
+   The canned failures are fixed English text and carry no user data. *@
+@using Blazor.Client.Bootstrap
+@implements IDisposable
+@inject ApiFailurePresenter FailurePresenter
+@inject AuthenticationNavigator AuthenticationNavigator
+@inject NavigationManager Navigation
+
+<p data-testid="fixture-interactive">Interactive: @RendererInfo.IsInteractive</p>
+
+<ToastRegion/>
+
+<section data-testid="mapper-cases">
+    <h2>Form mapping</h2>
+
+    <EditForm EditContext="_editContext" OnValidSubmit="Submit" data-testid="interactive-form">
+        <DataAnnotationsValidator/>
+        <label>
+            Name
+            <InputText @bind-Value="_model.Name" data-testid="name"/>
+        </label>
+        <ValidationMessage For="() => _model.Name" data-testid="name-messages"/>
+        <label>
+            Email
+            <InputText @bind-Value="_model.Email" data-testid="email"/>
+        </label>
+        <ValidationMessage For="() => _model.Email" data-testid="email-messages"/>
+        <label>
+            Scenario
+            <InputSelect @bind-Value="_model.Scenario" data-testid="scenario">
+                @foreach (var scenario in FieldScenarios)
+                {
+                    <option value="@scenario">@scenario</option>
+                }
+            </InputSelect>
+        </label>
+        <ValidationSummary data-testid="validation-summary"/>
+        <button type="submit" data-testid="submit" disabled="@(!RendererInfo.IsInteractive)">Submit</button>
+    </EditForm>
+
+    <p data-testid="submit-count">@_submitCount</p>
+</section>
+
+<section data-testid="toast-cases">
+    <h2>Error presentation</h2>
+    @foreach (var scenario in FormErrorScenarios.All)
+    {
+        <button type="button" data-testid="present-@scenario" disabled="@(!RendererInfo.IsInteractive)" @onclick="() => Present(scenario)">@scenario</button>
+    }
+    <button type="button" data-testid="present-cancellation" disabled="@(!RendererInfo.IsInteractive)" @onclick="PresentCancellation">cancellation</button>
+    <p data-testid="presented-failure">@_presentedFailure</p>
+</section>
+
+<section data-testid="guard-cases">
+    <h2>Unsaved changes</h2>
+
+    <label>
+        Draft
+        <input @bind="_draft" @bind:event="oninput" data-testid="guard-input" disabled="@(!RendererInfo.IsInteractive)"/>
+    </label>
+    <p data-testid="guard-dirty">@(IsPageDirty ? "dirty" : "clean")</p>
+    <button type="button" data-testid="guard-save" @onclick="Save">Save</button>
+    <button type="button" data-testid="guard-save-failure" @onclick="SaveWithFailure">Save with a failure</button>
+
+    <a href="@StaticFixtureUrl" data-testid="guard-link-enhanced">Static fixture, enhanced link</a>
+    <a href="@StaticFixtureUrl" data-enhance-nav="false" data-testid="guard-link-full">Static fixture, full navigation link</a>
+    <a href="#guard-cases-anchor" id="guard-cases-anchor" data-testid="guard-link-fragment">Fragment on this page</a>
+    <button type="button" data-testid="guard-navigate-code" @onclick="NavigateFromCode">Navigate from code</button>
+    <button type="button" data-testid="guard-authentication-loss" @onclick="LoseAuthentication">Lose authentication</button>
+
+    <button type="button" data-testid="guard-remount" @onclick="RemountGuard">Mount the guard again</button>
+    <p data-testid="guard-generation">@_guardGeneration</p>
+    <UnsavedChangesGuard @key="_guardGeneration" HasUnsavedChanges="IsPageDirty"/>
+
+    <button type="button" data-testid="dialog-open" disabled="@(!RendererInfo.IsInteractive)" @onclick="OpenDialog">Open dialog</button>
+    <p data-testid="dialog-close-count">@_dialogCloseCount</p>
+    <DirtyDialog @ref="_dirtyDialog" Open="_isDialogOpen" OpenChanged="OnDialogOpenChanged" HasUnsavedChanges="_dialogDraft.Length > 0" Title="Edit the draft" TestId="dirty-dialog">
+        <label>
+            Dialog draft
+            <input @bind="_dialogDraft" @bind:event="oninput" data-testid="dialog-input"/>
+        </label>
+        <button type="button" data-testid="dialog-cancel" @onclick="() => _dirtyDialog.RequestCloseAsync()">Cancel</button>
+    </DirtyDialog>
+</section>
+
+@code {
+
+    private static readonly string[] FieldScenarios = [FormErrorScenarios.FieldMessages, FormErrorScenarios.CaseInsensitiveKey, FormErrorScenarios.UnmatchedKey];
+    private static readonly string StaticFixtureUrl = AppUrls.ToAbsolute("development/form-errors/static");
+
+    private readonly FormErrorFixtureForm _model = new();
+    private string _dialogDraft = "";
+    private int _dialogCloseCount;
+    private DirtyDialog _dirtyDialog = null!;
+    private string _draft = "";
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private int _guardGeneration;
+    private bool _isDialogOpen;
+    private string _presentedFailure = "";
+    private string _savedDraft = "";
+    private int _submitCount;
+
+    private bool IsPageDirty => _draft != _savedDraft;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_model);
+        _formErrors = new FormErrorMapper(_editContext);
+        AuthenticationNavigator.Leaving += ClearSensitiveState;
+    }
+
+    public void Dispose()
+    {
+        AuthenticationNavigator.Leaving -= ClearSensitiveState;
+        _formErrors.Dispose();
+    }
+
+    private void Submit()
+    {
+        _submitCount++;
+        var (_, problem) = FormErrorScenarios.Get(_model.Scenario);
+        _formErrors.Apply(problem);
+    }
+
+    private void Present(string scenario)
+    {
+        var (outcome, problem) = FormErrorScenarios.Get(scenario);
+        var failure = FailurePresenter.Present(outcome, problem);
+        _presentedFailure = $"{scenario}: {failure.Kind}";
+    }
+
+    private void PresentCancellation()
+    {
+        _presentedFailure = $"cancellation: {ApiFailureClassifier.Cancellation.Kind}";
+    }
+
+    private void Save()
+    {
+        _savedDraft = _draft;
+    }
+
+    // A failed save shows the failure and keeps the edits, so the guard stays armed
+    private void SaveWithFailure()
+    {
+        var (outcome, problem) = FormErrorScenarios.Get(FormErrorScenarios.Detail);
+        FailurePresenter.Present(outcome, problem);
+    }
+
+    private void NavigateFromCode()
+    {
+        Navigation.NavigateTo(StaticFixtureUrl);
+    }
+
+    private void LoseAuthentication()
+    {
+        AuthenticationNavigator.LeaveForLogin();
+    }
+
+    private void RemountGuard()
+    {
+        _guardGeneration++;
+    }
+
+    private void OpenDialog()
+    {
+        _dialogDraft = "";
+        _isDialogOpen = true;
+    }
+
+    private void OnDialogOpenChanged(bool isOpen)
+    {
+        _isDialogOpen = isOpen;
+        if (isOpen) return;
+
+        _dialogDraft = "";
+        _dialogCloseCount++;
+    }
+
+    private void ClearSensitiveState()
+    {
+        _draft = "";
+        _savedDraft = "";
+        _dialogDraft = "";
+        _isDialogOpen = false;
+    }
+
+}

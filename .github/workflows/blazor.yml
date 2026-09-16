@@ -1,0 +1,314 @@
+name: Blazor
+
+# The smoke job starts the whole AppHost stack, so the path filters cover everything that stack builds or runs: the
+# account and main systems, the gateway, the React build the gateway waits for, and the shared props, package and SDK files.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "blazor/**"
+      - "application/AppHost/**"
+      - "application/AppGateway/**"
+      - "application/account/**"
+      - "application/main/**"
+      - "application/shared-kernel/**"
+      - "application/shared-webapp/**"
+      - "application/platform-settings.jsonc"
+      - "application/Directory.Build.props"
+      - "application/Directory.Packages.props"
+      - "application/dotnet-tools.json"
+      - "application/global.json"
+      - "application/package.json"
+      - "application/package-lock.json"
+      - "application/turbo.json"
+      - "application/.node-version"
+      - "developer-cli/**"
+      - ".github/workflows/blazor.yml"
+      - "!**.md"
+  pull_request:
+    paths:
+      - "blazor/**"
+      - "application/AppHost/**"
+      - "application/AppGateway/**"
+      - "application/account/**"
+      - "application/main/**"
+      - "application/shared-kernel/**"
+      - "application/shared-webapp/**"
+      - "application/platform-settings.jsonc"
+      - "application/Directory.Build.props"
+      - "application/Directory.Packages.props"
+      - "application/dotnet-tools.json"
+      - "application/global.json"
+      - "application/package.json"
+      - "application/package-lock.json"
+      - "application/turbo.json"
+      - "application/.node-version"
+      - "developer-cli/**"
+      - ".github/workflows/blazor.yml"
+      - "!**.md"
+  workflow_dispatch:
+
+concurrency:
+  group: blazor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Generate and Set User Secret for Token Signing Key
+        working-directory: application/shared-kernel/SharedKernel
+        run: |
+          # Extract UserSecretsId from the .csproj file
+          USER_SECRETS_ID=$(grep -oP '(?<=<UserSecretsId>).*?(?=</UserSecretsId>)' SharedKernel.csproj)
+
+          # Generate a 512-bit key and set it as a user secret that can be use for token signing when running tests
+          dotnet user-secrets set "authentication-token-signing-key" "$(openssl rand -base64 64)" --id $USER_SECRETS_ID
+
+      - name: Build Blazor Solution
+        working-directory: developer-cli
+        run: dotnet run -- build --blazor
+
+      - name: Run Tests
+        working-directory: developer-cli
+        run: dotnet run -- test --blazor --no-build
+
+  code-style:
+    name: Code Linting and Formatting
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Restore .NET Tools
+        working-directory: blazor
+        run: dotnet tool restore
+
+      - name: Build Blazor Solution
+        working-directory: developer-cli
+        run: dotnet run -- build --blazor
+
+      - name: Check for Formatting Issues
+        working-directory: developer-cli
+        run: |
+          dotnet run -- format --blazor --no-build --all-files --verify-build
+
+          git diff --exit-code || {
+            echo "Formatting issues detected. Please run 'dotnet run --project developer-cli -- format --blazor --all-files' locally and commit the formatted code."
+            exit 1
+          }
+
+      - name: Run Code Linting
+        working-directory: developer-cli
+        run: |
+          set +e
+          dotnet run -- lint --blazor --no-build
+          LINT_EXIT_CODE=$?
+          set -e
+
+          if [ $LINT_EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "::error::Code linting issues found."
+            echo ""
+
+            RESULT_FILE="${GITHUB_WORKSPACE}/blazor/result.json"
+
+            if [ -f "$RESULT_FILE" ]; then
+              cat "$RESULT_FILE"
+              echo ""
+              echo "### Code Inspection Issues" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              cat "$RESULT_FILE" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Result file not found in blazor/"
+            fi
+            exit 1
+          fi
+
+  publish:
+    name: Trimmed Release Publish
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Publish Trimmed Release Build
+        working-directory: developer-cli
+        run: dotnet run -- blazor-publish
+
+  smoke:
+    name: Trimmed Smoke Test
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: application/.node-version
+
+      - name: Install Node Modules
+        working-directory: application
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: application
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate and Set User Secret for Token Signing Key
+        working-directory: application/shared-kernel/SharedKernel
+        run: |
+          # Extract UserSecretsId from the .csproj file
+          USER_SECRETS_ID=$(grep -oP '(?<=<UserSecretsId>).*?(?=</UserSecretsId>)' SharedKernel.csproj)
+
+          # A disposable 512-bit key for this run; the AppHost and the published host read it from the same user secrets store
+          dotnet user-secrets set "authentication-token-signing-key" "$(openssl rand -base64 64)" --id $USER_SECRETS_ID
+
+      - name: Prepare Local Host Names and Certificate Trust
+        run: |
+          # Browsers and curl resolve *.localhost themselves; the entry covers any tool that asks the system resolver
+          echo "127.0.0.1 app.dev.localhost back-office.dev.localhost" | sudo tee -a /etc/hosts
+
+          # The AppHost creates and trusts the development certificate on start; on Linux, .NET trusts it for OpenSSL
+          # through this directory, which the gateway, the account API and the published host read
+          echo "SSL_CERT_DIR=$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs" >> "$GITHUB_ENV"
+
+      - name: Start Stack Without the Blazor Host
+        working-directory: developer-cli
+        run: dotnet run -- start-stack --without-blazor-host --timeout 1200
+
+      - name: Publish Trimmed Release Build
+        working-directory: developer-cli
+        run: dotnet run -- blazor-publish
+
+      - name: Serve Published Host Behind the Gateway
+        working-directory: developer-cli
+        run: |
+          nohup dotnet run -- blazor-serve > "$GITHUB_WORKSPACE/.workspace/blazor-serve.log" 2>&1 &
+
+          BASE_PORT=$(cat "$GITHUB_WORKSPACE/.workspace/port.txt")
+          for attempt in $(seq 1 60); do
+            if curl --silent --insecure --fail --output /dev/null "https://app.dev.localhost:$BASE_PORT/blazor/"; then
+              echo "The gateway serves the published host after $attempt attempts"
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "::error::The gateway did not serve the published host within 300 seconds."
+          cat "$GITHUB_WORKSPACE/.workspace/blazor-serve.log"
+          exit 1
+
+      - name: Run Trimmed Smoke Test
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness trimmed-smoke --browser chromium
+
+      - name: Upload Smoke Result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trimmed-smoke-result
+          path: .workspace/blazor-tests/trimmed-smoke-chromium.json
+          if-no-files-found: ignore
+
+      - name: Upload Browser Trace
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trimmed-smoke-trace
+          path: .workspace/blazor-tests/trimmed-smoke-chromium*-trace.zip
+          if-no-files-found: ignore
+
+      - name: Upload Process Logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trimmed-smoke-logs
+          path: |
+            .workspace/developer-cli/aspire-apphost.log
+            .workspace/blazor-serve.log
+          if-no-files-found: ignore
+
+      - name: Stop Published Host and Stack
+        if: always()
+        working-directory: developer-cli
+        run: |
+          pkill -f "Blazor.Host.dll" || true
+          dotnet run -- stop

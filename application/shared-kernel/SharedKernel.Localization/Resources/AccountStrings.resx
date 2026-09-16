@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="Account" xml:space="preserve">
+        <value>Account</value>
+    </data>
+    <data name="AccountDetails" xml:space="preserve">
+        <value>Account details</value>
+    </data>
+    <data name="AccountOverview" xml:space="preserve">
+        <value>Account overview</value>
+        <comment>React: Account overview</comment>
+    </data>
+    <data name="AddProfilePicture" xml:space="preserve">
+        <value>Add profile picture</value>
+        <comment>React: Add profile picture</comment>
+    </data>
+    <data name="Authenticated" xml:space="preserve">
+        <value>Authenticated</value>
+    </data>
+    <data name="BackToApp" xml:space="preserve">
+        <value>Back to app</value>
+        <comment>React: Back to app</comment>
+    </data>
+    <data name="Billing" xml:space="preserve">
+        <value>Billing</value>
+        <comment>React: Billing</comment>
+    </data>
+    <data name="BootstrapReloaded" xml:space="preserve">
+        <value>Bootstrap reloaded at {0}</value>
+        <comment>{0}: timestamp</comment>
+    </data>
+    <data name="ChangeProfilePicture" xml:space="preserve">
+        <value>Change profile picture</value>
+        <comment>React: Change profile picture</comment>
+    </data>
+    <data name="ChangeUserPreferences" xml:space="preserve">
+        <value>Change user preferences</value>
+        <comment>React: Change user preferences</comment>
+    </data>
+    <data name="ContactSupport" xml:space="preserve">
+        <value>Contact support</value>
+        <comment>React: Contact support</comment>
+    </data>
+    <data name="Details" xml:space="preserve">
+        <value>Details</value>
+    </data>
+    <data name="EditProfile" xml:space="preserve">
+        <value>Edit profile</value>
+        <comment>React: Edit profile</comment>
+    </data>
+    <data name="EditUserProfile" xml:space="preserve">
+        <value>Edit user profile</value>
+        <comment>React: Edit user profile</comment>
+    </data>
+    <data name="EmailCannotBeChanged" xml:space="preserve">
+        <value>Your email address cannot be changed. An owner must delete your account and reinvite you with the new email address.</value>
+        <comment>React: Your email address cannot be changed. An owner must delete your account and reinvite you with the new email address.</comment>
+    </data>
+    <data name="FirstName" xml:space="preserve">
+        <value>First name</value>
+        <comment>React: First name</comment>
+    </data>
+    <data name="FirstNamePlaceholder" xml:space="preserve">
+        <value>E.g. Alex</value>
+        <comment>React: E.g. Alex</comment>
+    </data>
+    <data name="InteractiveState" xml:space="preserve">
+        <value>Interactive: {0}</value>
+        <comment>{0}: True or False, not translated</comment>
+    </data>
+    <data name="InvitationPending" xml:space="preserve">
+        <value>Invitation pending</value>
+        <comment>React: Invitation pending</comment>
+    </data>
+    <data name="Language" xml:space="preserve">
+        <value>Language</value>
+    </data>
+    <data name="LastName" xml:space="preserve">
+        <value>Last name</value>
+        <comment>React: Last name</comment>
+    </data>
+    <data name="LastNamePlaceholder" xml:space="preserve">
+        <value>E.g. Taylor</value>
+        <comment>React: E.g. Taylor</comment>
+    </data>
+    <data name="LogOut" xml:space="preserve">
+        <value>Log out</value>
+        <comment>React: Log out</comment>
+    </data>
+    <data name="NumberAndDateFormat" xml:space="preserve">
+        <value>Number and date format</value>
+    </data>
+    <data name="Overview" xml:space="preserve">
+        <value>Overview</value>
+        <comment>React: Overview</comment>
+    </data>
+    <data name="Preferences" xml:space="preserve">
+        <value>Preferences</value>
+        <comment>React: Preferences</comment>
+    </data>
+    <data name="ProfileAvatar" xml:space="preserve">
+        <value>Profile avatar</value>
+        <comment>React: Profile avatar</comment>
+    </data>
+    <data name="ProfileDescription" xml:space="preserve">
+        <value>Update your profile picture and personal details here.</value>
+        <comment>React: Update your profile picture and personal details here.</comment>
+    </data>
+    <data name="ProfilePhoto" xml:space="preserve">
+        <value>Profile photo</value>
+        <comment>React: Profile photo</comment>
+    </data>
+    <data name="ProfileUpdated" xml:space="preserve">
+        <value>Profile updated successfully</value>
+        <comment>React: Profile updated successfully</comment>
+    </data>
+    <data name="ReloadBootstrap" xml:space="preserve">
+        <value>Reload bootstrap</value>
+    </data>
+    <data name="RemoveProfilePicture" xml:space="preserve">
+        <value>Remove profile picture</value>
+        <comment>React: Remove profile picture</comment>
+    </data>
+    <data name="RuntimeConfigurationKeys" xml:space="preserve">
+        <value>Runtime configuration keys</value>
+    </data>
+    <data name="SelectAccount" xml:space="preserve">
+        <value>Select account</value>
+        <comment>React: Select account</comment>
+    </data>
+    <data name="Settings" xml:space="preserve">
+        <value>Settings</value>
+        <comment>React: Settings</comment>
+    </data>
+    <data name="SwitchAccount" xml:space="preserve">
+        <value>Switch account</value>
+        <comment>React: Switch account</comment>
+    </data>
+    <data name="SwitchAccountFailed" xml:space="preserve">
+        <value>Switching account failed with status {0}</value>
+        <comment>{0}: HTTP status code</comment>
+    </data>
+    <data name="SwitchTo" xml:space="preserve">
+        <value>Switch to {0}</value>
+        <comment>{0}: account name</comment>
+    </data>
+    <data name="SwitchingAccount" xml:space="preserve">
+        <value>Switching account...</value>
+        <comment>React: Switching account...</comment>
+    </data>
+    <data name="SystemFeatureFlags" xml:space="preserve">
+        <value>System feature flags</value>
+    </data>
+    <data name="Title" xml:space="preserve">
+        <value>Title</value>
+        <comment>React: Title</comment>
+    </data>
+    <data name="TitlePlaceholder" xml:space="preserve">
+        <value>E.g. Software engineer</value>
+        <comment>React: E.g. Software engineer</comment>
+    </data>
+    <data name="UnableToLoadProfile" xml:space="preserve">
+        <value>Unable to load profile</value>
+        <comment>React: Unable to load profile</comment>
+    </data>
+    <data name="UnnamedAccount" xml:space="preserve">
+        <value>Unnamed account</value>
+        <comment>React: Unnamed account</comment>
+    </data>
+    <data name="UploadProfilePicture" xml:space="preserve">
+        <value>Upload profile picture</value>
+        <comment>React: Upload profile picture</comment>
+    </data>
+    <data name="UserId" xml:space="preserve">
+        <value>User ID</value>
+        <comment>React: User ID</comment>
+    </data>
+    <data name="UserMenu" xml:space="preserve">
+        <value>User menu</value>
+        <comment>React: User menu</comment>
+    </data>
+    <data name="Workspace" xml:space="preserve">
+        <value>Workspace</value>
+    </data>
+    <data name="YourWorkspace" xml:space="preserve">
+        <value>Your workspace</value>
+    </data>
+    <data name="TenantNameLength" xml:space="preserve">
+        <value>Name must be between 1 and 30 characters.</value>
+        <comment>API validation: Name must be between 1 and 30 characters.</comment>
+    </data>
+    <data name="FirstNameLength" xml:space="preserve">
+        <value>First name must be between 1 and 30 characters.</value>
+        <comment>API validation: First name must be between 1 and 30 characters.</comment>
+    </data>
+    <data name="LastNameLength" xml:space="preserve">
+        <value>Last name must be between 1 and 30 characters.</value>
+        <comment>API validation: Last name must be between 1 and 30 characters.</comment>
+    </data>
+    <data name="TitleTooLong" xml:space="preserve">
+        <value>Title must be no longer than 50 characters.</value>
+        <comment>API validation: Title must be no longer than 50 characters.</comment>
+    </data>
+    <data name="Profile" xml:space="preserve">
+        <value>Profile</value>
+    </data>
+    <data name="CurrentAccount" xml:space="preserve">
+        <value>Current account</value>
+    </data>
+</root>

@@ -20,9 +20,6 @@ public sealed record StartEmailLoginCommand(string Email) : ICommand, IRequest<R
     public string Email { get; init; } = Email.Trim().ToLower();
 }
 
-[PublicAPI]
-public sealed record StartEmailLoginResponse(EmailLoginId EmailLoginId, int ValidForSeconds);
-
 public sealed class StartEmailLoginValidator : AbstractValidator<StartEmailLoginCommand>
 {
     public StartEmailLoginValidator()

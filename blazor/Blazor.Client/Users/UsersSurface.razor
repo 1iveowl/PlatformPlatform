@@ -1,0 +1,228 @@
+@using Account.Client
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Session
+@using Microsoft.FluentUI.AspNetCore.Components
+@using SharedKernel.Domain
+@* The users administration surface, the React edition's users page: the list on DataList with search, sort and paging in
+   the URL, the side pane opened from a row or from ?userId=, and the role change with its permission rules. The host
+   prerenders the frame; the list and the pane load their data only once the component runs in the browser.
+   Deletion, invitation, the filter dialog and the recycle bin are not part of this surface yet; role, status and date
+   filters in a deep link are still applied through UsersListSource. *@
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject ToastService Toasts
+
+<h1>@CommonStrings.Users</h1>
+<p>@UsersStrings.ManageUsers</p>
+
+<AccountHeader/>
+
+<ToastRegion/>
+
+<div class="users-toolbar" role="search">
+    <FluentTextInput Id="@SearchId" data-testid="search" AriaLabel="@CommonStrings.Search" Placeholder="@CommonStrings.Search" Immediate="true" ImmediateDelay="500"
+                     Value="@_filters.GetValueOrDefault(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+</div>
+
+<div class="users-layout">
+    <div class="users-grid">
+        @if (_bootstrap is not null)
+        {
+            <DataList @ref="_list" TItem="UserDetails" data-testid="users-grid" ListId="@UsersListSource.ListId" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
+                      Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
+                      SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
+                      FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="@PaneId"
+                      FocusFallbackId="@SearchId" RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
+                      OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
+                <EmptyContent>
+                    <div data-testid="empty-state">
+                        <p>@UsersStrings.NoUsersFound</p>
+                        @if (_filters.Count > 0)
+                        {
+                            <p>@UsersStrings.TryAdjustingSearch</p>
+                        }
+                    </div>
+                </EmptyContent>
+            </DataList>
+        }
+    </div>
+
+    <UserProfilePane Id="@PaneId" State="_profile" Permission="ProfilePermission" IsNotInCurrentView="IsProfileNotInCurrentView" IsDataUpdated="IsProfileDataUpdated"
+                     OnClose="CloseProfileAsync" OnChangeRole="OpenRoleDialog"/>
+</div>
+
+<ChangeUserRoleDialog Open="_isRoleDialogOpen" OpenChanged="OnRoleDialogOpenChanged" User="_roleUser" OnSaved="OnRoleSavedAsync"/>
+
+@code {
+
+    public const string RoleUpdatedToastTestId = "role-updated-toast";
+    private const string SearchId = "users-search";
+    private const string PaneId = "users-profile-pane";
+
+    private readonly UserProfileState _profile = new();
+    private BootstrapResponse? _bootstrap;
+    private IReadOnlyList<DataListColumn<UserDetails>> _columns = [];
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private bool _isRoleDialogOpen;
+    private DataList<UserDetails>? _list;
+    private UserDetails? _roleUser;
+
+    private IReadOnlyList<UserDetails> PageItems => _list is { Status: DataListStatus.Ready or DataListStatus.Empty } list ? list.Items : [];
+
+    private bool IsListLoaded => _list?.Status is DataListStatus.Ready or DataListStatus.Empty;
+
+    private bool IsProfileNotInCurrentView => IsListLoaded && _profile.IsNotInCurrentView(PageItems.ToArray());
+
+    private bool IsProfileDataUpdated => IsListLoaded && _profile.IsDataUpdated(PageItems.ToArray());
+
+    private RoleChangePermission ProfilePermission => _profile.User is { } user ? UserRolePermissions.ForTarget(_bootstrap?.User, user.Id) : RoleChangePermission.NotOwner;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _columns =
+        [
+            new DataListColumn<UserDetails>(UsersStrings.Name, user => @<span class="user-name-cell" data-user-row data-email="@user.Email">
+                                                                           <UserAvatar User="user"/>
+                                                                           <span>
+                                                                               <span class="user-name" data-testid="user-name">@user.DisplayNameOrEmail</span>
+                                                                               @if (!string.IsNullOrEmpty(user.Title))
+                                                                               {
+                                                                                   <span class="user-title">@user.Title</span>
+                                                                               }
+                                                                           </span>
+                                                                       </span>, nameof(SortableUserProperties.Name)
+            ),
+            new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email)
+            ),
+            new DataListColumn<UserDetails>(UsersStrings.Created, user => @<text>@user.CreatedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)</text>,
+                nameof(SortableUserProperties.CreatedAt)
+            ),
+            new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<text>@(user.LastSeenAt?.ToLocalTime().ToString("d", CultureInfo.CurrentCulture) ?? "")</text>,
+                nameof(SortableUserProperties.LastSeenAt)
+            ),
+            new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role)
+            )
+        ];
+
+        var bootstrap = await Session.GetAsync();
+        if (RendererInfo.IsInteractive && !bootstrap.IsAuthenticated)
+        {
+            Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();
+            return;
+        }
+
+        _bootstrap = bootstrap;
+    }
+
+    private static string KeyOf(UserDetails user)
+    {
+        return user.Id.Value;
+    }
+
+    private static string RowLabel(UserDetails user)
+    {
+        return user.Email;
+    }
+
+    // Everyone can view a profile; only an owner sees the role action, disabled on their own row
+    private RenderFragment<UserDetails> RowMenu => user =>
+        @<DataListRowMenu Label="@UsersStrings.UserActions" Items="RowMenuItems(user)" TestId="user-actions"/>;
+
+    private IReadOnlyList<DataListRowMenuItem> RowMenuItems(UserDetails user)
+    {
+        var viewProfile = new DataListRowMenuItem(UsersStrings.ViewProfile, () => ViewProfileAsync(user), TestId: "action-view-profile");
+        if (!UserRolePermissions.IsOwner(_bootstrap?.User)) return [viewProfile];
+
+        var canChangeRole = UserRolePermissions.ForTarget(_bootstrap?.User, user.Id) == RoleChangePermission.Allowed;
+        return [viewProfile, new DataListRowMenuItem(UsersStrings.ChangeRole, () => OpenRoleDialogAsync(user), !canChangeRole, "action-change-role")];
+    }
+
+    private Task<DataListFetchResult<UserDetails>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return UsersListSource.FetchAsync(Services.GetRequiredService<UsersClient>(), request, cancellationToken);
+    }
+
+    // Loads, Back and Forward: a deep link or a history entry with ?userId= opens the pane for that user, on the page or not
+    private async Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        if (state.SelectedKey is null)
+        {
+            _profile.Close();
+            StateHasChanged();
+            return;
+        }
+
+        StateHasChanged();
+        if (_profile.UserId != state.SelectedKey) await LoadProfileAsync(state.SelectedKey, PageItems.FirstOrDefault(user => user.Id.Value == state.SelectedKey));
+    }
+
+    private Task OnSearchChangedAsync(string? search)
+    {
+        return _list?.SetFiltersAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = search }) ?? Task.CompletedTask;
+    }
+
+    private Task OpenProfileAsync(UserDetails user)
+    {
+        return LoadProfileAsync(user.Id.Value, user);
+    }
+
+    private Task ViewProfileAsync(UserDetails user)
+    {
+        return _list?.ActivateItemAsync(user) ?? Task.CompletedTask;
+    }
+
+    // The pane shows the row at once and then the authoritative user; only the latest load is applied
+    private async Task LoadProfileAsync(string userId, UserDetails? rowUser)
+    {
+        var version = _profile.Open(userId, rowUser);
+        StateHasChanged();
+        var result = await Services.GetRequiredService<UsersClient>().GetUserAsync(new UserId(userId), CancellationToken.None);
+        if (_profile.Complete(version, result)) StateHasChanged();
+    }
+
+    private Task OnProfileClosedAsync()
+    {
+        _profile.Close();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task CloseProfileAsync()
+    {
+        return _list?.CloseAsync() ?? Task.CompletedTask;
+    }
+
+    private void OpenRoleDialog(UserDetails user)
+    {
+        _roleUser = user;
+        _isRoleDialogOpen = true;
+        StateHasChanged();
+    }
+
+    private Task OpenRoleDialogAsync(UserDetails user)
+    {
+        OpenRoleDialog(user);
+        return Task.CompletedTask;
+    }
+
+    private void OnRoleDialogOpenChanged(bool isOpen)
+    {
+        _isRoleDialogOpen = isOpen;
+        if (!isOpen) _roleUser = null;
+    }
+
+    // Every cached page of the list is dropped, including sorted and filtered variants the user has just left, and the pane
+    // loads the user again, so neither shows the previous role
+    private async Task OnRoleSavedAsync((UserDetails User, UserRole Role) change)
+    {
+        _isRoleDialogOpen = false;
+        _roleUser = null;
+        Toasts.Show(ToastKind.Success, string.Format(CultureInfo.CurrentCulture, UsersStrings.UserRoleUpdated, change.User.DisplayNameOrEmail), null, RoleUpdatedToastTestId);
+        var reloadProfile = _profile.UserId == change.User.Id.Value ? LoadProfileAsync(change.User.Id.Value, null) : Task.CompletedTask;
+        if (_list is not null) await _list.InvalidateAsync();
+        await reloadProfile;
+    }
+
+}

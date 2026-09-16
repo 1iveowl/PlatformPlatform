@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AcceptPolicies" xml:space="preserve">
+        <value>Ved at fortsætte accepterer du vores vilkår</value>
+    </data>
+    <data name="AccountLogo" xml:space="preserve">
+        <value>Kontologo</value>
+    </data>
+    <data name="AccountNamePlaceholder" xml:space="preserve">
+        <value>F.eks. Hansen &amp; Co</value>
+    </data>
+    <data name="AddAccountNameAndLogo" xml:space="preserve">
+        <value>Tilføj dit kontonavn og logo.</value>
+    </data>
+    <data name="AlreadyHaveAnAccount" xml:space="preserve">
+        <value>Har du allerede en konto?</value>
+    </data>
+    <data name="BackToLogin" xml:space="preserve">
+        <value>Tilbage til login</value>
+    </data>
+    <data name="BackToSignup" xml:space="preserve">
+        <value>Tilbage til tilmelding</value>
+    </data>
+    <data name="CantFindYourCode" xml:space="preserve">
+        <value>Kan du ikke finde din kode?</value>
+    </data>
+    <data name="ChangeLogo" xml:space="preserve">
+        <value>Skift logo</value>
+    </data>
+    <data name="CheckEmailForVerificationCode" xml:space="preserve">
+        <value>Tjek din e-mail for en bekræftelseskode sendt til {0}</value>
+    </data>
+    <data name="CheckSpamFolder" xml:space="preserve">
+        <value>Tjek din spammappe.</value>
+    </data>
+    <data name="CreateNewAccount" xml:space="preserve">
+        <value>Opret ny konto</value>
+    </data>
+    <data name="CreateOne" xml:space="preserve">
+        <value>Opret en</value>
+    </data>
+    <data name="CreateYourAccount" xml:space="preserve">
+        <value>Opret din konto</value>
+    </data>
+    <data name="DontHaveAnAccount" xml:space="preserve">
+        <value>Har du ikke en konto?</value>
+    </data>
+    <data name="EmailPlaceholder" xml:space="preserve">
+        <value>ditnavn@eksempel.com</value>
+    </data>
+    <data name="EnterEmailToLogIn" xml:space="preserve">
+        <value>Indtast din e-mail nedenfor for at logge ind</value>
+    </data>
+    <data name="HiWelcomeBack" xml:space="preserve">
+        <value>Hej! Velkommen tilbage</value>
+    </data>
+    <data name="Home" xml:space="preserve">
+        <value>Forside</value>
+    </data>
+    <data name="LandingComponentText" xml:space="preserve">
+        <value>Renderet af værten med en FluentUI-komponent</value>
+    </data>
+    <data name="LandingText" xml:space="preserve">
+        <value>En serverrenderet offentlig side. Her hentes ingen WebAssembly-runtime.</value>
+    </data>
+    <data name="LogInWithEmail" xml:space="preserve">
+        <value>Log ind med e-mail</value>
+    </data>
+    <data name="LogInWithGoogle" xml:space="preserve">
+        <value>Log ind med Google</value>
+    </data>
+    <data name="LogInWithMicrosoft" xml:space="preserve">
+        <value>Log ind med Microsoft</value>
+    </data>
+    <data name="LogOnWith" xml:space="preserve">
+        <value>Log ind med</value>
+    </data>
+    <data name="LoggedOut" xml:space="preserve">
+        <value>Du er blevet logget ud.</value>
+    </data>
+    <data name="LoginExpired" xml:space="preserve">
+        <value>Login er udløbet. Start forfra.</value>
+    </data>
+    <data name="LoginVerificationCode" xml:space="preserve">
+        <value>Login-bekræftelseskode</value>
+    </data>
+    <data name="OpenTheApp" xml:space="preserve">
+        <value>Åbn appen</value>
+    </data>
+    <data name="Or" xml:space="preserve">
+        <value>eller</value>
+    </data>
+    <data name="Redirecting" xml:space="preserve">
+        <value>Omdirigerer...</value>
+    </data>
+    <data name="RemoveLogo" xml:space="preserve">
+        <value>Fjern logo</value>
+    </data>
+    <data name="RequestNewCode" xml:space="preserve">
+        <value>Anmod om en ny kode</value>
+    </data>
+    <data name="SendingVerificationCode" xml:space="preserve">
+        <value>Sender bekræftelseskode...</value>
+    </data>
+    <data name="SetUpYourAccount" xml:space="preserve">
+        <value>Lad os opsætte din konto</value>
+    </data>
+    <data name="SetUpYourProfile" xml:space="preserve">
+        <value>Lad os opsætte din profil</value>
+    </data>
+    <data name="SignUpInSeconds" xml:space="preserve">
+        <value>Tilmeld dig på sekunder og begynd at bygge på {0} – ligesom tusindvis af andre.</value>
+    </data>
+    <data name="SignUpWithEmail" xml:space="preserve">
+        <value>Tilmeld dig med e-mail</value>
+    </data>
+    <data name="SignUpWithGoogle" xml:space="preserve">
+        <value>Tilmeld dig med Google</value>
+    </data>
+    <data name="SignUpWithMicrosoft" xml:space="preserve">
+        <value>Tilmeld dig med Microsoft</value>
+    </data>
+    <data name="SignupExpired" xml:space="preserve">
+        <value>Tilmeldingen er udløbet. Start forfra.</value>
+    </data>
+    <data name="SignupVerificationCode" xml:space="preserve">
+        <value>Tilmeldingsbekræftelseskode</value>
+    </data>
+    <data name="TellUsAboutYourself" xml:space="preserve">
+        <value>Fortæl os lidt om dig selv for at komme i gang.</value>
+    </data>
+    <data name="TermsPlaceholder" xml:space="preserve">
+        <value>Midlertidige brugsvilkår.</value>
+    </data>
+    <data name="UploadLogo" xml:space="preserve">
+        <value>Upload logo</value>
+    </data>
+    <data name="VerificationCodeExpired" xml:space="preserve">
+        <value>Din bekræftelseskode er udløbet</value>
+    </data>
+    <data name="VerificationCodeValidFor" xml:space="preserve">
+        <value>Din bekræftelseskode er gyldig i {0}</value>
+    </data>
+    <data name="Verify" xml:space="preserve">
+        <value>Bekræft</value>
+    </data>
+    <data name="Verifying" xml:space="preserve">
+        <value>Bekræfter...</value>
+    </data>
+    <data name="Welcome" xml:space="preserve">
+        <value>Velkommen</value>
+    </data>
+    <data name="NewCodeSent" xml:space="preserve">
+        <value>En ny bekræftelseskode er blevet sendt til din e-mail.</value>
+    </data>
+</root>

@@ -1,0 +1,130 @@
+@* One-time password verification for signup, static server-side rendering, not enhanced and carrying its flow state
+   in the query string for the same reasons as the login verification. A new account continues to welcome. *@
+@page "/signup/verify"
+@using Blazor.Host.Components.Pages.App
+@using Blazor.Host.Shell
+@using global::Account.Client
+@using global::Account.Features.EmailAuthentication.Domain
+@using global::Account.Features.EmailAuthentication.Requests
+@implements IDisposable
+@inject EmailAuthenticationClient EmailAuthentication
+@inject NavigationManager Navigation
+
+<PageTitle>@CommonStrings.EnterYourVerificationCode</PageTitle>
+
+<PublicNav/>
+
+<h1>@CommonStrings.EnterYourVerificationCode</h1>
+
+<p data-testid="verify-email">@string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.CheckEmailForVerificationCode, Email)</p>
+
+<EditForm EditContext="_editContext" FormName="signup-verify" OnValidSubmit="CompleteAsync">
+    <DataAnnotationsValidator/>
+    <label>
+        @AuthenticationStrings.SignupVerificationCode
+        <InputText @bind-Value="Input.OneTimePassword" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" autofocus data-testid="code"/>
+    </label>
+    <ValidationMessage For="() => Input.OneTimePassword"/>
+    <button type="submit" data-testid="submit">@AuthenticationStrings.Verify</button>
+</EditForm>
+
+<VerificationTimer Flow="_flow" Now="_now">
+    <form method="post" @formname="signup-resend" @onsubmit="ResendAsync" data-testid="resend-form">
+        <AntiforgeryToken/>
+        <button type="submit" data-testid="resend-code">@AuthenticationStrings.RequestNewCode</button>
+    </form>
+</VerificationTimer>
+
+@if (Resent)
+{
+    <p role="status" data-testid="code-resent">@AuthenticationStrings.NewCodeSent</p>
+}
+
+<FormErrorAlert Errors="_formErrors"/>
+
+@code {
+
+    private EditContext _editContext = null!;
+    private VerificationFlow _flow = null!;
+    private FormErrorMapper _formErrors = null!;
+    private DateTimeOffset _now;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    [SupplyParameterFromForm(FormName = "signup-verify")]
+    // Null when the request is not this form's post; the getter then supplies an empty model
+    private OneTimePasswordForm Input
+    {
+        get => field ??= new OneTimePasswordForm();
+        set;
+    }
+
+    [SupplyParameterFromQuery]
+    public string? Id { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Email { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Sent { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ValidFor { get; set; }
+
+    [SupplyParameterFromQuery]
+    public bool Resent { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _now = DateTimeOffset.UtcNow;
+        _flow = VerificationFlow.FromQuery(Sent, ValidFor, _now);
+        _editContext = new EditContext(Input);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    private async Task CompleteAsync()
+    {
+        // A missing id and one that is not an email login id are both a signup that cannot be completed
+        if (!EmailLoginId.TryParse(Id, out var emailLoginId))
+        {
+            _formErrors.AddFormMessage(AuthenticationStrings.SignupExpired);
+            return;
+        }
+
+        var command = new CompleteEmailSignupCommand(Input.OneTimePassword.ToUpperInvariant(), HostShell.GetLocale(HttpContext));
+        var result = await EmailAuthentication.CompleteSignupAsync(emailLoginId, command, HttpContext.RequestAborted);
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        Navigation.NavigateTo(WelcomeGate.GetWelcomeUrl(null), true);
+    }
+
+    private async Task ResendAsync()
+    {
+        if (!EmailLoginId.TryParse(Id, out var emailLoginId))
+        {
+            _formErrors.AddFormMessage(AuthenticationStrings.SignupExpired);
+            return;
+        }
+
+        var result = await EmailAuthentication.ResendSignupCodeAsync(emailLoginId, HttpContext.RequestAborted);
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        var flow = VerificationFlow.Start(DateTimeOffset.UtcNow, result.Value.ValidForSeconds);
+        Navigation.NavigateTo(flow.GetVerifyUrl("signup/verify", emailLoginId, Email, null, true), true);
+    }
+
+}

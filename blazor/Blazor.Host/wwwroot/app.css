@@ -1,0 +1,489 @@
+h1:focus {
+    outline: none;
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid #e50000;
+}
+
+.validation-message {
+    color: #e50000;
+}
+
+.blazor-error-boundary {
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
+    padding: 1rem 1rem 1rem 3.7rem;
+    color: white;
+}
+
+    .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+
+.darker-border-checkbox.form-check-input {
+    border-color: #929292;
+}
+
+.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+    color: var(--bs-secondary-color);
+    text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+    text-align: start;
+}
+
+/* Layout for the users list in Blazor.Client/Users. Kept here rather than in component-scoped CSS because WebKit resolves the scoped bundle's @import
+   against the document URL under the path base, and the nonce-only style-src blocks style attributes */
+.users-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    align-items: end;
+    flex-wrap: wrap;
+    margin-block: 1rem;
+}
+
+.users-layout {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.users-grid {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* DataList in Blazor.Client/Components/Lists. Every size and state is a class here: the policy blocks style attributes */
+.data-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.data-list-scroll {
+    overflow-x: auto;
+}
+
+/* An open row menu extends below its row, so the scroll container stops clipping while it is open */
+.data-list-scroll:has([data-list-menu-open]) {
+    overflow: visible;
+}
+
+.data-list-row-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.data-list-row-menu-trigger {
+    background: none;
+    border: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 1.125rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.data-list-row-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+}
+
+.data-list-row-menu-list {
+    position: absolute;
+    inset-block-start: 100%;
+    inset-inline-end: 0;
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+    min-width: 11rem;
+    padding-block: 0.25rem;
+    border: 1px solid #ccc;
+    border-radius: 0.375rem;
+    background: #fff;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.data-list-row-menu-item {
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    background: none;
+    text-align: start;
+    cursor: pointer;
+}
+
+.data-list-row-menu-item:hover:not(:disabled),
+.data-list-row-menu-item:focus-visible {
+    background: #eef;
+}
+
+.data-list-row-menu-item:disabled {
+    color: #888;
+    cursor: default;
+}
+
+.data-list-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-list-table th,
+.data-list-table td {
+    padding-block: 0.5rem;
+    padding-inline: 0.5rem;
+    text-align: start;
+}
+
+.data-list-table tr.data-list-row {
+    height: 3.5rem;
+    border-block-end: 1px solid #e5e5e5;
+    cursor: default;
+}
+
+.data-list-table tr.data-list-row.is-selected {
+    background: var(--brand-primary-foreground, #eef);
+}
+
+.data-list-table tr.data-list-row.is-active {
+    box-shadow: inset 0.25rem 0 0 #0f6cbd;
+}
+
+.data-list-table tr.data-list-row:focus-visible {
+    outline: 2px solid #0f6cbd;
+    outline-offset: -2px;
+}
+
+.data-list-select {
+    width: 2.5rem;
+}
+
+.data-list-sort {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.data-list-sort-indicator::after {
+    margin-inline-start: 0.25rem;
+}
+
+.data-list-sorted-ascending .data-list-sort-indicator::after {
+    content: "\2191";
+}
+
+.data-list-sorted-descending .data-list-sort-indicator::after {
+    content: "\2193";
+}
+
+.visually-hidden,
+.data-list-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.data-list-paginator {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.data-list-total {
+    margin-inline-end: auto;
+}
+
+.data-list-empty,
+.data-list-loading {
+    padding-block: 1rem;
+}
+
+.profile-pane {
+    flex: 0 0 22rem;
+    border-inline-start: 1px solid #ddd;
+    padding-inline: 1rem;
+}
+
+.profile-pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.profile-pane-title {
+    margin: 0;
+    font-size: 1.125rem;
+}
+
+.profile-pane-notice {
+    margin-block: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: #fff4d6;
+}
+
+.profile-pane-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-block: 1rem;
+    text-align: center;
+}
+
+.profile-pane-name,
+.change-role-user-name,
+.user-name {
+    margin: 0;
+    font-weight: 600;
+}
+
+.profile-pane-detail,
+.change-role-user-detail,
+.user-title {
+    margin: 0;
+    color: #555;
+    font-size: 0.875rem;
+}
+
+.user-title {
+    display: block;
+}
+
+.profile-pane-id {
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+}
+
+.profile-pane-fields {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+}
+
+.profile-pane-fields dd {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.profile-pane-badge {
+    padding: 0 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+}
+
+.profile-pane-reason {
+    flex-basis: 100%;
+    text-align: end;
+    color: #555;
+    font-size: 0.75rem;
+}
+
+.user-avatar {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #e3e3e3;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.profile-pane-identity .user-avatar,
+.change-role-user .user-avatar {
+    width: 4rem;
+    height: 4rem;
+    font-size: 1.25rem;
+}
+
+.user-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-name-cell {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.change-role-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.change-role-user {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.change-role-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.change-role-option {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.change-role-option-title {
+    display: block;
+    font-weight: 600;
+}
+
+.change-role-option-description {
+    display: block;
+    color: #555;
+    font-size: 0.875rem;
+}
+
+.button-primary {
+    background: #1f4fbf;
+    color: #fff;
+    border: 1px solid #1f4fbf;
+}
+
+.button-secondary {
+    background: #fff;
+    color: #1a1a1a;
+    border: 1px solid #bbb;
+}
+
+/* In-house toast region and modal dialogs: every style is a class here, so the components write no style attribute and
+   the nonce-only style policy stays unchanged */
+.toast-region {
+    position: fixed;
+    inset-block-end: 1rem;
+    inset-inline-end: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: min(24rem, calc(100vw - 2rem));
+}
+
+.toast {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #1a1a1a;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.toast-error {
+    border-inline-start: 4px solid #b3261e;
+}
+
+.toast-warning {
+    border-inline-start: 4px solid #8a5a00;
+}
+
+.toast-success {
+    border-inline-start: 4px solid #1b6e3a;
+}
+
+.toast-text {
+    flex: 1;
+}
+
+.toast-title {
+    margin: 0;
+    font-weight: 600;
+}
+
+.toast-message {
+    margin: 0.25rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.toast-actions {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.toast-dismiss,
+.modal-dialog-close {
+    background: none;
+    border: 0;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.modal-dialog {
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 0.5rem;
+    max-width: min(32rem, calc(100vw - 2rem));
+}
+
+.modal-dialog::backdrop {
+    background: rgb(0 0 0 / 40%);
+}
+
+.modal-dialog-surface {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+}
+
+.modal-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.modal-dialog-title {
+    margin: 0;
+    font-size: 1.125rem;
+}
+
+.modal-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.button-destructive {
+    background: #b3261e;
+    color: #fff;
+    border: 1px solid #b3261e;
+}

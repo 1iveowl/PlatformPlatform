@@ -8,6 +8,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <UserSecretsId>platformplatform-f817f2a1-ac57-4756-aef2-a57ca864bbd3</UserSecretsId>
+        <!-- The test project has its own project file under Tests/, so its sources must not compile into the CLI -->
+        <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**</DefaultItemExcludes>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="Bogus" Version="35.6.5" />

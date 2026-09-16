@@ -266,6 +266,66 @@ public sealed class AuthenticationCookiePathTests(AppGatewayApplicationFactory f
         context.Response.Headers.Should().NotContainKey(AuthenticationTokenHttpKeys.RefreshAuthenticationTokensHeaderKey);
     }
 
+    [Fact]
+    public async Task InvokeAsync_WhenEndpointTriggeredRefreshFailsValidation_ShouldOverwriteWith401SessionNotFoundAndDeleteCookies()
+    {
+        // Arrange - the refresh endpoint answers with a failure that names no revocation and is not a transient 5xx
+        await using var stubFactory = new RefreshStubAppGatewayApplicationFactory();
+        var middleware = stubFactory.Services.GetRequiredService<AuthenticationCookieMiddleware>();
+        var signingClient = stubFactory.Services.GetRequiredService<ITokenSigningClient>();
+        var inboundRefreshToken = CreateSignedToken(signingClient, 60, []);
+        var preRefreshAccessToken = CreateSignedToken(signingClient, 5, [new Claim(AuthenticationTokenHttpKeys.FeatureFlagsClaimName, "stale-flag")]);
+        RefreshStubAppGatewayApplicationFactory.SetStubFailure(HttpStatusCode.BadRequest);
+        var context = CreateHttpContext("/api/account/users/me");
+        context.Request.Headers.Cookie = $"{AuthenticationTokenHttpKeys.RefreshTokenCookieName}={inboundRefreshToken}; {AuthenticationTokenHttpKeys.AccessTokenCookieName}={preRefreshAccessToken}";
+
+        // Act
+        await middleware.InvokeAsync(context, downstream =>
+            {
+                downstream.Response.StatusCode = StatusCodes.Status204NoContent;
+                downstream.Response.Headers[AuthenticationTokenHttpKeys.RefreshAuthenticationTokensHeaderKey] = "true";
+                return Task.CompletedTask;
+            }
+        );
+        await TriggerOnStartingAsync(context);
+
+        // Assert
+        context.Response.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
+        context.Response.Headers[AuthenticationTokenHttpKeys.UnauthorizedReasonHeaderKey].ToString().Should().Be(nameof(UnauthorizedReason.SessionNotFound));
+        context.Response.Headers.Should().NotContainKey(AuthenticationTokenHttpKeys.RefreshAuthenticationTokensHeaderKey);
+        context.Response.Headers.Should().NotContainKey(AuthenticationTokenHttpKeys.UserFeatureFlagsHeaderKey);
+        var setCookieHeaders = context.Response.Headers.SetCookie.ToArray();
+        setCookieHeaders.Should().Contain(h => h!.StartsWith($"{AuthenticationTokenHttpKeys.RefreshTokenCookieName}=;") && h.Contains("expires=Thu, 01 Jan 1970"));
+        setCookieHeaders.Should().Contain(h => h!.StartsWith($"{AuthenticationTokenHttpKeys.AccessTokenCookieName}=;") && h.Contains("expires=Thu, 01 Jan 1970"));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_WhenRefreshIsRequestedWithoutInboundRefreshCookie_ShouldStripHeaderWithoutRefreshingOrIssuingCookies()
+    {
+        // Arrange
+        await using var stubFactory = new RefreshStubAppGatewayApplicationFactory();
+        var middleware = stubFactory.Services.GetRequiredService<AuthenticationCookieMiddleware>();
+        RefreshStubAppGatewayApplicationFactory.SetStubFailure(HttpStatusCode.BadRequest);
+        var context = CreateHttpContext("/api/account/users/me");
+
+        // Act
+        await middleware.InvokeAsync(context, downstream =>
+            {
+                downstream.Response.StatusCode = StatusCodes.Status204NoContent;
+                downstream.Response.Headers[AuthenticationTokenHttpKeys.RefreshAuthenticationTokensHeaderKey] = "true";
+                return Task.CompletedTask;
+            }
+        );
+        await TriggerOnStartingAsync(context);
+
+        // Assert
+        context.Response.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+        context.Response.Headers.Should().NotContainKey(AuthenticationTokenHttpKeys.RefreshAuthenticationTokensHeaderKey);
+        context.Response.Headers.Should().NotContainKey(AuthenticationTokenHttpKeys.UserFeatureFlagsHeaderKey);
+        context.Response.Headers.SetCookie.Should().BeEmpty();
+        RefreshStubAppGatewayApplicationFactory.ReceivedBearerTokens.Should().BeEmpty();
+    }
+
     private static DefaultHttpContext CreateHttpContext(string path)
     {
         var context = new DefaultHttpContext { Request = { Path = path }, Response = { Body = new MemoryStream() } };
@@ -330,6 +390,7 @@ internal sealed class RefreshStubAppGatewayApplicationFactory : WebApplicationFa
     private static readonly List<string?> ReceivedBearerTokensField = [];
     private static string? _revokedReason;
     private static bool _backendUnavailable;
+    private static HttpStatusCode? _failureStatusCode;
 
     public static IReadOnlyList<string?> ReceivedBearerTokens => ReceivedBearerTokensField;
 
@@ -356,12 +417,19 @@ internal sealed class RefreshStubAppGatewayApplicationFactory : WebApplicationFa
         _backendUnavailable = true;
     }
 
+    public static void SetStubFailure(HttpStatusCode statusCode)
+    {
+        ResetStub();
+        _failureStatusCode = statusCode;
+    }
+
     private static void ResetStub()
     {
         ResponseQueue.Clear();
         ReceivedBearerTokensField.Clear();
         _revokedReason = null;
         _backendUnavailable = false;
+        _failureStatusCode = null;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -388,6 +456,11 @@ internal sealed class RefreshStubAppGatewayApplicationFactory : WebApplicationFa
                 var revoked = new HttpResponseMessage(HttpStatusCode.Unauthorized);
                 revoked.Headers.Add(AuthenticationTokenHttpKeys.UnauthorizedReasonHeaderKey, _revokedReason);
                 return Task.FromResult(revoked);
+            }
+
+            if (_failureStatusCode is { } failureStatusCode)
+            {
+                return Task.FromResult(new HttpResponseMessage(failureStatusCode));
             }
 
             var (refreshToken, accessToken) = ResponseQueue.Dequeue();

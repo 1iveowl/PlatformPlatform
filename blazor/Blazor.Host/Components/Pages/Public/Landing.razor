@@ -1,0 +1,14 @@
+@* The public landing page, static server-side rendering. The FluentUI component resolves its services from the host
+   container, which is why Blazor.Host registers AddFluentUIComponents. *@
+@page "/"
+@using Microsoft.FluentUI.AspNetCore.Components
+
+<PageTitle>@AuthenticationStrings.Welcome</PageTitle>
+
+<PublicNav/>
+
+<h1>@AuthenticationStrings.Welcome</h1>
+
+<p data-testid="landing-text">@AuthenticationStrings.LandingText</p>
+
+<FluentLabel data-testid="fluent-label">@AuthenticationStrings.LandingComponentText</FluentLabel>

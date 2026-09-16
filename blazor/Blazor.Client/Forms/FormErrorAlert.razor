@@ -1,0 +1,33 @@
+@* The accessible form-level error region for static server-rendered forms: needs no interactive provider and no
+   WebAssembly, so a POST response carries the messages itself. Always rendered, so an enhanced form update fills an
+   existing live region. Messages render as text. A rejected antiforgery token adds a link that loads the page again as a
+   new document, which issues a new token. *@
+@inject NavigationManager Navigation
+
+<div role="alert" class="form-error" data-testid="form-error">
+    @if (Errors is not null)
+    {
+        @foreach (var message in Errors.FormMessages)
+        {
+            <p data-testid="form-error-message">@message</p>
+        }
+
+        @if (Errors.IsReloadRequired)
+        {
+            <a href="@GetReloadHref()" data-enhance-nav="false" data-testid="form-error-reload">@CommonStrings.ReloadPage</a>
+        }
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    public FormErrorMapper? Errors { get; set; }
+
+    // The current path and query, which is already root-absolute under the path base
+    private string GetReloadHref()
+    {
+        return new Uri(Navigation.Uri).PathAndQuery;
+    }
+
+}

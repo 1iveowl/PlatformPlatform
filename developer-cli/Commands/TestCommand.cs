@@ -13,9 +13,12 @@ public class TestCommand : Command
 
     public TestCommand() : base("test", "Runs tests from a solution")
     {
-        var backendOption = new Option<bool>("--backend", "-b") { Description = "This command is always only backend. The option is only here for consistency." };
+        var backendOption = new Option<bool>("--backend", "-b") { Description = "Run only the tests of the application solution, without the Blazor build root" };
         var selfContainedSystemOption = new Option<string?>("<self-contained-system>", "--self-contained-system", "-s") { Description = "The name of the self-contained system to test (e.g., main, account, back-office)" };
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope tests to AppGateway.Tests" };
+        var blazorOption = new Option<bool>("--blazor") { Description = "Run the tests of the Blazor build root (blazor/), which resolves its own SDK" };
+        var cliOption = new Option<bool>("--cli", "-c") { Description = "Run the tests of the developer CLI (developer-cli/)" };
+        var spikeOption = new Option<string?>("--spike") { Description = "Run only the tests of the spike solution in blazor/spike/<name>/, which resolves its own SDK" };
         var noBuildOption = new Option<bool>("--no-build") { Description = "Skip building and restoring the solution before running tests" };
         var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
         var verboseOption = new Option<bool>("--verbose") { Description = "Print the full output of the underlying tools" };
@@ -25,6 +28,9 @@ public class TestCommand : Command
         Options.Add(backendOption);
         Options.Add(selfContainedSystemOption);
         Options.Add(gatewayOption);
+        Options.Add(blazorOption);
+        Options.Add(cliOption);
+        Options.Add(spikeOption);
         Options.Add(noBuildOption);
         Options.Add(quietOption);
         Options.Add(verboseOption);
@@ -32,8 +38,12 @@ public class TestCommand : Command
         Options.Add(excludeCategoryOption);
 
         SetAction(parseResult => Execute(
+                parseResult.GetValue(backendOption),
                 parseResult.GetValue(selfContainedSystemOption),
                 parseResult.GetValue(gatewayOption),
+                parseResult.GetValue(blazorOption),
+                parseResult.GetValue(cliOption),
+                parseResult.GetValue(spikeOption),
                 parseResult.GetValue(noBuildOption),
                 !parseResult.GetValue(verboseOption),
                 parseResult.GetValue(filterOption),
@@ -42,49 +52,125 @@ public class TestCommand : Command
         );
     }
 
-    private void Execute(string? selfContainedSystem, bool gateway, bool noBuild, bool quiet, string? filter, string? excludeCategory)
+    // No target flag runs the application solution and the Blazor build root, as build does. The developer CLI tests run
+    // only with --cli. An explicit backend selector (--backend, --self-contained-system or --gateway) picks one backend target.
+    public static TestTarget[] SelectTestTargets(bool backend, string? selfContainedSystem, bool gateway, bool blazor, bool developerCli)
+    {
+        if (!backend && selfContainedSystem is null && !gateway && !blazor && !developerCli)
+        {
+            return [TestTarget.Application, TestTarget.Blazor];
+        }
+
+        var targets = new List<TestTarget>();
+        if (gateway)
+        {
+            targets.Add(TestTarget.Gateway);
+        }
+        else if (selfContainedSystem is not null)
+        {
+            targets.Add(TestTarget.SelfContainedSystem);
+        }
+        else if (backend) targets.Add(TestTarget.Application);
+
+        if (blazor) targets.Add(TestTarget.Blazor);
+        if (developerCli) targets.Add(TestTarget.DeveloperCli);
+
+        return targets.ToArray();
+    }
+
+    // A spike name is one lowercase kebab-case folder name, so it can never leave blazor/spike/
+    public static bool IsValidSpikeName(string spikeName)
+    {
+        return Regex.IsMatch(spikeName, "^[a-z0-9]+(-[a-z0-9]+)*$");
+    }
+
+    public static string BuildBuildCommand(string targetName, bool quiet)
+    {
+        return quiet
+            ? $"dotnet build {targetName}"
+            : $"dotnet build {targetName} --verbosity quiet";
+    }
+
+    public static string BuildTestCommand(string targetName, string? filter, string? excludeCategory)
+    {
+        var filterArgument = BuildFilterArgument(filter, excludeCategory);
+        return $"""dotnet test {targetName} --no-build --no-restore --logger "console;verbosity=normal"{filterArgument}""";
+    }
+
+    public static string BuildFilterArgument(string? userFilter, string? excludeCategory)
+    {
+        // By default, exclude "Noisy" category tests unless user explicitly specifies otherwise
+        // Use empty string to disable default exclusion
+        var categoryToExclude = excludeCategory ?? "Noisy";
+        var categoryFilter = string.IsNullOrEmpty(categoryToExclude) ? "" : $"Category!={categoryToExclude}";
+
+        if (userFilter is not null && categoryFilter != "")
+        {
+            // Combine user filter with category exclusion using AND (&)
+            return $""" --filter "({userFilter})&{categoryFilter}" """;
+        }
+
+        if (userFilter is not null)
+        {
+            return $""" --filter "{userFilter}" """;
+        }
+
+        if (categoryFilter != "")
+        {
+            return $""" --filter "{categoryFilter}" """;
+        }
+
+        return "";
+    }
+
+    // Every selected target runs even when an earlier one failed; the first non-zero exit code is the command's exit code
+    public static int CombineExitCodes(int[] exitCodes)
+    {
+        return exitCodes.FirstOrDefault(exitCode => exitCode != 0);
+    }
+
+    private static void Execute(bool backend, string? selfContainedSystem, bool gateway, bool blazor, bool developerCli, string? spike, bool noBuild, bool quiet, string? filter, string? excludeCategory)
     {
         Prerequisite.Ensure(Prerequisite.Dotnet);
 
+        if (spike is not null)
+        {
+            ExecuteSpike(spike, backend || selfContainedSystem is not null || gateway || blazor || developerCli, noBuild, quiet, filter, excludeCategory);
+            return;
+        }
+
         if (gateway) AppGatewayHelper.EnsureNotCombinedWithSelfContainedSystem(selfContainedSystem);
+
+        if (blazor && (gateway || selfContainedSystem is not null))
+        {
+            AnsiConsole.MarkupLine("[red]--blazor cannot be combined with --gateway or --self-contained-system.[/]");
+            Environment.Exit(1);
+        }
 
         try
         {
-            string targetName;
-            string? workingDirectory;
+            var targets = SelectTestTargets(backend, selfContainedSystem, gateway, blazor, developerCli);
+            var exitCodes = new List<int>();
 
-            if (gateway)
+            foreach (var target in targets)
             {
-                targetName = AppGatewayHelper.TestProjectRelativePath;
-                workingDirectory = Configuration.ApplicationFolder;
-            }
-            else
-            {
-                var solutionFile = SelfContainedSystemHelper.GetSolutionFile(selfContainedSystem);
-                targetName = solutionFile.Name;
-                workingDirectory = solutionFile.Directory?.FullName;
-            }
+                var (targetName, workingDirectory) = ResolveTarget(target, selfContainedSystem);
+                var summaryPrefix = targets.Length > 1 ? $"{targetName}: " : "";
 
-            if (!noBuild)
-            {
-                var buildCommand = quiet
-                    ? $"dotnet build {targetName}"
-                    : $"dotnet build {targetName} --verbosity quiet";
+                if (!noBuild)
+                {
+                    ProcessHelper.Run(BuildBuildCommand(targetName, quiet), workingDirectory, "Build", quiet);
+                }
 
-                ProcessHelper.Run(buildCommand, workingDirectory, "Build", quiet);
+                var testCommand = BuildTestCommand(targetName, filter, excludeCategory);
+                exitCodes.Add(quiet
+                    ? RunTestsQuietly(testCommand, workingDirectory, summaryPrefix)
+                    : RunTestsWithFilteredOutput(testCommand, workingDirectory, summaryPrefix)
+                );
             }
 
-            var filterArgument = BuildFilterArgument(filter, excludeCategory);
-            var testCommand = $"""dotnet test {targetName} --no-build --no-restore --logger "console;verbosity=normal"{filterArgument}""";
-
-            if (quiet)
-            {
-                RunTestsQuietly(testCommand, workingDirectory);
-            }
-            else
-            {
-                RunTestsWithFilteredOutput(testCommand, workingDirectory);
-            }
+            var exitCode = CombineExitCodes(exitCodes.ToArray());
+            if (exitCode != 0) Environment.Exit(exitCode);
         }
         catch (Exception ex)
         {
@@ -93,7 +179,62 @@ public class TestCommand : Command
         }
     }
 
-    private static void RunTestsWithFilteredOutput(string command, string? workingDirectory)
+    // Spike solutions are experiments outside every regular target; they run alone from their own folder so a global.json
+    // there selects the SDK
+    private static void ExecuteSpike(string spikeName, bool hasOtherTarget, bool noBuild, bool quiet, string? filter, string? excludeCategory)
+    {
+        if (hasOtherTarget)
+        {
+            AnsiConsole.MarkupLine("[red]--spike cannot be combined with another test target.[/]");
+            Environment.Exit(1);
+        }
+
+        if (!IsValidSpikeName(spikeName))
+        {
+            AnsiConsole.MarkupLine($"[red]'{Markup.Escape(spikeName)}' is not a spike name. Use the lowercase kebab-case folder name under blazor/spike/.[/]");
+            Environment.Exit(1);
+        }
+
+        var spikeFolder = Path.Combine(Configuration.BlazorFolder, "spike", spikeName);
+        var solutionFiles = Directory.Exists(spikeFolder) ? Directory.GetFiles(spikeFolder, "*.slnx") : [];
+        if (solutionFiles.Length != 1)
+        {
+            AnsiConsole.MarkupLine($"[red]blazor/spike/{spikeName}/ must contain exactly one .slnx file.[/]");
+            Environment.Exit(1);
+        }
+
+        var solutionName = Path.GetFileName(solutionFiles[0]);
+        if (!noBuild)
+        {
+            ProcessHelper.Run(BuildBuildCommand(solutionName, quiet), spikeFolder, "Build", quiet);
+        }
+
+        var testCommand = BuildTestCommand(solutionName, filter, excludeCategory);
+        var exitCode = quiet ? RunTestsQuietly(testCommand, spikeFolder, "") : RunTestsWithFilteredOutput(testCommand, spikeFolder, "");
+        if (exitCode != 0) Environment.Exit(exitCode);
+    }
+
+    private static (string TargetName, string? WorkingDirectory) ResolveTarget(TestTarget target, string? selfContainedSystem)
+    {
+        switch (target)
+        {
+            case TestTarget.Gateway:
+                return (AppGatewayHelper.TestProjectRelativePath, Configuration.ApplicationFolder);
+            case TestTarget.Blazor:
+                // The Blazor root resolves the SDK from blazor/global.json, which applies only with blazor/ as the working directory
+                return ("Blazor.slnx", Configuration.BlazorFolder);
+            case TestTarget.DeveloperCli:
+                return ("DeveloperCli.slnx", Configuration.CliFolder);
+            case TestTarget.SelfContainedSystem:
+            case TestTarget.Application:
+                var solutionFile = SelfContainedSystemHelper.GetSolutionFile(target == TestTarget.SelfContainedSystem ? selfContainedSystem : null);
+                return (solutionFile.Name, solutionFile.Directory?.FullName);
+            default:
+                throw new UnreachableException($"Unknown test target '{target}'.");
+        }
+    }
+
+    private static int RunTestsWithFilteredOutput(string command, string? workingDirectory, string summaryPrefix)
     {
         if (Configuration.TraceEnabled)
         {
@@ -171,20 +312,17 @@ public class TestCommand : Command
         Console.WriteLine();
         if (stats.Failed > 0 || process.ExitCode != 0)
         {
-            AnsiConsole.MarkupLine($"[red]Test summary: total: {stats.Total}; failed: {stats.Failed}; succeeded: {stats.Passed}; skipped: {stats.Skipped}; duration: {duration:F1}s[/]");
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(summaryPrefix)}Test summary: total: {stats.Total}; failed: {stats.Failed}; succeeded: {stats.Passed}; skipped: {stats.Skipped}; duration: {duration:F1}s[/]");
         }
         else
         {
-            Console.WriteLine($"Test summary: total: {stats.Total}; failed: {stats.Failed}; succeeded: {stats.Passed}; skipped: {stats.Skipped}; duration: {duration:F1}s");
+            Console.WriteLine($"{summaryPrefix}Test summary: total: {stats.Total}; failed: {stats.Failed}; succeeded: {stats.Passed}; skipped: {stats.Skipped}; duration: {duration:F1}s");
         }
 
-        if (process.ExitCode != 0)
-        {
-            Environment.Exit(process.ExitCode);
-        }
+        return process.ExitCode;
     }
 
-    private static void RunTestsQuietly(string command, string? workingDirectory)
+    private static int RunTestsQuietly(string command, string? workingDirectory, string summaryPrefix)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = ProcessHelper.ExecuteQuietly(command, workingDirectory);
@@ -194,7 +332,7 @@ public class TestCommand : Command
         var duration = stopwatch.Elapsed.TotalSeconds;
 
         // Print summary
-        Console.WriteLine($"Test summary: total: {stats.Total}; failed: {stats.Failed}; succeeded: {stats.Passed}; skipped: {stats.Skipped}; duration: {duration:F1}s");
+        Console.WriteLine($"{summaryPrefix}Test summary: total: {stats.Total}; failed: {stats.Failed}; succeeded: {stats.Passed}; skipped: {stats.Skipped}; duration: {duration:F1}s");
 
         // If failures, show failed test names + link to log
         if (stats.Failed > 0)
@@ -211,14 +349,15 @@ public class TestCommand : Command
             }
 
             Console.WriteLine($"Full output: {result.TempFilePathWithSize}");
-            Environment.Exit(1);
+            return 1;
         }
 
         if (result.ExitCode != 0)
         {
             Console.WriteLine($"Full output: {result.TempFilePathWithSize}");
-            Environment.Exit(result.ExitCode);
         }
+
+        return result.ExitCode;
     }
 
     private static TestStats ParseTestOutput(string output)
@@ -294,32 +433,6 @@ public class TestCommand : Command
         return trimmed;
     }
 
-    private static string BuildFilterArgument(string? userFilter, string? excludeCategory)
-    {
-        // By default, exclude "Noisy" category tests unless user explicitly specifies otherwise
-        // Use empty string to disable default exclusion
-        var categoryToExclude = excludeCategory ?? "Noisy";
-        var categoryFilter = string.IsNullOrEmpty(categoryToExclude) ? "" : $"Category!={categoryToExclude}";
-
-        if (userFilter is not null && categoryFilter != "")
-        {
-            // Combine user filter with category exclusion using AND (&)
-            return $""" --filter "({userFilter})&{categoryFilter}" """;
-        }
-
-        if (userFilter is not null)
-        {
-            return $""" --filter "{userFilter}" """;
-        }
-
-        if (categoryFilter != "")
-        {
-            return $""" --filter "{categoryFilter}" """;
-        }
-
-        return "";
-    }
-
     private class TestStats
     {
         public int Passed { get; set; }
@@ -332,4 +445,13 @@ public class TestCommand : Command
 
         public List<string> FailedTests { get; } = [];
     }
+}
+
+public enum TestTarget
+{
+    Application,
+    SelfContainedSystem,
+    Gateway,
+    Blazor,
+    DeveloperCli
 }

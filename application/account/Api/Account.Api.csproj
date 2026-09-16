@@ -53,7 +53,7 @@
         <_FeatureFlagsManifestPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\shared-webapp\ui\featureFlags\featureFlags.generated.json'))</_FeatureFlagsManifestPath>
         <_FeatureFlagsLabelsPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\shared-webapp\ui\featureFlags\labels.generated.ts'))</_FeatureFlagsLabelsPath>
         <_FeatureFlagsRegistryPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\shared-webapp\ui\featureFlags\registry.generated.ts'))</_FeatureFlagsRegistryPath>
-        <_FeatureFlagsSourcePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\shared-kernel\SharedKernel\FeatureFlags\FeatureFlags.cs'))</_FeatureFlagsSourcePath>
+        <_FeatureFlagsSourcePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\shared-kernel\SharedKernel.Contracts\FeatureFlags\FeatureFlags.cs'))</_FeatureFlagsSourcePath>
         <_FeatureFlagsCodegenScriptPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\shared-webapp\ui\scripts\generateFeatureFlagArtifacts.mjs'))</_FeatureFlagsCodegenScriptPath>
     </PropertyGroup>
     <Target Name="GenerateFeatureFlagsManifest" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'"

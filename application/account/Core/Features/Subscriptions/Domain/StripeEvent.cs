@@ -1,6 +1,5 @@
 using JetBrains.Annotations;
 using SharedKernel.Domain;
-using SharedKernel.StronglyTypedIds;
 
 namespace Account.Features.Subscriptions.Domain;
 

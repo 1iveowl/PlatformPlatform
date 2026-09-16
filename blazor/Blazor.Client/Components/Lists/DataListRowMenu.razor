@@ -1,0 +1,134 @@
+@* The actions menu of a DataList row. In-house rather than the component library's menu, which positions its popover by
+   writing style attributes. The menu opens below its trigger, absolutely positioned by classes in the host stylesheet; while
+   it is open the list's scroll container lets it overflow. Arrow keys, Home and End move between enabled items, Escape
+   closes the menu and returns focus to the trigger, Tab and a click outside close it. data-list.js leaves keys and clicks
+   inside the menu to it. *@
+
+<div class="data-list-row-menu" data-list-interactive>
+    <button @ref="_trigger" type="button" class="data-list-row-menu-trigger" id="@_triggerId" aria-label="@Label" aria-haspopup="menu"
+            aria-expanded="@(_isOpen ? "true" : "false")" aria-controls="@(_isOpen ? _menuId : null)" tabindex="-1" data-testid="@TestId" @onclick="Toggle">
+        ⋯
+    </button>
+    @if (_isOpen)
+    {
+        <div class="data-list-row-menu-backdrop" data-list-interactive @onclick="CloseFromBackdrop"></div>
+        <div id="@_menuId" role="menu" class="data-list-row-menu-list" aria-labelledby="@_triggerId" data-list-menu-open @onkeydown="OnKeyDown">
+            @for (var index = 0; index < Items.Count; index++)
+            {
+                var item = Items[index];
+                var itemIndex = index;
+                <button @ref="_itemElements[itemIndex]" type="button" role="menuitem" class="data-list-row-menu-item" disabled="@item.Disabled" tabindex="-1"
+                        data-testid="@item.TestId" @onclick="() => SelectAsync(item)">
+                    @item.Label
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+
+    private readonly string _menuId = $"data-list-row-menu-{Guid.NewGuid():N}";
+    private readonly string _triggerId = $"data-list-row-menu-trigger-{Guid.NewGuid():N}";
+    private int _activeIndex = -1;
+    private ElementReference[] _itemElements = [];
+    private bool _isOpen;
+    private bool _moveFocus;
+    private ElementReference _trigger;
+
+    [Parameter]
+    [EditorRequired]
+    public string Label { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<DataListRowMenuItem> Items { get; set; } = [];
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (_itemElements.Length != Items.Count) _itemElements = new ElementReference[Items.Count];
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_moveFocus) return;
+
+        _moveFocus = false;
+        await (_isOpen && _activeIndex >= 0 ? _itemElements[_activeIndex] : _trigger).FocusAsync();
+    }
+
+    private void Toggle()
+    {
+        if (_isOpen)
+        {
+            Close(true);
+            return;
+        }
+
+        _isOpen = true;
+        _activeIndex = NextEnabled(-1, 1);
+        _moveFocus = true;
+    }
+
+    private void CloseFromBackdrop()
+    {
+        Close(false);
+    }
+
+    private void Close(bool returnFocus)
+    {
+        _isOpen = false;
+        _activeIndex = -1;
+        _moveFocus = returnFocus;
+    }
+
+    private async Task SelectAsync(DataListRowMenuItem item)
+    {
+        if (item.Disabled) return;
+
+        Close(false);
+        await item.OnSelect();
+    }
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "Escape":
+                Close(true);
+                break;
+            case "Tab":
+                Close(false);
+                break;
+            case "ArrowDown":
+                MoveTo(NextEnabled(_activeIndex, 1));
+                break;
+            case "ArrowUp":
+                MoveTo(NextEnabled(_activeIndex, -1));
+                break;
+            case "Home":
+                MoveTo(NextEnabled(-1, 1));
+                break;
+            case "End":
+                MoveTo(NextEnabled(Items.Count, -1));
+                break;
+        }
+    }
+
+    private void MoveTo(int index)
+    {
+        if (index < 0) return;
+
+        _activeIndex = index;
+        _moveFocus = true;
+    }
+
+    private int NextEnabled(int from, int step)
+    {
+        return DataListRowMenuNavigation.NextEnabled(Items, from, step);
+    }
+
+}

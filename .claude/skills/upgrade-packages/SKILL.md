@@ -35,6 +35,8 @@ These never move to a new major. **The CLI enforces them itself** (`RestrictedNu
 - **`MediatR`**, **`FluentAssertions`** — later majors changed licensing/APIs.
 - **`Microsoft.ApplicationInsights`**, **`Microsoft.ApplicationInsights.AspNetCore`** — the next major drops `PageView` tracking as part of moving to OpenTelemetry; the codebase uses `PageView` heavily and that migration is a separate effort.
 
+The Blazor build root is covered too: `update-packages` rewrites every `Directory.Packages.props` in the repository, `blazor/Directory.Packages.props` included, and `Microsoft.FluentUI.AspNetCore.Components` is **not** restricted by the CLI. Its pin (`5.0.0-preview.26254.1`, a nightly that SemVer orders below the broken `5.0.0-rc.5-26219.1`) must never move, so every backend run passes `--exclude Microsoft.FluentUI.AspNetCore.Components` until the exit criterion in the file's comment and in `.claude/rules/blazor/component-library.md` is met.
+
 Note: frontend `@microsoft/applicationinsights-*` packages are **not** restricted and upgrade normally. `.NET`, `Node.js`, and `@types/node` stay within their current major unless you pass `--include-major-framework-updates`; don't cross a framework major as part of a routine package upgrade.
 
 ## Principles

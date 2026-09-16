@@ -6,7 +6,7 @@ description: Auto-format code via the developer CLI - backend (.NET via JetBrain
 # Format
 
 ```bash
-dotnet run --project developer-cli -- format [--backend] [--frontend] [--cli] [--self-contained-system <name>] [--no-build] [--all-files] [--verbose]
+dotnet run --project developer-cli -- format [--backend] [--frontend] [--cli] [--blazor] [--self-contained-system <name>] [--no-build] [--all-files] [--verbose]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
@@ -14,9 +14,11 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 - `--backend` - .NET (JetBrains cleanupcode)
 - `--frontend` - React/TypeScript (oxfmt + oxlint --fix)
 - `--cli` - the developer CLI itself
+- `--blazor` - the Blazor build root in `blazor/`, which resolves the SDK in its own `global.json`
 - `--self-contained-system <name>` - narrows backend formatting to one SCS (e.g. `account`, `main`)
 - `--no-build` - skip the `dotnet tool restore` step (faster after a recent run)
-- `--all-files` - format every file in the solution. Default is to format only `.cs` files changed against `origin/main` (faster).
+- `--all-files` - format every file in the solution. Default is to format only `.cs` files changed against `origin/main` (faster). For `--blazor` the default also formats untracked `.cs` and `.razor` files under `blazor/`, so a new file is formatted before it is committed
+- `--verify-build` - with `--blazor`, build the Blazor build root after formatting and fail when it no longer builds. CI runs `format --blazor --no-build --all-files --verify-build` and fails on a diff
 
 No arguments formats everything (changed-only by default). Unformatted code fails CI - commit all changes, never revert.
 

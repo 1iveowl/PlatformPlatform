@@ -1,5 +1,4 @@
 using FluentAssertions;
-using SharedKernel.StronglyTypedIds;
 using Xunit;
 
 namespace SharedKernel.Tests.StronglyTypedIds;

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Authentication;
 using SharedKernel.ExecutionContext;
 
 namespace SharedKernel.Configuration;
@@ -10,7 +11,9 @@ public static class WorkerDependencyConfiguration
         public IServiceCollection AddWorkerServices()
         {
             // Add the execution context service that will be used to make current user information available to the application
-            return services.AddScoped<IExecutionContext, BackgroundWorkerExecutionContext>();
+            return services
+                .AddScoped<IExecutionContext, BackgroundWorkerExecutionContext>()
+                .AddSingleton<IAntiforgeryTokenIssuer, UnavailableAntiforgeryTokenIssuer>();
         }
     }
 }

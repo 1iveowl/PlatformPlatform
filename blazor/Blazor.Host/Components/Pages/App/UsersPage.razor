@@ -1,0 +1,13 @@
+@* The users administration page. The page is server-rendered and prerenders the WebAssembly component it hosts: the
+   prerender carries the heading, the search box and the empty list frame, never user data, because the list and the side
+   pane load their data only once the component runs in the browser. *@
+@page "/account/users"
+@using Blazor.Client.Users
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>@CommonStrings.Users</PageTitle>
+
+<UsersSurface @rendermode="InteractiveWebAssembly"/>

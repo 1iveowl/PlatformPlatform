@@ -14,6 +14,7 @@ public class BuildCommand : Command
         var frontendOption = new Option<bool>("--frontend", "-f") { Description = "Build frontend code" };
         var emailsOption = new Option<bool>("--emails", "-e") { Description = "Build email templates" };
         var cliOption = new Option<bool>("--cli", "-c") { Description = "Build developer-cli code" };
+        var blazorOption = new Option<bool>("--blazor") { Description = "Build the Blazor build root (blazor/), which resolves its own SDK" };
         var selfContainedSystemOption = new Option<string?>("<self-contained-system>", "--self-contained-system", "-s") { Description = "The name of the self-contained system to build (e.g., main, account, back-office)" };
         var gatewayOption = new Option<bool>("--gateway", "-g") { Description = "Scope backend work to AppGateway and AppGateway.Tests" };
         var quietOption = new Option<bool>("--quiet", "-q") { Description = "Print only failures and a one-line total (the default)" };
@@ -23,6 +24,7 @@ public class BuildCommand : Command
         Options.Add(frontendOption);
         Options.Add(emailsOption);
         Options.Add(cliOption);
+        Options.Add(blazorOption);
         Options.Add(selfContainedSystemOption);
         Options.Add(gatewayOption);
         Options.Add(quietOption);
@@ -33,6 +35,7 @@ public class BuildCommand : Command
                 parseResult.GetValue(frontendOption),
                 parseResult.GetValue(emailsOption),
                 parseResult.GetValue(cliOption),
+                parseResult.GetValue(blazorOption),
                 parseResult.GetValue(selfContainedSystemOption),
                 parseResult.GetValue(gatewayOption),
                 !parseResult.GetValue(verboseOption)
@@ -40,20 +43,21 @@ public class BuildCommand : Command
         );
     }
 
-    private static void Execute(bool backend, bool frontend, bool emails, bool developerCli, string? selfContainedSystem, bool gateway, bool quiet)
+    private static void Execute(bool backend, bool frontend, bool emails, bool developerCli, bool blazor, string? selfContainedSystem, bool gateway, bool quiet)
     {
         if (gateway) AppGatewayHelper.EnsureNotCombinedWithSelfContainedSystem(selfContainedSystem);
 
-        var noFlags = !backend && !frontend && !emails && !developerCli;
+        var noFlags = !backend && !frontend && !emails && !developerCli && !blazor;
         var buildBackend = backend || noFlags;
         var buildFrontend = frontend || noFlags;
         var buildDeveloperCli = developerCli || noFlags;
+        var buildBlazor = blazor || noFlags;
         // --frontend and the no-flag default both build emails as part of the turbo run, so the
         // standalone email build only fires when the user passes --emails without --frontend.
         var buildEmailsStandalone = emails && !buildFrontend;
 
         // Ensure prerequisites based on what we're building
-        if (buildBackend || buildDeveloperCli) Prerequisite.Ensure(Prerequisite.Dotnet);
+        if (buildBackend || buildDeveloperCli || buildBlazor) Prerequisite.Ensure(Prerequisite.Dotnet);
         if (buildFrontend || buildEmailsStandalone) Prerequisite.Ensure(Prerequisite.Node);
 
         try
@@ -63,6 +67,7 @@ public class BuildCommand : Command
             var frontendTime = TimeSpan.Zero;
             var emailsTime = TimeSpan.Zero;
             var developerCliTime = TimeSpan.Zero;
+            var blazorTime = TimeSpan.Zero;
 
             if (buildBackend)
             {
@@ -108,6 +113,13 @@ public class BuildCommand : Command
                 developerCliTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime - emailsTime;
             }
 
+            if (buildBlazor)
+            {
+                if (!quiet) AnsiConsole.MarkupLine("[blue]Running Blazor build...[/]");
+                RunBlazorBuild(quiet);
+                blazorTime = Stopwatch.GetElapsedTime(startTime) - backendTime - frontendTime - emailsTime - developerCliTime;
+            }
+
             if (quiet)
             {
                 Console.WriteLine($"Build succeeded in {Stopwatch.GetElapsedTime(startTime).Format()}.");
@@ -116,7 +128,7 @@ public class BuildCommand : Command
             {
                 AnsiConsole.MarkupLine($"[green]Build completed successfully in {Stopwatch.GetElapsedTime(startTime).Format()}[/]");
 
-                var multipleTargets = (buildBackend ? 1 : 0) + (buildFrontend ? 1 : 0) + (buildEmailsStandalone ? 1 : 0) + (buildDeveloperCli ? 1 : 0) > 1;
+                var multipleTargets = (buildBackend ? 1 : 0) + (buildFrontend ? 1 : 0) + (buildEmailsStandalone ? 1 : 0) + (buildDeveloperCli ? 1 : 0) + (buildBlazor ? 1 : 0) > 1;
                 if (multipleTargets)
                 {
                     var timingLines = new List<string>();
@@ -124,6 +136,7 @@ public class BuildCommand : Command
                     if (buildFrontend) timingLines.Add($"Frontend:      [green]{frontendTime.Format()}[/]");
                     if (buildEmailsStandalone) timingLines.Add($"Emails:        [green]{emailsTime.Format()}[/]");
                     if (buildDeveloperCli) timingLines.Add($"Developer CLI: [green]{developerCliTime.Format()}[/]");
+                    if (buildBlazor) timingLines.Add($"Blazor:        [green]{blazorTime.Format()}[/]");
                     AnsiConsole.MarkupLine(string.Join(Environment.NewLine, timingLines));
                 }
             }
@@ -223,6 +236,12 @@ public class BuildCommand : Command
     private static void RunDeveloperCliBuild(bool quiet)
     {
         var solutionFile = new FileInfo(Path.Combine(Configuration.CliFolder, "DeveloperCli.slnx"));
+        ProcessHelper.Run($"dotnet build {solutionFile.Name}", solutionFile.Directory?.FullName, "Build", quiet);
+    }
+
+    private static void RunBlazorBuild(bool quiet)
+    {
+        var solutionFile = new FileInfo(Path.Combine(Configuration.BlazorFolder, "Blazor.slnx"));
         ProcessHelper.Run($"dotnet build {solutionFile.Name}", solutionFile.Directory?.FullName, "Build", quiet);
     }
 

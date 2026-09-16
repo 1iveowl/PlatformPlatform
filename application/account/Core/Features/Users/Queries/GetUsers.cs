@@ -3,7 +3,6 @@ using FluentValidation;
 using JetBrains.Annotations;
 using Mapster;
 using SharedKernel.Cqrs;
-using SharedKernel.Domain;
 using SharedKernel.Persistence;
 
 namespace Account.Features.Users.Queries;
@@ -20,24 +19,6 @@ public sealed record GetUsersQuery(
     int? PageOffset = null,
     int PageSize = 25
 ) : IRequest<Result<UsersResponse>>;
-
-[PublicAPI]
-public sealed record UsersResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, UserDetails[] Users);
-
-[PublicAPI]
-public sealed record UserDetails(
-    UserId Id,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt,
-    DateTimeOffset? LastSeenAt,
-    string Email,
-    UserRole Role,
-    string FirstName,
-    string LastName,
-    string Title,
-    bool EmailConfirmed,
-    string? AvatarUrl
-);
 
 public sealed class GetUsersQueryValidator : AbstractValidator<GetUsersQuery>
 {

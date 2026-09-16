@@ -16,9 +16,6 @@ public sealed record StartEmailSignupCommand(string Email) : ICommand, IRequest<
     public string Email { get; } = Email.Trim().ToLower();
 }
 
-[PublicAPI]
-public sealed record StartEmailSignupResponse(EmailLoginId EmailLoginId, int ValidForSeconds);
-
 public sealed class StartEmailSignupValidator : AbstractValidator<StartEmailSignupCommand>
 {
     public StartEmailSignupValidator()

@@ -1,0 +1,59 @@
+@* Two destinations on one server-rendered page: the exception handler's re-executed request, and /error?error=<code>, where
+   the WebAssembly client lands with a full document navigation when the account API reports that a session ended. The
+   codes and their meaning match the React edition's ErrorCode values. *@
+@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>@(SessionMessage?.Title ?? CommonStrings.SomethingWentWrong)</PageTitle>
+
+@if (SessionMessage is { } message)
+{
+    <h1 data-testid="error-title">@message.Title</h1>
+    <p data-testid="error-message" data-error-code="@ErrorCode">@message.Detail</p>
+    <p>@CommonStrings.LogInAgainToContinue</p>
+    <p>
+        <a href="@AppUrls.ToAbsolute("login")" data-enhance-nav="false" data-testid="error-login">@CommonStrings.LogIn</a>
+    </p>
+}
+else
+{
+    <h1 class="text-danger">@CommonStrings.SomethingWentWrong</h1>
+    <h2 class="text-danger">@CommonStrings.RequestFailedTitle</h2>
+
+    @if (ShowRequestId)
+    {
+        <p>
+            <strong>@CommonStrings.RequestId</strong> <code>@RequestId</code>
+        </p>
+    }
+}
+
+@code{
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [PersistentState]
+    public string? RequestId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorCode { get; set; }
+
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    private SessionErrorMessage? SessionMessage => ErrorCode switch
+    {
+        "session_revoked" => new SessionErrorMessage(CommonStrings.SessionEndedTitle, CommonStrings.SessionRevokedMessage),
+        "session_not_found" or "session_expired" => new SessionErrorMessage(CommonStrings.SessionExpiredTitle, CommonStrings.SessionExpiredMessage),
+        "tenant_deleted" => new SessionErrorMessage(CommonStrings.AccountUnavailableTitle, CommonStrings.TenantDeletedMessage),
+        _ => null
+    };
+
+    protected override void OnInitialized()
+    {
+        RequestId ??= Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+    }
+
+    private sealed record SessionErrorMessage(string Title, string Detail);
+
+}

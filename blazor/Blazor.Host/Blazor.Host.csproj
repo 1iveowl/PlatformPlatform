@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net11.0</TargetFramework>
+        <AssemblyName>Blazor.Host</AssemblyName>
+        <RootNamespace>Blazor.Host</RootNamespace>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+        <!-- Brotli stays publish-only (the SDK default). With brotli at build, the Development static asset handler
+             re-compresses package assets whose manifest timestamp differs from the extracted file as gzip but keeps the
+             br Content-Encoding, so browsers fail with a decoding error (observed on 11.0.0-rc.1.26425.128). The RC2 hop (T017)
+             owns the re-check: repeat the Development load with build-time Brotli on the new SDK and keep this setting
+             unless the handler serves matching bytes -->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Blazor.Client\Blazor.Client.csproj" />
+        <ProjectReference Include="..\..\application\shared-kernel\SharedKernel.Security\SharedKernel.Security.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The same brand source file the React shell reads through SharedKernel's Settings.Current -->
+        <EmbeddedResource Include="..\..\application\platform-settings.jsonc" LogicalName="platform-settings.jsonc" />
+    </ItemGroup>
+
+</Project>
