@@ -1,18 +1,36 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { getVerificationCode } from "@shared/e2e/utils/test-data";
+import { blazorTexts } from "./texts";
 
 /**
- * Enter a one-time password on a Blazor verification page and submit it. The Blazor pages use a plain text input
- * (data-testid="code") posted by a static server-rendered form, not the React input-otp control.
+ * The verification code input of a Blazor verification page, labelled for login or for signup. The Blazor pages use a
+ * plain text input posted by a static server-rendered form, not the React input-otp control.
+ * @param page Playwright page instance on /blazor/signup/verify or /blazor/login/verify
+ */
+export function verificationCodeInput(page: Page): Locator {
+  const texts = blazorTexts();
+  return page.getByLabel(texts.loginVerificationCode, { exact: true }).or(page.getByLabel(texts.signupVerificationCode, { exact: true }));
+}
+
+/**
+ * The "Request a new code" button of a Blazor verification page
+ * @param page Playwright page instance on /blazor/signup/verify or /blazor/login/verify
+ */
+export function requestNewCodeButton(page: Page): Locator {
+  return page.getByRole("button", { name: blazorTexts().requestNewCode, exact: true });
+}
+
+/**
+ * Enter a one-time password on a Blazor verification page and submit it
  * @param page Playwright page instance on /blazor/signup/verify or /blazor/login/verify
  * @param code The code to submit; defaults to the environment's verification code
  */
 export async function submitOneTimePassword(page: Page, code = getVerificationCode()): Promise<void> {
-  const codeInput = page.getByTestId("code");
+  const codeInput = verificationCodeInput(page);
   await expect(codeInput).toBeVisible();
   await codeInput.fill(code);
 
-  await page.getByTestId("submit").click();
+  await page.getByRole("button", { name: blazorTexts().verify, exact: true }).click();
 }
 
 /**
@@ -27,9 +45,9 @@ const resendRevealDelayMs = 31_000;
  * @param page Playwright page instance on /blazor/signup/verify or /blazor/login/verify
  */
 export async function revealResendThroughBlazor(page: Page): Promise<void> {
-  await expect(page.getByTestId("resend-code")).toBeHidden();
+  await expect(requestNewCodeButton(page)).toBeHidden();
 
   await page.clock.fastForward(resendRevealDelayMs);
 
-  await expect(page.getByTestId("resend-code")).toBeVisible();
+  await expect(requestNewCodeButton(page)).toBeVisible();
 }

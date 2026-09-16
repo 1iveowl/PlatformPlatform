@@ -1,3 +1,5 @@
+import { test } from "@playwright/test";
+
 /**
  * The cultures the Blazor edition ships, with the resource texts the specs assert on. The values mirror the en-US and
  * da-DK resources in application/shared-kernel/SharedKernel.Localization; error messages returned by the account API are
@@ -58,7 +60,34 @@ export const blazorCultures = [
     sessionEnded: "Session ended",
     sessionRevoked: "Your session was ended from another device.",
     logInAgainToContinue: "Please log in again to continue.",
-    logIn: "Log in"
+    logIn: "Log in",
+    email: "Email",
+    loginVerificationCode: "Login verification code",
+    signupVerificationCode: "Signup verification code",
+    signupExpired: "The signup has expired. Start again.",
+    welcome: "Welcome",
+    landingText: "A server-rendered public page. No WebAssembly runtime is downloaded here.",
+    landingComponentText: "Rendered by the host with a FluentUI component",
+    home: "Home",
+    signUp: "Sign up",
+    terms: "Terms",
+    openTheApp: "Open the app",
+    accountName: "Account name",
+    firstName: "First name",
+    lastName: "Last name",
+    title: "Title",
+    workspace: "Workspace",
+    reloadBootstrap: "Reload bootstrap",
+    interactiveTrue: "Interactive: True",
+    notifications: "Notifications",
+    dismissNotification: "Dismiss notification",
+    somethingWentWrong: "Something went wrong",
+    nextPage: "Next page",
+    nameColumn: "Name",
+    emailColumn: "Email",
+    createdColumn: "Created",
+    lastSeenColumn: "Last seen",
+    roleColumn: "Role"
   },
   {
     locale: "da-DK",
@@ -114,11 +143,61 @@ export const blazorCultures = [
     sessionEnded: "Session afsluttet",
     sessionRevoked: "Din session blev afsluttet fra en anden enhed.",
     logInAgainToContinue: "Log venligst ind igen for at fortsætte.",
-    logIn: "Log ind"
+    logIn: "Log ind",
+    email: "E-mail",
+    loginVerificationCode: "Login-bekræftelseskode",
+    signupVerificationCode: "Tilmeldingsbekræftelseskode",
+    signupExpired: "Tilmeldingen er udløbet. Start forfra.",
+    welcome: "Velkommen",
+    landingText: "En serverrenderet offentlig side. Her hentes ingen WebAssembly-runtime.",
+    landingComponentText: "Renderet af værten med en FluentUI-komponent",
+    home: "Forside",
+    signUp: "Tilmeld dig",
+    terms: "Vilkår",
+    openTheApp: "Åbn appen",
+    accountName: "Kontonavn",
+    firstName: "Fornavn",
+    lastName: "Efternavn",
+    title: "Titel",
+    workspace: "Arbejdsområde",
+    reloadBootstrap: "Genindlæs opstartsdata",
+    interactiveTrue: "Interaktiv: True",
+    notifications: "Notifikationer",
+    dismissNotification: "Luk notifikationen",
+    somethingWentWrong: "Noget gik galt",
+    nextPage: "Næste side",
+    nameColumn: "Navn",
+    emailColumn: "E-mail",
+    createdColumn: "Oprettet",
+    lastSeenColumn: "Sidst set",
+    roleColumn: "Rolle"
   }
 ] as const;
 
 export type BlazorCulture = (typeof blazorCultures)[number];
+
+/**
+ * The locales of the culture projects in blazor/tests/playwright.config.ts. Every project sets its locale explicitly:
+ * headless Chromium in the container otherwise reports "en-US@posix", which the .NET WebAssembly runtime rejects.
+ */
+export const blazorLocales: string[] = blazorCultures.map((culture) => culture.locale);
+
+/**
+ * The locale of the culture project the running test belongs to, for browser contexts a test opens itself
+ */
+export function blazorLocale(): string {
+  return blazorTexts().locale;
+}
+
+/**
+ * The text map of the culture project the running test belongs to
+ */
+export function blazorTexts(): BlazorCulture {
+  const locale = test.info().project.use.locale;
+  const culture = blazorCultures.find((candidate) => candidate.locale === locale);
+  if (!culture) throw new Error(`The project "${test.info().project.name}" has no Blazor culture; its locale is "${locale}".`);
+  return culture;
+}
 
 /**
  * Messages the account API returns; the Blazor pages show them as returned, in English, in every culture

@@ -4,11 +4,26 @@ import { defineConfig } from "@playwright/test";
 import baseConfig from "../../application/shared-webapp/tests/e2e/playwright.config";
 import { getBaseUrl } from "../../application/shared-webapp/tests/e2e/utils/constants";
 import { blazorPath } from "./e2e/support/routes";
+import { blazorLocales } from "./e2e/support/texts";
 
 /**
- * The shared configuration (retries, timeouts, reporters, browsers split into @smoke and non-smoke projects) with the
- * Blazor host's path base as the base URL. The shared output and report folders are relative, so they resolve under
- * blazor/tests/test-results. See https://playwright.dev/docs/test-configuration.
+ * The shared projects (each browser once for @smoke and once for everything else) run once per culture the Blazor edition
+ * ships. A project is named browser-culture-lane, for example "chromium-da-DK-smoke", so every name is unique and the
+ * developer CLI selects both cultures and both lanes of a browser with "--project=chromium-*". Tests run fully parallel;
+ * nothing depends on the order of the projects.
+ */
+const cultureProjects = baseConfig.projects!.flatMap((project) =>
+  blazorLocales.map((locale) => ({
+    ...project,
+    name: `${project.name}-${locale}-${project.grep ? "smoke" : "comprehensive"}`,
+    use: { ...project.use, locale }
+  }))
+);
+
+/**
+ * The shared configuration (retries, timeouts, reporters) with the Blazor host's path base as the base URL and the culture
+ * projects. The shared output and report folders are relative, so they resolve under blazor/tests/test-results. See
+ * https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   ...baseConfig,
@@ -17,9 +32,7 @@ export default defineConfig({
   use: {
     ...baseConfig.use,
     baseURL: `${getBaseUrl()}${blazorPath()}`,
-    // Headless Chromium in the container otherwise reports "en-US@posix", which the .NET WebAssembly runtime rejects as
-    // a culture name
-    locale: "en-US",
     storageState: undefined
-  }
+  },
+  projects: cultureProjects
 });

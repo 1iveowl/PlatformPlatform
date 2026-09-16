@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { expectNoPolicyViolations } from "./policy";
 import { blazorPath, expectBlazorUrl } from "./routes";
+import { blazorTexts } from "./texts";
 
 /**
  * The Blazor users page below the path base
@@ -28,8 +29,26 @@ export async function gotoUsersPage(page: Page, query = ""): Promise<void> {
  * @param totalCount The expected number of users across all pages
  */
 export async function expectUsersListLoaded(page: Page, totalCount?: number): Promise<void> {
-  await expect(page.locator('[data-testid="users-grid"]:is([data-list-state="ready"], [data-list-state="empty"])')).toBeVisible();
-  if (totalCount !== undefined) await expect(page.getByTestId("users-grid")).toHaveAttribute("data-list-total-count", String(totalCount));
+  await expect(usersGrid(page).and(page.locator(':is([data-list-state="ready"], [data-list-state="empty"])'))).toBeVisible();
+  if (totalCount !== undefined) await expect(usersGrid(page)).toHaveAttribute("data-list-total-count", String(totalCount));
+}
+
+/**
+ * The users list, whose data-list-* attributes carry the list's loading state, total count, page offset and selection
+ * @param page Playwright page instance on the users page
+ */
+export function usersGrid(page: Page): Locator {
+  return page.getByTestId("users-grid");
+}
+
+/**
+ * The data rows of the users list on the loaded page, leaving out the header row
+ * @param page Playwright page instance on the users page
+ */
+export function userRows(page: Page): Locator {
+  return usersGrid(page)
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell") });
 }
 
 /**
@@ -38,17 +57,33 @@ export async function expectUsersListLoaded(page: Page, totalCount?: number): Pr
  * @param email The user's email address
  */
 export function userRow(page: Page, email: string): Locator {
-  return page.getByTestId("users-grid").locator("tr.data-list-row").filter({ has: page.locator(`[data-email="${email}"]`) });
+  return userRows(page).filter({ has: page.getByRole("cell", { name: email, exact: true }) });
+}
+
+/**
+ * The sort button in the header of a users list column
+ * @param page Playwright page instance on the users page
+ * @param columnTitle The localized title of the column
+ */
+export function sortButton(page: Page, columnTitle: string): Locator {
+  return usersGrid(page).getByRole("columnheader").getByRole("button", { name: columnTitle });
+}
+
+/**
+ * The side pane showing a user's profile, named by its title while it is open
+ * @param page Playwright page instance on the users page
+ */
+export function profilePane(page: Page): Locator {
+  return page.getByRole("complementary", { name: blazorTexts().userProfile, exact: true });
 }
 
 /**
  * Open a row's actions menu and return the menu
  * @param page Playwright page instance on the users page
  * @param email The email address of the row's user
- * @param userActionsLabel The localized accessible name of the actions button
  */
-export async function openUserActions(page: Page, email: string, userActionsLabel: string): Promise<Locator> {
-  await userRow(page, email).getByRole("button", { name: userActionsLabel }).click();
+export async function openUserActions(page: Page, email: string): Promise<Locator> {
+  await userRow(page, email).getByRole("button", { name: blazorTexts().userActions, exact: true }).click();
 
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
@@ -58,12 +93,11 @@ export async function openUserActions(page: Page, email: string, userActionsLabe
 /**
  * Search the users list and wait for the search to reach the URL and the list
  * @param page Playwright page instance on the users page
- * @param searchLabel The localized accessible name of the search box
  * @param search The text to search for
  * @param totalCount The expected number of matching users
  */
-export async function searchUsers(page: Page, searchLabel: string, search: string, totalCount: number): Promise<void> {
-  await page.getByRole("textbox", { name: searchLabel }).fill(search);
+export async function searchUsers(page: Page, search: string, totalCount: number): Promise<void> {
+  await page.getByRole("textbox", { name: blazorTexts().search }).fill(search);
 
   await expect(page).toHaveURL((url) => url.searchParams.get("search") === search);
   await expectUsersListLoaded(page, totalCount);

@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { test, trackWebAssemblyRequests } from "@blazor/e2e/authentication";
 import { expectBlazorUrl, gotoBlazor } from "@blazor/e2e/routes";
+import { blazorTexts } from "@blazor/e2e/texts";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
 
@@ -15,41 +16,35 @@ test.describe("@smoke", () => {
    */
   test("should display landing page with navigation for unauthenticated users", async ({ page }) => {
     createTestContext(page);
+    const texts = blazorTexts();
     const runtimeRequests = trackWebAssemblyRequests(page);
+    const navigationLink = (name: string) => page.getByRole("navigation").getByRole("link", { name, exact: true });
 
     await step("Navigate to the Blazor root & verify landing content and navigation")(async () => {
       await gotoBlazor(page);
 
-      await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
-      await expect(page.getByTestId("landing-text")).toHaveText(
-        "A server-rendered public page. No WebAssembly runtime is downloaded here."
-      );
+      await expect(page.getByRole("heading", { name: texts.welcome, exact: true })).toBeVisible();
+      await expect(page.getByText(texts.landingText, { exact: true })).toBeVisible();
       // The FluentUI label's shadow root adds a slot for a required marker, so its text is matched by containment
-      await expect(page.getByTestId("fluent-label")).toContainText("Rendered by the host with a FluentUI component");
-      await expect(page.getByTestId("public-nav").getByRole("link")).toHaveText([
-        "Home",
-        "Log in",
-        "Sign up",
-        "Terms",
-        "Open the app"
-      ]);
+      await expect(page.getByTestId("fluent-label")).toContainText(texts.landingComponentText);
+      await expect(page.getByRole("navigation").getByRole("link")).toHaveText([texts.home, texts.logIn, texts.signUp, texts.terms, texts.openTheApp]);
     })();
 
     await step("Follow the public navigation links & verify each page renders")(async () => {
-      await page.getByTestId("nav-login").click();
+      await navigationLink(texts.logIn).click();
       await expectBlazorUrl(page, "login");
-      await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();
 
-      await page.getByTestId("nav-signup").click();
+      await navigationLink(texts.signUp).click();
       await expectBlazorUrl(page, "signup");
-      await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: texts.createYourAccount })).toBeVisible();
 
-      await page.getByTestId("nav-terms").click();
+      await navigationLink(texts.terms).click();
       await expectBlazorUrl(page, "legal/terms");
 
-      await page.getByTestId("nav-landing").click();
+      await navigationLink(texts.home).click();
       await expectBlazorUrl(page);
-      await expect(page.getByTestId("landing-text")).toBeVisible();
+      await expect(page.getByText(texts.landingText, { exact: true })).toBeVisible();
     })();
 
     await step("Load the public pages directly & verify no WebAssembly runtime request")(async () => {
@@ -62,10 +57,10 @@ test.describe("@smoke", () => {
     })();
 
     await step("Open the app while anonymous & verify redirect to login")(async () => {
-      await page.getByTestId("nav-app").click();
+      await navigationLink(texts.openTheApp).click();
 
       await expectBlazorUrl(page, "login");
-      await expect(page.getByRole("heading", { name: "Hi! Welcome back" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();
     })();
   });
 });

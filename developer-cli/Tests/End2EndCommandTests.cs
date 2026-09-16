@@ -74,6 +74,20 @@ public sealed class End2EndCommandTests
         args.Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData("chromium", false, false, "--project=chromium-* --grep-invert=\"@slow\"")]
+    [InlineData("firefox", true, false, "--project=firefox-* --grep=\"@smoke\" --grep-invert=\"@slow\"")]
+    [InlineData("safari", false, true, "--project=webkit-*")]
+    [InlineData("all", true, true, "--grep=\"@smoke\"")]
+    public void BuildPlaywrightArgs_WhenBlazor_ShouldSelectEveryCultureAndLaneProjectOfTheBrowser(string browser, bool smoke, bool includeSlow, string expected)
+    {
+        // Act
+        var args = End2EndCommand.BuildPlaywrightArgs([], browser, false, null, false, includeSlow, false, false, null, null, false, smoke, false, false, null, true);
+
+        // Assert
+        args.Should().Be(expected);
+    }
+
     [Fact]
     public void BuildPlaywrightArgs_WhenPatternsGrepAndExecutionOptions_ShouldKeepTheirOrder()
     {

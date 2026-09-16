@@ -169,15 +169,17 @@ public partial class End2EndCommand : Command
         bool smoke,
         bool stopOnFirstFailure,
         bool ui,
-        int? workers)
+        int? workers,
+        bool blazor = false)
     {
         var args = new List<string>();
 
-        // Handle browser project first as it affects test selection
+        // Handle browser project first as it affects test selection. The Blazor configuration names its projects
+        // browser-culture-lane (for example chromium-da-DK-smoke), so a browser selects every culture and lane of that browser
         if (!browser.Equals("all", StringComparison.CurrentCultureIgnoreCase))
         {
             var playwrightBrowser = browser.ToLower() == "safari" ? "webkit" : browser.ToLower();
-            args.Add($"--project={playwrightBrowser}");
+            args.Add(blazor ? $"--project={playwrightBrowser}-*" : $"--project={playwrightBrowser}");
         }
 
         // Handle test patterns - they should be relative to the tests/e2e directory
@@ -493,7 +495,7 @@ public partial class End2EndCommand : Command
 
         var playwrightArgs = BuildPlaywrightArgs(
             testPatterns, browser, debug, searchGrep, showBrowser, includeSlow, lastFailed, onlyChanged, repeatEach,
-            retries, runSequential, smoke, stopOnFirstFailure, ui, workers
+            retries, runSequential, smoke, stopOnFirstFailure, ui, workers, true
         );
 
         var command = BuildBlazorPlaywrightCommand(playwrightArgs);

@@ -1,11 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 import { getCurrentSessionIdThroughAccountApi, getSessionsThroughAccountApi, revokeSessionThroughAccountApi, sendAccountApiRequest } from "@blazor/e2e/account-api";
-import { logInThroughBlazor, logOutThroughBlazor, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
+import { logInThroughBlazor, logOutButton, logOutThroughBlazor, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
 import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
-import { blazorCultures } from "@blazor/e2e/texts";
+import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
+import { blazorLocale, blazorTexts } from "@blazor/e2e/texts";
 import { getBaseUrl } from "@shared/e2e/utils/constants";
 import { assertNoUnexpectedErrors, createTestContext, expectNetworkErrors, type TestContext } from "@shared/e2e/utils/test-assertions";
-import { uniqueEmail } from "@shared/e2e/utils/test-data";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
 
 /**
@@ -94,161 +94,156 @@ async function expectErrorBannerNeverShown(page: Page, context: TestContext): Pr
 
 async function expectAuthenticatedWorkspace(page: Page, email: string): Promise<void> {
   await expectBlazorUrl(page, "app");
-  await expect(page.getByTestId("logout")).toBeVisible();
+  await expect(logOutButton(page)).toBeVisible();
   await expect(page.getByTestId("bootstrap-authenticated")).toHaveText("True");
   await expect(page.getByTestId("bootstrap-email")).toHaveText(email);
 }
 
-for (const culture of blazorCultures) {
-  test.describe("@comprehensive", () => {
-    test.use({ locale: culture.locale });
+test.describe("@comprehensive", () => {
+  /**
+   * Logout, its failure handling, a missing access token and a revoked session on the Blazor workspace.
+   * - A rejected logout (500) shows the localized retry alert and keeps the user on the authenticated workspace
+   * - A logout whose response is lost after the account API logged out shows the localized unconfirmed alert, sends no
+   *   second logout on its own and keeps the workspace, because the browser still holds the session cookies
+   * - Logging out again lands on the login page, leaves only the antiforgery cookie, the account API rejects the old
+   *   session with 401 and the authenticated home then redirects to login
+   * - A deleted access token cookie with a valid refresh token cookie is refreshed by the gateway on reload with no
+   *   visible effect, and the cookie is set again. This proves the gateway's missing-cookie refresh path only; the
+   *   refresh of an actually expired access token is covered by the gateway's middleware tests with signed tokens
+   * - An ordinary logout in a second browser revokes that browser's session only
+   * - Revoking the first browser's exact session from a third browser through the sessions API, then forcing the gateway
+   *   to refresh by deleting the first browser's access token cookie, answers the next API call with 401 Revoked and
+   *   lands on the localized "Session ended" page, whose login link reaches the login page without a redirect loop
+   */
+  test("should handle logout and its failures, access token refresh and session revocation", async ({ page, browser }) => {
+    const context = createTestContext(page);
+    const texts = blazorTexts();
+    const email = uniqueBlazorEmail();
+    const secondContext = await browser.newContext({ locale: blazorLocale(), baseURL: blazorUrl(), ignoreHTTPSErrors: true });
+    const secondPage = await secondContext.newPage();
+    const secondTestContext = createTestContext(secondPage);
+    const thirdContext = await browser.newContext({ locale: blazorLocale(), baseURL: blazorUrl(), ignoreHTTPSErrors: true });
+    const thirdPage = await thirdContext.newPage();
+    const thirdTestContext = createTestContext(thirdPage);
 
-    /**
-     * Logout, its failure handling, a missing access token and a revoked session on the Blazor workspace.
-     * - A rejected logout (500) shows the localized retry alert and keeps the user on the authenticated workspace
-     * - A logout whose response is lost after the account API logged out shows the localized unconfirmed alert, sends no
-     *   second logout on its own and keeps the workspace, because the browser still holds the session cookies
-     * - Logging out again lands on the login page, leaves only the antiforgery cookie, the account API rejects the old
-     *   session with 401 and the authenticated home then redirects to login
-     * - A deleted access token cookie with a valid refresh token cookie is refreshed by the gateway on reload with no
-     *   visible effect, and the cookie is set again. This proves the gateway's missing-cookie refresh path only; the
-     *   refresh of an actually expired access token is covered by the gateway's middleware tests with signed tokens
-     * - An ordinary logout in a second browser revokes that browser's session only
-     * - Revoking the first browser's exact session from a third browser through the sessions API, then forcing the gateway
-     *   to refresh by deleting the first browser's access token cookie, answers the next API call with 401 Revoked and
-     *   lands on the localized "Session ended" page, whose login link reaches the login page without a redirect loop
-     */
-    test(`should handle logout and its failures, access token refresh and session revocation in ${culture.locale}`, async ({ page, browser }) => {
-      const context = createTestContext(page);
-      const email = uniqueEmail();
-      const secondContext = await browser.newContext({ locale: culture.locale, baseURL: blazorUrl(), ignoreHTTPSErrors: true });
-      const secondPage = await secondContext.newPage();
-      const secondTestContext = createTestContext(secondPage);
-      const thirdContext = await browser.newContext({ locale: culture.locale, baseURL: blazorUrl(), ignoreHTTPSErrors: true });
-      const thirdPage = await thirdContext.newPage();
-      const thirdTestContext = createTestContext(thirdPage);
+    // === LOGOUT ===
+    await step("Sign up and log out while the account API rejects the logout & verify the retry state keeps the session")(async () => {
+      await signUpThroughBlazor(page, email);
+      await page.route(logoutRoute, (route) => route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" }));
 
-      // === LOGOUT ===
-      await step("Sign up and log out while the account API rejects the logout & verify the retry state keeps the session")(async () => {
-        await signUpThroughBlazor(page, email);
-        await page.route(logoutRoute, (route) => route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" }));
+      await logOutButton(page).click();
 
-        await page.getByTestId("logout").click();
+      await expect(page.getByRole("alert").filter({ hasText: texts.logoutFailed })).toBeVisible();
+      await expectNetworkErrors(context, [500]);
+      await expect(logOutButton(page)).toBeEnabled();
+      await expectAuthenticatedWorkspace(page, email);
+      await page.unroute(logoutRoute);
+    })();
 
-        await expect(page.getByTestId("logout-failed")).toHaveText(culture.logoutFailed);
-        await expect(page.getByRole("alert").filter({ hasText: culture.logoutFailed })).toBeVisible();
-        await expectNetworkErrors(context, [500]);
-        await expect(page.getByTestId("logout")).toBeEnabled();
-        await expectAuthenticatedWorkspace(page, email);
-        await page.unroute(logoutRoute);
-      })();
+    await step("Log out while the response is lost after the server logged out & verify the unconfirmed state without a second logout")(async () => {
+      const logoutRequests = countRequests(page, "POST", logoutRoute);
+      const sessionCookies = await page.context().cookies(getBaseUrl());
+      await page.route(logoutRoute, async (route) => {
+        const headers = route.request().headers();
+        if (headers[serverSideLogoutHeader]) return route.continue();
 
-      await step("Log out while the response is lost after the server logged out & verify the unconfirmed state without a second logout")(async () => {
-        const logoutRequests = countRequests(page, "POST", logoutRoute);
-        const sessionCookies = await page.context().cookies(getBaseUrl());
-        await page.route(logoutRoute, async (route) => {
-          const headers = route.request().headers();
-          if (headers[serverSideLogoutHeader]) return route.continue();
+        // The account API logs out through a copy of the request, then the browser's cookies are put back and the
+        // original request loses its connection, as when a response is lost after the server committed
+        await page.evaluate(
+          async ({ path, antiforgeryToken, header }) => {
+            await fetch(path, { method: "POST", credentials: "same-origin", headers: { "x-xsrf-token": antiforgeryToken, [header]: "1" } });
+          },
+          { path: new URL(route.request().url()).pathname, antiforgeryToken: headers["x-xsrf-token"], header: serverSideLogoutHeader }
+        );
+        await page.context().addCookies(sessionCookies);
+        await route.abort("connectionreset");
+      });
 
-          // The account API logs out through a copy of the request, then the browser's cookies are put back and the
-          // original request loses its connection, as when a response is lost after the server committed
-          await page.evaluate(
-            async ({ path, antiforgeryToken, header }) => {
-              await fetch(path, { method: "POST", credentials: "same-origin", headers: { "x-xsrf-token": antiforgeryToken, [header]: "1" } });
-            },
-            { path: new URL(route.request().url()).pathname, antiforgeryToken: headers["x-xsrf-token"], header: serverSideLogoutHeader }
-          );
-          await page.context().addCookies(sessionCookies);
-          await route.abort("connectionreset");
-        });
+      await logOutButton(page).click();
 
-        await page.getByTestId("logout").click();
+      await expect(page.getByRole("alert").filter({ hasText: texts.logoutUnconfirmed })).toBeVisible();
+      await expect(page.getByRole("alert").filter({ hasText: texts.logoutFailed })).toHaveCount(0);
+      await expect(logOutButton(page)).toBeEnabled();
+      expect(logoutRequests.count).toBe(1);
+      await expectBlazorUrl(page, "app");
+      await page.unroute(logoutRoute);
+    })();
 
-        await expect(page.getByTestId("logout-unconfirmed")).toHaveText(culture.logoutUnconfirmed);
-        await expect(page.getByTestId("logout-failed")).toHaveCount(0);
-        await expect(page.getByTestId("logout")).toBeEnabled();
-        expect(logoutRequests.count).toBe(1);
-        await expectBlazorUrl(page, "app");
-        await page.unroute(logoutRoute);
-      })();
+    await step("Log out again & verify the login page, only the antiforgery cookie and no usable session remain")(async () => {
+      await logOutThroughBlazor(page);
 
-      await step("Log out again & verify the login page, only the antiforgery cookie and no usable session remain")(async () => {
-        await logOutThroughBlazor(page);
+      await expect(page.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();
+      const cookieNames = await getCookieNames(page);
+      expect(cookieNames).toContain(antiforgeryCookieName);
+      expect(cookieNames).not.toContain(accessTokenCookieName);
+      expect(cookieNames).not.toContain(refreshTokenCookieName);
+      expect((await sendAccountApiRequest(page, "GET", "/api/account/users/me")).status).toBe(401);
+      await expectNetworkErrors(context, [401]);
+    })();
 
-        await expect(page.getByRole("heading", { name: culture.hiWelcomeBack })).toBeVisible();
-        const cookieNames = await getCookieNames(page);
-        expect(cookieNames).toContain(antiforgeryCookieName);
-        expect(cookieNames).not.toContain(accessTokenCookieName);
-        expect(cookieNames).not.toContain(refreshTokenCookieName);
-        expect((await sendAccountApiRequest(page, "GET", "/api/account/users/me")).status).toBe(401);
-        await expectNetworkErrors(context, [401]);
-      })();
+    await step("Open the authenticated home after logout & verify redirect to login")(async () => {
+      await page.goto(blazorPath("app"));
 
-      await step("Open the authenticated home after logout & verify redirect to login")(async () => {
-        await page.goto(blazorPath("app"));
+      await expectBlazorUrl(page, "login");
+    })();
 
-        await expectBlazorUrl(page, "login");
-      })();
+    // === ACCESS TOKEN REFRESH ===
+    await step("Log in, delete the access token cookie and reload & verify the session continues unnoticed")(async () => {
+      await logInThroughBlazor(page, email);
+      await deleteAccessTokenCookie(page);
 
-      // === ACCESS TOKEN REFRESH ===
-      await step("Log in, delete the access token cookie and reload & verify the session continues unnoticed")(async () => {
-        await logInThroughBlazor(page, email);
-        await deleteAccessTokenCookie(page);
+      await page.reload();
 
-        await page.reload();
+      await expectAuthenticatedWorkspace(page, email);
+      expect(await getCookieNames(page)).toContain(accessTokenCookieName);
+    })();
 
-        await expectAuthenticatedWorkspace(page, email);
-        expect(await getCookieNames(page)).toContain(accessTokenCookieName);
-      })();
+    // === SESSION REVOCATION ===
+    await step("Log in and out in a second browser & verify the first browser's session is not revoked")(async () => {
+      await logInThroughBlazor(secondPage, email);
+      await logOutThroughBlazor(secondPage);
 
-      // === SESSION REVOCATION ===
-      await step("Log in and out in a second browser & verify the first browser's session is not revoked")(async () => {
-        await logInThroughBlazor(secondPage, email);
-        await logOutThroughBlazor(secondPage);
+      await deleteAccessTokenCookie(page);
+      await page.reload();
 
-        await deleteAccessTokenCookie(page);
-        await page.reload();
+      await expectAuthenticatedWorkspace(page, email);
+    })();
 
-        await expectAuthenticatedWorkspace(page, email);
-      })();
+    await step("Revoke the first browser's session from a third browser & verify the session ended page")(async () => {
+      const firstSessionId = await getCurrentSessionIdThroughAccountApi(page);
+      await logInThroughBlazor(thirdPage, email);
+      expect((await getSessionsThroughAccountApi(thirdPage)).map((session) => session.id)).toContain(firstSessionId);
+      expect(await getCurrentSessionIdThroughAccountApi(thirdPage)).not.toBe(firstSessionId);
+      await revokeSessionThroughAccountApi(thirdPage, firstSessionId);
+      await deleteAccessTokenCookie(page);
+      const unauthorizedResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/bootstrap") && response.status() === 401);
+      await watchErrorBanner(page);
 
-      await step("Revoke the first browser's session from a third browser & verify the session ended page")(async () => {
-        const firstSessionId = await getCurrentSessionIdThroughAccountApi(page);
-        await logInThroughBlazor(thirdPage, email);
-        expect((await getSessionsThroughAccountApi(thirdPage)).map((session) => session.id)).toContain(firstSessionId);
-        expect(await getCurrentSessionIdThroughAccountApi(thirdPage)).not.toBe(firstSessionId);
-        await revokeSessionThroughAccountApi(thirdPage, firstSessionId);
-        await deleteAccessTokenCookie(page);
-        const unauthorizedResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/bootstrap") && response.status() === 401);
-        await watchErrorBanner(page);
+      await page.getByRole("button", { name: texts.reloadBootstrap, exact: true }).click();
 
-        await page.getByTestId("reload-bootstrap").click();
+      expect(await (await unauthorizedResponse).headerValue("x-unauthorized-reason")).toBe("Revoked");
+      await expectBlazorUrl(page, "error");
+      await expect(page).toHaveURL((url) => url.searchParams.get("error") === "session_revoked");
+      await expect(page.getByRole("heading", { name: texts.sessionEnded })).toBeVisible();
+      await expectErrorBannerNeverShown(page, context);
+      await expect(page.getByText(texts.sessionRevoked, { exact: true })).toBeVisible();
+      await expect(page.getByText(texts.logInAgainToContinue)).toBeVisible();
+      await expectNetworkErrors(context, [401]);
+      expect(await getCookieNames(page)).not.toContain(refreshTokenCookieName);
+    })();
 
-        expect(await (await unauthorizedResponse).headerValue("x-unauthorized-reason")).toBe("Revoked");
-        await expectBlazorUrl(page, "error");
-        await expect(page).toHaveURL((url) => url.searchParams.get("error") === "session_revoked");
-        await expect(page.getByRole("heading", { name: culture.sessionEnded })).toBeVisible();
-        await expectErrorBannerNeverShown(page, context);
-        await expect(page.getByTestId("error-message")).toHaveText(culture.sessionRevoked);
-        await expect(page.getByText(culture.logInAgainToContinue)).toBeVisible();
-        await expectNetworkErrors(context, [401]);
-        expect(await getCookieNames(page)).not.toContain(refreshTokenCookieName);
-      })();
+    await step("Follow the login link on the session ended page & verify the login page")(async () => {
+      await page.getByRole("link", { name: texts.logIn, exact: true }).click();
 
-      await step("Follow the login link on the session ended page & verify the login page")(async () => {
-        await expect(page.getByTestId("error-login")).toHaveText(culture.logIn);
-        await page.getByTestId("error-login").click();
+      await expectBlazorUrl(page, "login");
+      await expect(page.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();
+      await page.goto(blazorPath("app"));
+      await expectBlazorUrl(page, "login");
+    })();
 
-        await expectBlazorUrl(page, "login");
-        await expect(page.getByRole("heading", { name: culture.hiWelcomeBack })).toBeVisible();
-        await page.goto(blazorPath("app"));
-        await expectBlazorUrl(page, "login");
-      })();
-
-      await assertNoUnexpectedErrors(secondTestContext);
-      await assertNoUnexpectedErrors(thirdTestContext);
-      await thirdContext.close();
-      await secondContext.close();
-    });
+    await assertNoUnexpectedErrors(secondTestContext);
+    await assertNoUnexpectedErrors(thirdTestContext);
+    await thirdContext.close();
+    await secondContext.close();
   });
-}
+});

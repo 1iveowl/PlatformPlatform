@@ -1,7 +1,8 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Locator, type Page } from "@playwright/test";
 import { assertNoUnexpectedErrors, type TestContext } from "@shared/e2e/utils/test-assertions";
 import { submitOneTimePassword } from "./one-time-password";
 import { expectBlazorUrl, gotoBlazor } from "./routes";
+import { blazorTexts } from "./texts";
 
 /**
  * Error responses the Blazor host causes itself and that are owned outside the tests: below the second path segment
@@ -54,11 +55,12 @@ export function trackWebAssemblyRequests(page: Page): string[] {
  * @param email The email address to submit
  */
 export async function startEmailFlowThroughBlazor(page: Page, flow: "signup" | "login", email: string): Promise<void> {
-  await page.getByTestId("email").fill(email);
-  await page.getByTestId("submit").click();
+  const texts = blazorTexts();
+  await page.getByLabel(texts.email, { exact: true }).fill(email);
+  await page.getByRole("button", { name: flow === "signup" ? texts.signUpWithEmail : texts.logInWithEmail, exact: true }).click();
 
   await expectBlazorUrl(page, `${flow}/verify`);
-  await expect(page.getByTestId("verify-email")).toContainText(email);
+  await expect(page.getByText(email)).toBeVisible();
 }
 
 interface WelcomeSetup {
@@ -75,17 +77,26 @@ interface WelcomeSetup {
  * @param setup The tenant name and profile to submit
  */
 export async function completeWelcomeThroughBlazor(page: Page, setup: WelcomeSetup): Promise<void> {
+  const texts = blazorTexts();
   await expectBlazorUrl(page, "welcome");
-  await page.getByTestId("account-name").fill(setup.accountName);
-  await page.getByTestId("continue").click();
+  await page.getByLabel(texts.accountName, { exact: true }).fill(setup.accountName);
+  await page.getByRole("button", { name: texts.continue, exact: true }).click();
 
-  await expect(page.getByTestId("first-name")).toBeVisible();
-  await page.getByTestId("first-name").fill(setup.firstName);
-  await page.getByTestId("last-name").fill(setup.lastName);
-  await page.getByTestId("title").fill(setup.title ?? "");
-  await page.getByTestId("continue").click();
+  await expect(page.getByLabel(texts.firstName, { exact: true })).toBeVisible();
+  await page.getByLabel(texts.firstName, { exact: true }).fill(setup.firstName);
+  await page.getByLabel(texts.lastName, { exact: true }).fill(setup.lastName);
+  await page.getByLabel(texts.title, { exact: true }).fill(setup.title ?? "");
+  await page.getByRole("button", { name: texts.continue, exact: true }).click();
 
   await expectBlazorUrl(page, "app");
+}
+
+/**
+ * The header's logout button on an interactive authenticated Blazor page
+ * @param page Playwright page instance
+ */
+export function logOutButton(page: Page): Locator {
+  return page.getByRole("button", { name: blazorTexts().logOut, exact: true });
 }
 
 /**
@@ -102,7 +113,7 @@ export async function signUpThroughBlazor(page: Page, email: string, accountName
 
   await submitOneTimePassword(page);
   await completeWelcomeThroughBlazor(page, { accountName, firstName: "Blazor", lastName: "User" });
-  await expect(page.getByTestId("logout")).toBeVisible();
+  await expect(logOutButton(page)).toBeVisible();
 }
 
 /**
@@ -110,7 +121,7 @@ export async function signUpThroughBlazor(page: Page, email: string, accountName
  * @param page Playwright page instance on an interactive authenticated Blazor page
  */
 export async function logOutThroughBlazor(page: Page): Promise<void> {
-  await page.getByTestId("logout").click();
+  await logOutButton(page).click();
 
   await expectBlazorUrl(page, "login");
 }
@@ -127,7 +138,7 @@ export async function logInThroughBlazor(page: Page, email: string): Promise<voi
   await submitOneTimePassword(page);
 
   await expectBlazorUrl(page, "app");
-  await expect(page.getByTestId("logout")).toBeVisible();
+  await expect(logOutButton(page)).toBeVisible();
 }
 
 /**
@@ -142,11 +153,12 @@ export async function logInInvitedUserThroughBlazor(page: Page, email: string, p
   await startEmailFlowThroughBlazor(page, "login", email);
   await submitOneTimePassword(page);
 
+  const texts = blazorTexts();
   await expectBlazorUrl(page, "welcome");
-  await page.getByTestId("first-name").fill(profile.firstName);
-  await page.getByTestId("last-name").fill(profile.lastName);
-  await page.getByTestId("continue").click();
+  await page.getByLabel(texts.firstName, { exact: true }).fill(profile.firstName);
+  await page.getByLabel(texts.lastName, { exact: true }).fill(profile.lastName);
+  await page.getByRole("button", { name: texts.continue, exact: true }).click();
 
   await expectBlazorUrl(page, "app");
-  await expect(page.getByTestId("logout")).toBeVisible();
+  await expect(logOutButton(page)).toBeVisible();
 }

@@ -1,34 +1,43 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { blazorTexts } from "./texts";
 
 /**
- * Test ids ApiFailurePresenter gives the toasts it shows in the in-house ToastRegion
+ * The toast with the given title in the Blazor ToastRegion
+ * @param page Playwright page instance on an interactive Blazor surface
+ * @param title The toast's title
  */
-export const blazorToastTestIds = {
-  apiFailure: "api-failure-toast",
-  antiforgeryRecovery: "antiforgery-recovery-toast"
-} as const;
+export function blazorToast(page: Page, title: string): Locator {
+  return page
+    .getByRole("region", { name: blazorTexts().notifications, exact: true })
+    .getByRole("alert")
+    .filter({ has: page.getByText(title, { exact: true }) });
+}
 
-interface BlazorToast {
-  testId: string;
-  title: string;
-  message: string;
+/**
+ * Dismiss a toast and expect it to be gone
+ * @param page Playwright page instance on an interactive Blazor surface
+ * @param toast The toast, as returned by blazorToast
+ */
+export async function dismissBlazorToast(page: Page, toast: Locator): Promise<void> {
+  await toast.getByRole("button", { name: blazorTexts().dismissNotification, exact: true }).click();
+
+  await expect(toast).toHaveCount(0);
 }
 
 /**
  * Expect exactly one toast with the given title and message in the Blazor ToastRegion, then dismiss it and expect the
  * region to be empty again
  * @param page Playwright page instance on an interactive Blazor surface
- * @param toast The toast's test id, title and message
+ * @param toast The toast's title and message
  */
-export async function expectBlazorToast(page: Page, toast: BlazorToast): Promise<void> {
-  const region = page.getByTestId("toast-region");
-  const toastElement = region.getByTestId(toast.testId);
+export async function expectBlazorToast(page: Page, toast: { title: string; message: string }): Promise<void> {
+  const region = page.getByRole("region", { name: blazorTexts().notifications, exact: true });
+  const toastElement = blazorToast(page, toast.title);
 
   await expect(region.getByRole("alert")).toHaveCount(1);
-  await expect(toastElement.getByTestId("toast-title")).toHaveText(toast.title);
-  await expect(toastElement.getByTestId("toast-message")).toHaveText(toast.message);
+  await expect(toastElement.getByText(toast.message, { exact: true })).toBeVisible();
 
-  await toastElement.getByTestId("toast-dismiss").click();
+  await dismissBlazorToast(page, toastElement);
 
   await expect(region.getByRole("alert")).toHaveCount(0);
 }
