@@ -66,6 +66,51 @@ public sealed class SessionStateTests
     }
 
     [Fact]
+    public async Task GetAsync_WhenTheSharedReadFails_ShouldFailEveryCallerAndReadAgainOnTheNextCall()
+    {
+        // Arrange
+        var source = new ControlledBootstrapSource();
+        using var session = CreateSession(source, out _);
+        var first = session.GetAsync();
+        var second = session.GetAsync();
+        source.Fail(0, new InvalidOperationException("The bootstrap endpoint call ended with TransportFailure (status none)."));
+        var firstAct = () => first;
+        await firstAct.Should().ThrowAsync<InvalidOperationException>();
+        var secondAct = () => second;
+        await secondAct.Should().ThrowAsync<InvalidOperationException>();
+
+        // Act
+        var retry = session.GetAsync();
+        source.Complete(1, CreateBootstrap("Ann"));
+
+        // Assert
+        (await retry).User!.FirstName.Should().Be("Ann");
+        session.Current!.User!.FirstName.Should().Be("Ann");
+        source.ReadCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Leaving_WhenAReadCompletesAfterTheSurfaceIsLeft_ShouldCancelTheReadWithoutRestoringTheIdentity()
+    {
+        // Arrange
+        var source = new ControlledBootstrapSource();
+        using var session = CreateSession(source, out var navigator);
+        var changes = 0;
+        session.Changed += () => changes++;
+        var read = session.RefreshAsync();
+        navigator.LeaveForLoggedOut();
+
+        // Act
+        source.Complete(0, CreateBootstrap("Ann"));
+
+        // Assert
+        var readAct = () => read;
+        await readAct.Should().ThrowAsync<OperationCanceledException>();
+        session.Current.Should().BeNull();
+        changes.Should().Be(0);
+    }
+
+    [Fact]
     public async Task Leaving_WhenTheSurfaceIsLeft_ShouldCancelRequestsAndClearTheIdentityState()
     {
         // Arrange
@@ -108,9 +153,19 @@ public sealed class SessionStateTests
             return read.Task;
         }
 
+        public Action Apply(BootstrapResponse? bootstrap)
+        {
+            return static () => { };
+        }
+
         public void Complete(int index, BootstrapResponse bootstrap)
         {
             _reads[index].SetResult(bootstrap);
+        }
+
+        public void Fail(int index, Exception exception)
+        {
+            _reads[index].SetException(exception);
         }
     }
 }

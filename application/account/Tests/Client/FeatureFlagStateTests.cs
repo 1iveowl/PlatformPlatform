@@ -69,7 +69,7 @@ public sealed class FeatureFlagStateTests
         featureFlagState.Changed += () => changedCount++;
 
         // Act
-        featureFlagState.ApplyHeader(null);
+        featureFlagState.ApplyHeader(null, featureFlagState.Generation);
 
         // Assert
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeTrue();
@@ -85,7 +85,7 @@ public sealed class FeatureFlagStateTests
         featureFlagState.Changed += () => changedCount++;
 
         // Act
-        featureFlagState.ApplyHeader("");
+        featureFlagState.ApplyHeader("", featureFlagState.Generation);
 
         // Assert
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeFalse();
@@ -103,7 +103,7 @@ public sealed class FeatureFlagStateTests
         featureFlagState.Changed += () => changedCount++;
 
         // Act
-        featureFlagState.ApplyHeader(" experimental-ui ,compact-view,, compact-view ,");
+        featureFlagState.ApplyHeader(" experimental-ui ,compact-view,, compact-view ,", featureFlagState.Generation);
 
         // Assert
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeTrue();
@@ -121,7 +121,7 @@ public sealed class FeatureFlagStateTests
         featureFlagState.Changed += () => changedCount++;
 
         // Act
-        featureFlagState.ApplyHeader("experimental-ui, compact-view, experimental-ui");
+        featureFlagState.ApplyHeader("experimental-ui, compact-view, experimental-ui", featureFlagState.Generation);
 
         // Assert
         changedCount.Should().Be(0);
@@ -136,7 +136,7 @@ public sealed class FeatureFlagStateTests
         featureFlagState.Changed += () => changedCount++;
 
         // Act
-        featureFlagState.ApplyHeader("compact-view");
+        featureFlagState.ApplyHeader("compact-view", featureFlagState.Generation);
 
         // Assert
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeFalse();
@@ -151,7 +151,7 @@ public sealed class FeatureFlagStateTests
         featureFlagState.Initialize(CreateAnonymousBootstrap(false));
 
         // Act
-        featureFlagState.ApplyHeader("compact-view");
+        featureFlagState.ApplyHeader("compact-view", featureFlagState.Generation);
 
         // Assert
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeFalse();
@@ -167,7 +167,7 @@ public sealed class FeatureFlagStateTests
 
         // Act
         featureFlagState.Reset();
-        featureFlagState.ApplyHeader("compact-view");
+        featureFlagState.ApplyHeader("compact-view", featureFlagState.Generation);
 
         // Assert
         featureFlagState.UserId.Should().BeNull();
@@ -182,7 +182,7 @@ public sealed class FeatureFlagStateTests
     {
         // Arrange
         var featureFlagState = CreateAuthenticatedState(["compact-view"]);
-        featureFlagState.ApplyHeader("compact-view,experimental-ui");
+        featureFlagState.ApplyHeader("compact-view,experimental-ui", featureFlagState.Generation);
         var otherUserId = UserId.NewId();
 
         // Act
@@ -230,6 +230,63 @@ public sealed class FeatureFlagStateTests
 
         // Assert
         changedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void ApplyHeader_WhenGenerationPrecedesATenantSwitch_ShouldIgnoreHeader()
+    {
+        // Arrange
+        var userId = UserId.NewId();
+        var featureFlagState = new FeatureFlagState();
+        featureFlagState.Initialize(CreateAuthenticatedBootstrap(userId, new TenantId(1), ["compact-view"], true));
+        var generationAtSend = featureFlagState.Generation;
+        featureFlagState.Initialize(CreateAuthenticatedBootstrap(userId, new TenantId(2), ["beta-features"], true));
+        var changedCount = 0;
+        featureFlagState.Changed += () => changedCount++;
+
+        // Act
+        featureFlagState.ApplyHeader("compact-view", generationAtSend);
+
+        // Assert
+        featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeFalse();
+        featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures).Should().BeTrue();
+        changedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void ApplyHeader_WhenGenerationPrecedesARefreshOfTheSameIdentity_ShouldApplyHeader()
+    {
+        // Arrange
+        var userId = UserId.NewId();
+        var featureFlagState = new FeatureFlagState();
+        featureFlagState.Initialize(CreateAuthenticatedBootstrap(userId, new TenantId(1), [], true));
+        var generationAtSend = featureFlagState.Generation;
+        featureFlagState.Initialize(CreateAuthenticatedBootstrap(userId, new TenantId(1), [], true));
+
+        // Act
+        featureFlagState.ApplyHeader("compact-view", generationAtSend);
+
+        // Assert
+        featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Replace_WhenFlagsChange_ShouldRaiseChangedOnlyThroughTheReturnedNotification()
+    {
+        // Arrange
+        var featureFlagState = new FeatureFlagState();
+        var changedCount = 0;
+        featureFlagState.Changed += () => changedCount++;
+
+        // Act
+        var notify = featureFlagState.Replace(CreateAuthenticatedBootstrap(UserId.NewId(), new TenantId(1), ["compact-view"], true));
+        var changedBeforeNotification = changedCount;
+        notify();
+
+        // Assert
+        featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeTrue();
+        changedBeforeNotification.Should().Be(0);
+        changedCount.Should().Be(1);
     }
 
     private static FeatureFlagState CreateAuthenticatedState(string[] featureFlags)

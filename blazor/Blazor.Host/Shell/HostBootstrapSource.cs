@@ -39,6 +39,13 @@ public sealed class HostBootstrapSource(IHttpContextAccessor httpContextAccessor
         return Task.FromResult(response);
     }
 
+    // Prerendering holds no client transport state: the page's forms carry their own antiforgery pair and the feature flag
+    // state is filled in the browser, so nothing is stored and nothing is notified
+    public Action Apply(BootstrapResponse? bootstrap)
+    {
+        return static () => { };
+    }
+
     private BootstrapUser CreateUser(ClaimsPrincipal principal)
     {
         var email = principal.FindFirstValue(ClaimTypes.Email);

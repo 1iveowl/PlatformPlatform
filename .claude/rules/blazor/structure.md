@@ -48,6 +48,8 @@ Where code goes in the Blazor edition. The build root `blazor/` holds `Blazor.Ho
 public interface IBootstrapSource
 {
     Task<BootstrapResponse> GetAsync(CancellationToken cancellationToken = default);
+
+    Action Apply(BootstrapResponse? bootstrap);
 }
 
 // blazor/Blazor.Host/HostApplication.cs registers the host side; Bootstrap/AccountApiRegistration.cs registers the client side

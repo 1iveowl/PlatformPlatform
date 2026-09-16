@@ -1,6 +1,7 @@
 // The WebAssembly client reads identity, runtime configuration and system-scope feature flags from the account API's
-// bootstrap endpoint through the gateway, never from values injected into the host page. Each read also sets the feature
-// flag state and the antiforgery token of this user scope.
+// bootstrap endpoint through the gateway, never from values injected into the host page. A read only returns the
+// response; the antiforgery token and the feature flag state of this user scope change when SessionState applies the
+// bootstrap it accepted.
 
 using Account.Client;
 using Account.Features.Authentication.Queries;
@@ -15,22 +16,30 @@ public sealed class HttpBootstrapSource(AuthenticationClient authenticationClien
     public async Task<BootstrapResponse> GetAsync(CancellationToken cancellationToken = default)
     {
         var result = await authenticationClient.GetBootstrapAsync(cancellationToken);
-        if (result.IsSuccess)
-        {
-            antiforgeryTokenSource.Store(result.Value.AntiforgeryToken);
-            featureFlagState.Initialize(result.Value);
-            return result.Value;
-        }
+        if (result.IsSuccess) return result.Value;
 
+        // A server outage or a network failure is never reported as a signed-out user
         if (result.Outcome != ApiCallOutcome.Unauthorized)
         {
             throw new InvalidOperationException($"The bootstrap endpoint call ended with {result.Outcome} (status {result.Problem.StatusCode?.ToString() ?? "none"}).");
         }
 
         // A rejected session is already being handled by UnauthorizedResponseHandler, which leaves the runtime with a full
-        // document navigation; the caller only needs to stop treating the user as signed in
-        antiforgeryTokenSource.Clear();
-        featureFlagState.Reset();
+        // document navigation and clears the user scope's state; the caller only needs to stop treating the user as signed in
         return Unauthenticated;
+    }
+
+    public Action Apply(BootstrapResponse? bootstrap)
+    {
+        if (bootstrap is null)
+        {
+            antiforgeryTokenSource.Clear();
+        }
+        else
+        {
+            antiforgeryTokenSource.Store(bootstrap.AntiforgeryToken);
+        }
+
+        return featureFlagState.Replace(bootstrap);
     }
 }
