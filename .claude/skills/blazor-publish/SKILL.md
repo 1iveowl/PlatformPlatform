@@ -6,7 +6,7 @@ description: Publish the Blazor host as a trimmed Release build, serve it in Pro
 # Blazor publish, serve and harness
 
 ```bash
-dotnet run --project developer-cli -- start-stack --without-blazor-host [--timeout <seconds>]
+dotnet run --project developer-cli -- start-stack --without-blazor-host [--fresh-database] [--timeout <seconds>]
 dotnet run --project developer-cli -- blazor-publish [--quiet]
 dotnet run --project developer-cli -- blazor-serve
 dotnet run --project developer-cli -- blazor-harness <script> [--browser chromium|firefox|webkit|all] [script options]
@@ -21,12 +21,12 @@ Use `developer-cli` exactly as written - do not expand to an absolute worktree p
 ## Order
 
 1. Stop this worktree's stack with the **aspire-stop** skill. `start-stack` never reuses a running stack and refuses while any of its ports is taken.
-2. `dotnet run --project developer-cli -- start-stack --without-blazor-host`. It starts a fresh AppHost without the dashboard and without the `blazor-host` resource, with Google, Entra, MitID and Stripe turned off, and returns once the gateway answers over HTTPS and the account API is ready (`--timeout <seconds>`, default 600; on timeout it stops the AppHost and exits 1). The AppHost writes the token signing key the published host reads from the shared user secrets store. The gateway routes `/blazor` to the Blazor host port, which is now free for `blazor-serve`.
+2. `dotnet run --project developer-cli -- start-stack --without-blazor-host`. It starts a fresh AppHost without the dashboard and without the `blazor-host` resource, with Google, Entra, MitID and Stripe turned off. It returns once one poll finds every resource ready together: both workers listening (they open their port only after migrations and feature flag reconciliation), `/internal-api/ready` returning 200 on the account and main APIs, and the gateway root returning 200 (plus `/blazor/` when the blazor-host resource is included). A worker process that exits, an AppHost that exits, or the timeout (`--timeout <seconds>`, default 600) prints each resource that was not ready, stops the stack and its containers the way `stop` does, and exits 1. `--fresh-database` runs Postgres on a disposable volume of its own that is removed before every start, so the run migrates an empty database and never touches the worktree's everyday database. The AppHost writes the token signing key the published host reads from the shared user secrets store. The gateway routes `/blazor` to the Blazor host port, which is now free for `blazor-serve`.
 3. `blazor-publish`, then `blazor-serve` in the background.
 4. `blazor-harness trimmed-smoke --browser all` and any other script.
 5. Stop `blazor-serve`, stop the stack with **aspire-stop**, and start the everyday stack again with **aspire-restart**.
 
-The `smoke` job in `.github/workflows/blazor.yml` runs the same order with `--browser chromium`.
+The `smoke` job in `.github/workflows/blazor.yml` runs the same order with `--fresh-database` and `--browser chromium`.
 
 ## Scripts
 

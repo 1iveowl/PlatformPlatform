@@ -250,9 +250,10 @@ jobs:
           # through this directory, which the gateway, the account API and the published host read
           echo "SSL_CERT_DIR=$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs" >> "$GITHUB_ENV"
 
-      - name: Start Stack Without the Blazor Host
+      - name: Start Stack on a Fresh Database Without the Blazor Host
         working-directory: developer-cli
-        run: dotnet run -- start-stack --without-blazor-host --timeout 1200
+        # Ready only when both workers have migrated the empty database and reconciled feature flags, and the APIs and the gateway answer with their documented success status in the same poll
+        run: dotnet run -- start-stack --without-blazor-host --fresh-database --timeout 1200
 
       - name: Publish Trimmed Release Build
         working-directory: developer-cli

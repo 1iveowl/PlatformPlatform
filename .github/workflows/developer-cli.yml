@@ -6,11 +6,17 @@ on:
       - main
     paths:
       - "developer-cli/**"
+      # Compiled into the CLI, which derives the start-stack ports and the fresh database volume name from them
+      - "application/shared-kernel/SharedKernel/Configuration/PortAllocation.cs"
+      - "application/shared-kernel/SharedKernel/Configuration/DockerVolumeNaming.cs"
       - ".github/workflows/developer-cli.yml"
       - "!**.md"
   pull_request:
     paths:
       - "developer-cli/**"
+      # Compiled into the CLI, which derives the start-stack ports and the fresh database volume name from them
+      - "application/shared-kernel/SharedKernel/Configuration/PortAllocation.cs"
+      - "application/shared-kernel/SharedKernel/Configuration/DockerVolumeNaming.cs"
       - ".github/workflows/developer-cli.yml"
       - "!**.md"
   workflow_dispatch:
