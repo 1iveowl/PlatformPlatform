@@ -190,9 +190,12 @@ public sealed class SessionState : IDisposable
             _latestRead = null;
             Current = null;
             notifyTransportState = _bootstrapSource.Apply(null);
+
+            // Cancelled before the lock is released, so GetAsync and RefreshAsync never observe the departure while
+            // RequestsAborted is still uncancelled, which Task.FromCanceled would reject with an exception
+            _requestsAborted.Cancel();
         }
 
-        _requestsAborted.Cancel();
         _pageCache.Clear();
         _toastService.Clear();
         notifyTransportState();
