@@ -85,8 +85,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         _editContext = new EditContext(_form);
-        var bootstrap = await Session.GetAsync();
-        if (!RendererInfo.IsInteractive) return;
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive) return;
 
         if (!bootstrap.IsAuthenticated)
         {
@@ -95,7 +95,9 @@ else
         }
 
         // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
-        var result = await Services.GetRequiredService<UsersClient>().GetCurrentUserAsync(Session.RequestsAborted);
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<UsersClient>().GetCurrentUserAsync);
+        if (result is null) return;
+
         if (!result.IsSuccess)
         {
             _loadFailed = result.Outcome != ApiCallOutcome.Unauthorized;
@@ -114,7 +116,9 @@ else
     private async Task SaveAsync()
     {
         _isSaving = true;
-        var result = await Services.GetRequiredService<UsersClient>().UpdateCurrentUserAsync(_form.ToCommand(), Session.RequestsAborted);
+        var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<UsersClient>().UpdateCurrentUserAsync(_form.ToCommand(), cancellationToken));
+        if (result is null) return;
+
         _isSaving = false;
         if (!result.IsSuccess)
         {
@@ -127,7 +131,7 @@ else
         _form.LastName = _saved.LastName;
         _form.Title = _saved.Title;
         Toasts.Show(ToastKind.Success, AccountStrings.ProfileUpdated, null, ProfileUpdatedToastTestId);
-        await Session.RefreshAsync();
+        await Session.RefreshUnlessLeavingAsync();
     }
 
 }

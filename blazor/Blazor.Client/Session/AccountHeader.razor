@@ -87,12 +87,12 @@
             _transition.Changed += OnSessionChanged;
         }
 
-        var bootstrap = await Session.GetAsync();
-        if (!RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
 
         // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
-        var result = await Services.GetRequiredService<TenantsClient>().GetTenantsAsync(Session.RequestsAborted);
-        if (!result.IsSuccess) return;
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetTenantsAsync);
+        if (result is null || !result.IsSuccess) return;
 
         _tenants = TenantSwitcherOptions.Create(result.Value.Tenants, Session.Current?.User?.TenantId);
         _tenantsLoaded = true;

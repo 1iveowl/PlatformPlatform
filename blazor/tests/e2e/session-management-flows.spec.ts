@@ -4,7 +4,7 @@ import { logInThroughBlazor, logOutThroughBlazor, signUpThroughBlazor, test } fr
 import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
 import { blazorCultures } from "@blazor/e2e/texts";
 import { getBaseUrl } from "@shared/e2e/utils/constants";
-import { assertNoUnexpectedErrors, createTestContext, expectNetworkErrors } from "@shared/e2e/utils/test-assertions";
+import { assertNoUnexpectedErrors, createTestContext, expectNetworkErrors, type TestContext } from "@shared/e2e/utils/test-assertions";
 import { uniqueEmail } from "@shared/e2e/utils/test-data";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
 
@@ -55,6 +55,41 @@ async function deleteAccessTokenCookie(page: Page): Promise<void> {
 
   expect(await getCookieNames(page)).not.toContain(accessTokenCookieName);
   expect(await getCookieNames(page)).toContain(refreshTokenCookieName);
+}
+
+/**
+ * The session storage key under which the error banner watch records that the framework showed its error banner
+ */
+const errorBannerShownKey = "e2e-blazor-error-ui-shown";
+
+/**
+ * Record in session storage whether the framework's unhandled error banner is displayed on the current document, so the
+ * record survives the full document navigation that follows a lost session
+ * @param page Playwright page instance on an interactive Blazor page
+ */
+async function watchErrorBanner(page: Page): Promise<void> {
+  await page.evaluate((storageKey) => {
+    sessionStorage.removeItem(storageKey);
+    const banner = document.getElementById("blazor-error-ui");
+    if (!banner) throw new Error("The page has no #blazor-error-ui element.");
+
+    const record = () => {
+      if (getComputedStyle(banner).display !== "none") sessionStorage.setItem(storageKey, "shown");
+    };
+    record();
+    new MutationObserver(record).observe(banner, { attributes: true });
+  }, errorBannerShownKey);
+}
+
+/**
+ * Expect that the watched document never displayed the framework's error banner and wrote no unhandled exception to the
+ * console
+ * @param page Playwright page instance after the navigation that followed the watch
+ * @param context Test context monitoring the page's console
+ */
+async function expectErrorBannerNeverShown(page: Page, context: TestContext): Promise<void> {
+  expect(await page.evaluate((storageKey) => sessionStorage.getItem(storageKey), errorBannerShownKey)).toBeNull();
+  expect(context.monitoring.consoleMessages.map((message) => message.text()).filter((text) => text.includes("Unhandled exception"))).toEqual([]);
 }
 
 async function expectAuthenticatedWorkspace(page: Page, email: string): Promise<void> {
@@ -185,6 +220,7 @@ for (const culture of blazorCultures) {
         await revokeSessionThroughAccountApi(thirdPage, firstSessionId);
         await deleteAccessTokenCookie(page);
         const unauthorizedResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/bootstrap") && response.status() === 401);
+        await watchErrorBanner(page);
 
         await page.getByTestId("reload-bootstrap").click();
 
@@ -192,6 +228,7 @@ for (const culture of blazorCultures) {
         await expectBlazorUrl(page, "error");
         await expect(page).toHaveURL((url) => url.searchParams.get("error") === "session_revoked");
         await expect(page.getByRole("heading", { name: culture.sessionEnded })).toBeVisible();
+        await expectErrorBannerNeverShown(page, context);
         await expect(page.getByTestId("error-message")).toHaveText(culture.sessionRevoked);
         await expect(page.getByText(culture.logInAgainToContinue)).toBeVisible();
         await expectNetworkErrors(context, [401]);

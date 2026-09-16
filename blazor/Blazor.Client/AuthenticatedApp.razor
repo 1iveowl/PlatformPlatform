@@ -65,13 +65,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _bootstrap = await Session.GetAsync();
+        _bootstrap = await Session.GetUnlessLeavingAsync();
+        if (_bootstrap is null) return;
+
         if (RendererInfo.IsInteractive && !_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
     }
 
     private async Task ReloadBootstrapAsync()
     {
-        _bootstrap = await Session.RefreshAsync();
+        _bootstrap = await Session.RefreshUnlessLeavingAsync();
+        if (_bootstrap is null) return;
+
         _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.BootstrapReloaded, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
         if (!_bootstrap.IsAuthenticated) GetNavigator().LeaveForLogin();
     }

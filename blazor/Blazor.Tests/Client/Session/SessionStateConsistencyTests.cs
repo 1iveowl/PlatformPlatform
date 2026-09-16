@@ -213,6 +213,85 @@ public sealed class SessionStateConsistencyTests
         (await SendStateChangingCallAsync(services, network)).Should().Be("retry-token");
     }
 
+    [Fact]
+    public async Task GetUnlessLeavingAsync_WhenTheBootstrapAnswersRevoked_ShouldReturnNullWithoutAnIdentityAndLeaveOnce()
+    {
+        // Arrange
+        var network = new ControlledNetwork();
+        await using var services = CreateServices(network);
+        var session = services.GetRequiredService<SessionState>();
+        var read = session.GetUnlessLeavingAsync();
+        await network.WaitForRequestsAsync(1);
+
+        // Act
+        network.Respond(0, CreateUnauthorizedResponse("Revoked"));
+        var bootstrap = await read;
+
+        // Assert
+        bootstrap.Should().BeNull();
+        session.Current.Should().BeNull();
+        services.GetRequiredService<FeatureFlagState>().UserId.Should().BeNull();
+        services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task RefreshUnlessLeavingAsync_WhenTheBootstrapAnswersRevokedAfterAnAcceptedRead_ShouldReturnNullAndClearTheIdentity()
+    {
+        // Arrange
+        var network = new ControlledNetwork();
+        await using var services = CreateServices(network);
+        var session = services.GetRequiredService<SessionState>();
+        var initialRead = session.GetUnlessLeavingAsync();
+        await network.WaitForRequestsAsync(1);
+        network.Respond(0, CreateBootstrapResponse(UserId, 1, "Ann", "first-token", FeatureFlagRegistry.BetaFeatures.Key));
+        (await initialRead)!.User!.FirstName.Should().Be("Ann");
+        var refresh = session.RefreshUnlessLeavingAsync();
+        await network.WaitForRequestsAsync(2);
+
+        // Act
+        network.Respond(1, CreateUnauthorizedResponse("Revoked"));
+        var bootstrap = await refresh;
+
+        // Assert
+        bootstrap.Should().BeNull();
+        session.Current.Should().BeNull();
+        (await session.GetUnlessLeavingAsync()).Should().BeNull();
+        network.Requests.Should().HaveCount(2);
+        services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task UnlessLeavingAsync_WhenTheSurfaceIsLeftWhileATypedClientCallIsInFlight_ShouldReturnNullForTheCallAndLeaveOnce()
+    {
+        // Arrange
+        var network = new ControlledNetwork();
+        await using var services = CreateServices(network);
+        var session = services.GetRequiredService<SessionState>();
+        var initialRead = session.GetUnlessLeavingAsync();
+        await network.WaitForRequestsAsync(1);
+        network.Respond(0, CreateBootstrapResponse(UserId, 1, "Ann", "first-token", FeatureFlagRegistry.BetaFeatures.Key));
+        await initialRead;
+        var usersClient = services.GetRequiredService<UsersClient>();
+        var call = session.UnlessLeavingAsync(usersClient.GetCurrentUserAsync);
+        var refresh = session.RefreshUnlessLeavingAsync();
+        await network.WaitForRequestsAsync(3);
+
+        // Act
+        network.Respond(2, CreateUnauthorizedResponse("Revoked"));
+        var bootstrap = await refresh;
+        network.Respond(1, new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        var result = await call;
+        var callAfterLeaving = await session.UnlessLeavingAsync(usersClient.GetCurrentUserAsync);
+
+        // Assert
+        bootstrap.Should().BeNull();
+        result.Should().BeNull();
+        callAfterLeaving.Should().BeNull();
+        session.Current.Should().BeNull();
+        network.Requests.Should().HaveCount(3);
+        services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().ContainSingle();
+    }
+
     private static ServiceProvider CreateServices(ControlledNetwork network)
     {
         var services = new ServiceCollection();
@@ -254,6 +333,13 @@ public sealed class SessionStateConsistencyTests
         var json = JsonSerializer.Serialize(bootstrap, ApiJsonSerializerOptions.Create());
         var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
         response.Headers.Add(AccountApiHeaders.UserFeatureFlags, featureFlag);
+        return response;
+    }
+
+    private static HttpResponseMessage CreateUnauthorizedResponse(string unauthorizedReason)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        response.Headers.Add(AuthenticationNavigator.UnauthorizedReasonHeaderName, unauthorizedReason);
         return response;
     }
 

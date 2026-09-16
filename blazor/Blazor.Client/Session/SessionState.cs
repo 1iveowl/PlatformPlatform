@@ -12,7 +12,8 @@
 // Leaving the authenticated surface (logout, tenant switch, a lost session) moves to a new generation, cancels the
 // requests started with RequestsAborted and clears the identity, the antiforgery token, the feature flags and the previous
 // identity's cached list pages and toasts before the full document navigation starts. A read that completes after that
-// is cancelled rather than committed.
+// is cancelled rather than committed. Components read and call through GetUnlessLeavingAsync, RefreshUnlessLeavingAsync and
+// UnlessLeavingAsync, which turn that cancellation into null so a departure never surfaces as an unhandled exception.
 
 using Account.Features.Authentication.Queries;
 using Blazor.Client.Bootstrap;
@@ -85,6 +86,34 @@ public sealed class SessionState : IDisposable
         }
 
         return RunAsync(read);
+    }
+
+    // The forms a component uses. Each returns null when the authenticated surface is being left, because a departure
+    // cancels the read or the call; the component then returns at once without rendering an identity, presenting a failure
+    // or navigating, since AuthenticationNavigator has already started the full document navigation. Any other failure is
+    // thrown as before.
+    public Task<BootstrapResponse?> GetUnlessLeavingAsync()
+    {
+        return UnlessLeavingAsync(_ => GetAsync());
+    }
+
+    public Task<BootstrapResponse?> RefreshUnlessLeavingAsync()
+    {
+        return UnlessLeavingAsync(_ => RefreshAsync());
+    }
+
+    // A typed client call, given RequestsAborted; a result that arrives after the surface was left is discarded as well
+    public async Task<TResult?> UnlessLeavingAsync<TResult>(Func<CancellationToken, Task<TResult>> call) where TResult : class
+    {
+        try
+        {
+            var result = await call(RequestsAborted);
+            return RequestsAborted.IsCancellationRequested ? null : result;
+        }
+        catch (OperationCanceledException) when (RequestsAborted.IsCancellationRequested)
+        {
+            return null;
+        }
     }
 
     private PendingRead BeginRead()
