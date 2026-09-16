@@ -131,7 +131,7 @@ public sealed class StopCommand : Command
         }
     }
 
-    private static void StopWorktree(string worktreePath)
+    internal static void StopWorktree(string worktreePath)
     {
         if (!PortAllocation.PortFileExists(worktreePath))
         {

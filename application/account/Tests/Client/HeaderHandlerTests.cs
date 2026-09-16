@@ -202,6 +202,56 @@ public sealed class HeaderHandlerTests
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeTrue();
     }
 
+    [Fact]
+    public async Task FeatureFlagsHeaderHandler_WhenIdentityChangesWhileRequestIsInFlight_ShouldIgnoreHeader()
+    {
+        // Arrange
+        var featureFlagState = new FeatureFlagState();
+        featureFlagState.Initialize(CreateAuthenticatedBootstrap(["compact-view"]));
+        var stubHandler = new StubHttpMessageHandler((_, _) =>
+            {
+                // The state moves to another identity after the request was sent and before its response arrives
+                featureFlagState.Initialize(CreateAuthenticatedBootstrap(["beta-features"]));
+                var response = StubHttpMessageHandler.CreateResponse(HttpStatusCode.OK);
+                response.Headers.Add(AccountApiHeaders.UserFeatureFlags, "compact-view");
+                return Task.FromResult(response);
+            }
+        );
+        var httpClient = CreateHttpClient(new FeatureFlagsHeaderHandler(featureFlagState), stubHandler);
+
+        // Act
+        await httpClient.GetAsync("/api/account/users/me");
+
+        // Assert
+        featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeFalse();
+        featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("GET", AccountApiRoutes.Bootstrap)]
+    [InlineData("POST", AccountApiRoutes.SwitchTenant)]
+    public async Task FeatureFlagsHeaderHandler_WhenResponseIsTheBootstrapOrTheTenantSwitch_ShouldLeaveStateUnchanged(string method, string path)
+    {
+        // Arrange
+        var featureFlagState = new FeatureFlagState();
+        featureFlagState.Initialize(CreateAuthenticatedBootstrap(["compact-view"]));
+        var stubHandler = new StubHttpMessageHandler((_, _) =>
+            {
+                var response = StubHttpMessageHandler.CreateResponse(HttpStatusCode.OK);
+                response.Headers.Add(AccountApiHeaders.UserFeatureFlags, "beta-features");
+                return Task.FromResult(response);
+            }
+        );
+        var httpClient = CreateHttpClient(new FeatureFlagsHeaderHandler(featureFlagState), stubHandler);
+
+        // Act
+        await httpClient.SendAsync(new HttpRequestMessage(new HttpMethod(method), path));
+
+        // Assert
+        featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeTrue();
+        featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures).Should().BeFalse();
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.OK)]
     [InlineData(HttpStatusCode.InternalServerError)]

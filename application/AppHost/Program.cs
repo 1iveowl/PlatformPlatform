@@ -17,11 +17,15 @@ var ports = PortAllocation.Load();
 
 OverrideAspireDashboardEnvironmentVariables(ports);
 
-// Both switches are set only by the developer CLI's start-stack command, which continuous integration uses. Without the
+// These switches are set only by the developer CLI's start-stack command, which continuous integration uses. Without the
 // blazor-host resource the gateway reaches whatever listens on the Blazor host port, which is how the trimmed Release
-// publish served by blazor-serve is tested. Unset, the stack is the one every developer runs.
+// publish served by blazor-serve is tested. The Postgres data volume switch points Postgres at the disposable volume that
+// start-stack --fresh-database empties before every start. Unset, the stack is the one every developer runs.
 var disableDashboard = Environment.GetEnvironmentVariable("APPHOST_DISABLE_DASHBOARD") == "true";
 var excludeBlazorHost = Environment.GetEnvironmentVariable("APPHOST_EXCLUDE_BLAZOR_HOST") == "true";
+var postgresDataVolume = Environment.GetEnvironmentVariable("APPHOST_POSTGRES_DATA_VOLUME") is { Length: > 0 } freshPostgresDataVolume
+    ? freshPostgresDataVolume
+    : $"{dockerVolumePrefix}{ports.VolumeNameInfix}-postgres-data";
 
 var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions { Args = args, DisableDashboard = disableDashboard });
 
@@ -52,7 +56,7 @@ var stripeFullyConfigured = stripeConfigured && builder.Configuration["Parameter
 
 var postgresPassword = builder.CreateStablePassword("postgres-password");
 var postgres = builder.AddPostgres("postgres", password: postgresPassword, port: ports.Postgres)
-    .WithDataVolume($"{dockerVolumePrefix}{ports.VolumeNameInfix}-postgres-data")
+    .WithDataVolume(postgresDataVolume)
     .WithLifetime(ContainerLifetime.Persistent)
     .WithArgs("-c", "wal_level=logical");
 

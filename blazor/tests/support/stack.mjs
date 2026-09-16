@@ -2,8 +2,10 @@
 // the AppHost started without its blazor-host resource (start-stack --without-blazor-host) and the trimmed Release publish
 // served in its place by the developer CLI (blazor-publish, then blazor-serve).
 
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import { X509Certificate, createHash } from "node:crypto";
 import tls from "node:tls";
@@ -68,13 +70,26 @@ function gatewayCertificateFingerprint() {
 // as a culture name and aborts the WebAssembly start
 export async function newContext(browser, browserName, storageState, locale = "en-US") {
   const context = await browser.newContext({ ignoreHTTPSErrors: browserName !== "chromium", locale, storageState });
+  // Violations are also reported to Node through a binding, so a strict verdict sees those of documents the page has left
+  const violations = [];
+  policyViolationsByContext.set(context, violations);
+  await context.exposeBinding("__reportPolicyViolation", ({ page }, violation) => violations.push({ page: page.url(), ...violation }));
   await context.addInitScript(() => {
     window.__policyViolations = [];
     document.addEventListener("securitypolicyviolation", (event) => {
-      window.__policyViolations.push({ effectiveDirective: event.effectiveDirective, blockedURI: event.blockedURI });
+      const violation = { effectiveDirective: event.effectiveDirective, blockedURI: event.blockedURI };
+      window.__policyViolations.push(violation);
+      window.__reportPolicyViolation?.(violation);
     });
   });
   return context;
+}
+
+const policyViolationsByContext = new WeakMap();
+
+// Every content security policy violation of every document the context has loaded so far
+export function policyViolationsOf(context) {
+  return policyViolationsByContext.get(context) ?? [];
 }
 
 // Browser output the forms fixture does not cause, recorded against the host's preload links and left to their owner: below the
@@ -96,6 +111,17 @@ export function isKnownHostConsoleError(message) {
   return knownHostConsoleErrors.some((pattern) => pattern.test(message));
 }
 
+// The strict verdict of a browser journey: any content security policy violation, console error, page error or HTTP error
+// response fails it. Nothing is allowlisted; a negative test that expects an error response observes its own page instead.
+export function strictFailures(label, observations, violations) {
+  const failures = [];
+  if (violations.length > 0) failures.push(`${label}: ${violations.length} content security policy violations`);
+  if (observations.consoleErrors.length > 0) failures.push(`${label}: ${observations.consoleErrors.length} console errors`);
+  if (observations.pageErrors.length > 0) failures.push(`${label}: ${observations.pageErrors.length} page errors`);
+  if (observations.errorResponses.length > 0) failures.push(`${label}: ${observations.errorResponses.length} error responses`);
+  return failures;
+}
+
 export function observeErrors(page) {
   const observations = { consoleErrors: [], pageErrors: [], errorResponses: [] };
   page.on("response", (response) => {
@@ -113,10 +139,94 @@ export function isProductionPolicy(contentSecurityPolicy) {
   return typeof contentSecurityPolicy === "string" && contentSecurityPolicy.length > 0 && !contentSecurityPolicy.includes(":*");
 }
 
+// The development host list in the policy tells the environment apart; blazor-serve is the only way this stack runs the
+// host in Production, and it serves the trimmed Release publish, while the AppHost runs the Debug build in Development
+export function hostConfiguration(contentSecurityPolicy) {
+  return isProductionPolicy(contentSecurityPolicy)
+    ? { hostEnvironment: "Production", buildConfiguration: "Release trimmed publish served by blazor-serve" }
+    : { hostEnvironment: "Development", buildConfiguration: "Debug build run by the AppHost" };
+}
+
+// Reads the host configuration from the policy on the login page, in a context of its own
+export async function probeHostConfiguration(browser, browserName) {
+  const context = await newContext(browser, browserName);
+  try {
+    const response = await (await context.newPage()).goto(`${baseUrl}${pathBase}/login`, { waitUntil: "load" });
+    return hostConfiguration(response.headers()["content-security-policy"]);
+  } finally {
+    await context.close();
+  }
+}
+
+// The commit the run tested, from the CI environment or the working tree, with whether the tree had uncommitted changes
+export function runCommit() {
+  const git = (...argumentList) => execFileSync("git", argumentList, { cwd: repositoryRoot, encoding: "utf8" }).trim();
+  return { commit: process.env.GITHUB_SHA ?? git("rev-parse", "HEAD"), uncommittedChanges: git("status", "--porcelain").length > 0 };
+}
+
+// One-time passwords, tokens and cookie values never reach a result file or the console: every value read from the mail
+// server is registered here, and anything shaped like a signed token is masked as well
+const sensitiveValues = new Set();
+const signedTokenPattern = /eyJ[\w-]+\.[\w-]+\.[\w-]*/g;
+
+export function registerSensitiveValue(value) {
+  if (typeof value === "string" && value.length > 0) sensitiveValues.add(value);
+}
+
+export function redact(text) {
+  let redacted = String(text).replace(signedTokenPattern, "[redacted token]");
+  for (const value of sensitiveValues) redacted = redacted.split(value).join("[redacted]");
+  return redacted;
+}
+
+// Writes a harness result under .workspace/blazor-tests/ with its run metadata, redacted, and returns the file path and the
+// verdict. The cases are the result's results list, cases map or checks list, each with a passed flag. A run that executed
+// fewer cases than expectedCaseCount, or none, fails, so a script that skipped cases can never read as passed.
+export function writeResult(fileName, result, expectedCaseCount) {
+  const cases = result.results ?? result.checks ?? Object.values(result.cases ?? {});
+  const failures = [...(result.failures ?? [])];
+  const minimum = Math.max(1, expectedCaseCount ?? 1);
+  if (cases.length < minimum) failures.push(`${cases.length} of ${minimum} cases ran`);
+  const passed = failures.length === 0 && cases.every((entry) => entry.passed);
+  const complete = { ...runCommit(), ...result, caseCount: cases.length, expectedCaseCount: minimum, failures, passed };
+  mkdirSync(resultsFolder, { recursive: true });
+  const resultFile = path.join(resultsFolder, fileName);
+  writeFileSync(resultFile, redact(JSON.stringify(complete, null, 2)));
+  return { resultFile, passed, failures };
+}
+
 // Routes of the published static web assets, to prove the gateway serves this publish and to size the Brotli files on disk
 export function readPublishedEndpoints() {
   const manifest = JSON.parse(readFileSync(path.join(publishFolder, "Blazor.Host.staticwebassets.endpoints.json"), "utf8"));
   return manifest.Endpoints;
+}
+
+// Identifies the publish a measurement ran against: the content-fingerprinted Blazor.Client assembly route and a hash of the
+// endpoint manifest, which changes whenever any published static asset changes
+export function publishIdentity() {
+  const manifestFile = path.join(publishFolder, "Blazor.Host.staticwebassets.endpoints.json");
+  const clientRoutes = readPublishedEndpoints()
+    .map((endpoint) => endpoint.Route)
+    .filter((route) => /^_framework\/Blazor\.Client\.[a-z0-9]+\.wasm$/.test(route));
+  return { clientAssembly: [...new Set(clientRoutes)].join(", ") || null, endpointManifestSha256: createHash("sha256").update(readFileSync(manifestFile)).digest("hex") };
+}
+
+// Where a measurement ran: the GitHub Actions runner when there is one, and the machine either way
+export function runEnvironment() {
+  const environment = process.env;
+  return {
+    githubActions: environment.GITHUB_ACTIONS === "true",
+    runnerEnvironment: environment.RUNNER_ENVIRONMENT ?? null,
+    runnerOs: environment.RUNNER_OS ?? null,
+    runnerArchitecture: environment.RUNNER_ARCH ?? null,
+    runnerImage: environment.ImageOS ? `${environment.ImageOS} ${environment.ImageVersion ?? ""}`.trim() : null,
+    workflowRun: environment.GITHUB_RUN_ID ? `${environment.GITHUB_REPOSITORY}/actions/runs/${environment.GITHUB_RUN_ID} attempt ${environment.GITHUB_RUN_ATTEMPT}` : null,
+    platform: `${os.type()} ${os.release()}`,
+    architecture: os.arch(),
+    cpus: os.cpus().length,
+    cpuModel: os.cpus()[0]?.model ?? null,
+    memoryGiB: Math.round(os.totalmem() / 2 ** 30)
+  };
 }
 
 // Reads the one-time password the account API mailed, the way a user would, instead of any debug-only shortcut
@@ -129,6 +239,7 @@ export async function readOneTimePassword(email, sentAfter) {
       const detail = await (await fetch(`${mailpitUrl}/api/v1/message/${message.ID}`)).json();
       const match = detail.Text.match(oneTimePasswordPattern);
       if (match === null) throw new Error(`No one-time password in the mail to ${email}.`);
+      registerSensitiveValue(match[1]);
       return match[1];
     }
     await new Promise((resolve) => setTimeout(resolve, mailPollIntervalMs));
@@ -148,12 +259,14 @@ export async function stopTrace(context, traceFile) {
 
 // Signs up a new user through the Blazor public pages with the mailed code and returns the signed-in storage state. The
 // browser locale sets Accept-Language, which the signup stores as the user's locale. With failureTraceFile, a failed signup
-// leaves a trace at that path.
-export async function signUpThroughBlazor(browser, browserName, email, locale = "en-US", failureTraceFile = undefined) {
+// leaves a trace at that path. With a strict verdict, the errors and policy violations of the signup and welcome pages are
+// returned for the caller to judge.
+export async function signUpThroughBlazor(browser, browserName, email, locale = "en-US", failureTraceFile = undefined, strict = false) {
   const context = await newContext(browser, browserName, undefined, locale);
   if (failureTraceFile !== undefined) await startTrace(context);
   try {
     const page = await context.newPage();
+    const observations = strict ? observeErrors(page) : undefined;
     await page.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
     await page.locator('[data-testid="email"]').fill(email);
     const sentAfter = Date.now();
@@ -166,7 +279,8 @@ export async function signUpThroughBlazor(browser, browserName, email, locale = 
     await completeWelcomeThroughBlazor(page);
     const storageState = await context.storageState();
     if (failureTraceFile !== undefined) await stopTrace(context);
-    return { email, verifyUrl, storageState };
+    if (!strict) return { email, verifyUrl, storageState };
+    return { email, verifyUrl, storageState, observations, violations: [...policyViolationsOf(context)] };
   } catch (error) {
     if (failureTraceFile !== undefined) await stopTrace(context, failureTraceFile);
     throw error;

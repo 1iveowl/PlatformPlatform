@@ -4,6 +4,9 @@ using System.Text.Json;
 using Account.Client;
 using Account.Features.Authentication.Queries;
 using Blazor.Client.Bootstrap;
+using Blazor.Client.Components.Lists;
+using Blazor.Client.Forms;
+using Blazor.Client.Session;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,8 +16,9 @@ using FeatureFlagRegistry = SharedKernel.FeatureFlags.FeatureFlags;
 
 namespace Blazor.Tests.Client;
 
-// The WebAssembly registration with a recording stand-in for the network: the bootstrap adapter, the antiforgery token
-// source and the single authentication-loss navigation through UnauthorizedResponseHandler.
+// The WebAssembly registration with a recording stand-in for the network: the bootstrap adapter, the session state that
+// applies an accepted bootstrap, the antiforgery token source and the single authentication-loss navigation through
+// UnauthorizedResponseHandler.
 public sealed class WebAssemblyAccountApiTests
 {
     private const string AntiforgeryToken = "bootstrap-antiforgery-token";
@@ -22,14 +26,14 @@ public sealed class WebAssemblyAccountApiTests
     private static readonly UserId UserId = new("usr_01JZ8Q4N6V3K2M7P9R5T0W1XYZ");
 
     [Fact]
-    public async Task GetBootstrap_WhenAuthenticated_ShouldInitializeFeatureFlagsAndStoreAntiforgeryToken()
+    public async Task GetSession_WhenAuthenticated_ShouldInitializeFeatureFlagsAndStoreAntiforgeryToken()
     {
         // Arrange
         var network = new RecordingNetwork(_ => CreateBootstrapResponse());
         await using var services = CreateServices(network);
 
         // Act
-        var bootstrap = await services.GetRequiredService<IBootstrapSource>().GetAsync();
+        var bootstrap = await services.GetRequiredService<SessionState>().GetAsync();
 
         // Assert
         bootstrap.IsAuthenticated.Should().BeTrue();
@@ -42,25 +46,45 @@ public sealed class WebAssemblyAccountApiTests
     }
 
     [Fact]
-    public async Task GetBootstrap_WhenSessionIsRevoked_ShouldResetStateAndNavigateToErrorPageOnce()
+    public async Task GetBootstrap_WhenReadDirectly_ShouldChangeNoClientState()
+    {
+        // Arrange
+        var network = new RecordingNetwork(_ => CreateBootstrapResponse());
+        await using var services = CreateServices(network);
+
+        // Act
+        var bootstrap = await services.GetRequiredService<IBootstrapSource>().GetAsync();
+
+        // Assert
+        bootstrap.IsAuthenticated.Should().BeTrue();
+        services.GetRequiredService<FeatureFlagState>().UserId.Should().BeNull();
+        services.GetRequiredService<FeatureFlagState>().IsEnabled(FeatureFlagRegistry.GoogleOauth).Should().BeFalse();
+        services.GetRequiredService<SessionState>().Current.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetBootstrap_WhenSessionIsRevoked_ShouldResetStateNavigateToErrorPageOnceAndRefuseLaterReads()
     {
         // Arrange
         var responses = new Queue<HttpResponseMessage>([CreateBootstrapResponse(), CreateUnauthorizedResponse("Revoked"), CreateUnauthorizedResponse("Revoked")]);
         var network = new RecordingNetwork(_ => responses.Dequeue());
         await using var services = CreateServices(network);
+        var session = services.GetRequiredService<SessionState>();
+        await session.GetAsync();
         var bootstrapSource = services.GetRequiredService<IBootstrapSource>();
-        await bootstrapSource.GetAsync();
 
         // Act
         var first = await bootstrapSource.GetAsync();
-        var second = await bootstrapSource.GetAsync();
+        var second = () => bootstrapSource.GetAsync();
 
         // Assert
         first.IsAuthenticated.Should().BeFalse();
-        second.IsAuthenticated.Should().BeFalse();
+        await second.Should().ThrowAsync<InvalidOperationException>().WithMessage("*TransportFailure*");
+        network.Requests.Should().HaveCount(2);
         var featureFlagState = services.GetRequiredService<FeatureFlagState>();
         featureFlagState.UserId.Should().BeNull();
         featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures).Should().BeFalse();
+        session.Current.Should().BeNull();
         services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().Equal("/blazor/error?error=session_revoked");
     }
 
@@ -132,6 +156,9 @@ public sealed class WebAssemblyAccountApiTests
         services.AddSingleton<RecordingNavigationManager>();
         services.AddSingleton<NavigationManager>(serviceProvider => serviceProvider.GetRequiredService<RecordingNavigationManager>());
         services.AddAccountApiClients(new Uri(RecordingNavigationManager.BaseAddress), () => network);
+        services.AddScoped<DataListPageCache>();
+        services.AddScoped<ToastService>();
+        services.AddScoped<SessionState>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = false });
     }
 

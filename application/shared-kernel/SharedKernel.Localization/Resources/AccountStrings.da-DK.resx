@@ -81,6 +81,12 @@
     <data name="LogOut" xml:space="preserve">
         <value>Log ud</value>
     </data>
+    <data name="LogoutFailed" xml:space="preserve">
+        <value>Log ud mislykkedes. Du er stadig logget ind, så prøv igen.</value>
+    </data>
+    <data name="LogoutUnconfirmed" xml:space="preserve">
+        <value>Vi kunne ikke bekræfte, at du blev logget ud, og denne browser kan stadig være logget ind. Tjek din forbindelse, og prøv igen.</value>
+    </data>
     <data name="NumberAndDateFormat" xml:space="preserve">
         <value>Tal- og datoformat</value>
     </data>

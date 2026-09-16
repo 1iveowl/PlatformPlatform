@@ -1,16 +1,16 @@
 @* The authenticated header, rendered inside each interactive page component so no identity is written into a shared
    outer shell: the current tenant, the user's name with a link to the profile, the tenant switcher for a user with
-   more than one tenant, and logout. Tenant and user data come from the bootstrap and the tenants client. Logout and a
-   tenant switch leave the runtime with one full document navigation through AuthenticationNavigator. *@
+   more than one tenant, and logout. Tenant and user data come from the bootstrap and the tenants client. Logout and the
+   tenant switch run through SessionTransition, which serializes them, reconciles uncertain outcomes and leaves the runtime
+   with one full document navigation; this component only renders its state. *@
 @using Account.Client
-@using Account.Features.Authentication.Requests
-@using Blazor.Client.Bootstrap
 @using SharedKernel.Domain
 @implements IDisposable
 @inject SessionState Session
 @inject IServiceProvider Services
 
-<header class="account-header" data-testid="account-header" data-tenants-state="@(_tenantsLoaded ? "loaded" : "loading")">
+<header class="account-header" data-testid="account-header" data-tenants-state="@(_tenantsLoaded ? "loaded" : "loading")"
+        data-transition-status="@_transition?.Status.ToString().ToLowerInvariant()">
     <nav aria-label="@AccountStrings.UserMenu">
         <a href="@AppUrls.AuthenticatedHome" data-testid="nav-app">@AccountStrings.Workspace</a> |
         <a href="@AppUrls.ToAbsolute("account/users")" data-testid="nav-users">@CommonStrings.Users</a> |
@@ -35,7 +35,7 @@
                     @foreach (var tenant in _tenants)
                     {
                         <li>
-                            <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.TenantId" disabled="@(tenant.IsCurrent || _isSwitching)"
+                            <button type="button" data-testid="switch-tenant" data-tenant-id="@tenant.TenantId" disabled="@(tenant.IsCurrent || IsTransitionBusy)"
                                     aria-current="@(tenant.IsCurrent ? "true" : null)" @onclick="() => SwitchTenantAsync(tenant.TenantId)">
                                 @tenant.Name
                                 @if (tenant.IsCurrent)
@@ -49,30 +49,50 @@
             </nav>
         }
 
-        <button type="button" data-testid="logout" @onclick="LogoutAsync">@AccountStrings.LogOut</button>
+        <button type="button" data-testid="logout" disabled="@IsTransitionBusy" aria-busy="@(_transition?.Status == SessionTransitionStatus.LoggingOut ? "true" : null)"
+                @onclick="LogoutAsync">@AccountStrings.LogOut</button>
+
+        @switch (_transition?.Status)
+        {
+            case SessionTransitionStatus.LogoutFailed:
+                <p role="alert" data-testid="logout-failed">@AccountStrings.LogoutFailed</p>
+                break;
+            case SessionTransitionStatus.LogoutUnconfirmed:
+                <p role="alert" data-testid="logout-unconfirmed">@AccountStrings.LogoutUnconfirmed</p>
+                break;
+        }
     }
 </header>
 
 @code {
 
-    private bool _isSwitching;
     private TenantSwitcherOption[] _tenants = [];
     private bool _tenantsLoaded;
+    private SessionTransition? _transition;
+
+    private bool IsTransitionBusy => _transition?.IsBusy != false;
 
     public void Dispose()
     {
         Session.Changed -= OnSessionChanged;
+        if (_transition is not null) _transition.Changed -= OnSessionChanged;
     }
 
     protected override async Task OnInitializedAsync()
     {
         Session.Changed += OnSessionChanged;
-        var bootstrap = await Session.GetAsync();
-        if (!RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
+        if (RendererInfo.IsInteractive)
+        {
+            _transition = Services.GetRequiredService<SessionTransition>();
+            _transition.Changed += OnSessionChanged;
+        }
+
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
 
         // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
-        var result = await Services.GetRequiredService<TenantsClient>().GetTenantsAsync(Session.RequestsAborted);
-        if (!result.IsSuccess) return;
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetTenantsAsync);
+        if (result is null || !result.IsSuccess) return;
 
         _tenants = TenantSwitcherOptions.Create(result.Value.Tenants, Session.Current?.User?.TenantId);
         _tenantsLoaded = true;
@@ -89,37 +109,18 @@
         _ = InvokeAsync(StateHasChanged);
     }
 
-    // The gateway turns the new session's tokens into cookies. The bootstrap is read again under the new identity, the
-    // validated tenant is remembered as the next login's preference, and the authenticated home is loaded as a new
-    // document, so no state of the previous tenant survives in memory
     private async Task SwitchTenantAsync(TenantId tenantId)
     {
-        _isSwitching = true;
-        var result = await Services.GetRequiredService<AuthenticationClient>().SwitchTenantAsync(new SwitchTenantCommand(tenantId), Session.RequestsAborted);
-        if (!result.IsSuccess)
+        var result = await _transition!.SwitchTenantAsync(tenantId);
+        if (result is { Outcome: TenantSwitchOutcome.Failed, Failure: { } failure })
         {
-            _isSwitching = false;
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
+            Services.GetRequiredService<ApiFailurePresenter>().Present(failure);
         }
-
-        var bootstrap = await Session.RefreshAsync();
-        var navigator = Services.GetRequiredService<AuthenticationNavigator>();
-        if (bootstrap.User?.TenantId is not { } switchedTenantId)
-        {
-            navigator.LeaveForLogin();
-            return;
-        }
-
-        await using var module = await Services.GetRequiredService<IJSRuntime>().InvokeAsync<IJSObjectReference>("import", "./js/preferred-tenant.js");
-        await module.InvokeVoidAsync("remember", PreferredTenant.CookieName, PreferredTenant.Format(switchedTenantId), (long)PreferredTenant.MaxAge.TotalSeconds);
-        navigator.LeaveForAuthenticatedHome();
     }
 
     private async Task LogoutAsync()
     {
-        await Services.GetRequiredService<AuthenticationClient>().LogoutAsync(CancellationToken.None);
-        Services.GetRequiredService<AuthenticationNavigator>().LeaveForLoggedOut();
+        await _transition!.LogoutAsync();
     }
 
 }

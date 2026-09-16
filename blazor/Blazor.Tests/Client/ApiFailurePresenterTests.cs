@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Account.Client;
+using Blazor.Client.Bootstrap;
 using Blazor.Client.Forms;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components.Forms;
@@ -15,6 +16,7 @@ public sealed class ApiFailurePresenterTests
 
     private readonly TestNavigationManager _navigation = new();
     private readonly ToastService _toasts = new();
+    private AuthenticationNavigator? _authenticationNavigator;
 
     [Fact]
     public void Present_WhenFailureHasDetail_ShouldShowErrorToastWithDetail()
@@ -118,9 +120,26 @@ public sealed class ApiFailurePresenterTests
         _toasts.Toasts.Should().ContainSingle().Which.Message.Should().Be("Name is too short. Name is reserved. Email <b>is</b> already in use.");
     }
 
+    [Fact]
+    public void Present_WhenTheSessionHasEnded_ShouldShowNothing()
+    {
+        // Arrange
+        var presenter = CreatePresenter();
+        _authenticationNavigator!.EndSession();
+
+        // Act
+        var failure = presenter.Present(ApiCallOutcome.TransportFailure, new ApiCallProblem(null, null, "The session of this browser runtime has ended.", new Dictionary<string, string[]>(), null));
+
+        // Assert
+        failure.Kind.Should().Be(ApiFailureKind.Message);
+        _toasts.Toasts.Should().BeEmpty();
+        _navigation.Navigations.Should().BeEmpty();
+    }
+
     private ApiFailurePresenter CreatePresenter()
     {
-        return new ApiFailurePresenter(_toasts, _navigation);
+        _authenticationNavigator = new AuthenticationNavigator(_navigation);
+        return new ApiFailurePresenter(_toasts, _navigation, _authenticationNavigator);
     }
 
     private sealed class PresenterForm

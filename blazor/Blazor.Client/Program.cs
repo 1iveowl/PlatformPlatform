@@ -24,6 +24,9 @@ builder.Services.AddScoped<ApiFailurePresenter>();
 // The signed-in user's bootstrap shared by the header and the page component, torn down when the surface is left
 builder.Services.AddScoped<SessionState>();
 
+// Logout and tenant switch, one at a time, for whichever component offers them
+builder.Services.AddScoped<SessionTransition>();
+
 var host = builder.Build();
 
 // Before RunAsync, which loads the satellite resources of the current culture and renders the root components

@@ -19,12 +19,20 @@
 // responses), Brotli bytes on disk of the static files fetched with a 200, uncompressed bytes (decoded bodies of every 200
 // response the page used, from the network or the cache), cached responses, WebAssembly runtime requests (must be zero),
 // first contentful paint and the load event, both in milliseconds from navigation start.
+//
+// Verdict: a case per profile and page (status 200 in Production on every sample, landed on the page itself rather than a
+// redirect, no WebAssembly runtime request and no page error on either load, at least one static asset served from this
+// publish), a case per profile for the enhanced navigation from landing to terms (same document, landed on terms, no runtime
+// request), and with --check-budget a transfer case and a first contentful paint case per page. The result file records the
+// commit, the publish identity and the runner; a run that executed fewer cases than expected fails. The published-security
+// job in .github/workflows/blazor.yml runs the budget check on Chromium for every pull request, push, nightly run and
+// dispatch, and verify-results fails the job when the result is missing, from another commit, incomplete or failed.
 
-import { mkdirSync, statSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { appendFileSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import {
   baseUrl,
+  hostConfiguration,
   isProductionPolicy,
   launchBrowser,
   newContext,
@@ -32,12 +40,16 @@ import {
   pathBase,
   playwrightVersion,
   publishFolder,
+  publishIdentity,
   readPublishedEndpoints,
+  redact,
   resultsFolder,
+  runEnvironment,
   runtimeRequestPattern,
   signUpThroughBlazor,
   startLoginThroughBlazor,
-  startSignupThroughBlazor
+  startSignupThroughBlazor,
+  writeResult
 } from "./support/stack.mjs";
 
 // The public-page budget, frozen from the baseline medians: Chromium, throttled profile, cold load, applied to every public
@@ -55,10 +67,13 @@ const options = parseArguments(process.argv.slice(2), { browser: "chromium", pro
 const sampleCount = Number(options.samples);
 const observeMs = Number(options["observe-ms"]);
 const warmUpSamples = 1;
+const checkBudgetRequested = options["check-budget"] === true;
+if (!(Number.isInteger(sampleCount) && sampleCount > 0)) throw new Error(`--samples must be a positive whole number, not '${options.samples}'.`);
 
 mkdirSync(resultsFolder, { recursive: true });
 const endpointsByRoute = indexPublishedEndpoints();
 const browser = await launchBrowser(options.browser);
+if (!["unthrottled", "throttled", "all"].includes(options.profile)) throw new Error(`Unknown profile '${options.profile}'. Use unthrottled, throttled or all.`);
 const profiles = (options.profile === "all" ? ["unthrottled", "throttled"] : [options.profile]).map((name) => ({
   name,
   available: name === "unthrottled" || options.browser === "chromium"
@@ -70,12 +85,17 @@ const result = {
   browserVersion: browser.version(),
   playwrightVersion,
   baseUrl,
-  device: { platform: `${os.type()} ${os.release()}`, architecture: os.arch(), cpus: os.cpus().length, cpuModel: os.cpus()[0]?.model, memoryGiB: Math.round(os.totalmem() / 2 ** 30) },
-  conditions: { samples: sampleCount, warmUpSamplesDiscarded: warmUpSamples, observeMsAfterLoad: observeMs, throttledProfile, cpuThrottling: "none" },
+  artifact: publishIdentity(),
+  runner: runEnvironment(),
+  conditions: { samples: sampleCount, warmUpSamplesDiscarded: warmUpSamples, observeMsAfterLoad: observeMs, throttledProfile, cpuThrottling: "none", headless: true },
   startedAt: new Date().toISOString(),
   profiles: {}
 };
 const failures = [];
+const cases = [];
+const pageNames = ["landing", "login", "login-verify", "signup", "signup-verify", "terms"];
+const availableProfileCount = profiles.filter((profile) => profile.available).length;
+const expectedCaseCount = availableProfileCount * (pageNames.length + 1) + (checkBudgetRequested ? pageNames.length * 2 : 0);
 
 try {
   const account = await signUpThroughBlazor(browser, options.browser, `pages-${options.browser}-${Date.now()}@example.com`);
@@ -111,27 +131,33 @@ try {
       if (sample >= warmUpSamples) navigationSamples.push(measured);
     }
     const navigation = summarizeNavigation(navigationSamples);
-    if (navigation.runtimeRequests.length > 0) failures.push(`${profile.name} enhanced navigation: WebAssembly runtime requests ${navigation.runtimeRequests.join(", ")}`);
-    if (!navigation.allSameDocument) failures.push(`${profile.name} enhanced navigation: a full document load`);
+    checkNavigation(profile.name, navigation);
     result.profiles[profile.name] = { available: true, pages: pageResults, enhancedNavigationLandingToTerms: navigation };
+    result.hostEnvironment ??= pageResults.landing.document.hostEnvironment;
+    result.buildConfiguration ??= pageResults.landing.document.buildConfiguration;
   }
 
-  if (options["check-budget"] === true) checkBudget();
+  if (checkBudgetRequested) checkBudget();
 } catch (error) {
-  failures.push(String(error.stack ?? error).slice(0, 1_000));
+  failures.push(redact(String(error.stack ?? error)).slice(0, 1_000));
 } finally {
   await browser.close();
 }
 
+result.cases = cases;
 result.failures = failures;
-result.passed = failures.length === 0;
 result.finishedAt = new Date().toISOString();
-const resultFile = path.join(resultsFolder, `public-pages-${options.label}-${options.browser}.json`);
-writeFileSync(resultFile, JSON.stringify(result, null, 2));
+const verdict = writeResult(`public-pages-${options.label}-${options.browser}.json`, result, expectedCaseCount);
 printTable();
-console.log(`${options.browser} ${result.browserVersion} (${options.label}): ${result.passed ? "passed" : `failed: ${failures.join(" ; ")}`}`);
-console.log(`Result file: ${resultFile}`);
-process.exitCode = result.passed ? 0 : 1;
+writeJobSummary(verdict);
+console.log(`${options.browser} ${result.browserVersion} (${options.label}): ${verdict.passed ? "passed" : `failed: ${redact(verdict.failures.join(" ; "))}`}`);
+console.log(`Result file: ${verdict.resultFile}`);
+process.exitCode = verdict.passed ? 0 : 1;
+
+function recordCase(name, problems) {
+  cases.push({ name, passed: problems.length === 0, problems });
+  failures.push(...problems.map((problem) => `${name}: ${problem}`));
+}
 
 function indexPublishedEndpoints() {
   const index = new Map();
@@ -246,6 +272,7 @@ async function collect(log, timeline, loadStartedAt) {
     bodyBytes: sum(fresh, (request) => bodyBytes(request, entriesByUrl.get(request.url))),
     brotliDiskBytes: sum(fresh, (request) => (request.status === 200 ? (endpointsByRoute.get(new URL(request.url).pathname) ?? 0) : 0)),
     freshWithoutBrotliFile: fresh.filter((request) => !endpointsByRoute.has(new URL(request.url).pathname)).map((request) => new URL(request.url).pathname),
+    publishedAssetRequests: fresh.filter((request) => request.status === 200 && endpointsByRoute.has(new URL(request.url).pathname)).length,
     uncompressedBytes: sum(requests, (request) => request.decodedBytes ?? 0),
     runtimeRequests: [...new Set([...runtimeFromTimeline, ...runtimeFromNetwork])],
     firstContentfulPaintMs: timeline.firstContentfulPaintMs,
@@ -273,7 +300,8 @@ async function measurePage(pageDefinition, profileName) {
   const coldResponse = await page.goto(pageDefinition.url, { waitUntil: "load" });
   await page.waitForTimeout(observeMs);
   const cold = await collect(log, await readTimeline(page), startedAt);
-  const coldDocument = { status: coldResponse.status(), finalUrl: page.url(), encoding: (await coldResponse.allHeaders())["content-encoding"] ?? null, productionPolicy: isProductionPolicy(coldResponse.headers()["content-security-policy"]) };
+  const coldPolicy = coldResponse.headers()["content-security-policy"];
+  const coldDocument = { status: coldResponse.status(), finalUrl: page.url(), encoding: (await coldResponse.allHeaders())["content-encoding"] ?? null, productionPolicy: isProductionPolicy(coldPolicy), ...hostConfiguration(coldPolicy) };
 
   page.removeAllListeners("requestfinished");
   page.removeAllListeners("requestfailed");
@@ -337,6 +365,9 @@ function summarize(pageDefinition, samples) {
   return {
     url: pageDefinition.url.replace(baseUrl, ""),
     document: samples[0].cold.document,
+    statuses: [...new Set(samples.flatMap((sample) => [sample.cold.document.status, sample.warm.document.status]))],
+    productionPolicyOnEverySample: samples.every((sample) => sample.cold.document.productionPolicy),
+    minimumPublishedAssetRequests: Math.min(...samples.map((sample) => sample.cold.publishedAssetRequests)),
     finalUrls: [...new Set(samples.flatMap((sample) => [sample.cold.document.finalUrl, sample.warm.document.finalUrl]))],
     cold: summarizeLoad(samples.map((sample) => sample.cold)),
     warm: summarizeLoad(samples.map((sample) => sample.warm))
@@ -351,33 +382,81 @@ function summarizeNavigation(samples) {
   return summary;
 }
 
+// Every sample must render the page itself: a redirect to another page, such as a verification page without its flow state
+// sending the browser back to login, fails even when that other page is light and loads no runtime
 function checkPage(pageName, profileName, summary) {
-  const label = `${profileName} ${pageName}`;
-  if (summary.document.status !== 200) failures.push(`${label}: status ${summary.document.status}`);
-  if (!summary.document.productionPolicy) failures.push(`${label}: the host does not run in Production`);
+  const problems = [];
+  if (summary.statuses.some((status) => status !== 200)) problems.push(`status ${summary.statuses.join(", ")}`);
+  if (!summary.productionPolicyOnEverySample) problems.push("the host does not run in Production");
   const expected = `${baseUrl}${summary.url}`;
-  if (summary.finalUrls.some((url) => url !== expected)) failures.push(`${label}: landed on ${summary.finalUrls.join(", ")}`);
+  if (summary.finalUrls.some((url) => url !== expected)) problems.push(`landed on ${summary.finalUrls.join(", ")}`);
+  if (!(summary.minimumPublishedAssetRequests > 0)) problems.push("no static asset of this publish was fetched on a cold load");
   for (const load of ["cold", "warm"]) {
-    if (summary[load].runtimeRequests.length > 0) failures.push(`${label} ${load}: WebAssembly runtime requests ${summary[load].runtimeRequests.join(", ")}`);
-    if (summary[load].pageErrors.length > 0) failures.push(`${label} ${load}: ${summary[load].pageErrors.length} page errors`);
+    if (summary[load].runtimeRequests.length > 0) problems.push(`${load}: WebAssembly runtime requests ${summary[load].runtimeRequests.join(", ")}`);
+    if (summary[load].pageErrors.length > 0) problems.push(`${load}: ${summary[load].pageErrors.length} page errors`);
   }
+  recordCase(`${profileName} ${pageName}`, problems);
 }
 
+function checkNavigation(profileName, navigation) {
+  const problems = [];
+  const expected = `${baseUrl}${pathBase}/legal/terms`;
+  if (navigation.runtimeRequests.length > 0) problems.push(`WebAssembly runtime requests ${navigation.runtimeRequests.join(", ")}`);
+  if (!navigation.allSameDocument) problems.push("a full document load");
+  if (navigation.finalUrls.some((url) => url !== expected)) problems.push(`landed on ${navigation.finalUrls.join(", ")}`);
+  if (navigation.pageErrors.length > 0) problems.push(`${navigation.pageErrors.length} page errors`);
+  recordCase(`${profileName} enhanced navigation landing to terms`, problems);
+}
+
+// Transfer and first contentful paint are separate cases, so a result shows which of the two a regression broke
 function checkBudget() {
   const throttled = result.profiles.throttled;
   if (options.browser !== "chromium" || !throttled?.available) {
     failures.push("the budget is defined on Chromium with the throttled profile; run with --browser chromium and --profile throttled or all");
     return;
   }
-  result.budget = { ...publicPageBudget, pages: {} };
-  for (const [pageName, summary] of Object.entries(throttled.pages)) {
-    const transferBytes = summary.cold.transferBytes.median;
-    const firstContentfulPaintMs = summary.cold.firstContentfulPaintMs?.median ?? null;
+  result.budget = { ...publicPageBudget, basis: "median of the cold loads, Chromium, throttled profile", pages: {} };
+  for (const pageName of pageNames) {
+    const summary = throttled.pages[pageName];
+    const transferBytes = summary?.cold.transferBytes?.median ?? null;
+    const firstContentfulPaintMs = summary?.cold.firstContentfulPaintMs?.median ?? null;
     result.budget.pages[pageName] = { transferBytes, firstContentfulPaintMs };
-    if (transferBytes > publicPageBudget.transferBytes) failures.push(`budget: ${pageName} transfer median ${transferBytes} > ${publicPageBudget.transferBytes} bytes`);
-    if (firstContentfulPaintMs === null || firstContentfulPaintMs > publicPageBudget.firstContentfulPaintMs)
-      failures.push(`budget: ${pageName} first contentful paint median ${firstContentfulPaintMs} > ${publicPageBudget.firstContentfulPaintMs} ms`);
+    recordCase(
+      `budget transfer ${pageName}`,
+      transferBytes === null ? ["no transfer measurement"] : transferBytes > publicPageBudget.transferBytes ? [`median ${transferBytes} > ${publicPageBudget.transferBytes} bytes`] : []
+    );
+    recordCase(
+      `budget first contentful paint ${pageName}`,
+      firstContentfulPaintMs === null
+        ? ["no first contentful paint measurement"]
+        : firstContentfulPaintMs > publicPageBudget.firstContentfulPaintMs
+          ? [`median ${firstContentfulPaintMs} > ${publicPageBudget.firstContentfulPaintMs} ms`]
+          : []
+    );
   }
+}
+
+// On GitHub, the per-page medians and the verdict go to the job summary next to the uploaded result file
+function writeJobSummary(verdict) {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
+  const lines = [
+    `### Public pages: ${options.browser} ${result.browserVersion}, ${options.label}, ${verdict.passed ? "passed" : "failed"}`,
+    "",
+    `Publish ${result.artifact.clientAssembly}, endpoint manifest ${result.artifact.endpointManifestSha256.slice(0, 12)}; runner ${result.runner.runnerImage ?? result.runner.platform}, ${result.runner.cpus} CPUs; ${sampleCount} samples after ${warmUpSamples} warm-up, ${observeMs} ms observation.`,
+    ""
+  ];
+  if (result.budget) {
+    lines.push(`Budget: ${publicPageBudget.transferBytes} transfer bytes and ${publicPageBudget.firstContentfulPaintMs} ms first contentful paint, ${result.budget.basis}.`, "");
+  }
+  lines.push("| Profile | Page | Cold transfer | Cold FCP | Warm transfer | Runtime requests |", "| --- | --- | --- | --- | --- | --- |");
+  for (const [profileName, profile] of Object.entries(result.profiles)) {
+    if (!profile.available) continue;
+    for (const [pageName, summary] of Object.entries(profile.pages)) {
+      lines.push(`| ${profileName} | ${pageName} | ${summary.cold.transferBytes?.median} | ${summary.cold.firstContentfulPaintMs?.median} | ${summary.warm.transferBytes?.median} | ${summary.cold.runtimeRequests.length + summary.warm.runtimeRequests.length} |`);
+    }
+  }
+  if (!verdict.passed) lines.push("", ...verdict.failures.map((failure) => `- ${redact(failure)}`));
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join("\n")}\n\n`);
 }
 
 function sum(items, selector) {

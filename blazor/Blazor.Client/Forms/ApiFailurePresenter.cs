@@ -5,11 +5,12 @@
 // API text is shown unchanged, in English in every UI culture, and rendered as text.
 
 using Account.Client;
+using Blazor.Client.Bootstrap;
 using Microsoft.AspNetCore.Components;
 
 namespace Blazor.Client.Forms;
 
-public sealed class ApiFailurePresenter(ToastService toastService, NavigationManager navigationManager)
+public sealed class ApiFailurePresenter(ToastService toastService, NavigationManager navigationManager, AuthenticationNavigator authenticationNavigator)
 {
     public const string ErrorToastTestId = "api-failure-toast";
     public const string AntiforgeryToastTestId = "antiforgery-recovery-toast";
@@ -27,6 +28,8 @@ public sealed class ApiFailurePresenter(ToastService toastService, NavigationMan
     public ApiFailure Present(ApiCallOutcome outcome, ApiCallProblem problem, FormErrorMapper? formErrors = null)
     {
         var failure = ApiFailureClassifier.Classify(outcome, problem);
+        if (authenticationNavigator.IsLeaving) return failure;
+
         switch (failure.Kind)
         {
             case ApiFailureKind.FieldValidation when formErrors is not null:

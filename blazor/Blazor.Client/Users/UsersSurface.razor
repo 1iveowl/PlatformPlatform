@@ -105,7 +105,9 @@
             )
         ];
 
-        var bootstrap = await Session.GetAsync();
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null) return;
+
         if (RendererInfo.IsInteractive && !bootstrap.IsAuthenticated)
         {
             Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();
