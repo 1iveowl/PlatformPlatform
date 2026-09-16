@@ -25,6 +25,7 @@ Where code goes in the Blazor edition. The build root `blazor/` holds `Blazor.Ho
    - Browser harness scripts in `blazor/tests/<name>.mjs` with shared helpers in `blazor/tests/support/`, run through `blazor-harness` (see the blazor-publish skill). They cover what a unit test cannot: the policy, navigation, keyboard, culture and timing in three real browsers
    - End-to-end specifications in `blazor/tests/e2e/<feature>-flows.spec.ts` with adapters in `blazor/tests/e2e/support/`, run with the e2e skill and `--blazor`. They follow the end-to-end-tests rule, import `test` from `@blazor/e2e/authentication` and build every URL through `@blazor/e2e/routes`
 9. Rewrite or delete spike code in any file a task touches; a file labelled "Spike code" never survives in the files a task owns.
+10. Treat the imported skills under `.agents/skills/` (`author-component`, `use-js-interop`, `support-prerendering`, `coordinate-components`, `plan-ui-change`, `csharp-refactoring`) as generic Blazor and C# mechanics, invoked only for the mechanism they name. Where they differ from these rules, the rules win: modules live in `wwwroot/js/` and load through the import map, never as collocated `.razor.js` or script elements; data comes through the typed clients and `SessionState`, never `HttpClient`, `[PersistentState]` or a caught `OperationCanceledException`; forms follow the forms-and-validation rule; no token is ever browser-readable; accessible names in both cultures are required, not gold-plating.
 
 ## Examples
 
