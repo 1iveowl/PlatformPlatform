@@ -8,20 +8,51 @@
 // Time to interactive: navigation start to the DOM mutation that turns the page's render-mode text into "Interactive: True",
 // which the WebAssembly component renders once it runs. Cold is a fresh browser context, warm a reload in the same context;
 // one warm-up sample is discarded and medians, minimums and maximums are reported. Unthrottled only.
+//
+// This is a baseline, not a budget: the verdict fails only when a load never becomes interactive, lands on another page than
+// /app or raises a page error, never on a time. The result file records the commit, the publish identity and the runner.
+// The published-security job in .github/workflows/blazor.yml records it on Chromium with the label
+// authenticated-startup-baseline, as a reference for later authenticated surfaces.
 
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { baseUrl, launchBrowser, newContext, parseArguments, pathBase, playwright, playwrightVersion, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
+import { mkdirSync } from "node:fs";
+import {
+  baseUrl,
+  launchBrowser,
+  newContext,
+  parseArguments,
+  pathBase,
+  playwright,
+  playwrightVersion,
+  publishIdentity,
+  redact,
+  resultsFolder,
+  runEnvironment,
+  signUpThroughBlazor,
+  writeResult
+} from "./support/stack.mjs";
 
 const interactiveTimeoutMs = 60_000;
 const warmUpSamples = 1;
 const options = parseArguments(process.argv.slice(2), { browser: "chromium", samples: "7", label: "baseline" });
 const sampleCount = Number(options.samples);
+if (!(Number.isInteger(sampleCount) && sampleCount > 0)) throw new Error(`--samples must be a positive whole number, not '${options.samples}'.`);
+const pageUrl = `${baseUrl}${pathBase}/app`;
 
 mkdirSync(resultsFolder, { recursive: true });
 const browser = options["firefox-preferences"] && options.browser === "firefox" ? await launchFirefoxWithPreferences(options["firefox-preferences"]) : await launchBrowser(options.browser);
-const result = { label: options.label, browser: options.browser, browserVersion: browser.version(), playwrightVersion, firefoxPreferences: options["firefox-preferences"] ?? null, startedAt: new Date().toISOString() };
+const result = {
+  label: options.label,
+  browser: options.browser,
+  browserVersion: browser.version(),
+  playwrightVersion,
+  artifact: publishIdentity(),
+  runner: runEnvironment(),
+  conditions: { samples: sampleCount, warmUpSamplesDiscarded: warmUpSamples, profile: "unthrottled", cpuThrottling: "none", headless: true },
+  firefoxPreferences: options["firefox-preferences"] ?? null,
+  startedAt: new Date().toISOString()
+};
 const failures = [];
+const cases = [];
 
 try {
   const account = await signUpThroughBlazor(browser, options.browser, `interactive-${options.browser}-${Date.now()}@example.com`);
@@ -34,20 +65,23 @@ try {
   result.warm = summarize(samples.map((sample) => sample.warm));
   result.firstSample = samples[0];
   for (const load of ["cold", "warm"]) {
-    if (result[load].timeToInteractiveMs === null) failures.push(`${load}: never interactive`);
-    if (result[load].pageErrors.length > 0) failures.push(`${load}: ${result[load].pageErrors.length} page errors`);
+    const problems = [];
+    if (result[load].interactiveSamples !== sampleCount) problems.push(`${sampleCount - result[load].interactiveSamples} of ${sampleCount} samples never interactive`);
+    if (result[load].finalUrls.some((url) => url !== pageUrl)) problems.push(`landed on ${result[load].finalUrls.join(", ")}`);
+    if (result[load].pageErrors.length > 0) problems.push(`${result[load].pageErrors.length} page errors`);
+    cases.push({ name: `${load} load interactive on /app`, passed: problems.length === 0, problems });
+    failures.push(...problems.map((problem) => `${load}: ${problem}`));
   }
 } catch (error) {
-  failures.push(String(error.stack ?? error).slice(0, 1_000));
+  failures.push(redact(String(error.stack ?? error)).slice(0, 1_000));
 } finally {
   await browser.close();
 }
 
+result.cases = cases;
 result.failures = failures;
-result.passed = failures.length === 0;
 result.finishedAt = new Date().toISOString();
-const resultFile = path.join(resultsFolder, `interactive-load-${options.label}-${options.browser}.json`);
-writeFileSync(resultFile, JSON.stringify(result, null, 2));
+const verdict = writeResult(`interactive-load-${options.label}-${options.browser}.json`, result, 2);
 console.table(
   ["cold", "warm"].map((load) => ({
     load,
@@ -59,9 +93,9 @@ console.table(
     transfer: result[load]?.transferBytes?.median
   }))
 );
-console.log(`${options.browser} ${result.browserVersion} (${options.label}): ${result.passed ? "passed" : `failed: ${failures.join(" ; ")}`}`);
-console.log(`Result file: ${resultFile}`);
-process.exitCode = result.passed ? 0 : 1;
+console.log(`${options.browser} ${result.browserVersion} (${options.label}): ${verdict.passed ? "passed" : `failed: ${redact(verdict.failures.join(" ; "))}`}`);
+console.log(`Result file: ${verdict.resultFile}`);
+process.exitCode = verdict.passed ? 0 : 1;
 
 function launchFirefoxWithPreferences(preferenceList) {
   const firefoxUserPrefs = Object.fromEntries(
@@ -84,11 +118,10 @@ async function measureSample(storageState) {
     }).observe(document, { subtree: true, childList: true, characterData: true });
   });
   const page = await context.newPage();
-  const url = `${baseUrl}${pathBase}/app`;
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(String(error.message).slice(0, 400)));
 
-  await page.goto(url, { waitUntil: "load" });
+  await page.goto(pageUrl, { waitUntil: "load" });
   const cold = await readLoad(page, pageErrors.splice(0));
   await page.reload({ waitUntil: "load" });
   const warm = await readLoad(page, pageErrors.splice(0));
@@ -99,8 +132,9 @@ async function measureSample(storageState) {
 async function readLoad(page, pageErrors) {
   const interactive = await page.waitForFunction(() => typeof window.__interactiveAt === "number", null, { timeout: interactiveTimeoutMs }).then(() => true, () => false);
   // The page loads the tenant list once it runs; a reload while that request is in flight aborts it, which WebKit reports as
-  // a page error of the old document
-  await page.locator('[data-testid="switch-tenant"]').first().waitFor({ timeout: interactiveTimeoutMs }).catch(() => {});
+  // a page error of the old document. The header marks the finished request, since the switcher itself only renders for a user
+  // with more than one tenant
+  await page.locator('[data-testid="account-header"][data-tenants-state="loaded"]').waitFor({ timeout: interactiveTimeoutMs }).catch(() => {});
   const timeline = await page.evaluate(() => {
     const resources = performance.getEntriesByType("resource");
     const navigation = performance.getEntriesByType("navigation")[0];
@@ -149,6 +183,7 @@ function summarize(loads) {
   for (const field of ["timeToInteractiveMs", "loadMs", "lastRuntimeResponseEndMs", "requestCount", "cachedCount", "revalidatedCount", "transferBytes"]) {
     summary[field] = statistics(loads.map((load) => load[field]));
   }
+  summary.interactiveSamples = loads.filter((load) => load.interactive).length;
   summary.finalUrls = [...new Set(loads.map((load) => load.finalUrl))];
   summary.pageErrors = loads.flatMap((load) => load.pageErrors);
   return summary;

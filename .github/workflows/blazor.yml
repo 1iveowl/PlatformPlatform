@@ -210,7 +210,8 @@ jobs:
     name: Published Security Regressions (${{ matrix.browser }})
     needs: publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # The Chromium leg also measures the public pages and the authenticated startup, about ten more minutes
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -327,6 +328,39 @@ jobs:
         run: >-
           dotnet run -- blazor-harness verify-results --browser ${{ matrix.browser }} --label published
           --require "trimmed-smoke-{browser}-en-US,trimmed-smoke-{browser}-da-DK,antiforgery-{browser},authentication-state-{browser},shell-policy-{browser}-production"
+
+      # The frozen public-page budget (200,000 transfer bytes and 300 ms first contentful paint, medians of seven cold loads
+      # after one warm-up on the throttled profile) and zero WebAssembly runtime requests on the six public pages and the
+      # enhanced navigation, against the same publish, on every pull request, push, nightly run and dispatch. The budget is
+      # defined on Chromium only, since Firefox and WebKit have no network throttling in the browser automation library.
+      - name: Check Public-Page Budget
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' && matrix.browser == 'chromium' }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness public-pages --browser chromium --profile throttled --check-budget --label budget
+
+      # A labelled reference for later authenticated surfaces, not a budget: it fails only when the page never becomes interactive
+      - name: Measure Authenticated Startup Baseline
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' && matrix.browser == 'chromium' }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness interactive-load --browser chromium --label authenticated-startup-baseline
+
+      - name: Verify Measurement Results
+        if: ${{ !cancelled() && matrix.browser == 'chromium' }}
+        working-directory: developer-cli
+        run: >-
+          dotnet run -- blazor-harness verify-results --browser chromium --label measurements
+          --require "public-pages-budget-{browser},interactive-load-authenticated-startup-baseline-{browser}"
+
+      - name: Upload Measurements
+        if: ${{ !cancelled() && matrix.browser == 'chromium' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: public-page-budget-${{ github.sha }}
+          path: |
+            .workspace/blazor-tests/public-pages-budget-chromium.json
+            .workspace/blazor-tests/interactive-load-authenticated-startup-baseline-chromium.json
+            .workspace/blazor-tests/security-matrix-chromium-measurements.json
+          if-no-files-found: error
 
       # Results only: browser traces hold cookies and typed one-time passwords, so they stay on the runner
       - name: Upload Security Results

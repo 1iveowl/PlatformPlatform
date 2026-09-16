@@ -5,6 +5,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import { X509Certificate, createHash } from "node:crypto";
 import tls from "node:tls";
@@ -198,6 +199,34 @@ export function writeResult(fileName, result, expectedCaseCount) {
 export function readPublishedEndpoints() {
   const manifest = JSON.parse(readFileSync(path.join(publishFolder, "Blazor.Host.staticwebassets.endpoints.json"), "utf8"));
   return manifest.Endpoints;
+}
+
+// Identifies the publish a measurement ran against: the content-fingerprinted Blazor.Client assembly route and a hash of the
+// endpoint manifest, which changes whenever any published static asset changes
+export function publishIdentity() {
+  const manifestFile = path.join(publishFolder, "Blazor.Host.staticwebassets.endpoints.json");
+  const clientRoutes = readPublishedEndpoints()
+    .map((endpoint) => endpoint.Route)
+    .filter((route) => /^_framework\/Blazor\.Client\.[a-z0-9]+\.wasm$/.test(route));
+  return { clientAssembly: [...new Set(clientRoutes)].join(", ") || null, endpointManifestSha256: createHash("sha256").update(readFileSync(manifestFile)).digest("hex") };
+}
+
+// Where a measurement ran: the GitHub Actions runner when there is one, and the machine either way
+export function runEnvironment() {
+  const environment = process.env;
+  return {
+    githubActions: environment.GITHUB_ACTIONS === "true",
+    runnerEnvironment: environment.RUNNER_ENVIRONMENT ?? null,
+    runnerOs: environment.RUNNER_OS ?? null,
+    runnerArchitecture: environment.RUNNER_ARCH ?? null,
+    runnerImage: environment.ImageOS ? `${environment.ImageOS} ${environment.ImageVersion ?? ""}`.trim() : null,
+    workflowRun: environment.GITHUB_RUN_ID ? `${environment.GITHUB_REPOSITORY}/actions/runs/${environment.GITHUB_RUN_ID} attempt ${environment.GITHUB_RUN_ATTEMPT}` : null,
+    platform: `${os.type()} ${os.release()}`,
+    architecture: os.arch(),
+    cpus: os.cpus().length,
+    cpuModel: os.cpus()[0]?.model ?? null,
+    memoryGiB: Math.round(os.totalmem() / 2 ** 30)
+  };
 }
 
 // Reads the one-time password the account API mailed, the way a user would, instead of any debug-only shortcut
