@@ -93,12 +93,23 @@ public static class WorkerHostComposition
 
         public void Dispose()
         {
-            foreach (var subscription in _listenerSubscriptions) subscription.Dispose();
+            foreach (var subscription in _listenerSubscriptions)
+            {
+                subscription.Dispose();
+            }
         }
 
         void IObserver<DiagnosticListener>.OnNext(DiagnosticListener listener)
         {
             if (listener.Name == HostingDiagnosticListenerName) _listenerSubscriptions.Add(listener.Subscribe(this));
+        }
+
+        void IObserver<DiagnosticListener>.OnCompleted()
+        {
+        }
+
+        void IObserver<DiagnosticListener>.OnError(Exception error)
+        {
         }
 
         void IObserver<KeyValuePair<string, object?>>.OnNext(KeyValuePair<string, object?> hostingEvent)
@@ -126,14 +137,6 @@ public static class WorkerHostComposition
                 Host = host;
                 throw new HostBuiltSignal();
             }
-        }
-
-        void IObserver<DiagnosticListener>.OnCompleted()
-        {
-        }
-
-        void IObserver<DiagnosticListener>.OnError(Exception error)
-        {
         }
 
         void IObserver<KeyValuePair<string, object?>>.OnCompleted()

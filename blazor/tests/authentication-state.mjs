@@ -11,12 +11,28 @@
 // 4. Logout: the client posts the logout and loads the login page as a new document; of the authentication cookies only
 //    the antiforgery cookie is left.
 //
+// 5. Invalid credentials: a malformed access cookie gives a 401 bootstrap through the gateway, never the anonymous one.
+// 6. Isolation: two users loading their authenticated page and bootstrap at the same time each receive only their own
+//    identity, the documents and bootstrap are not stored, and no token header reaches the browser.
+//
+// Every run writes its host configuration (environment and build) into the result; the Production evidence comes from the
+// trimmed publish served by blazor-serve, and a run against the AppHost's Development host is a separate check.
+//
 // Prerequisites: the AppHost stack running through the aspire-restart skill, with the Blazor host resource started.
 // Run: dotnet run --project developer-cli -- blazor-harness authentication-state --browser chromium
 
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { baseUrl, launchBrowser, newContext, parseArguments, pathBase, readOneTimePassword, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
+import {
+  baseUrl,
+  launchBrowser,
+  newContext,
+  parseArguments,
+  pathBase,
+  probeHostConfiguration,
+  readOneTimePassword,
+  redact,
+  signUpThroughBlazor,
+  writeResult
+} from "./support/stack.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const accessCookieName = "__Host-access-token";
@@ -26,19 +42,23 @@ const bootstrapPath = "/api/account/bootstrap";
 const interactiveTimeoutMs = 60_000;
 // The account API accepts a token up to 5 seconds past its expiry; the margin covers that and clock differences
 const expiryMarginMs = 15_000;
+// Headers the gateway and the account API use to pass tokens between themselves; none may reach a browser
+const tokenHeaderNames = ["x-access-token", "x-refresh-token"];
+const expectedCaseCount = 7;
 
 const browser = await launchBrowser(options.browser);
 const results = [];
+const hostConfiguration = await probeHostConfiguration(browser, options.browser);
 const stamp = `${options.browser}-${Date.now()}`;
 
 async function check(name, action) {
   try {
     const detail = await action();
     results.push({ name, passed: true, detail });
-    console.log(`PASS ${name}${detail ? `: ${JSON.stringify(detail)}` : ""}`);
+    console.log(redact(`PASS ${name}${detail ? `: ${JSON.stringify(detail)}` : ""}`));
   } catch (error) {
     results.push({ name, passed: false, detail: error.message });
-    console.log(`FAIL ${name}: ${error.message}`);
+    console.log(redact(`FAIL ${name}: ${error.message}`));
   }
 }
 
@@ -56,7 +76,7 @@ function inPageFetch(page, url, init = {}) {
       try {
         json = JSON.parse(text);
       } catch {}
-      return { status: response.status, reason: response.headers.get("x-unauthorized-reason"), cacheControl: response.headers.get("cache-control"), text, json };
+      return { status: response.status, headerNames: [...response.headers.keys()], reason: response.headers.get("x-unauthorized-reason"), cacheControl: response.headers.get("cache-control"), text, json };
     },
     { url, init }
   );
@@ -157,6 +177,53 @@ await check("access cookie removed with a valid refresh cookie gives an authenti
   return { cookies: namesAfter };
 });
 
+await check("malformed access token with a valid refresh cookie gives a 401 bootstrap through the gateway, not the anonymous bootstrap", async () => {
+  const anonymousContext = await newContext(browser, options.browser);
+  const anonymousPage = await anonymousContext.newPage();
+  await anonymousPage.goto(`${baseUrl}${pathBase}/login`, { waitUntil: "load" });
+  const anonymous = await inPageFetch(anonymousPage, bootstrapPath);
+  await anonymousContext.close();
+
+  // The gateway reads the access cookie only beside a refresh cookie, so the malformed token rides on a real session
+  const context = await newContext(browser, options.browser);
+  const page = await logIn(context, userB);
+  await context.addCookies([{ name: accessCookieName, value: "eyJhbGciOiJSUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.bm90LWEtc2lnbmF0dXJl", url: baseUrl, secure: true, httpOnly: true }]);
+  const malformed = await inPageFetch(page, bootstrapPath);
+  await context.close();
+  assert(anonymous.status === 200 && anonymous.json?.isAuthenticated === false, `Anonymous bootstrap: ${anonymous.status} ${anonymous.json?.isAuthenticated}.`);
+  assert(malformed.status === 401, `Bootstrap with a malformed access token returned ${malformed.status}, not 401.`);
+  assert(malformed.json?.isAuthenticated === undefined, "Bootstrap with a malformed access token returned a bootstrap body.");
+  return { anonymous: anonymous.status, malformed: malformed.status, reason: malformed.reason };
+});
+
+await check("two users at the same time get only their own identity, no stored document or bootstrap and no token header", async () => {
+  const users = [];
+  for (const email of [userA, userB]) {
+    const context = await newContext(browser, options.browser);
+    users.push({ email, context, page: await logIn(context, email) });
+  }
+  const loads = await Promise.all(
+    users.map(async (user) => {
+      const documentPage = await user.context.newPage();
+      const [documentResponse, bootstrap] = await Promise.all([documentPage.goto(`${baseUrl}${pathBase}/app`, { waitUntil: "commit" }), inPageFetch(user.page, bootstrapPath)]);
+      return { user, documentStatus: documentResponse.status(), documentHeaders: await documentResponse.allHeaders(), documentText: await documentResponse.text(), bootstrap };
+    })
+  );
+  for (const user of users) await user.context.close();
+
+  for (const { user, documentStatus, documentHeaders, documentText, bootstrap } of loads) {
+    const other = users.find((candidate) => candidate !== user).email;
+    assert(documentStatus === 200, `The authenticated page for ${user.email} returned ${documentStatus}.`);
+    assert(documentHeaders["cache-control"]?.includes("no-store"), `The authenticated page Cache-Control is ${documentHeaders["cache-control"]}.`);
+    assert(bootstrap.status === 200 && bootstrap.json.user?.email === user.email, `Bootstrap for ${user.email} named ${bootstrap.json?.user?.email}.`);
+    assert(bootstrap.cacheControl?.includes("no-store"), `Bootstrap Cache-Control is ${bootstrap.cacheControl}.`);
+    assert(!documentText.includes(other) && !bootstrap.text.includes(other), `The response for ${user.email} contains the other user.`);
+    const leaked = tokenHeaderNames.filter((name) => name in documentHeaders || bootstrap.headerNames.includes(name));
+    assert(leaked.length === 0, `Token headers reached the browser: ${leaked.join(", ")}.`);
+  }
+  return { users: loads.length, checkedHeaders: tokenHeaderNames };
+});
+
 const tenantSwitch = {};
 await check("tenant switch changes the bootstrap tenant with a new document and survives a reload", async () => {
   const contextB = await newContext(browser, options.browser, signedUpB.storageState);
@@ -246,6 +313,6 @@ await check("revoked session after access token expiry: 401 with reason, error p
 
 await browser.close();
 
-mkdirSync(resultsFolder, { recursive: true });
-writeFileSync(path.join(resultsFolder, `authentication-state-${options.browser}.json`), JSON.stringify({ browser: options.browser, results }, null, 2));
-if (results.some((result) => !result.passed)) process.exit(1);
+const verdict = writeResult(`authentication-state-${options.browser}.json`, { browser: options.browser, culture: "en-US", ...hostConfiguration, results }, expectedCaseCount);
+console.log(`Result file: ${verdict.resultFile}`);
+if (!verdict.passed) process.exit(1);

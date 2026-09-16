@@ -7,7 +7,8 @@
 // checks that the Development-only probe page is not reachable. Each run writes a JSON result file under
 // .workspace/blazor-tests/ and exits non-zero when a case fails.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
+import { redact, writeResult } from "./support/stack.mjs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -38,6 +39,7 @@ const result = {
   browser: options.browser,
   browserVersion: browser.version(),
   environment: options.environment,
+  culture: "en-US",
   playwrightVersion: requireFromApplication("playwright/package.json").version,
   baseUrl,
   startedAt: new Date().toISOString(),
@@ -63,11 +65,14 @@ try {
 }
 
 result.finishedAt = new Date().toISOString();
-const resultFile = path.join(resultsFolder, `shell-policy-${options.browser}-${options.environment}.json`);
-writeFileSync(resultFile, JSON.stringify(result, null, 2));
-console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: value.failures.join(" ; ") })));
-console.log(`${options.browser} ${result.browserVersion} (${options.environment})\nResult file: ${resultFile}`);
-process.exitCode = Object.values(result.cases).every((value) => value.passed) ? 0 : 1;
+// The Development run drives the Development-only fixture pages and signs up with the development verification code, so it
+// is a fixture check and never Production evidence; the Production run checks that those pages are not reachable
+result.hostConfiguration = options.environment === "production" ? "Production host, expected to be the trimmed publish served by blazor-serve" : "Development host run by the AppHost (fixture check)";
+const expectedCaseCount = options.environment === "production" ? 1 : 7;
+const verdict = writeResult(`shell-policy-${options.browser}-${options.environment}.json`, result, expectedCaseCount);
+console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: redact(value.failures.join(" ; ")) })));
+console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
+process.exitCode = verdict.passed ? 0 : 1;
 
 function parseArguments(argumentList) {
   const parsed = { browser: "chromium", environment: "development" };

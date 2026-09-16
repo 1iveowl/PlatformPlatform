@@ -95,7 +95,7 @@ public sealed class StackReadinessTests
     public void WaitUntilReady_WhenAppHostExitsAfterStarting_ShouldFailWithNonZeroExitCode()
     {
         // Arrange
-        var snapshots = new[] { Snapshot(gatewayStatus: null), Snapshot(appHostRunning: false) };
+        var snapshots = new[] { Snapshot(gatewayStatus: null), Snapshot(false) };
 
         // Act
         var result = Wait(snapshots);

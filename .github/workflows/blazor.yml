@@ -1,6 +1,6 @@
 name: Blazor
 
-# The smoke job starts the whole AppHost stack, so the path filters cover everything that stack builds or runs: the
+# The security regression jobs start the whole AppHost stack, so the path filters cover everything that stack builds or runs: the
 # account and main systems, the gateway, the React build the gateway waits for, and the shared props, package and SDK files.
 on:
   push:
@@ -47,7 +47,19 @@ on:
       - "developer-cli/**"
       - ".github/workflows/blazor.yml"
       - "!**.md"
+  # Firefox and WebKit run the security regressions nightly on main, and are required on the final stage candidate: dispatch
+  # the workflow on that commit with browsers set to all. Pull requests and pushes run them in Chromium.
+  schedule:
+    - cron: "0 2 * * *"
   workflow_dispatch:
+    inputs:
+      browsers:
+        description: "Browsers for the security regressions: chromium, or all for the final stage candidate"
+        type: choice
+        options:
+          - chromium
+          - all
+        default: chromium
 
 concurrency:
   group: blazor-${{ github.ref }}
@@ -194,11 +206,15 @@ jobs:
         working-directory: developer-cli
         run: dotnet run -- blazor-publish
 
-  smoke:
-    name: Trimmed Smoke Test
+  published-security:
+    name: Published Security Regressions (${{ matrix.browser }})
     needs: publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: ${{ fromJSON((github.event_name == 'schedule' || inputs.browsers == 'all') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
 
     steps:
       - name: Checkout Code
@@ -228,9 +244,9 @@ jobs:
         working-directory: application
         run: npm ci
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright Browser
         working-directory: application
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Generate and Set User Secret for Token Signing Key
         working-directory: application/shared-kernel/SharedKernel
@@ -260,6 +276,7 @@ jobs:
         run: dotnet run -- blazor-publish
 
       - name: Serve Published Host Behind the Gateway
+        id: serve
         working-directory: developer-cli
         run: |
           nohup dotnet run -- blazor-serve > "$GITHUB_WORKSPACE/.workspace/blazor-serve.log" 2>&1 &
@@ -277,31 +294,54 @@ jobs:
           cat "$GITHUB_WORKSPACE/.workspace/blazor-serve.log"
           exit 1
 
-      - name: Run Trimmed Smoke Test
+      # Each regression runs even when an earlier one failed, so one run records the whole matrix. The published host runs
+      # in Production from the trimmed Release publish, and every journey signs in with the code read from the test mail server.
+      - name: Run Trimmed Smoke Test (en-US)
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
         working-directory: developer-cli
-        run: dotnet run -- blazor-harness trimmed-smoke --browser chromium
+        run: dotnet run -- blazor-harness trimmed-smoke --browser ${{ matrix.browser }} --culture en-US
 
-      - name: Upload Smoke Result
-        if: always()
+      - name: Run Trimmed Smoke Test (da-DK)
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness trimmed-smoke --browser ${{ matrix.browser }} --culture da-DK
+
+      - name: Run Antiforgery Regressions
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness antiforgery --browser ${{ matrix.browser }}
+
+      - name: Run Authentication State Regressions
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness authentication-state --browser ${{ matrix.browser }}
+
+      - name: Run Production Shell Policy
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness shell-policy --browser ${{ matrix.browser }} --environment production
+
+      - name: Verify Security Matrix
+        if: ${{ !cancelled() }}
+        working-directory: developer-cli
+        run: >-
+          dotnet run -- blazor-harness verify-results --browser ${{ matrix.browser }} --label published
+          --require "trimmed-smoke-{browser}-en-US,trimmed-smoke-{browser}-da-DK,antiforgery-{browser},authentication-state-{browser},shell-policy-{browser}-production"
+
+      # Results only: browser traces hold cookies and typed one-time passwords, so they stay on the runner
+      - name: Upload Security Results
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: trimmed-smoke-result
-          path: .workspace/blazor-tests/trimmed-smoke-chromium.json
-          if-no-files-found: ignore
-
-      - name: Upload Browser Trace
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: trimmed-smoke-trace
-          path: .workspace/blazor-tests/trimmed-smoke-chromium*-trace.zip
-          if-no-files-found: ignore
+          name: published-security-${{ matrix.browser }}
+          path: .workspace/blazor-tests/*.json
+          if-no-files-found: error
 
       - name: Upload Process Logs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: trimmed-smoke-logs
+          name: published-security-logs-${{ matrix.browser }}
           path: |
             .workspace/developer-cli/aspire-apphost.log
             .workspace/blazor-serve.log
@@ -313,3 +353,94 @@ jobs:
         run: |
           pkill -f "Blazor.Host.dll" || true
           dotnet run -- stop
+
+  development-shell-policy:
+    name: Development Shell Policy Fixture Check (${{ matrix.browser }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: ${{ fromJSON((github.event_name == 'schedule' || inputs.browsers == 'all') && '["chromium","firefox","webkit"]' || '["chromium"]') }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Read .NET SDK Versions
+        id: sdk_versions
+        run: |
+          # blazor/, application/ and developer-cli/ each pin an SDK in their own global.json, and the CLI runs commands in all three
+          {
+            echo "versions<<EOF"
+            jq -r '.sdk.version' blazor/global.json application/global.json developer-cli/global.json | sort -u
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ steps.sdk_versions.outputs.versions }}
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: application/.node-version
+
+      - name: Install Node Modules
+        working-directory: application
+        run: npm ci
+
+      - name: Install Playwright Browser
+        working-directory: application
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Generate and Set User Secret for Token Signing Key
+        working-directory: application/shared-kernel/SharedKernel
+        run: |
+          # Extract UserSecretsId from the .csproj file
+          USER_SECRETS_ID=$(grep -oP '(?<=<UserSecretsId>).*?(?=</UserSecretsId>)' SharedKernel.csproj)
+
+          # A disposable 512-bit key for this run
+          dotnet user-secrets set "authentication-token-signing-key" "$(openssl rand -base64 64)" --id $USER_SECRETS_ID
+
+      - name: Prepare Local Host Names and Certificate Trust
+        run: |
+          echo "127.0.0.1 app.dev.localhost back-office.dev.localhost" | sudo tee -a /etc/hosts
+          echo "SSL_CERT_DIR=$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs" >> "$GITHUB_ENV"
+
+      # The AppHost runs the Debug build of the Blazor host in Development, which serves the Development-only fixture pages.
+      # This is a fixture check of the policy and is never Production evidence; the published job holds that.
+      - name: Start Stack on a Fresh Database With the Development Blazor Host
+        working-directory: developer-cli
+        run: dotnet run -- start-stack --fresh-database --timeout 1200
+
+      - name: Run Development Shell Policy
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness shell-policy --browser ${{ matrix.browser }}
+
+      - name: Verify Fixture Result
+        if: ${{ !cancelled() }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness verify-results --browser ${{ matrix.browser }} --label development --require "shell-policy-{browser}-development"
+
+      - name: Upload Fixture Results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: development-shell-policy-${{ matrix.browser }}
+          path: .workspace/blazor-tests/*.json
+          if-no-files-found: error
+
+      - name: Upload Process Logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: development-shell-policy-logs-${{ matrix.browser }}
+          path: .workspace/developer-cli/aspire-apphost.log
+          if-no-files-found: ignore
+
+      - name: Stop Stack
+        if: always()
+        working-directory: developer-cli
+        run: dotnet run -- stop
