@@ -44,14 +44,11 @@ private async Task StartAsync()
 ### Example 2 - An Interactive Read and Write
 
 ```csharp
-// ✅ DO: a 401 is handled by the chain, so a failed read returns quietly (blazor/Blazor.Client/AuthenticatedApp.razor)
-private async Task LoadTenantsAsync()
-{
-    var result = await GetService<TenantsClient>().GetTenantsAsync(CancellationToken.None);
-    if (!result.IsSuccess) return;
+// ✅ DO: a 401 is handled by the chain, so a failed read returns quietly (blazor/Blazor.Client/Session/AccountHeader.razor)
+var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetTenantsAsync);
+if (result is null || !result.IsSuccess) return;
 
-    _tenants = result.Value.Tenants.Select(tenant => new TenantOption(tenant.TenantId, tenant.TenantName)).ToArray();
-}
+_tenants = TenantSwitcherOptions.Create(result.Value.Tenants, Session.Current?.User?.TenantId);
 
 // ✅ DO: a route with escaped values lives in the client project (application/account/Client/AccountApiRoutes.cs)
 public static string ChangeUserRole(UserId userId)

@@ -114,6 +114,12 @@ These rules outline the structure, patterns, and best practices for writing end-
     - Manual cleanup steps are unnecessary—focus on test clarity over micro-optimizations
     - End-to-End test suites have minimal memory leak concerns due to their limited scope and duration
 
+14. Cultures and selectors in a build root that ships more than one culture (the Blazor build root, `blazor/tests/e2e/`):
+    - Run each culture as a Playwright project defined in the root's Playwright configuration (the culture's `locale` in the project's `use`), never as a loop around `test.describe` or a `test.use({ locale })` inside a spec file
+    - The file limit in rule 4 still holds per file: one `@smoke` and one `@comprehensive` test, with `@slow` tests allowed in addition as the approved third tag; the culture projects run each of them once per culture
+    - Resolve accessible names through the per-culture text map (`blazor/tests/e2e/support/texts.ts` for the Blazor root), keyed by the culture of the running project; never type a localized name in a spec. Error messages returned by the account API are shown in English in every culture and are asserted as returned
+    - Use a test id only for an element with no accessible role or name; every other selector is `getByRole`, `getByLabel` or `getByText` with a name from the text map
+
 ## Examples
 
 ### Dropdown Menu Clicks
