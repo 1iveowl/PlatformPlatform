@@ -10,16 +10,23 @@ public static class AccountApiRegistration
     extension(IServiceCollection services)
     {
         // A 401 from an API path ends the session in this runtime; every response reports the evaluated feature flags;
-        // state-changing calls carry the bootstrap antiforgery token; every call names the UI culture as X-Locale
+        // state-changing calls carry the bootstrap antiforgery token; every call names the UI culture as X-Locale; closest
+        // to the network, a logout or tenant switch holds back competing writes and discards what arrives after it ended
         public IServiceCollection AddAccountApiClients(Uri baseAddress, Func<HttpMessageHandler> createPrimaryHandler)
         {
             services.AddScoped<AuthenticationNavigator>();
             services.AddScoped<FeatureFlagState>();
             services.AddScoped<BootstrapAntiforgeryTokenSource>();
+            services.AddScoped<SessionTransitionGate>();
             services.AddScoped(serviceProvider =>
                 {
                     var localeHeaderHandler = LocaleHeaderHandler.FromCurrentUiCulture();
-                    localeHeaderHandler.InnerHandler = createPrimaryHandler();
+                    localeHeaderHandler.InnerHandler = new SessionTransitionHandler(
+                        serviceProvider.GetRequiredService<SessionTransitionGate>(), serviceProvider.GetRequiredService<AuthenticationNavigator>()
+                    )
+                    {
+                        InnerHandler = createPrimaryHandler()
+                    };
                     var unauthorizedResponseHandler = new UnauthorizedResponseHandler(serviceProvider.GetRequiredService<AuthenticationNavigator>())
                     {
                         InnerHandler = new FeatureFlagsHeaderHandler(serviceProvider.GetRequiredService<FeatureFlagState>())

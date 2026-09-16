@@ -63,7 +63,7 @@ public sealed class WebAssemblyAccountApiTests
     }
 
     [Fact]
-    public async Task GetBootstrap_WhenSessionIsRevoked_ShouldResetStateAndNavigateToErrorPageOnce()
+    public async Task GetBootstrap_WhenSessionIsRevoked_ShouldResetStateNavigateToErrorPageOnceAndRefuseLaterReads()
     {
         // Arrange
         var responses = new Queue<HttpResponseMessage>([CreateBootstrapResponse(), CreateUnauthorizedResponse("Revoked"), CreateUnauthorizedResponse("Revoked")]);
@@ -75,11 +75,12 @@ public sealed class WebAssemblyAccountApiTests
 
         // Act
         var first = await bootstrapSource.GetAsync();
-        var second = await bootstrapSource.GetAsync();
+        var second = () => bootstrapSource.GetAsync();
 
         // Assert
         first.IsAuthenticated.Should().BeFalse();
-        second.IsAuthenticated.Should().BeFalse();
+        await second.Should().ThrowAsync<InvalidOperationException>().WithMessage("*TransportFailure*");
+        network.Requests.Should().HaveCount(2);
         var featureFlagState = services.GetRequiredService<FeatureFlagState>();
         featureFlagState.UserId.Should().BeNull();
         featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures).Should().BeFalse();
