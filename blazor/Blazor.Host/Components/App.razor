@@ -2,7 +2,7 @@
 @* The host page. HostShell.ApplyPageHeadersAsync serves it with no-store, like every component page, because it carries a
    per-request nonce and an authenticated route prerenders for the requesting user, so no cache may share the document
    between visitors; identity reaches the client through the bootstrap endpoint. The per-request nonce is only on the
-   import map, the stylesheet links and the three scripts, none of which enhanced navigation re-inserts. Every URL is
+   import map, the stylesheet links and the four scripts, none of which enhanced navigation re-inserts. Every URL is
    root-absolute through AppUrls, because base-uri 'none' makes the browser ignore <base href>. *@
 @inject HostShell Shell
 
@@ -14,7 +14,8 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <meta name="theme-color" content="@Shell.Brand.ThemeColorLight"/>
+    @* theme.js switches the content to the applied theme's color *@
+    <meta name="theme-color" content="@Shell.Brand.ThemeColorLight" data-light="@Shell.Brand.ThemeColorLight" data-dark="@Shell.Brand.ThemeColorDark"/>
     <title>@Shell.Brand.ProductName</title>
     <link rel="manifest" href="@AppUrls.ToAbsolute(HostShell.ManifestPath)"/>
     @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce *@
@@ -26,6 +27,8 @@
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["_content/Microsoft.FluentUI.AspNetCore.Components/css/default-fuib.css"])" nonce="@_nonce"/>
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["app.css"])" nonce="@_nonce"/>
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["Blazor.Host.styles.css"])" nonce="@_nonce"/>
+    @* Parser-blocking, after the stylesheets, so the stored theme is applied as data-theme before first paint on every page *@
+    <script src="@AppUrls.ToAbsolute(Assets["js/theme.js"])" nonce="@_nonce"></script>
     <ImportMap ImportMapDefinition="_importMap" nonce="@_nonce"/>
     <HeadOutlet/>
 </head>

@@ -1,0 +1,23 @@
+@* The not-found or error page inside the authenticated shell, hosted by the server-rendered NotFound and Error pages when
+   the request carries a session. Without Error it is the not-found page. The parameters are serializable values, because
+   a render fragment cannot cross from the server-rendered page into the WebAssembly component. For the page the exception
+   handler re-executes, the framework ignores interactive render modes, so the shell renders statically there: the sidebar,
+   navigation and the error page's own actions, without the user menu. *@
+
+<AppShell>
+    @if (Error is { } error)
+    {
+        <ErrorContent View="error"/>
+    }
+    else
+    {
+        <NotFoundContent HomeUrl="@AppUrls.AuthenticatedHome"/>
+    }
+</AppShell>
+
+@code {
+
+    [Parameter]
+    public ErrorPageView? Error { get; set; }
+
+}

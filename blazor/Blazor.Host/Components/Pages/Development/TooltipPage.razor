@@ -1,0 +1,12 @@
+@* Development-only fixture for the in-house Tooltip, maintained for the browser harness in blazor/tests. The page hosts the
+   WebAssembly fixture component. Outside Development the request returns 404 before rendering. *@
+@page "/development/tooltip"
+@using Blazor.Host.Shell
+@attribute [DevelopmentOnly]
+@attribute [InteractiveSurface]
+
+<PageTitle>Tooltip</PageTitle>
+
+<h1>Tooltip</h1>
+
+<Blazor.Client.Development.TooltipFixture @rendermode="InteractiveWebAssembly"/>

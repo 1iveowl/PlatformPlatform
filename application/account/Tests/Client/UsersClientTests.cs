@@ -116,6 +116,24 @@ public sealed class UsersClientTests
     }
 
     [Fact]
+    public async Task ChangeThemeAsync_WhenCalled_ShouldPutServerJsonToChangeThemeRoute()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.ChangeThemeAsync(new ChangeThemeCommand("system", "dark", "dark"), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Put);
+        request.PathAndQuery.Should().Be("/api/account/users/me/change-theme");
+        request.Body.Should().Be(SerializeServerCommand(new ServerCommands.ChangeThemeCommand("system", "dark", "dark")));
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task ChangeUserRoleAsync_WhenCalled_ShouldPutServerJsonToUserRoute()
     {
         // Arrange

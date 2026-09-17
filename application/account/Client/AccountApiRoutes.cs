@@ -25,6 +25,8 @@ public static class AccountApiRoutes
 
     public const string BulkDeleteUsers = "/api/account/users/bulk-delete";
 
+    public const string ChangeTheme = "/api/account/users/me/change-theme";
+
     public const string Tenants = "/api/account/tenants";
 
     public const string CurrentTenant = "/api/account/tenants/current";

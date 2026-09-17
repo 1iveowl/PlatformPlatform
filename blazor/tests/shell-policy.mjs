@@ -59,6 +59,8 @@ try {
     result.cases.workerSource = await runWorkerSource(account);
     result.cases.formAction = await runFormAction(account);
     result.cases.manifest = await runManifest();
+    // Last, because it logs the account out
+    result.cases.theme = await runTheme(account);
   }
 } finally {
   await browser.close();
@@ -68,7 +70,7 @@ result.finishedAt = new Date().toISOString();
 // The Development run drives the Development-only fixture pages and signs up with the development verification code, so it
 // is a fixture check and never Production evidence; the Production run checks that those pages are not reachable
 result.hostConfiguration = options.environment === "production" ? "Production host, expected to be the trimmed publish served by blazor-serve" : "Development host run by the AppHost (fixture check)";
-const expectedCaseCount = options.environment === "production" ? 1 : 7;
+const expectedCaseCount = options.environment === "production" ? 1 : 8;
 const verdict = writeResult(`shell-policy-${options.browser}-${options.environment}.json`, result, expectedCaseCount);
 console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: redact(value.failures.join(" ; ")) })));
 console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
@@ -369,6 +371,102 @@ async function runFormAction(account) {
   }
   if (!verification.callbackRequests?.length) failures.push(`MitId verification: callback not reached (status ${verification.startStatus})`);
   return outcome({ starts, verification }, failures);
+}
+
+// The theme module on a public page and an authenticated page: the stored mode is applied as data-theme before <body> is
+// parsed (so before any content can paint), the choice made on the public navigation survives a reload, an enhanced
+// navigation and a new tab, the choice made in the user menu is reported to the account API and survives a reload and
+// logout, the theme-color meta follows it, nothing writes a style attribute in <body>, and no document reports a violation
+async function runTheme(account) {
+  const failures = [];
+  const details = {};
+  const recordThemeAtBody = () => {
+    new MutationObserver((_, observer) => {
+      if (!document.body) return;
+      window.__themeWhenBodyParsed = document.documentElement.dataset.theme ?? null;
+      observer.disconnect();
+    }).observe(document, { childList: true, subtree: true });
+  };
+  const readTheme = (page) =>
+    page.evaluate(() => {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      return {
+        whenBodyParsed: window.__themeWhenBodyParsed ?? null,
+        theme: document.documentElement.dataset.theme ?? null,
+        mode: document.documentElement.dataset.themeMode ?? null,
+        metaFollows: meta?.content === (document.documentElement.dataset.theme === "dark" ? meta?.dataset.dark : meta?.dataset.light),
+        styledBodyElements: document.body.querySelectorAll("[style]").length
+      };
+    });
+  const expectTheme = (label, state, expected, { atBody = true } = {}) => {
+    details[label] = state;
+    if (state.theme !== expected) failures.push(`${label}: data-theme ${state.theme}, expected ${expected}`);
+    if (atBody && state.whenBodyParsed !== expected) failures.push(`${label}: data-theme ${state.whenBodyParsed} when <body> was parsed, expected ${expected}`);
+    if (!state.metaFollows) failures.push(`${label}: theme-color does not follow the theme`);
+    if (state.styledBodyElements > 0) failures.push(`${label}: ${state.styledBodyElements} elements with a style attribute`);
+  };
+  const checkClean = async (label, page, observations) => {
+    await settle(page);
+    failures.push(...cleanPageFailures(label, await readViolations(page), observations));
+  };
+
+  const anonymous = await newContext();
+  await anonymous.addInitScript(recordThemeAtBody);
+  const publicPage = await anonymous.newPage();
+  const publicObservations = observe(publicPage);
+  await publicPage.goto(`${baseUrl}${pathBase}/`, { waitUntil: "load" });
+  expectTheme("public default", await readTheme(publicPage), "light");
+  await publicPage.getByRole("button", { name: "Change theme" }).click();
+  await publicPage.getByRole("menuitemradio", { name: "Dark" }).click();
+  expectTheme("public chosen", await readTheme(publicPage), "dark", { atBody: false });
+  await publicPage.getByRole("button", { name: "Change theme" }).press("ArrowDown");
+  const checked = await publicPage.getByRole("menuitemradio", { checked: true }).textContent();
+  if (checked?.trim() !== "✓Dark") failures.push(`public menu: checked item is ${checked}`);
+  await publicPage.keyboard.press("Escape");
+  await checkClean("public", publicPage, publicObservations);
+  await publicPage.reload({ waitUntil: "load" });
+  expectTheme("public reload", await readTheme(publicPage), "dark");
+  await publicPage.getByTestId("nav-login").click();
+  await publicPage.waitForURL(`${baseUrl}${pathBase}/login`);
+  await settle(publicPage);
+  expectTheme("public enhanced navigation", await readTheme(publicPage), "dark", { atBody: false });
+  await checkClean("public after reload and navigation", publicPage, publicObservations);
+  const newTab = await anonymous.newPage();
+  const newTabObservations = observe(newTab);
+  await newTab.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
+  expectTheme("public new tab", await readTheme(newTab), "dark");
+  await checkClean("public new tab", newTab, newTabObservations);
+  await anonymous.close();
+
+  const signedIn = await newContext(account.storageState);
+  await signedIn.addInitScript(recordThemeAtBody);
+  const appPage = await signedIn.newPage();
+  const appObservations = observe(appPage);
+  await appPage.goto(`${baseUrl}${pathBase}/app`, { waitUntil: "load" });
+  if (!(await waitForInteractive(appPage))) failures.push("authenticated: did not turn interactive");
+  expectTheme("authenticated default", await readTheme(appPage), "light");
+  await appPage.getByRole("button", { name: "User menu" }).click();
+  const changeThemeRequest = appPage.waitForResponse((response) => response.url().endsWith("/api/account/users/me/change-theme"));
+  await appPage.getByRole("group", { name: "Change theme" }).getByRole("menuitemradio", { name: "Dark" }).click();
+  const changeThemeResponse = await changeThemeRequest;
+  details.changeThemeStatus = changeThemeResponse.status();
+  if (changeThemeResponse.status() >= 400) failures.push(`change-theme returned ${changeThemeResponse.status()}`);
+  expectTheme("authenticated chosen", await readTheme(appPage), "dark", { atBody: false });
+  await checkClean("authenticated", appPage, appObservations);
+  await appPage.reload({ waitUntil: "load" });
+  await waitForInteractive(appPage);
+  expectTheme("authenticated reload", await readTheme(appPage), "dark");
+  await appPage.getByRole("button", { name: "User menu" }).click();
+  const checkedInMenu = await appPage.getByRole("group", { name: "Change theme" }).getByRole("menuitemradio", { checked: true }).textContent();
+  if (checkedInMenu?.trim() !== "✓Dark") failures.push(`user menu: checked item is ${checkedInMenu}`);
+  await checkClean("authenticated after reload", appPage, appObservations);
+  await appPage.getByRole("menuitem", { name: "Log out" }).click();
+  await appPage.waitForURL(/\/login/, { timeout: interactiveTimeoutMs });
+  await appPage.waitForLoadState("load");
+  expectTheme("after logout", await readTheme(appPage), "dark");
+  await signedIn.close();
+
+  return outcome(details, failures);
 }
 
 async function runManifest() {

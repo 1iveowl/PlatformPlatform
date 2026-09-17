@@ -1,0 +1,21 @@
+@* The not-found page's content, the React edition's NotFoundPage: the heading, the explanation and Go to home. It renders
+   in the public layout on the host and inside the shell through StatusPageSurface, so both layouts share one markup. *@
+
+<section class="status-page" data-testid="not-found">
+    <h1>@CommonStrings.PageNotFound</h1>
+    <p>
+        @CommonStrings.PageNotFoundMessage<br/>
+        @CommonStrings.PageNotFoundHint
+    </p>
+    <div class="status-page-actions">
+        <a href="@HomeUrl" class="button-primary" data-testid="not-found-home">@CommonStrings.GoToHome</a>
+    </div>
+</section>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public string HomeUrl { get; set; } = "";
+
+}

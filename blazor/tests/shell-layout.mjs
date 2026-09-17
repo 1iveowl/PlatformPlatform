@@ -6,6 +6,11 @@
 // 3. Mobile at 390 px: the sidebar is replaced by the Open navigation menu button; the modal dialog opens with the keyboard,
 //    keeps focus inside, closes with Escape and with Close menu, and focus returns to the button.
 // 4. The install prompt stays hidden outside the iOS heuristics.
+// 5. The not-found page renders inside the shell with a session and in the public layout without one, in both cultures,
+//    and its Go to home link works; the error page from the Development throwing fixture renders inside the shell with
+//    Show details and Try again.
+// 6. The in-house tooltip on its Development fixture is announced through aria-describedby, opens on focus, closes with
+//    Escape and toggles with a touch tap.
 //
 // Prerequisites: the AppHost stack running through the aspire-restart skill, with the Blazor host resource started.
 // Run: dotnet run --project developer-cli -- blazor-harness shell-layout --browser all
@@ -148,6 +153,90 @@ await check("install prompt stays hidden outside the iOS heuristics", () =>
     assert((await page.locator(".install-prompt").count()) === 0, "The install prompt rendered outside iOS.");
   })
 );
+
+await check("not-found page renders inside the shell for a signed-in user and Go to home leads to the app", () =>
+  withPage({ width: 1280, height: 800 }, async (page) => {
+    await openInteractive(page, "app/does/not/exist/at/all", "#user-menu-trigger");
+    assert((await page.getByRole("heading", { level: 1, name: "Page not found" }).count()) === 1, "No not-found heading inside the shell.");
+    assert((await page.locator(".app-sidebar-navigation a").count()) > 0, "The sidebar navigation is missing on the not-found page.");
+    assert((await styleAttributeCount(page)) === 0, "A style attribute was written.");
+    await page.getByRole("link", { name: "Go to home" }).click();
+    await page.waitForURL(`${baseUrl}${pathBase}/app`);
+  })
+);
+
+await check("not-found page renders in the public layout without a session and Go to home leads to the landing page", async () => {
+  const context = await newContext(browser, options.browser, undefined, "da-DK");
+  try {
+    const page = await context.newPage();
+    const response = await page.goto(`${baseUrl}${pathBase}/en/dyb/rute/der/ikke/findes`, { waitUntil: "load" });
+    assert(response.status() === 404, `The not-found page answered ${response.status()}.`);
+    assert((await page.getByTestId("public-nav").count()) === 1, "No public navigation on the not-found page.");
+    assert((await page.getByRole("heading", { level: 1, name: "Siden blev ikke fundet" }).count()) === 1, "No Danish not-found heading.");
+    await page.getByRole("link", { name: "Gå til forsiden" }).click();
+    await page.waitForURL(`${baseUrl}${pathBase}/`);
+    assert((await styleAttributeCount(page)) === 0, "A style attribute was written.");
+    const violations = policyViolationsOf(context);
+    assert(violations.length === 0, `Policy violations: ${JSON.stringify(violations)}`);
+  } finally {
+    await context.close();
+  }
+});
+
+await check("error page renders inside the shell for a signed-in user with Show details and Try again", () =>
+  withPage({ width: 1280, height: 800 }, async (page) => {
+    const response = await page.goto(`${baseUrl}${pathBase}/development/throw`, { waitUntil: "load" });
+    assert(response.status() === 500, `The error page answered ${response.status()}.`);
+    // The framework renders the page for a handled exception without interactivity, so the shell is its static render
+    assert((await page.locator('[data-testid="app-shell"] .app-sidebar-navigation a').count()) > 0, "No shell navigation on the error page.");
+    assert((await page.getByRole("heading", { level: 1, name: "Something went wrong" }).count()) === 1, "No error heading inside the shell.");
+    const message = page.getByTestId("error-exception-message");
+    assert(!(await message.isVisible()), "The details were visible before Show details.");
+    await page.getByText("Show details").click();
+    await message.waitFor({ state: "visible" });
+    assert(await page.getByText("Hide details").isVisible(), "Hide details is not shown once the details are open.");
+    assert((await styleAttributeCount(page)) === 0, "A style attribute was written.");
+    await page.getByRole("link", { name: "Try again" }).click();
+    await page.waitForURL(`${baseUrl}${pathBase}/development/throw`);
+    await page.getByRole("heading", { level: 1, name: "Something went wrong" }).waitFor();
+    return { message: await message.textContent() };
+  })
+);
+
+await check("tooltip is announced through aria-describedby and opens by keyboard and by touch", async () => {
+  const context = await browser.newContext({ ignoreHTTPSErrors: options.browser !== "chromium", locale: "en-US", hasTouch: true });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}${pathBase}/development/tooltip`, { waitUntil: "load" });
+    await page.waitForFunction(() => document.querySelector('[data-testid="render-mode"]')?.textContent === "Interactive: True", null, { timeout: interactiveTimeoutMs });
+    const trigger = page.getByTestId("tooltip-trigger");
+    // By selector, because a role query skips the tooltip while it is hidden
+    const tooltip = page.locator('[role="tooltip"]');
+    const describedBy = await trigger.getAttribute("aria-describedby");
+    assert(describedBy === (await tooltip.getAttribute("id")), "The control is not described by the tooltip.");
+    assert(!(await tooltip.isVisible()), "The tooltip was visible before any interaction.");
+
+    await page.keyboard.press("Tab");
+    await page.waitForFunction(() => document.activeElement?.dataset.testid === "tooltip-trigger");
+    await tooltip.waitFor({ state: "visible" });
+    await page.keyboard.press("Escape");
+    await tooltip.waitFor({ state: "hidden" });
+    await page.keyboard.press("Tab");
+    await tooltip.waitFor({ state: "hidden" });
+
+    // A touch at the control's center, because an aria-disabled control fails the locator's enabled check for tap()
+    const box = await trigger.boundingBox();
+    const tapCenter = () => page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await tapCenter();
+    await tooltip.waitFor({ state: "visible" });
+    await tapCenter();
+    await tooltip.waitFor({ state: "hidden" });
+    assert((await styleAttributeCount(page)) === 0, "A style attribute was written.");
+    return { text: await tooltip.textContent() };
+  } finally {
+    await context.close();
+  }
+});
 
 await browser.close();
 

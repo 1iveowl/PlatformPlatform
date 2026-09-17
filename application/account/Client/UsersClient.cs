@@ -42,4 +42,9 @@ public sealed class UsersClient(HttpClient httpClient)
     {
         return _transport.SendAsync(HttpMethod.Post, AccountApiRoutes.BulkDeleteUsers, command, cancellationToken);
     }
+
+    public Task<ApiCallResult> ChangeThemeAsync(ChangeThemeCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.ChangeTheme, command, cancellationToken);
+    }
 }

@@ -7,7 +7,12 @@ public sealed record ShellViewport(bool IsWide, bool IsSmall);
 
 public sealed record ShellBrowserState(bool IsWide, bool IsSmall, string? StoredCollapsed);
 
-// The typed access to wwwroot/js/shell.js for AppShell, UserMenu, MobileMenu and InstallPrompt. The module is imported once
+// The theme as the host's theme.js reports it: the selected mode, the applied light or dark theme and, after a change, the
+// mode selected before
+public sealed record ShellThemeState(string Theme, string ResolvedTheme, string? FromTheme = null);
+
+// The typed access to wwwroot/js/shell.js for AppShell, UserMenu, MobileMenu and InstallPrompt, including the theme the host's
+// js/theme.js applies. The module is imported once
 // per wrapper and every handle it returns is disposed with it, which removes the listeners the handle attached. Every call
 // tolerates a document that is already gone (a full document navigation leaving the authenticated surface): the shell
 // then keeps its defaults, an expanded sidebar and no install prompt.
@@ -108,6 +113,32 @@ public sealed class ShellInterop(IJSRuntime javaScriptRuntime) : IAsyncDisposabl
         catch (JSDisconnectedException)
         {
             // The document is gone; the dismissal was not stored
+        }
+    }
+
+    public async ValueTask<ShellThemeState?> SetThemeAsync(ThemeMode mode)
+    {
+        try
+        {
+            var module = _module ??= await javaScriptRuntime.InvokeAsync<IJSObjectReference>("import", ModulePath);
+            return await module.InvokeAsync<ShellThemeState?>("setTheme", ThemePreference.Format(mode));
+        }
+        catch (JSDisconnectedException)
+        {
+            return null;
+        }
+    }
+
+    public async ValueTask<ShellThemeState?> ReadThemeAsync()
+    {
+        try
+        {
+            var module = _module ??= await javaScriptRuntime.InvokeAsync<IJSObjectReference>("import", ModulePath);
+            return await module.InvokeAsync<ShellThemeState?>("readTheme");
+        }
+        catch (JSDisconnectedException)
+        {
+            return null;
         }
     }
 

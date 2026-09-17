@@ -1,0 +1,42 @@
+@* The theme selector for the public navigation and the not-found and error pages outside the shell, the React edition's
+   ThemeModeSelector: a button named "Change theme" that opens a menu of System, Light and Dark with a check on the current
+   mode. It renders statically, because public pages have no runtime: the host's wwwroot/js/theme.js opens and closes the
+   menu, moves focus with the Arrow keys, Home and End, closes it with Escape, Tab or a click outside, applies and stores
+   the chosen mode and sets aria-checked. Inside the shell the user menu offers the same modes. *@
+
+<div class="theme-menu" data-theme-menu>
+    <button type="button" id="@TriggerId" class="theme-menu-trigger" aria-label="@CommonStrings.ChangeTheme" aria-haspopup="menu" aria-expanded="false"
+            aria-controls="@ListId" data-theme-menu-trigger>
+        <span aria-hidden="true">◐</span>
+    </button>
+    <div id="@ListId" class="theme-menu-list" role="menu" aria-labelledby="@TriggerId" hidden data-theme-menu-list>
+        @foreach (var mode in ThemePreference.Modes)
+        {
+            <button type="button" role="menuitemradio" class="menu-item" tabindex="-1" aria-checked="false" data-theme-choice="@ThemePreference.Format(mode)">
+                <span class="menu-item-check" aria-hidden="true">✓</span>@Label(mode)
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+
+    // Distinguishes two menus on one document
+    [Parameter]
+    public string IdPrefix { get; set; } = "theme-menu";
+
+    private string TriggerId => $"{IdPrefix}-trigger";
+
+    private string ListId => $"{IdPrefix}-list";
+
+    public static string Label(ThemeMode mode)
+    {
+        return mode switch
+        {
+            ThemeMode.Light => CommonStrings.ThemeLight,
+            ThemeMode.Dark => CommonStrings.ThemeDark,
+            _ => CommonStrings.ThemeSystem
+        };
+    }
+
+}

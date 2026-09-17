@@ -34,3 +34,8 @@ public sealed record UpdateCurrentUserCommand(string FirstName, string LastName,
 
 [PublicAPI]
 public sealed record BulkDeleteUsersCommand(UserId[] UserIds);
+
+// The theme is a device preference the browser stores; the account API only records the change as telemetry. Theme and
+// FromTheme are the selected modes (system, light or dark), ResolvedTheme the light or dark theme the browser applied.
+[PublicAPI]
+public sealed record ChangeThemeCommand(string FromTheme, string Theme, string? ResolvedTheme);

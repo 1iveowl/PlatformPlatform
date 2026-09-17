@@ -1,0 +1,19 @@
+@* Development-only fixture that throws while rendering, so the browser harness and the end-to-end specifications reach the
+   error page through the exception handler, in the public layout or, with a session, inside the shell. Outside Development
+   the request returns 404 before rendering. *@
+@page "/development/throw"
+@using Blazor.Host.Shell
+@attribute [DevelopmentOnly]
+
+<PageTitle>Throwing page</PageTitle>
+
+@code {
+
+    public const string FailureMessage = "The development fixture failed on purpose.";
+
+    protected override void OnInitialized()
+    {
+        throw new InvalidOperationException(FailureMessage);
+    }
+
+}

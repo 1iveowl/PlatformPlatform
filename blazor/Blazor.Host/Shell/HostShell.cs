@@ -195,16 +195,17 @@ public sealed class HostShell
     }
 
     // Served as an external stylesheet rather than an inline <style>: enhanced navigation re-inserts inline head elements
-    // from the new document with a nonce the governing header does not carry, which the policy then blocks
+    // from the new document with a nonce the governing header does not carry, which the policy then blocks. The dark set
+    // applies under data-theme="dark", which wwwroot/js/theme.js sets on <html> before first paint.
     private static string BuildBrandStylesheet(BrandTokens brand)
     {
         return $$"""
-                 :root, .light {
+                 :root, :root[data-theme="light"] {
                      --brand-primary: {{brand.PrimaryColorLight}};
                      --brand-primary-foreground: {{brand.PrimaryColorLightForeground}};
                  }
 
-                 .dark {
+                 :root[data-theme="dark"] {
                      --brand-primary: {{brand.PrimaryColorDark}};
                      --brand-primary-foreground: {{brand.PrimaryColorDarkForeground}};
                  }

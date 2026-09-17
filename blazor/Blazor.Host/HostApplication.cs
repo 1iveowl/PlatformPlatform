@@ -89,9 +89,11 @@ public static class HostApplication
         // The runtime the host runs on, recorded at start because the edition runs on a prerelease framework
         app.Logger.LogInformation("Blazor host running on {FrameworkDescription}", RuntimeInformation.FrameworkDescription);
 
+        // In every environment, so the error page renders inside the shell in Development too; the page reveals the exception
+        // message and stack in Development only
+        app.UseExceptionHandler("/Error", true);
         if (!app.Environment.IsDevelopment())
         {
-            app.UseExceptionHandler("/Error", true);
             app.UseHsts();
         }
 

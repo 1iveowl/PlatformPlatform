@@ -1,3 +1,40 @@
+/* The neutral palette, in two sets. wwwroot/js/theme.js sets data-theme on <html> before first paint from the stored mode
+   (system follows prefers-color-scheme); the brand colors switch the same way in brand.css. Components use these tokens,
+   never a literal neutral, so the dark set reaches every surface without a style attribute. */
+:root,
+:root[data-theme="light"] {
+    color-scheme: light;
+    --surface: #fff;
+    --surface-hover: #eee;
+    --surface-accent: #eef;
+    --text: #1a1a1a;
+    --text-muted: #555;
+    --text-disabled: #888;
+    --border: #ccc;
+    --border-strong: #bbb;
+    --border-subtle: #ddd;
+    --border-faint: #eee;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1b1b1f;
+    --surface-hover: #2e2e34;
+    --surface-accent: #26304a;
+    --text: #ececef;
+    --text-muted: #b4b4bc;
+    --text-disabled: #7c7c85;
+    --border: #4a4a52;
+    --border-strong: #5c5c66;
+    --border-subtle: #3a3a41;
+    --border-faint: #2e2e34;
+}
+
+body {
+    background: var(--surface);
+    color: var(--text);
+}
+
 h1:focus {
     outline: none;
 }
@@ -104,9 +141,9 @@ h1:focus {
     flex-direction: column;
     min-width: 11rem;
     padding-block: 0.25rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 0.375rem;
-    background: #fff;
+    background: var(--surface);
     box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
@@ -120,11 +157,11 @@ h1:focus {
 
 .data-list-row-menu-item:hover:not(:disabled),
 .data-list-row-menu-item:focus-visible {
-    background: #eef;
+    background: var(--surface-accent);
 }
 
 .data-list-row-menu-item:disabled {
-    color: #888;
+    color: var(--text-disabled);
     cursor: default;
 }
 
@@ -142,12 +179,12 @@ h1:focus {
 
 .data-list-table tr.data-list-row {
     height: 3.5rem;
-    border-block-end: 1px solid #e5e5e5;
+    border-block-end: 1px solid var(--border-subtle);
     cursor: default;
 }
 
 .data-list-table tr.data-list-row.is-selected {
-    background: var(--brand-primary-foreground, #eef);
+    background: var(--surface-accent);
 }
 
 .data-list-table tr.data-list-row.is-active {
@@ -212,7 +249,7 @@ h1:focus {
 
 .profile-pane {
     flex: 0 0 22rem;
-    border-inline-start: 1px solid #ddd;
+    border-inline-start: 1px solid var(--border-subtle);
     padding-inline: 1rem;
 }
 
@@ -255,7 +292,7 @@ h1:focus {
 .change-role-user-detail,
 .user-title {
     margin: 0;
-    color: #555;
+    color: var(--text-muted);
     font-size: 0.875rem;
 }
 
@@ -285,7 +322,7 @@ h1:focus {
 
 .profile-pane-badge {
     padding: 0 0.5rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 0.75rem;
     font-size: 0.75rem;
 }
@@ -293,7 +330,7 @@ h1:focus {
 .profile-pane-reason {
     flex-basis: 100%;
     text-align: end;
-    color: #555;
+    color: var(--text-muted);
     font-size: 0.75rem;
 }
 
@@ -306,7 +343,7 @@ h1:focus {
     height: 2rem;
     overflow: hidden;
     border-radius: 50%;
-    background: #e3e3e3;
+    background: var(--surface-hover);
     font-size: 0.75rem;
     font-weight: 600;
 }
@@ -364,7 +401,7 @@ h1:focus {
 
 .change-role-option-description {
     display: block;
-    color: #555;
+    color: var(--text-muted);
     font-size: 0.875rem;
 }
 
@@ -375,9 +412,9 @@ h1:focus {
 }
 
 .button-secondary {
-    background: #fff;
-    color: #1a1a1a;
-    border: 1px solid #bbb;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
 }
 
 /* In-house toast region and modal dialogs: every style is a class here, so the components write no style attribute and
@@ -399,9 +436,9 @@ h1:focus {
     align-items: flex-start;
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
-    border: 1px solid #ccc;
-    background: #fff;
-    color: #1a1a1a;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
     box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
@@ -448,7 +485,7 @@ h1:focus {
 
 .modal-dialog {
     padding: 0;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 0.5rem;
     max-width: min(32rem, calc(100vw - 2rem));
 }
@@ -514,8 +551,8 @@ h1:focus {
     align-items: center;
     gap: 0.75rem;
     padding: 1rem;
-    border-block-end: 1px solid #ddd;
-    background: #fff;
+    border-block-end: 1px solid var(--border-subtle);
+    background: var(--surface);
 }
 
 .install-prompt-icon {
@@ -565,8 +602,8 @@ h1:focus {
     position: fixed;
     inset-block-end: 1rem;
     inset-inline-end: 1rem;
-    border-color: #ccc;
-    background: #fff;
+    border-color: var(--border);
+    background: var(--surface);
     box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
@@ -603,7 +640,7 @@ h1:focus {
     flex-direction: column;
     gap: 0.5rem;
     padding-block-start: 1rem;
-    border-block-start: 1px solid #ddd;
+    border-block-start: 1px solid var(--border-subtle);
 }
 
 .mobile-menu-user p,
@@ -647,7 +684,7 @@ h1:focus {
 
 .shell-nav-link:hover,
 .shell-nav-link[aria-current="page"] {
-    background: #eee;
+    background: var(--surface-hover);
 }
 
 .shell-nav-link[aria-current="page"] {
@@ -681,16 +718,16 @@ h1:focus {
     flex-direction: column;
     min-width: 14rem;
     padding-block: 0.25rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 0.375rem;
-    background: #fff;
+    background: var(--surface);
     box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .user-menu-group {
     display: flex;
     flex-direction: column;
-    border-block: 1px solid #eee;
+    border-block: 1px solid var(--border-faint);
 }
 
 .user-menu-group-label {
@@ -716,20 +753,127 @@ h1:focus {
 
 .menu-item:hover,
 .menu-item:focus-visible {
-    background: #eee;
+    background: var(--surface-hover);
     outline: none;
 }
 
 .menu-item:disabled {
-    color: #888;
+    color: var(--text-disabled);
     cursor: default;
 }
 
 .menu-item-badge {
     padding: 0 0.375rem;
     border-radius: 0.25rem;
-    background: #eee;
+    background: var(--surface-hover);
     font-size: 0.75rem;
+}
+
+/* The theme menu (Blazor.Client/Shell/ThemeMenu), opened and closed by wwwroot/js/theme.js through the hidden attribute */
+.theme-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.theme-menu-trigger {
+    min-width: 2rem;
+    min-height: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.theme-menu-list {
+    position: absolute;
+    inset-block-start: 100%;
+    inset-inline-end: 0;
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+    min-width: 10rem;
+    padding-block: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--surface);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.theme-menu-list[hidden] {
+    display: none;
+}
+
+.menu-item-check {
+    visibility: hidden;
+    width: 1rem;
+}
+
+.menu-item[aria-checked="true"] .menu-item-check {
+    visibility: visible;
+}
+
+.public-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* The not-found and error pages (Blazor.Client/Shell/NotFoundContent and ErrorContent) */
+.status-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+    padding-block: 2rem;
+}
+
+.status-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.status-page-details summary {
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.status-page-details[open] .status-page-details-show,
+.status-page-details:not([open]) .status-page-details-hide {
+    display: none;
+}
+
+.status-page-details pre {
+    max-height: 10rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* The in-house tooltip (Blazor.Client/Shell/Tooltip): shown while TooltipState is open, positioned above its anchor */
+.tooltip-anchor {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip {
+    position: absolute;
+    inset-block-end: calc(100% + 0.25rem);
+    inset-inline-start: 0;
+    z-index: 30;
+    width: max-content;
+    max-width: 16rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background: var(--text);
+    color: var(--surface);
+    font-size: 0.875rem;
+}
+
+.tooltip[hidden] {
+    display: none;
 }
 
 @media (min-width: 40rem) {
@@ -757,8 +901,8 @@ h1:focus {
         width: 15rem;
         height: 100dvh;
         padding: 0.75rem;
-        border-inline-end: 1px solid #ddd;
-        background: #fff;
+        border-inline-end: 1px solid var(--border-subtle);
+        background: var(--surface);
     }
 
     .app-sidebar-header,

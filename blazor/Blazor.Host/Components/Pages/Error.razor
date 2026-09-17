@@ -1,59 +1,51 @@
 @* Two destinations on one server-rendered page: the exception handler's re-executed request, and /error?error=<code>, where
    the WebAssembly client lands with a full document navigation when the account API reports that a session ended. The
-   codes and their meaning match the React edition's ErrorCode values. *@
+   codes and their meaning match the React edition's ErrorCode values. StatusPageModel decides the layout (the shell for a
+   signed-in user, the public layout otherwise and for every session error), where Try again leads, and that the exception
+   message and stack are shown in Development only. For a handled exception the framework renders the page without
+   interactivity, so the shell there is its static render. *@
 @page "/Error"
 @using System.Diagnostics
+@using Blazor.Client.Shell
+@using Microsoft.AspNetCore.Diagnostics
+@inject IHostEnvironment Environment
 
-<PageTitle>@(SessionMessage?.Title ?? CommonStrings.SomethingWentWrong)</PageTitle>
+<PageTitle>@ErrorContent.Title(_view)</PageTitle>
 
-@if (SessionMessage is { } message)
+@if (_view.Layout == StatusPageLayout.Shell)
 {
-    <h1 data-testid="error-title">@message.Title</h1>
-    <p data-testid="error-message" data-error-code="@ErrorCode">@message.Detail</p>
-    <p>@CommonStrings.LogInAgainToContinue</p>
-    <p>
-        <a href="@AppUrls.ToAbsolute("login")" data-enhance-nav="false" data-testid="error-login">@CommonStrings.LogIn</a>
-    </p>
+    <StatusPageSurface Error="_view" @rendermode="InteractiveWebAssembly"/>
 }
 else
 {
-    <h1 class="text-danger">@CommonStrings.SomethingWentWrong</h1>
-    <h2 class="text-danger">@CommonStrings.RequestFailedTitle</h2>
-
-    @if (ShowRequestId)
-    {
-        <p>
-            <strong>@CommonStrings.RequestId</strong> <code>@RequestId</code>
-        </p>
-    }
+    <PublicNav/>
+    <main id="main-content">
+        <ErrorContent View="_view" ErrorCode="@ErrorCode"/>
+    </main>
 }
 
-@code{
+@code {
+
+    private ErrorPageView _view = null!;
 
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
-    [PersistentState]
-    public string? RequestId { get; set; }
-
     [SupplyParameterFromQuery(Name = "error")]
     public string? ErrorCode { get; set; }
 
-    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
-
-    private SessionErrorMessage? SessionMessage => ErrorCode switch
-    {
-        "session_revoked" => new SessionErrorMessage(CommonStrings.SessionEndedTitle, CommonStrings.SessionRevokedMessage),
-        "session_not_found" or "session_expired" => new SessionErrorMessage(CommonStrings.SessionExpiredTitle, CommonStrings.SessionExpiredMessage),
-        "tenant_deleted" => new SessionErrorMessage(CommonStrings.AccountUnavailableTitle, CommonStrings.TenantDeletedMessage),
-        _ => null
-    };
-
     protected override void OnInitialized()
     {
-        RequestId ??= Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+        var failure = HttpContext?.Features.Get<IExceptionHandlerPathFeature>();
+        _view = StatusPageModel.CreateError(
+            ErrorCode,
+            HttpContext?.User.Identity?.IsAuthenticated == true,
+            Environment.IsDevelopment(),
+            failure?.Path,
+            failure is null ? null : HttpContext?.Request.QueryString.Value,
+            failure?.Error,
+            Activity.Current?.Id ?? HttpContext?.TraceIdentifier
+        );
     }
-
-    private sealed record SessionErrorMessage(string Title, string Detail);
 
 }

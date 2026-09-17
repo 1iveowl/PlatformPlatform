@@ -1,0 +1,51 @@
+@* The in-house tooltip for a control that needs a reason, the React edition's Tooltip without the component library,
+   whose popover writes style attributes. The text is an element with role="tooltip" that the control names through
+   aria-describedby, so it is announced whether shown or not; ChildContent receives the tooltip id for that attribute.
+   TooltipState decides visibility: hover, focus inside the anchor, a touch tap, and Escape to dismiss. A control that
+   needs a reason while unavailable uses aria-disabled rather than disabled, so it stays focusable and receives the tap.
+   The visible-reason pattern of the users page stays where it is. *@
+
+<span class="tooltip-anchor" @onpointerenter="OnPointerEnter" @onpointerleave="OnPointerLeave" @onpointerup="OnPointerUp"
+      @onfocusin="() => _state.FocusEntered()" @onfocusout="() => _state.FocusLeft()" @onkeydown="OnKeyDown">
+    @ChildContent(Id)
+    <span id="@Id" role="tooltip" class="tooltip" hidden="@(!_state.IsOpen)">@Text</span>
+</span>
+
+@code {
+
+    private readonly TooltipState _state = new();
+
+    // Unique on the page and stable between prerendering and the interactive render
+    [Parameter]
+    [EditorRequired]
+    public string Id { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string Text { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public RenderFragment<string> ChildContent { get; set; } = null!;
+
+    private void OnPointerEnter(PointerEventArgs args)
+    {
+        _state.PointerEntered(args.PointerType);
+    }
+
+    private void OnPointerLeave(PointerEventArgs args)
+    {
+        _state.PointerLeft(args.PointerType);
+    }
+
+    private void OnPointerUp(PointerEventArgs args)
+    {
+        _state.PointerReleased(args.PointerType);
+    }
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        _state.KeyPressed(args.Key);
+    }
+
+}

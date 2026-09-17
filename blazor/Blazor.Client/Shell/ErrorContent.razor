@@ -1,0 +1,82 @@
+@* The error page's content, the React edition's ErrorPage, for an ErrorPageView decided by StatusPageModel. A session error
+   keeps its title, text and login link. A failure offers Try again, which returns to the page that failed, Go to home and
+   Show details, a native disclosure so it works without a runtime: the exception message and stack in Development, the
+   reference id elsewhere. The same markup renders in the public layout and inside the shell. *@
+
+<section class="status-page" data-testid="error-page">
+    @if (View.Session is { } session)
+    {
+        <h1 data-testid="error-title">@SessionTitle(session)</h1>
+        <p data-testid="error-message" data-error-code="@ErrorCode">@SessionDetail(session)</p>
+        <p>@CommonStrings.LogInAgainToContinue</p>
+        <p>
+            <a href="@AppUrls.ToAbsolute("login")" data-enhance-nav="false" data-testid="error-login">@CommonStrings.LogIn</a>
+        </p>
+    }
+    else
+    {
+        <h1 data-testid="error-title">@CommonStrings.SomethingWentWrong</h1>
+        <p>
+            @CommonStrings.RequestFailedTitle<br/>
+            @CommonStrings.TryAgainOrReturnHome
+        </p>
+        <div class="status-page-actions">
+            <a href="@View.RetryUrl" class="button-primary" data-enhance-nav="false" data-testid="error-try-again">@CommonStrings.TryAgain</a>
+            <a href="@View.HomeUrl" class="button-secondary" data-testid="error-home">@CommonStrings.GoToHome</a>
+        </div>
+        <details class="status-page-details" data-testid="error-details">
+            <summary>
+                <span class="status-page-details-show">@CommonStrings.ShowDetails</span>
+                <span class="status-page-details-hide">@CommonStrings.HideDetails</span>
+            </summary>
+            @if (View.Message is not null)
+            {
+                <p data-testid="error-exception-message">@View.Message</p>
+                <pre data-testid="error-stack-trace">@View.StackTrace</pre>
+            }
+            @if (View.ReferenceId is not null)
+            {
+                <p>
+                    <strong>@CommonStrings.RequestId</strong> <code data-testid="error-reference-id">@View.ReferenceId</code>
+                </p>
+            }
+        </details>
+    }
+</section>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public ErrorPageView View { get; set; } = null!;
+
+    // Recorded on the message for the end-to-end specifications, as the page received it
+    [Parameter]
+    public string? ErrorCode { get; set; }
+
+    public static string Title(ErrorPageView view)
+    {
+        return view.Session is { } session ? SessionTitle(session) : CommonStrings.SomethingWentWrong;
+    }
+
+    private static string SessionTitle(SessionErrorKind session)
+    {
+        return session switch
+        {
+            SessionErrorKind.Revoked => CommonStrings.SessionEndedTitle,
+            SessionErrorKind.Expired => CommonStrings.SessionExpiredTitle,
+            _ => CommonStrings.AccountUnavailableTitle
+        };
+    }
+
+    private static string SessionDetail(SessionErrorKind session)
+    {
+        return session switch
+        {
+            SessionErrorKind.Revoked => CommonStrings.SessionRevokedMessage,
+            SessionErrorKind.Expired => CommonStrings.SessionExpiredMessage,
+            _ => CommonStrings.TenantDeletedMessage
+        };
+    }
+
+}

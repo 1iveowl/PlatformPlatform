@@ -97,7 +97,7 @@
         <value>Siden blev ikke fundet</value>
     </data>
     <data name="PageNotFoundMessage" xml:space="preserve">
-        <value>Beklager, det indhold, du leder efter, findes ikke.</value>
+        <value>Siden du leder efter findes ikke eller er blevet flyttet.</value>
     </data>
     <data name="PageOf" xml:space="preserve">
         <value>Side {0} af {1}</value>
@@ -121,7 +121,7 @@
         <value>Genindlæs siden</value>
     </data>
     <data name="RequestFailedTitle" xml:space="preserve">
-        <value>Der opstod en fejl under behandlingen af din anmodning.</value>
+        <value>Der opstod en uventet fejl ved behandlingen.</value>
     </data>
     <data name="RequestFailedWithStatus" xml:space="preserve">
         <value>Anmodningen mislykkedes med status {0}.</value>
@@ -236,5 +236,32 @@
     </data>
     <data name="AddToHomeScreenInstructions" xml:space="preserve">
         <value>Føj til din hjemmeskærm for en hurtigere oplevelse, der minder om en app. Tryk på Del og derefter &quot;Føj til hjemmeskærm&quot;.</value>
+    </data>
+    <data name="ChangeTheme" xml:space="preserve">
+        <value>Skift tema</value>
+    </data>
+    <data name="ThemeSystem" xml:space="preserve">
+        <value>System</value>
+    </data>
+    <data name="ThemeLight" xml:space="preserve">
+        <value>Lys</value>
+    </data>
+    <data name="ThemeDark" xml:space="preserve">
+        <value>Mørk</value>
+    </data>
+    <data name="GoToHome" xml:space="preserve">
+        <value>Gå til forsiden</value>
+    </data>
+    <data name="PageNotFoundHint" xml:space="preserve">
+        <value>Tjek venligst URL'en eller vend tilbage til forsiden.</value>
+    </data>
+    <data name="TryAgainOrReturnHome" xml:space="preserve">
+        <value>Prøv venligst igen eller vend tilbage til forsiden.</value>
+    </data>
+    <data name="ShowDetails" xml:space="preserve">
+        <value>Vis detaljer</value>
+    </data>
+    <data name="HideDetails" xml:space="preserve">
+        <value>Skjul detaljer</value>
     </data>
 </root>

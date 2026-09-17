@@ -1,7 +1,27 @@
+@* The not-found page for every unknown route under the path base, deep routes included: the router's NotFoundPage and the
+   status code pages re-execute this page. A signed-in user sees it inside the authenticated shell, hosted as a WebAssembly
+   component like every authenticated page; a visitor without a session sees it in the public layout. *@
 @page "/not-found"
+@using Blazor.Client.Shell
 @layout MainLayout
 
 <PageTitle>@CommonStrings.PageNotFound</PageTitle>
 
-<h1>@CommonStrings.PageNotFound</h1>
-<p>@CommonStrings.PageNotFoundMessage</p>
+@if (StatusPageModel.GetLayout(HttpContext?.User.Identity?.IsAuthenticated == true) == StatusPageLayout.Shell)
+{
+    <StatusPageSurface @rendermode="InteractiveWebAssembly"/>
+}
+else
+{
+    <PublicNav/>
+    <main id="main-content">
+        <NotFoundContent HomeUrl="@StatusPageModel.GetHomeUrl(false)"/>
+    </main>
+}
+
+@code {
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+}

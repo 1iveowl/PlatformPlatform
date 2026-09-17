@@ -1,0 +1,8 @@
+@* Development-only fixture for the in-house Tooltip, maintained for the browser harness in blazor/tests: an unavailable
+   control with its reason, reachable by keyboard and touch. *@
+
+<p data-testid="render-mode">Interactive: @RendererInfo.IsInteractive</p>
+
+<Tooltip Id="fixture-tooltip" Text="Only an owner can change this setting.">
+    <button type="button" aria-disabled="true" aria-describedby="@context" data-testid="tooltip-trigger">Change setting</button>
+</Tooltip>

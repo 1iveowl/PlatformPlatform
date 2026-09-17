@@ -117,7 +117,7 @@
         <comment>React: Page not found</comment>
     </data>
     <data name="PageNotFoundMessage" xml:space="preserve">
-        <value>Sorry, the content you are looking for does not exist.</value>
+        <value>The page you are looking for does not exist or was moved.</value>
     </data>
     <data name="PageOf" xml:space="preserve">
         <value>Page {0} of {1}</value>
@@ -146,7 +146,7 @@
         <value>Reload page</value>
     </data>
     <data name="RequestFailedTitle" xml:space="preserve">
-        <value>An error occurred while processing your request.</value>
+        <value>An unexpected error occurred while processing your request.</value>
     </data>
     <data name="RequestFailedWithStatus" xml:space="preserve">
         <value>The request failed with status {0}.</value>
@@ -278,5 +278,32 @@
     </data>
     <data name="AddToHomeScreenInstructions" xml:space="preserve">
         <value>Add to your home screen for a faster, app-like experience. Tap Share, then &quot;Add to Home Screen&quot;.</value>
+    </data>
+    <data name="ChangeTheme" xml:space="preserve">
+        <value>Change theme</value>
+    </data>
+    <data name="ThemeSystem" xml:space="preserve">
+        <value>System</value>
+    </data>
+    <data name="ThemeLight" xml:space="preserve">
+        <value>Light</value>
+    </data>
+    <data name="ThemeDark" xml:space="preserve">
+        <value>Dark</value>
+    </data>
+    <data name="GoToHome" xml:space="preserve">
+        <value>Go to home</value>
+    </data>
+    <data name="PageNotFoundHint" xml:space="preserve">
+        <value>Please check the URL or return to the home page.</value>
+    </data>
+    <data name="TryAgainOrReturnHome" xml:space="preserve">
+        <value>Please try again or return to the home page.</value>
+    </data>
+    <data name="ShowDetails" xml:space="preserve">
+        <value>Show details</value>
+    </data>
+    <data name="HideDetails" xml:space="preserve">
+        <value>Hide details</value>
     </data>
 </root>

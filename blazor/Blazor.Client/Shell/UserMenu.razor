@@ -1,8 +1,8 @@
 @* The shell's user menu, the React edition's UserMenu: a button with the avatar that opens a menu of UserMenuModel items.
    In-house rather than the component library's menu, which positions its popover by writing style attributes. The keyboard
    model is the row menu's, shared through MenuNavigation: Arrow keys, Home and End move between enabled items, Escape
-   closes the menu and returns focus to the button, Tab and a click outside close it. The tenants are a group inside the
-   menu. Choosing a tenant or Log out keeps the menu open with its items disabled while the transition runs. *@
+   closes the menu and returns focus to the button, Tab and a click outside close it. The theme modes and the tenants are
+   groups inside the menu. Choosing a tenant or Log out keeps the menu open with its items disabled while the transition runs. *@
 @using Account.Features.Authentication.Queries
 @using Blazor.Client.Components.Menus
 @using Blazor.Client.Users
@@ -24,15 +24,17 @@
             @for (var index = 0; index < Items.Count; index++)
             {
                 var item = Items[index];
-                if (item.Kind == UserMenuItemKind.SwitchTenant)
+                if (item.Kind is UserMenuItemKind.Theme or UserMenuItemKind.SwitchTenant)
                 {
-                    if (index > 0 && Items[index - 1].Kind == UserMenuItemKind.SwitchTenant) continue;
+                    if (index > 0 && Items[index - 1].Kind == item.Kind) continue;
 
-                    <div role="group" class="user-menu-group" aria-labelledby="user-menu-switch-account">
-                        <p class="user-menu-group-label" id="user-menu-switch-account" role="presentation">@AccountStrings.SwitchAccount</p>
-                        @for (var tenantIndex = index; tenantIndex < Items.Count && Items[tenantIndex].Kind == UserMenuItemKind.SwitchTenant; tenantIndex++)
+                    var isTheme = item.Kind == UserMenuItemKind.Theme;
+                    var labelId = isTheme ? "user-menu-change-theme" : "user-menu-switch-account";
+                    <div role="group" class="user-menu-group" aria-labelledby="@labelId">
+                        <p class="user-menu-group-label" id="@labelId" role="presentation">@(isTheme ? CommonStrings.ChangeTheme : AccountStrings.SwitchAccount)</p>
+                        @for (var groupIndex = index; groupIndex < Items.Count && Items[groupIndex].Kind == item.Kind; groupIndex++)
                         {
-                            @RenderItem(tenantIndex)
+                            @RenderItem(groupIndex)
                         }
                     </div>
                     continue;
@@ -87,6 +89,14 @@
     {
         var item = Items[index];
         var id = ItemId(index);
+        if (item is { Kind: UserMenuItemKind.Theme, Theme: { } mode })
+        {
+            return @<button id="@id" type="button" role="menuitemradio" class="menu-item" tabindex="-1" aria-checked="@(item.Checked ? "true" : "false")"
+                            @onclick="() => SelectAsync(item)">
+                       <span class="menu-item-check" aria-hidden="true">✓</span>@ThemeMenu.Label(mode)
+                   </button>;
+        }
+
         if (item.Href is not null)
         {
             return @<a id="@id" role="menuitem" class="menu-item" tabindex="-1" href="@item.Href" @onclick="() => SelectAsync(item)">@ItemLabel(item)</a>;

@@ -128,6 +128,8 @@ public sealed partial class HostSecurityTests
     [InlineData(StaticFixturePath)]
     [InlineData(InteractiveFixturePath)]
     [InlineData(DataListFixturePath)]
+    [InlineData("blazor/development/throw")]
+    [InlineData("blazor/development/tooltip")]
     public async Task FixturePages_WhenHostIsNotDevelopment_ShouldReturnNotFoundWithoutFixtureMarkup(string path)
     {
         // Arrange
@@ -143,7 +145,7 @@ public sealed partial class HostSecurityTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         var html = await response.Content.ReadAsStringAsync();
-        html.Should().NotContain("Form errors").And.NotContain("Data list").And.NotContain("data-testid=\"scenario\"").And.NotContain("fixture-interactive");
+        html.Should().NotContain("Form errors").And.NotContain("Data list").And.NotContain("Something went wrong").And.NotContain("role=\"tooltip\"").And.NotContain("data-testid=\"scenario\"").And.NotContain("fixture-interactive");
     }
 
     [Fact]

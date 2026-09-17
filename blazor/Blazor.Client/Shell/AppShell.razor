@@ -3,8 +3,11 @@
    breakpoint, and the main content with the transition alerts and the toasts. Tenants come from the tenants client after
    the bootstrap read. Logout and the tenant switch run through SessionTransition, which serializes them, reconciles
    uncertain outcomes and leaves the runtime with one full document navigation; the shell only renders its state. The
-   collapsed state and Ctrl+B or Cmd+B come from shell.js; the state is a data attribute, never a style. *@
+   collapsed state and Ctrl+B or Cmd+B come from shell.js; the state is a data attribute, never a style. A theme chosen in
+   the user menu is applied and stored by the host's theme.js through shell.js, then reported to the account API as
+   telemetry, whose failure is ignored because the theme is a device preference. *@
 @using Account.Client
+@using Account.Features.Users.Requests
 @using Blazor.Client.Session
 @implements IAsyncDisposable
 @inject SessionState Session
@@ -76,6 +79,7 @@
 @code {
 
     private bool _collapsed;
+    private ThemeMode _theme;
     private DotNetObjectReference<AppShell>? _dotNet;
     private ShellInterop? _interop;
     private bool _isWide = true;
@@ -90,7 +94,7 @@
 
     private IReadOnlyList<ShellNavigationItem> NavigationItems => ShellNavigation.Create(Session.Current?.User?.Role, Navigation.Uri);
 
-    private IReadOnlyList<UserMenuItem> MenuItems => UserMenuModel.Create(Session.Current?.User?.Role, _tenants, IsTransitionBusy);
+    private IReadOnlyList<UserMenuItem> MenuItems => UserMenuModel.Create(Session.Current?.User?.Role, _tenants, IsTransitionBusy, _theme);
 
     [JSInvokable]
     public async Task ToggleSidebar()
@@ -153,6 +157,7 @@
         var state = await _interop.AttachShellAsync(_dotNet);
         _isWide = state.IsWide;
         _collapsed = ShellSidebarState.IsCollapsed(state.StoredCollapsed, state.IsWide);
+        _theme = ThemePreference.Parse((await _interop.ReadThemeAsync())?.Theme);
         StateHasChanged();
     }
 
@@ -172,7 +177,19 @@
             case UserMenuItemKind.LogOut:
                 await _transition!.LogoutAsync();
                 break;
+            case UserMenuItemKind.Theme when item.Theme is { } mode && _interop is not null:
+                await ChangeThemeAsync(mode);
+                break;
         }
+    }
+
+    private async Task ChangeThemeAsync(ThemeMode mode)
+    {
+        if (await _interop!.SetThemeAsync(mode) is not { FromTheme: { } fromTheme } change) return;
+
+        _theme = ThemePreference.Parse(change.Theme);
+        var command = new ChangeThemeCommand(fromTheme, change.Theme, change.ResolvedTheme);
+        await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<UsersClient>().ChangeThemeAsync(command, cancellationToken));
     }
 
 }

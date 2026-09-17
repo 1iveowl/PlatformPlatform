@@ -19,7 +19,7 @@ public sealed class UserMenuModelTests
         var items = UserMenuModel.Create(nameof(UserRole.Member), [CurrentTenant], false);
 
         // Assert
-        items.Select(item => item.Kind).Should().Equal(UserMenuItemKind.Profile, UserMenuItemKind.Preferences, UserMenuItemKind.LogOut);
+        items.Select(item => item.Kind).Should().Equal(UserMenuItemKind.Profile, UserMenuItemKind.Preferences, UserMenuItemKind.Theme, UserMenuItemKind.Theme, UserMenuItemKind.Theme, UserMenuItemKind.LogOut);
         items[0].Href.Should().Be("/blazor/user/profile");
         items[1].Href.Should().Be("/blazor/user/preferences");
     }
@@ -33,8 +33,8 @@ public sealed class UserMenuModelTests
         var items = UserMenuModel.Create(role, [CurrentTenant], false);
 
         // Assert
-        items.Select(item => item.Kind).Should().Equal(UserMenuItemKind.Profile, UserMenuItemKind.Preferences, UserMenuItemKind.AccountSettings, UserMenuItemKind.LogOut);
-        items[2].Href.Should().Be("/blazor/account/settings");
+        items.Select(item => item.Kind).Should().Equal(UserMenuItemKind.Profile, UserMenuItemKind.Preferences, UserMenuItemKind.Theme, UserMenuItemKind.Theme, UserMenuItemKind.Theme, UserMenuItemKind.AccountSettings, UserMenuItemKind.LogOut);
+        items[5].Href.Should().Be("/blazor/account/settings");
     }
 
     [Fact]
@@ -61,9 +61,23 @@ public sealed class UserMenuModelTests
         items.Where(item => item.Kind is UserMenuItemKind.Profile or UserMenuItemKind.Preferences).Should().OnlyContain(item => !item.Disabled);
     }
 
+    [Fact]
+    public void Create_WhenCurrentThemeGiven_ShouldListTheThreeModesWithOnlyTheCurrentOneChecked()
+    {
+        // Act
+        var items = UserMenuModel.Create(nameof(UserRole.Member), [CurrentTenant], false, ThemeMode.Dark);
+
+        // Assert
+        var themes = items.Where(item => item.Kind == UserMenuItemKind.Theme).ToArray();
+        themes.Select(item => item.Theme).Should().Equal(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark);
+        themes.Select(item => item.Checked).Should().Equal(false, false, true);
+        themes.Should().OnlyContain(item => !item.Disabled);
+    }
+
     [Theory]
     [InlineData(UserMenuItemKind.Profile, true)]
     [InlineData(UserMenuItemKind.Preferences, true)]
+    [InlineData(UserMenuItemKind.Theme, true)]
     [InlineData(UserMenuItemKind.AccountSettings, true)]
     [InlineData(UserMenuItemKind.SwitchTenant, false)]
     [InlineData(UserMenuItemKind.LogOut, false)]
@@ -78,10 +92,10 @@ public sealed class UserMenuModelTests
 
     [Theory]
     [InlineData("ArrowDown", 0, 1)]
-    [InlineData("ArrowDown", 1, 3)]
-    [InlineData("ArrowUp", 0, 4)]
-    [InlineData("Home", 3, 0)]
-    [InlineData("End", 0, 4)]
+    [InlineData("ArrowDown", 4, 6)]
+    [InlineData("ArrowUp", 0, 7)]
+    [InlineData("Home", 6, 0)]
+    [InlineData("End", 0, 7)]
     public void MoveForKey_WhenMenuHasADisabledCurrentTenant_ShouldSkipIt(string key, int activeIndex, int expected)
     {
         // Arrange

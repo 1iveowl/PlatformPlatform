@@ -235,7 +235,7 @@ test.describe("@comprehensive", () => {
     })();
 
     await step("Follow the login link on the session ended page & verify the login page")(async () => {
-      await page.getByRole("link", { name: texts.logIn, exact: true }).click();
+      await page.getByRole("main").getByRole("link", { name: texts.logIn, exact: true }).click();
 
       await expectBlazorUrl(page, "login");
       await expect(page.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();

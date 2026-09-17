@@ -113,3 +113,17 @@ export function attachInstallPromptSwipe(element, dotNet) {
 export function focusElement(id) {
   document.getElementById(id)?.focus();
 }
+
+// The host's js/theme.js owns the theme decision and storage on every page; these dispatch its document events
+// synchronously and return the detail it filled, or null when the script is not on the document
+export function setTheme(theme) {
+  const detail = { theme };
+  document.dispatchEvent(new CustomEvent("theme:set", { detail }));
+  return detail.resolvedTheme === undefined ? null : detail;
+}
+
+export function readTheme() {
+  const detail = {};
+  document.dispatchEvent(new CustomEvent("theme:read", { detail }));
+  return detail.theme === undefined ? null : detail;
+}
