@@ -192,7 +192,36 @@ export const blazorCultures = [
     loadMore: "Load more",
     allRowsLoaded: "All rows loaded",
     selectAllUsers: "Select all users",
-    selectRow: (label: string) => `Select ${label}`
+    selectRow: (label: string) => `Select ${label}`,
+    userSessions: "User sessions",
+    sessions: "Sessions",
+    thisDevice: "This device",
+    revoke: "Revoke",
+    revokeSession: "Revoke session",
+    sessionRevokedSuccessfully: "Session revoked successfully",
+    sessionRevokeDelayNotice: "It may take up to 5 minutes before the device is logged out.",
+    loginMethod: "Login method",
+    loginMethodOneTimePassword: "One-time password",
+    loginMethodMitId: "MitID",
+    userPreferences: "User preferences",
+    preferences: "Preferences",
+    theme: "Theme",
+    language: "Language",
+    zoom: "Zoom",
+    themeUpdated: "Theme updated",
+    zoomLevelUpdated: "Zoom level updated",
+    zoomDefault: "Default",
+    zoomLarge: "Large",
+    zoomLarger: "Larger",
+    changeLanguage: "Change language",
+    languageName: "English",
+    accountSwitched: "Account switched",
+    accountSwitchedTo: (tenantName: string) => `Your account was switched to ${tenantName} in another browser tab.`,
+    loggedOut: "Logged out",
+    loggedOutInAnotherTab: "You were logged out from another browser tab.",
+    differentUserLoggedIn: "Different user logged in",
+    differentUserLoggedInInAnotherTab: "A different user logged in from another browser tab.",
+    reload: "Reload"
   },
   {
     locale: "da-DK",
@@ -379,7 +408,36 @@ export const blazorCultures = [
     loadMore: "Indlæs flere",
     allRowsLoaded: "Alle rækker er indlæst",
     selectAllUsers: "Vælg alle brugere",
-    selectRow: (label: string) => `Vælg ${label}`
+    selectRow: (label: string) => `Vælg ${label}`,
+    userSessions: "Brugersessioner",
+    sessions: "Sessioner",
+    thisDevice: "Denne enhed",
+    revoke: "Tilbagekald",
+    revokeSession: "Tilbagekald session",
+    sessionRevokedSuccessfully: "Session tilbagekaldt succesfuldt",
+    sessionRevokeDelayNotice: "Det kan tage op til 5 minutter, før enheden er logget ud.",
+    loginMethod: "Login-metode",
+    loginMethodOneTimePassword: "Engangskode",
+    loginMethodMitId: "MitID",
+    userPreferences: "Brugerpræferencer",
+    preferences: "Præferencer",
+    theme: "Tema",
+    language: "Sprog",
+    zoom: "Zoom",
+    themeUpdated: "Tema opdateret",
+    zoomLevelUpdated: "Zoomniveau opdateret",
+    zoomDefault: "Standard",
+    zoomLarge: "Stor",
+    zoomLarger: "Større",
+    changeLanguage: "Skift sprog",
+    languageName: "Dansk",
+    accountSwitched: "Konto skiftet",
+    accountSwitchedTo: (tenantName: string) => `Din konto blev skiftet til ${tenantName} i en anden browsertab.`,
+    loggedOut: "Logget ud",
+    loggedOutInAnotherTab: "Du blev logget ud fra en anden browsertab.",
+    differentUserLoggedIn: "En anden bruger loggede ind",
+    differentUserLoggedInInAnotherTab: "En anden bruger loggede ind fra en anden browsertab.",
+    reload: "Genindlæs"
   }
 ] as const;
 
@@ -409,6 +467,14 @@ export function blazorTexts(): BlazorCulture {
 }
 
 /**
+ * The text map of the culture the running test's project does not render in, for a test that switches the language
+ */
+export function otherBlazorTexts(): BlazorCulture {
+  const current = blazorLocale();
+  return blazorCultures.find((candidate) => candidate.locale !== current)!;
+}
+
+/**
  * Messages the account API returns; the Blazor pages show them as returned, in English, in every culture
  */
 export const accountApiMessages = {
@@ -435,6 +501,7 @@ export const accountApiMessages = {
   tooManyUsersSelected: "Cannot delete more than 100 users at once.",
   invalidImageContent: "Image must be a valid JPEG, PNG, GIF, or WebP file.",
   invalidImageType: "Image must be of type JPEG, PNG, GIF, or WebP.",
+  sessionAlreadyRevoked: (sessionId: string) => `Session with id '${sessionId}' is already revoked.`,
   antiforgeryValidationFailed: "Antiforgery validation failed for request.",
   mitIdVerificationNotEnabled: "Provider 'MitId' is not enabled for the 'Verification' flow."
 } as const;

@@ -1,19 +1,34 @@
 import { expect, type Page } from "@playwright/test";
-import { getCurrentSessionIdThroughAccountApi, getSessionsThroughAccountApi, revokeSessionThroughAccountApi, sendAccountApiRequest } from "@blazor/e2e/account-api";
+import { getCurrentSessionIdThroughAccountApi, getSessionsThroughAccountApi, sendAccountApiRequest } from "@blazor/e2e/account-api";
 import { logInThroughBlazor, logOutButton, logOutThroughBlazor, openUserMenu, userMenuButton, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
-import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
+import { expectNoPolicyViolations, trackPolicyViolations } from "@blazor/e2e/policy";
+import { blazorPath, expectBlazorUrl, gotoBlazor } from "@blazor/e2e/routes";
+import {
+  antiforgeryCookieName,
+  accessTokenCookieName,
+  authSyncDialog,
+  copyRefreshTokenCookie,
+  currentSessionCard,
+  deleteAccessTokenCookie,
+  expectSessionsListed,
+  getCookieNames,
+  newBlazorContext,
+  otherSessionCards,
+  refreshTokenCookieName,
+  reloadBootstrap,
+  revokeOtherSessionThroughSessionsPage,
+  revokeSessionDialog,
+  sessionCards,
+  setVisibilityState,
+  trackWrites
+} from "@blazor/e2e/sessions";
+import { mainNavigation } from "@blazor/e2e/shell";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
-import { blazorLocale, blazorTexts } from "@blazor/e2e/texts";
+import { blazorTexts } from "@blazor/e2e/texts";
+import { blazorToast } from "@blazor/e2e/toast";
 import { getBaseUrl } from "@shared/e2e/utils/constants";
 import { assertNoUnexpectedErrors, createTestContext, expectNetworkErrors, type TestContext } from "@shared/e2e/utils/test-assertions";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
-
-/**
- * The authentication cookies the gateway sets, as named in SharedKernel's AuthenticationTokenHttpKeys
- */
-const accessTokenCookieName = "__Host-access-token";
-const refreshTokenCookieName = "__Host-refresh-token";
-const antiforgeryCookieName = "__Host-xsrf-token";
 
 /**
  * The account API's logout endpoint as a route pattern, for failure injection
@@ -39,22 +54,6 @@ function countRequests(page: Page, method: string, routePattern: string): { coun
     if (request.method() === method && new URL(request.url()).pathname === path && !request.headers()[serverSideLogoutHeader]) counter.count++;
   });
   return counter;
-}
-
-async function getCookieNames(page: Page): Promise<string[]> {
-  return (await page.context().cookies(getBaseUrl())).map((cookie) => cookie.name);
-}
-
-/**
- * Remove the access token cookie while keeping the refresh token cookie, so the next request through the gateway has to
- * refresh the session before it reaches the API or the host
- * @param page Playwright page instance of a signed-in user
- */
-async function deleteAccessTokenCookie(page: Page): Promise<void> {
-  await page.context().clearCookies({ name: accessTokenCookieName });
-
-  expect(await getCookieNames(page)).not.toContain(accessTokenCookieName);
-  expect(await getCookieNames(page)).toContain(refreshTokenCookieName);
 }
 
 /**
@@ -99,32 +98,107 @@ async function expectAuthenticatedWorkspace(page: Page, email: string): Promise<
   await expect(page.getByTestId("bootstrap-email")).toHaveText(email);
 }
 
+test.describe("@smoke", () => {
+  /**
+   * The sessions page, the React edition's session management smoke journey:
+   * - The sessions page opens from the main navigation and lists the current session as "This device", with its login
+   *   method and no Revoke button
+   * - A login from a second browser adds a second session after a reload, listed after the current one
+   * - Cancel in the revoke confirmation keeps both sessions
+   * - Revoke in the confirmation shows the toast and the 5-minute notice and leaves only the current session
+   * - The page causes no policy violation and renders no style attribute
+   */
+  test("should list sessions and revoke another device's session through the sessions page", async ({ page, browser }) => {
+    createTestContext(page);
+    const texts = blazorTexts();
+    await trackPolicyViolations(page);
+    const email = uniqueBlazorEmail();
+    const secondContext = await newBlazorContext(browser);
+    const secondPage = await secondContext.newPage();
+    const secondTestContext = createTestContext(secondPage);
+
+    await step("Sign up and open Sessions from the main navigation & verify the current device without Revoke")(async () => {
+      await signUpThroughBlazor(page, email);
+
+      await mainNavigation(page).getByRole("link", { name: texts.sessions, exact: true }).click();
+
+      await expectBlazorUrl(page, "user/sessions");
+      await expectSessionsListed(page, 1);
+      await expect(currentSessionCard(page)).toContainText(texts.loginMethodOneTimePassword);
+      await expect(currentSessionCard(page).getByRole("button", { name: texts.revoke, exact: true })).toHaveCount(0);
+    })();
+
+    await step("Log in from a second browser and reload the sessions page & verify two sessions with the current first")(async () => {
+      await logInThroughBlazor(secondPage, email);
+
+      await page.reload();
+
+      await expectSessionsListed(page, 2);
+      await expect(otherSessionCards(page)).toHaveCount(1);
+      await expect(otherSessionCards(page).getByRole("button", { name: texts.revoke, exact: true })).toBeVisible();
+    })();
+
+    await step("Open the revoke confirmation and cancel & verify both sessions remain")(async () => {
+      await otherSessionCards(page).getByRole("button", { name: texts.revoke, exact: true }).click();
+      await expect(revokeSessionDialog(page)).toBeVisible();
+
+      await revokeSessionDialog(page).getByRole("button", { name: texts.cancel, exact: true }).click();
+
+      await expect(revokeSessionDialog(page)).toHaveCount(0);
+      await expect(sessionCards(page)).toHaveCount(2);
+    })();
+
+    await step("Revoke the second browser's session & verify the toast, the delay notice and one remaining session")(async () => {
+      await revokeOtherSessionThroughSessionsPage(page);
+
+      await expect(blazorToast(page, texts.sessionRevokedSuccessfully)).toBeVisible();
+      await expect(page.getByText(texts.sessionRevokeDelayNotice, { exact: true })).toBeVisible();
+      await expectSessionsListed(page, 1);
+      await expect(otherSessionCards(page)).toHaveCount(0);
+      await expectNoPolicyViolations(page);
+    })();
+
+    await assertNoUnexpectedErrors(secondTestContext);
+    await secondContext.close();
+  });
+});
+
 test.describe("@comprehensive", () => {
   /**
-   * Logout, its failure handling, a missing access token and a revoked session on the Blazor workspace.
+   * Logout, its failure handling, a missing access token, session revocation, refresh token replay and the logout seen by
+   * other tabs on the Blazor workspace.
    * - A rejected logout (500) shows the localized retry alert and keeps the user on the authenticated workspace
    * - A logout whose response is lost after the account API logged out shows the localized unconfirmed alert, sends no
    *   second logout on its own and keeps the workspace, because the browser still holds the session cookies
    * - Logging out again lands on the login page, leaves only the antiforgery cookie, the account API rejects the old
    *   session with 401 and the authenticated home then redirects to login
    * - A deleted access token cookie with a valid refresh token cookie is refreshed by the gateway on reload with no
-   *   visible effect, and the cookie is set again. This proves the gateway's missing-cookie refresh path only; the
-   *   refresh of an actually expired access token is covered by the gateway's middleware tests with signed tokens
+   *   visible effect, and the cookie is set again. This simulates expiry by removing the cookie; the refresh of an actually
+   *   expired access token is covered by the gateway's middleware tests and the browser harness
    * - An ordinary logout in a second browser revokes that browser's session only
-   * - Revoking the first browser's exact session from a third browser through the sessions API, then forcing the gateway
-   *   to refresh by deleting the first browser's access token cookie, answers the next API call with 401 Revoked and
-   *   lands on the localized "Session ended" page, whose login link reaches the login page without a redirect loop
+   * - Revoking the first browser's session from a third browser through the sessions page, then forcing the gateway to
+   *   refresh by deleting the first browser's access token cookie, answers the next API call with 401 Revoked and lands on
+   *   the localized "Session ended" page, whose login link reaches the login page without a redirect loop
+   * - A refresh token copied into another browser and used there twice makes the original token a replay: the original
+   *   browser's next refresh answers 401 ReplayAttackDetected and lands on login, and so does the other browser's next one
+   * - A tab hidden while its session is logged out elsewhere without a message shows nothing and no write, and shows
+   *   "Logged out" once it becomes visible; Reload lands on login
+   * - Without BroadcastChannel a logout in one tab ends the other tab when it gains focus
+   * - Going back after that logout never restores the previous identity
    */
-  test("should handle logout and its failures, access token refresh and session revocation", async ({ page, browser }) => {
+  test("should handle logout and its failures, access token refresh, session revocation, token replay and logout across tabs", async ({ page, browser }) => {
     const context = createTestContext(page);
     const texts = blazorTexts();
     const email = uniqueBlazorEmail();
-    const secondContext = await browser.newContext({ locale: blazorLocale(), baseURL: blazorUrl(), ignoreHTTPSErrors: true });
+    const secondContext = await newBlazorContext(browser);
     const secondPage = await secondContext.newPage();
     const secondTestContext = createTestContext(secondPage);
-    const thirdContext = await browser.newContext({ locale: blazorLocale(), baseURL: blazorUrl(), ignoreHTTPSErrors: true });
+    const thirdContext = await newBlazorContext(browser);
     const thirdPage = await thirdContext.newPage();
     const thirdTestContext = createTestContext(thirdPage);
+    const attackerContext = await newBlazorContext(browser);
+    const attackerPage = await attackerContext.newPage();
+    const attackerTestContext = createTestContext(attackerPage);
 
     // === LOGOUT ===
     await step("Sign up and log out while the account API rejects the logout & verify the retry state keeps the session")(async () => {
@@ -211,19 +285,22 @@ test.describe("@comprehensive", () => {
       await expectAuthenticatedWorkspace(page, email);
     })();
 
-    await step("Revoke the first browser's session from a third browser & verify the session ended page")(async () => {
+    await step("Revoke the first browser's session from a third browser's sessions page & verify the session ended page")(async () => {
       const firstSessionId = await getCurrentSessionIdThroughAccountApi(page);
       await logInThroughBlazor(thirdPage, email);
-      expect((await getSessionsThroughAccountApi(thirdPage)).map((session) => session.id)).toContain(firstSessionId);
-      expect(await getCurrentSessionIdThroughAccountApi(thirdPage)).not.toBe(firstSessionId);
-      await revokeSessionThroughAccountApi(thirdPage, firstSessionId);
+      await gotoBlazor(thirdPage, "user/sessions");
+      await expectSessionsListed(thirdPage, 2);
+      await revokeOtherSessionThroughSessionsPage(thirdPage);
+      await expect(blazorToast(thirdPage, texts.sessionRevokedSuccessfully)).toBeVisible();
+      await expectSessionsListed(thirdPage, 1);
+      expect((await getSessionsThroughAccountApi(thirdPage)).map((session) => session.id)).not.toContain(firstSessionId);
       await deleteAccessTokenCookie(page);
-      const unauthorizedResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/bootstrap") && response.status() === 401);
       await watchErrorBanner(page);
 
-      await page.getByRole("button", { name: texts.reloadBootstrap, exact: true }).click();
+      const unauthorizedResponse = await reloadBootstrap(page);
 
-      expect(await (await unauthorizedResponse).headerValue("x-unauthorized-reason")).toBe("Revoked");
+      expect(unauthorizedResponse.status()).toBe(401);
+      expect(await unauthorizedResponse.headerValue("x-unauthorized-reason")).toBe("Revoked");
       await expectBlazorUrl(page, "error");
       await expect(page).toHaveURL((url) => url.searchParams.get("error") === "session_revoked");
       await expect(page.getByRole("heading", { name: texts.sessionEnded })).toBeVisible();
@@ -243,8 +320,105 @@ test.describe("@comprehensive", () => {
       await expectBlazorUrl(page, "login");
     })();
 
+    // === REFRESH TOKEN REPLAY ===
+    await step("Copy a refresh token into another browser and refresh with it twice & verify that browser is signed in")(async () => {
+      await logInThroughBlazor(secondPage, email);
+      await copyRefreshTokenCookie(secondContext, attackerContext);
+
+      await attackerPage.goto(blazorPath("app"));
+      await expectAuthenticatedWorkspace(attackerPage, email);
+      await deleteAccessTokenCookie(attackerPage);
+      await attackerPage.reload();
+
+      await expectAuthenticatedWorkspace(attackerPage, email);
+    })();
+
+    await step("Refresh with the original token in the original browser & verify 401 ReplayAttackDetected and the login page")(async () => {
+      await deleteAccessTokenCookie(secondPage);
+
+      const replayResponse = await reloadBootstrap(secondPage);
+
+      expect(replayResponse.status()).toBe(401);
+      expect(await replayResponse.headerValue("x-unauthorized-reason")).toBe("ReplayAttackDetected");
+      await expectBlazorUrl(secondPage, "login");
+      await expect(secondPage.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();
+      await expectNetworkErrors(secondTestContext, [401]);
+    })();
+
+    await step("Refresh with the copied token in the other browser & verify 401 ReplayAttackDetected and the login page")(async () => {
+      await deleteAccessTokenCookie(attackerPage);
+
+      const replayResponse = await reloadBootstrap(attackerPage);
+
+      expect(replayResponse.status()).toBe(401);
+      expect(await replayResponse.headerValue("x-unauthorized-reason")).toBe("ReplayAttackDetected");
+      await expectBlazorUrl(attackerPage, "login");
+      await expect(attackerPage.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();
+      await expectNetworkErrors(attackerTestContext, [401]);
+    })();
+
+    // === LOGOUT ACROSS TABS ===
+    await step("Log out through the account API while a second tab is hidden & verify the tab shows Logged out only once visible")(async () => {
+      const hiddenPage = await thirdContext.newPage();
+      const hiddenTestContext = createTestContext(hiddenPage);
+      await gotoBlazor(hiddenPage, "app");
+      await expectAuthenticatedWorkspace(hiddenPage, email);
+      await setVisibilityState(hiddenPage, "hidden");
+      const hiddenWrites = trackWrites(hiddenPage);
+
+      expect((await sendAccountApiRequest(thirdPage, "POST", "/api/account/authentication/logout")).status).toBeLessThan(300);
+      await expect(authSyncDialog(hiddenPage, texts.loggedOut)).toHaveCount(0);
+      await setVisibilityState(hiddenPage, "visible");
+
+      await expect(authSyncDialog(hiddenPage, texts.loggedOut)).toBeVisible();
+      await expect(authSyncDialog(hiddenPage, texts.loggedOut)).toContainText(texts.loggedOutInAnotherTab);
+      await expect(hiddenPage.getByTestId("bootstrap-email")).toHaveCount(0);
+      expect(hiddenWrites).toEqual([]);
+      await authSyncDialog(hiddenPage, texts.loggedOut).getByRole("button", { name: texts.reload, exact: true }).click();
+      await expectBlazorUrl(hiddenPage, "login");
+      await assertNoUnexpectedErrors(hiddenTestContext);
+    })();
+
+    await step("Log out in one tab of a browser without BroadcastChannel & verify the other tab ends when it gains focus")(async () => {
+      const channelContext = await newBlazorContext(browser);
+      await channelContext.addInitScript(() => {
+        delete (window as { BroadcastChannel?: unknown }).BroadcastChannel;
+      });
+      const mainTab = await channelContext.newPage();
+      const mainTestContext = createTestContext(mainTab);
+      await trackPolicyViolations(mainTab);
+      await logInThroughBlazor(mainTab, email);
+      const otherTab = await channelContext.newPage();
+      const otherTestContext = createTestContext(otherTab);
+      await trackPolicyViolations(otherTab);
+      await gotoBlazor(otherTab, "app");
+      await expectAuthenticatedWorkspace(otherTab, email);
+      expect(await otherTab.evaluate(() => typeof window.BroadcastChannel)).toBe("undefined");
+      const otherWrites = trackWrites(otherTab);
+
+      await logOutThroughBlazor(mainTab);
+      await expect(authSyncDialog(otherTab, texts.loggedOut)).toHaveCount(0);
+      await otherTab.evaluate(() => window.dispatchEvent(new Event("focus")));
+
+      await expect(authSyncDialog(otherTab, texts.loggedOut)).toBeVisible();
+      await expect(otherTab.getByTestId("bootstrap-email")).toHaveCount(0);
+      expect(otherWrites).toEqual([]);
+      await expectNoPolicyViolations(otherTab);
+
+      await mainTab.goBack();
+
+      await expectBlazorUrl(mainTab, "login");
+      await expect(mainTab.getByTestId("bootstrap-email")).toHaveCount(0);
+      await expect(userMenuButton(mainTab)).toHaveCount(0);
+      await assertNoUnexpectedErrors(mainTestContext);
+      await assertNoUnexpectedErrors(otherTestContext);
+      await channelContext.close();
+    })();
+
     await assertNoUnexpectedErrors(secondTestContext);
     await assertNoUnexpectedErrors(thirdTestContext);
+    await assertNoUnexpectedErrors(attackerTestContext);
+    await attackerContext.close();
     await thirdContext.close();
     await secondContext.close();
   });

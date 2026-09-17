@@ -1,5 +1,4 @@
 import { expect } from "@playwright/test";
-import { getSessionsThroughAccountApi } from "@blazor/e2e/account-api";
 import { logOutThroughBlazor, signUpThroughBlazor, test, userMenuButton } from "@blazor/e2e/authentication";
 import {
   expectBlazorErrorPage,
@@ -15,6 +14,7 @@ import {
 } from "@blazor/e2e/external-login";
 import { revokeVerificationInBackOffice } from "@blazor/e2e/identity-verification";
 import { blazorPath, expectBlazorUrl, gotoBlazor } from "@blazor/e2e/routes";
+import { currentSessionCard, expectSessionsListed } from "@blazor/e2e/sessions";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
 import { blazorTexts } from "@blazor/e2e/texts";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
@@ -35,7 +35,7 @@ test.describe("@smoke", () => {
    * - The identity is verified with the "Confirm with MitID" button on the Blazor profile
    * - After logout the login page offers MitID under the approved phrase "Log on with MitID" with the wordmark and the brand geometry, never "Log in with MitID"
    * - Logging in with the same MitID identity returns to the same account
-   * - The session is recorded as MitID, read through the account API until the Blazor sessions page exists (T020); the session specifications (T021) will replace this step with the sessions page
+   * - The sessions page lists the current session with MitID as its login method
    */
   test("should log in with a verified MitID identity and record the session as MitID", async ({ page }) => {
     createTestContext(page);
@@ -90,10 +90,11 @@ test.describe("@smoke", () => {
       expectRedirectsInsideBlazor(redirects);
     })();
 
-    await step("List the sessions through the account API & verify the current session is recorded as MitID")(async () => {
-      const sessions = await getSessionsThroughAccountApi(page);
+    await step("Open the sessions page & verify the current session is recorded as MitID")(async () => {
+      await gotoBlazor(page, "user/sessions");
 
-      expect(sessions.filter((session) => session.isCurrent).map((session) => session.loginMethod)).toEqual(["MitId"]);
+      await expectSessionsListed(page, 1);
+      await expect(currentSessionCard(page)).toContainText(texts.loginMethodMitId);
     })();
   });
 });

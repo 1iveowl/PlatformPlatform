@@ -107,6 +107,16 @@ export async function expectAppliedTheme(page: Page, theme: AppliedTheme): Promi
 }
 
 /**
+ * Expect the document to apply a zoom level. The level is the data-zoom-level attribute of the root element, which the
+ * stylesheet turns into the root font size; the element has no role or accessible name
+ * @param page Playwright page instance
+ * @param zoomLevel The applied zoom level, for example "1.25"
+ */
+export async function expectZoomLevel(page: Page, zoomLevel: string): Promise<void> {
+  await expect(page.locator("html")).toHaveAttribute("data-zoom-level", zoomLevel);
+}
+
+/**
  * The floating Open navigation menu button shown below the small breakpoint
  * @param page Playwright page instance on an interactive authenticated Blazor page
  */
