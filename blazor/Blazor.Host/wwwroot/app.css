@@ -1640,3 +1640,97 @@ h1:focus {
     padding-block-start: 1rem;
     border-block-start: 1px solid var(--border);
 }
+
+/* The feature flag sections (Blazor.Client/FeatureFlags/FeatureFlagsSection and FeatureFlagSwitches): one card per flag
+   with its name and description, and a switch drawn from the button's aria-checked and disabled state, so the knob moves
+   without a style attribute */
+.feature-flags {
+    margin-block-start: 3rem;
+    max-width: 40rem;
+}
+
+.feature-flags h2 {
+    margin-block: 0 0.25rem;
+    font-size: 1.125rem;
+}
+
+.feature-flags-description {
+    margin-block: 0 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.feature-flag-switches {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.feature-flag-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+}
+
+.feature-flag-switch-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.feature-flag-switch-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.feature-flag-switch-description {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.switch {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    width: 2.75rem;
+    min-height: 1.5rem;
+    padding: 0.125rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.75rem;
+    background: var(--surface-hover);
+    cursor: pointer;
+}
+
+.switch[aria-checked="true"] {
+    justify-content: flex-end;
+    border-color: var(--text);
+    background: var(--surface-accent);
+}
+
+.switch:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+}
+
+.switch:disabled {
+    border-color: var(--border-subtle);
+    cursor: default;
+}
+
+.switch-thumb {
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 50%;
+    background: var(--text);
+}
+
+.switch:disabled .switch-thumb {
+    background: var(--text-disabled);
+}

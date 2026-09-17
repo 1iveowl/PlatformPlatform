@@ -45,7 +45,9 @@ public static class BootstrapConfiguration
     public const string CdnUrlKey = "CDN_URL";
     public const string ApplicationVersionKey = "APPLICATION_VERSION";
 
-    private static readonly SystemFeatureFlag[] SystemFlags = FeatureFlags.GetAll().OfType<SystemFeatureFlag>().ToArray();
+    // Fully qualified: this file's namespace sits under Account.Features, which also holds the FeatureFlags contracts,
+    // so the bare name would resolve to that namespace instead of the registry
+    private static readonly SystemFeatureFlag[] SystemFlags = SharedKernel.FeatureFlags.FeatureFlags.GetAll().OfType<SystemFeatureFlag>().ToArray();
 
     public static IReadOnlyDictionary<string, string> CreateRuntimeConfiguration(Func<string, string?> getEnvironmentVariable, string applicationVersion)
     {

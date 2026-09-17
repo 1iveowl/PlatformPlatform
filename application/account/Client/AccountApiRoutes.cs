@@ -55,6 +55,10 @@ public static class AccountApiRoutes
 
     public const string VerificationStatus = "/api/account/authentication/verification";
 
+    public const string TenantConfigurableFeatureFlags = "/api/account/feature-flags/tenant-configurable";
+
+    public const string UserConfigurableFeatureFlags = "/api/account/feature-flags/user-configurable";
+
     private const string DateFormat = "yyyy-MM-dd";
 
     // The external login and signup starts are document navigations, not typed client calls; the provider is the name of
@@ -62,6 +66,17 @@ public static class AccountApiRoutes
     public static string RevokeSession(SessionId sessionId)
     {
         return $"{Sessions}/{Uri.EscapeDataString(sessionId.Value)}";
+    }
+
+    // The flag key is a registry key (lower case kebab-case), escaped here like every other route value
+    public static string SetTenantFeatureFlagOverride(string flagKey)
+    {
+        return $"/api/account/feature-flags/{Uri.EscapeDataString(flagKey)}/tenant-override";
+    }
+
+    public static string SetUserFeatureFlagOverride(string flagKey)
+    {
+        return $"/api/account/feature-flags/{Uri.EscapeDataString(flagKey)}/user-override";
     }
 
     public static string StartExternalLogin(string provider)

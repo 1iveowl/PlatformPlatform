@@ -1,0 +1,60 @@
+@* The switches of a feature flag section, the React edition's list of Switch rows. Each row is a native button with
+   role="switch" and aria-checked, named by the flag's localized name and described by its description, so the browser
+   supplies the keyboard and the accessible state; the knob is drawn by classes in app.css and nothing writes a style
+   attribute. The component renders what it is given: the state comes from the section, never from the click, and every
+   switch is disabled while a change is in flight. *@
+
+<ul class="feature-flag-switches" data-testid="@TestId">
+    @foreach (var row in Rows)
+    {
+        <li class="feature-flag-switch" @key="row.Key">
+            <span class="feature-flag-switch-text">
+                <span class="feature-flag-switch-name" id="@NameId(row)">@row.Name</span>
+                <span class="feature-flag-switch-description" id="@DescriptionId(row)">@row.Description</span>
+            </span>
+            <button type="button" role="@SwitchRole" class="switch" aria-checked="@(row.Enabled ? "true" : "false")"
+                    aria-labelledby="@NameId(row)" aria-describedby="@DescriptionId(row)" disabled="@Disabled"
+                    data-testid="@SwitchTestId(row.Key)" @onclick="() => OnToggle.InvokeAsync(row)">
+                <span class="switch-thumb" aria-hidden="true"></span>
+            </button>
+        </li>
+    }
+</ul>
+
+@code {
+
+    // The ARIA 1.1 role the React edition's switch also carries. Written through a constant because the .NET inspector's
+    // attribute value list predates ARIA 1.1 and reports the literal as unresolved; the rendered attribute is the same, and
+    // the feature-flags browser harness asserts role="switch" on the rendered button in all three browsers.
+    public const string SwitchRole = "switch";
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<FeatureFlagRow> Rows { get; set; } = [];
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public string TestId { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<FeatureFlagRow> OnToggle { get; set; }
+
+    public static string SwitchTestId(string flagKey)
+    {
+        return $"feature-flag-{flagKey}";
+    }
+
+    private static string NameId(FeatureFlagRow row)
+    {
+        return $"feature-flag-{row.Key}-name";
+    }
+
+    private static string DescriptionId(FeatureFlagRow row)
+    {
+        return $"feature-flag-{row.Key}-description";
+    }
+
+}

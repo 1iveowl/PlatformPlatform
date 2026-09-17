@@ -9,12 +9,6 @@ namespace Account.Features.FeatureFlags.Queries;
 [PublicAPI]
 public sealed record GetTenantConfigurableFeatureFlagsQuery : IRequest<Result<TenantConfigurableFeatureFlagsResponse>>;
 
-[PublicAPI]
-public sealed record TenantConfigurableFeatureFlagsResponse(TenantConfigurableFeatureFlag[] Flags);
-
-[PublicAPI]
-public sealed record TenantConfigurableFeatureFlag(string FlagKey, bool Enabled);
-
 public sealed class GetTenantConfigurableFeatureFlagsHandler(IFeatureFlagRepository featureFlagRepository, IExecutionContext executionContext)
     : IRequestHandler<GetTenantConfigurableFeatureFlagsQuery, Result<TenantConfigurableFeatureFlagsResponse>>
 {

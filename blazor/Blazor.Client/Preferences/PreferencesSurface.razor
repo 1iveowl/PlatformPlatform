@@ -9,6 +9,7 @@
 @using Account.Client
 @using Account.Features.Users.Requests
 @using Blazor.Client.Bootstrap
+@using Blazor.Client.FeatureFlags
 @using Blazor.Client.Session
 @implements IDisposable
 @inject SessionState Session
@@ -42,6 +43,8 @@
         <ToggleGroup Name="zoom-level" Items="ZoomItems" Value="@(Preferences.IsLoaded ? Preferences.ZoomLevel : null)" Disabled="!Preferences.IsLoaded"
                      LabelId="preferences-zoom-label" TestId="zoom-group" OnChange="OnZoomLevelChangedAsync"/>
     </section>
+
+    <FeatureFlagsSection Scope="FeatureFlagSectionScope.User"/>
 </AppShell>
 
 @code {

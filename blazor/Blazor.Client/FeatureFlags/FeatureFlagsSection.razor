@@ -1,0 +1,104 @@
+@* One feature flag section, the React edition's Features section on account settings and Feature preferences section on
+   the preferences page. The scope decides which configurable list is read, which override endpoint a switch calls and
+   which heading and toast the section shows; everything else is the same, so both surfaces render this component. The
+   section stays hidden until the list has been read and when the list is empty, which is what an administrator
+   deactivating a flag globally leaves behind. A change is the override PUT, whose response carries the refreshed
+   x-user-feature-flags header that FeatureFlagsHeaderHandler applies to FeatureFlagState, so the flags this runtime
+   evaluates follow without a reload; the switch itself is then set from the list read after the change, never from the
+   click, so a refused change leaves the state the server reports. A refusal is shown as a toast, because the section is
+   interactive and has no form. Leaving the account drops the rows, so nothing carries into the next one. *@
+@using Account.Client
+@using Account.Features.FeatureFlags.Requests
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Session
+@implements IDisposable
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject ToastService Toasts
+
+@if (_section.IsVisible)
+{
+    <section class="feature-flags" aria-labelledby="@_section.HeadingId" data-testid="@_section.SectionTestId">
+        <h2 id="@_section.HeadingId">@_section.Heading</h2>
+        <p class="feature-flags-description">@_section.Description</p>
+        <FeatureFlagSwitches Rows="_section.Rows" Disabled="_section.IsBusy" TestId="@($"{_section.SectionTestId}-switches")" OnToggle="ToggleAsync"/>
+    </section>
+}
+
+@code {
+
+    private FeatureFlagSection _section = new(FeatureFlagSectionScope.User);
+    private AuthenticationNavigator? _navigator;
+
+    [Parameter]
+    [EditorRequired]
+    public FeatureFlagSectionScope Scope { get; set; }
+
+    public void Dispose()
+    {
+        if (_navigator is not null) _navigator.Leaving -= OnLeaving;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _section = new FeatureFlagSection(Scope);
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
+
+        _navigator = Services.GetRequiredService<AuthenticationNavigator>();
+        _navigator.Leaving += OnLeaving;
+        await LoadAsync();
+    }
+
+    private void OnLeaving()
+    {
+        _section.Reset();
+    }
+
+    // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime; a read that fails for another
+    // reason leaves the section hidden rather than showing a failure beside the page's own content
+    private async Task LoadAsync()
+    {
+        var client = Services.GetRequiredService<FeatureFlagsClient>();
+        if (Scope == FeatureFlagSectionScope.Tenant)
+        {
+            var tenantFlags = await Session.UnlessLeavingAsync(client.GetTenantConfigurableAsync);
+            if (tenantFlags is null || !tenantFlags.IsSuccess) return;
+
+            _section.Load(tenantFlags.Value!.Flags.Select(flag => (flag.FlagKey, flag.Enabled)));
+            return;
+        }
+
+        var userFlags = await Session.UnlessLeavingAsync(client.GetUserConfigurableAsync);
+        if (userFlags is null || !userFlags.IsSuccess) return;
+
+        _section.Load(userFlags.Value!.Flags.Select(flag => (flag.FlagKey, flag.Enabled)));
+    }
+
+    private async Task ToggleAsync(FeatureFlagRow row)
+    {
+        if (!_section.TryBeginToggle(row.Key)) return;
+
+        var result = await SetOverrideAsync(row.Key, !row.Enabled);
+        if (result is null) return;
+
+        _section.EndToggle();
+        if (!result.IsSuccess)
+        {
+            if (result.Outcome != ApiCallOutcome.Unauthorized) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        await LoadAsync();
+        Toasts.Show(ToastKind.Success, _section.ToastTitle, FeatureFlagSection.UpdatedDetail(row.Name), _section.ToastTestId);
+    }
+
+    private Task<ApiCallResult?> SetOverrideAsync(string flagKey, bool enabled)
+    {
+        var client = Services.GetRequiredService<FeatureFlagsClient>();
+        return Scope == FeatureFlagSectionScope.Tenant
+            ? Session.UnlessLeavingAsync(cancellationToken => client.SetTenantOverrideAsync(flagKey, new SetTenantFeatureFlagOwnerCommand { Enabled = enabled }, cancellationToken))
+            : Session.UnlessLeavingAsync(cancellationToken => client.SetUserOverrideAsync(flagKey, new SetUserFeatureFlagCommand { Enabled = enabled }, cancellationToken));
+    }
+
+}

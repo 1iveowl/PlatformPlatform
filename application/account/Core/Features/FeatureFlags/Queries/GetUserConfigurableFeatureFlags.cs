@@ -9,12 +9,6 @@ namespace Account.Features.FeatureFlags.Queries;
 [PublicAPI]
 public sealed record GetUserConfigurableFeatureFlagsQuery : IRequest<Result<UserConfigurableFeatureFlagsResponse>>;
 
-[PublicAPI]
-public sealed record UserConfigurableFeatureFlagsResponse(UserConfigurableFeatureFlag[] Flags);
-
-[PublicAPI]
-public sealed record UserConfigurableFeatureFlag(string FlagKey, bool Enabled);
-
 public sealed class GetUserConfigurableFeatureFlagsHandler(IFeatureFlagRepository featureFlagRepository, IExecutionContext executionContext)
     : IRequestHandler<GetUserConfigurableFeatureFlagsQuery, Result<UserConfigurableFeatureFlagsResponse>>
 {

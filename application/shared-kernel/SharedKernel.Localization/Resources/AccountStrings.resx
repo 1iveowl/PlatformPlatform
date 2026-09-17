@@ -469,4 +469,48 @@
         <value>Our support team will assist you with the account deletion process and ensure all your data is properly removed.</value>
         <comment>React: Our support team will assist you with the account deletion process and ensure all your data is properly removed.</comment>
     </data>
+    <data name="Features" xml:space="preserve">
+        <value>Features</value>
+        <comment>React: Features</comment>
+    </data>
+    <data name="FeaturesDescription" xml:space="preserve">
+        <value>Toggle features available to your account.</value>
+        <comment>React: Toggle features available to your account.</comment>
+    </data>
+    <data name="FeaturePreferences" xml:space="preserve">
+        <value>Feature preferences</value>
+        <comment>React: Feature preferences</comment>
+    </data>
+    <data name="FeaturePreferencesDescription" xml:space="preserve">
+        <value>Customize which optional features are enabled for your account.</value>
+        <comment>React: Customize which optional features are enabled for your account.</comment>
+    </data>
+    <data name="FeatureUpdated" xml:space="preserve">
+        <value>Feature updated successfully</value>
+        <comment>React: Feature updated successfully</comment>
+    </data>
+    <data name="PreferenceUpdated" xml:space="preserve">
+        <value>Preference updated successfully</value>
+        <comment>React: Preference updated successfully</comment>
+    </data>
+    <data name="FeatureFlagUpdatedDetail" xml:space="preserve">
+        <value>{0}. It takes up to 5 minutes for changes to reach all users.</value>
+        <comment>React: the flag name joined with "It takes up to 5 minutes for changes to reach all users."</comment>
+    </data>
+    <data name="FeatureFlagAccountOverviewName" xml:space="preserve">
+        <value>Account overview page</value>
+        <comment>The account-overview flag's name; React: the generated feature flag label</comment>
+    </data>
+    <data name="FeatureFlagAccountOverviewDescription" xml:space="preserve">
+        <value>Show the account overview dashboard with user statistics at /account. When disabled, signed-in users go straight to the users list.</value>
+        <comment>The account-overview flag's description; React: the generated feature flag label</comment>
+    </data>
+    <data name="FeatureFlagCompactViewName" xml:space="preserve">
+        <value>Compact view</value>
+        <comment>The compact-view flag's name; React: the generated feature flag label</comment>
+    </data>
+    <data name="FeatureFlagCompactViewDescription" xml:space="preserve">
+        <value>Reduce spacing between UI elements for a denser layout</value>
+        <comment>The compact-view flag's description; React: the generated feature flag label</comment>
+    </data>
 </root>

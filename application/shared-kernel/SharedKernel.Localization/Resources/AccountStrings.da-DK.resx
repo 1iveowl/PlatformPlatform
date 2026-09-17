@@ -393,4 +393,37 @@
     <data name="DeleteAccountSupportNote" xml:space="preserve">
         <value>Vores supportteam hjælper dig med at slette din konto og sikrer, at alle dine data bliver fjernet.</value>
     </data>
+    <data name="Features" xml:space="preserve">
+        <value>Funktioner</value>
+    </data>
+    <data name="FeaturesDescription" xml:space="preserve">
+        <value>Skift funktioner tilgængelige for din konto.</value>
+    </data>
+    <data name="FeaturePreferences" xml:space="preserve">
+        <value>Funktionspræferencer</value>
+    </data>
+    <data name="FeaturePreferencesDescription" xml:space="preserve">
+        <value>Tilpas hvilke valgfri funktioner der er aktiveret for din konto.</value>
+    </data>
+    <data name="FeatureUpdated" xml:space="preserve">
+        <value>Funktion opdateret succesfuldt</value>
+    </data>
+    <data name="PreferenceUpdated" xml:space="preserve">
+        <value>Præference opdateret succesfuldt</value>
+    </data>
+    <data name="FeatureFlagUpdatedDetail" xml:space="preserve">
+        <value>{0}. Det tager op til 5 minutter, før ændringer når alle brugere.</value>
+    </data>
+    <data name="FeatureFlagAccountOverviewName" xml:space="preserve">
+        <value>Kontooversigtsside</value>
+    </data>
+    <data name="FeatureFlagAccountOverviewDescription" xml:space="preserve">
+        <value>Vis kontooversigten med brugerstatistik på /account. Når deaktiveret, sendes loggede brugere direkte til brugerlisten.</value>
+    </data>
+    <data name="FeatureFlagCompactViewName" xml:space="preserve">
+        <value>Kompakt visning</value>
+    </data>
+    <data name="FeatureFlagCompactViewDescription" xml:space="preserve">
+        <value>Reducér afstanden mellem UI-elementer for et tættere layout</value>
+    </data>
 </root>

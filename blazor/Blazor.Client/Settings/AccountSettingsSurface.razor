@@ -10,6 +10,7 @@
 @using Account.Features.Tenants.Requests
 @using Blazor.Client.Bootstrap
 @using Blazor.Client.Components.Images
+@using Blazor.Client.FeatureFlags
 @using Blazor.Client.Session
 @implements IDisposable
 @inject SessionState Session
@@ -64,6 +65,8 @@
         @if (_canEdit)
         {
             <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges"/>
+
+            <FeatureFlagsSection Scope="FeatureFlagSectionScope.Tenant"/>
 
             <section class="danger-zone" aria-labelledby="danger-zone-title" data-testid="danger-zone">
                 <h2 id="danger-zone-title">@AccountStrings.DangerZone</h2>

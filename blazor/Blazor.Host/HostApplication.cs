@@ -70,6 +70,7 @@ public static class HostApplication
         AddAccountApiClient<ExternalAuthenticationClient>(builder.Services, accountApiUrl);
         AddAccountApiClient<UsersClient>(builder.Services, accountApiUrl);
         AddAccountApiClient<TenantsClient>(builder.Services, accountApiUrl);
+        AddAccountApiClient<FeatureFlagsClient>(builder.Services, accountApiUrl);
 
         // The platform's data protection registration: the APIs' application name locally and the Container Apps key ring in
         // Azure, so an antiforgery token issued here validates at the account API and one issued by the React shell validates here
