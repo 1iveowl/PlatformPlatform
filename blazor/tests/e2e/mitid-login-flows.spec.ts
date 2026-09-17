@@ -11,14 +11,13 @@ import {
   startExternalFlow,
   trackRedirects,
   uniqueIdentifier,
-  verifyWithMitIdForBlazor
+  verifyWithMitIdFromBlazorProfile
 } from "@blazor/e2e/external-login";
-import { blazorPath, expectBlazorUrl } from "@blazor/e2e/routes";
+import { revokeVerificationInBackOffice } from "@blazor/e2e/identity-verification";
+import { blazorPath, expectBlazorUrl, gotoBlazor } from "@blazor/e2e/routes";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
 import { blazorTexts } from "@blazor/e2e/texts";
-import { getBackOfficeBaseUrl } from "@shared/e2e/utils/constants";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
-import { logInAsAdmin } from "@shared/e2e/utils/test-data";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
 
 // Runs only when this deployment enables both MitID login and MitID verification, read from the bootstrap's system feature
@@ -33,7 +32,7 @@ test.describe("@smoke", () => {
   /**
    * MitID login for a verified identity, in the culture of the running project:
    * - An account is created with email, because MitID can never be used to sign up
-   * - The identity is verified through the account API until the Blazor profile has its verification section (T017); the identity verification and profile specifications (T018) will replace this step with the profile
+   * - The identity is verified with the "Confirm with MitID" button on the Blazor profile
    * - After logout the login page offers MitID under the approved phrase "Log on with MitID" with the wordmark and the brand geometry, never "Log in with MitID"
    * - Logging in with the same MitID identity returns to the same account
    * - The session is recorded as MitID, read through the account API until the Blazor sessions page exists (T020); the session specifications (T021) will replace this step with the sessions page
@@ -47,15 +46,16 @@ test.describe("@smoke", () => {
 
     // === SIGNUP AND VERIFICATION ===
 
-    await step("Sign up with email & verify with MitID through the account API & verify return to the Blazor profile")(async () => {
+    await step("Sign up with email & verify with MitID from the Blazor profile & verify return to the verified profile")(async () => {
       await signUpThroughBlazor(page, uniqueBlazorEmail());
       account = (await readBootstrapUser(page))!;
       await setMockProviderCookie(page, identity);
       redirects.length = 0;
 
-      await verifyWithMitIdForBlazor(page);
+      await verifyWithMitIdFromBlazorProfile(page);
 
       await expectBlazorUrl(page, "user/profile");
+      await expect(page.getByText(texts.verifiedWith)).toBeVisible();
       await expect(userMenuButton(page)).toBeVisible();
       expectRedirectsInsideBlazor(redirects);
     })();
@@ -103,7 +103,7 @@ test.describe("@comprehensive", () => {
    * The refusal and withdrawal paths of MitID login:
    * - An identity that was never verified is refused with the localized identity not verified page, its hint and reference id, rather than told no account exists
    * - The login start carries the return path of the login page
-   * - Revoking the verification in the back office ends MitID login for that identity; the back office stays the React edition, and the Blazor profile's verification (T017) will replace the API verification step
+   * - Revoking the verification in the back office ends MitID login for that identity; the identity is verified from the Blazor profile, and the back office stays the React edition until stage G
    * - The identity not verified page renders its title, message, hint and reference id when opened directly
    */
   test("should refuse an unverified identity, carry the return path, and stop working once revoked", async ({ page, browser }) => {
@@ -138,37 +138,24 @@ test.describe("@comprehensive", () => {
 
     // === WITHDRAWAL ===
 
-    await step("Sign up with email & verify with MitID through the account API & verify return to the Blazor profile")(async () => {
+    await step("Sign up with email & verify with MitID from the Blazor profile & verify return to the verified profile")(async () => {
       await page.context().clearCookies();
       await signUpThroughBlazor(page, uniqueBlazorEmail());
       userId = (await readBootstrapUser(page))!.id;
       await setMockProviderCookie(page, identity);
 
-      await verifyWithMitIdForBlazor(page);
+      await verifyWithMitIdFromBlazorProfile(page);
 
       await expectBlazorUrl(page, "user/profile");
+      await expect(page.getByText(texts.verifiedWith)).toBeVisible();
     })();
 
     await step("Revoke the verification in the back office & verify the identity is no longer verified")(async () => {
-      const backOfficeBaseUrl = getBackOfficeBaseUrl();
-      const backOfficeContext = await browser.newContext({ baseURL: backOfficeBaseUrl, ignoreHTTPSErrors: true, locale: "en-US" });
-      const backOfficePage = await backOfficeContext.newPage();
-      await backOfficePage.goto(`${backOfficeBaseUrl}/`);
-      await logInAsAdmin(backOfficePage, `${backOfficeBaseUrl}/`);
-      await backOfficePage.goto(`${backOfficeBaseUrl}/users/${userId}`);
-      await backOfficePage.getByRole("tab", { name: "Identity" }).click();
-      await backOfficePage.getByRole("button", { name: "Revoke verification" }).click();
-      const revokeDialog = backOfficePage.getByRole("alertdialog", { name: "Revoke identity verification" });
-      await expect(revokeDialog).toBeVisible();
-      const revokeResponse = backOfficePage.waitForResponse(
-        (response) => response.request().method() === "DELETE" && new URL(response.url()).pathname === `/api/back-office/users/${userId}/identity-verification`
-      );
+      await revokeVerificationInBackOffice(browser, userId);
 
-      await revokeDialog.getByRole("button", { name: "Revoke verification" }).click();
+      await gotoBlazor(page, "user/profile");
 
-      expect((await revokeResponse).status()).toBe(200);
-      await expect(backOfficePage.getByText("Not verified")).toBeVisible();
-      await backOfficeContext.close();
+      await expect(page.getByRole("button", { name: texts.confirmWithMitId, exact: true })).toBeVisible();
     })();
 
     await step("Log out & log in with the revoked MitID identity & verify the identity not verified page")(async () => {

@@ -2,7 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 import { getBaseUrl } from "@shared/e2e/utils/constants";
 import { createTestContext, type TestContext } from "@shared/e2e/utils/test-assertions";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
-import { sendAccountApiRequest } from "./account-api";
 import { logOutThroughBlazor, userMenuButton } from "./authentication";
 import { blazorPath, expectBlazorUrl, gotoBlazor } from "./routes";
 import { blazorTexts } from "./texts";
@@ -245,20 +244,6 @@ export async function expectBlazorErrorPage(page: Page, errorCode: string, headi
   expect(html).not.toContain(providerErrorDescription);
   expect(html).not.toContain("error_description");
   expect(html).not.toContain("mock-authorization-code");
-}
-
-/**
- * Start a MitID verification for the Blazor edition as the signed-in user through the account API, the request the Blazor
- * profile's verification button will send, and follow the returned authorization URL. The identity verification and
- * profile specifications (T018) will replace this API step with the profile's verification section (T017).
- */
-export async function verifyWithMitIdForBlazor(page: Page): Promise<void> {
-  const response = await sendAccountApiRequest(page, "POST", "/api/account/authentication/MitId/verification/start?Edition=Blazor", {
-    returnPath: blazorPath("user/profile")
-  });
-  expect(response.status, response.body).toBe(200);
-
-  await page.goto((JSON.parse(response.body) as { authorizationUrl: string }).authorizationUrl);
 }
 
 /**

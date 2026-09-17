@@ -10,7 +10,8 @@ import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult } fr
 const providerSpecifications: Record<string, string> = {
   "google-oauth-flows.spec.ts": "Google",
   "entra-oauth-flows.spec.ts": "Entra",
-  "mitid-login-flows.spec.ts": "MitId"
+  "mitid-login-flows.spec.ts": "MitId",
+  "mitid-verification-flows.spec.ts": "MitIdVerification"
 };
 const testsPerSpecification = 2;
 
@@ -27,9 +28,9 @@ interface ProviderCase {
 }
 
 /**
- * Records every run of the Google, Entra and MitID login specifications as two harness results per browser and culture, in
+ * Records every run of the Google, Entra and MitID login specifications and the MitID verification specification as two harness results per browser and culture, in
  * the shape blazor/tests/verify-results.mjs checks, so the strict verdict covers them:
- * - external-login-providers-enabled-<browser>-<culture>.json passes only when every test of the three specifications ran
+ * - external-login-providers-enabled-<browser>-<culture>.json passes only when every test of the four specifications ran
  *   and passed; a skipped, failed or missing test fails it, so a run with a provider disabled can never satisfy it
  * - external-login-providers-disabled-<browser>-<culture>.json passes only when every test was skipped by its provider-disabled
  *   check after the unavailable behaviour was asserted

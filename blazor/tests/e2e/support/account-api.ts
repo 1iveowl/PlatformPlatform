@@ -273,3 +273,64 @@ export function expectAccountApiValidationProblem(response: AccountApiResponse, 
   expect(response.status).toBe(400);
   expect((JSON.parse(response.body) as { errors?: Record<string, string[]> }).errors).toEqual({ [property]: [message] });
 }
+
+/**
+ * A file the avatar upload is sent: its name, declared content type and bytes
+ */
+export interface AvatarUploadFile {
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+}
+
+/**
+ * Which antiforgery token a direct avatar upload carries: the token the bootstrap issues for the page's own session, none,
+ * or a token issued to another signed-in user
+ */
+export type AvatarUploadToken = { kind: "session" } | { kind: "none" } | { kind: "other"; token: string };
+
+/**
+ * Post a file to the avatar upload endpoint as a browser multipart form from the page's document, with the session
+ * cookies and the chosen antiforgery token, bypassing the Blazor picker's client-side checks
+ * @param page Playwright page instance of a signed-in user, on a page of the gateway's origin
+ * @param file The file to send in the "file" field
+ * @param token The antiforgery token the request carries
+ */
+export function uploadAvatarThroughAccountApi(page: Page, file: AvatarUploadFile, token: AvatarUploadToken): Promise<AccountApiResponse> {
+  return page.evaluate(
+    async ({ name, mimeType, bytes, token }) => {
+      const headers: Record<string, string> = {};
+      if (token.kind === "session") {
+        const bootstrap = await fetch("/api/account/bootstrap", { credentials: "same-origin" });
+        headers["x-xsrf-token"] = ((await bootstrap.json()) as { antiforgeryToken: string }).antiforgeryToken;
+      }
+      if (token.kind === "other") headers["x-xsrf-token"] = token.token;
+      const form = new FormData();
+      form.append("file", new File([new Uint8Array(bytes)], name, { type: mimeType }));
+      const response = await fetch("/api/account/users/me/update-avatar", { method: "POST", credentials: "same-origin", headers, body: form });
+      return { status: response.status, body: await response.text() };
+    },
+    { name: file.name, mimeType: file.mimeType, bytes: [...file.buffer], token }
+  );
+}
+
+/**
+ * The antiforgery token the bootstrap issues for the page's signed-in session
+ * @param page Playwright page instance of a signed-in user, on a page of the gateway's origin
+ */
+export function readAntiforgeryToken(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const bootstrap = await fetch("/api/account/bootstrap", { credentials: "same-origin" });
+    return ((await bootstrap.json()) as { antiforgeryToken: string }).antiforgeryToken;
+  });
+}
+
+/**
+ * The stored avatar URL of the signed-in user, read from the account API, or null when the user has none
+ * @param page Playwright page instance of a signed-in user, on a page of the gateway's origin
+ */
+export async function getAvatarUrlThroughAccountApi(page: Page): Promise<string | null> {
+  const response = await sendAccountApiRequest(page, "GET", "/api/account/users/me");
+  expect(response.status, response.body).toBe(200);
+  return (JSON.parse(response.body) as { avatarUrl: string | null }).avatarUrl;
+}
