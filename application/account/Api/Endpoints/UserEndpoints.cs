@@ -1,5 +1,6 @@
 using Account.Features.Users.Commands;
 using Account.Features.Users.Queries;
+using Microsoft.AspNetCore.Mvc;
 using SharedKernel.ApiResults;
 using SharedKernel.Domain;
 using SharedKernel.Endpoints;
@@ -11,6 +12,9 @@ namespace Account.Api.Endpoints;
 public sealed class UserEndpoints : IEndpoints
 {
     private const string RoutesPrefix = "/api/account/users";
+
+    // Room for the multipart boundaries and part headers around the file, so the request limit never cuts a valid upload
+    private const int MultipartOverheadInBytes = 64 * 1024;
 
     public void MapEndpoints(IEndpointRouteBuilder routes)
     {
@@ -79,7 +83,7 @@ public sealed class UserEndpoints : IEndpoints
 
         group.MapPost("/me/update-avatar", async Task<ApiResult> (IFormFile file, IMediator mediator)
             => await mediator.Send(new UpdateAvatarCommand(file.OpenReadStream(), file.ContentType))
-        );
+        ).WithFormOptions(multipartBodyLengthLimit: UpdateAvatarCommand.MaximumFileSizeInBytes).WithMetadata(new RequestSizeLimitAttribute(UpdateAvatarCommand.MaximumFileSizeInBytes + MultipartOverheadInBytes));
 
         group.MapDelete("/me/remove-avatar", async Task<ApiResult> (IMediator mediator)
             => await mediator.Send(new RemoveAvatarCommand())

@@ -21,7 +21,11 @@ public sealed class AntiforgeryMiddleware(IAntiforgery antiforgery, ILogger<Anti
             return;
         }
 
-        if (!await antiforgery.IsRequestValidAsync(context))
+        // For form-bound endpoints the framework antiforgery middleware has already validated the request, and reading
+        // the form again after a failed validation throws, so its result is used instead of validating twice
+        var validationFeature = context.Features.Get<IAntiforgeryValidationFeature>();
+        var isRequestValid = validationFeature?.IsValid ?? await antiforgery.IsRequestValidAsync(context);
+        if (!isRequestValid)
         {
             var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
 

@@ -1,8 +1,46 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "@shared/e2e/fixtures/page-auth";
-import { createTestContext, expectToastMessage, typeOneTimeCode } from "@shared/e2e/utils/test-assertions";
+import {
+  createTestContext,
+  expectNetworkErrors,
+  expectToastMessage,
+  typeOneTimeCode
+} from "@shared/e2e/utils/test-assertions";
 import { completeSignupFlow, getVerificationCode, testUser } from "@shared/e2e/utils/test-data";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
+
+const pngImageBase64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const htmlDisguisedAsImageBase64 = Buffer.from(
+  "<html><body><script>alert(document.cookie)</script></body></html>"
+).toString("base64");
+
+/**
+ * Posts a multipart file upload with fetch from inside the page, so the browser attaches its own cookies. The custom
+ * antiforgery header is added only when requested, which proves the server requires it rather than the client adding it.
+ */
+async function submitUploadFromBrowser(
+  page: Page,
+  url: string,
+  contentBase64: string,
+  withAntiforgeryHeader: boolean
+): Promise<{ status: number; body: string }> {
+  return page.evaluate(
+    async ({ url, contentBase64, withAntiforgeryHeader }) => {
+      const bytes = Uint8Array.from(atob(contentBase64), (character) => character.charCodeAt(0));
+      const formData = new FormData();
+      formData.append("file", new Blob([bytes], { type: "image/png" }), "upload.png");
+      const headers: Record<string, string> = {};
+      if (withAntiforgeryHeader) {
+        headers["x-xsrf-token"] =
+          document.head.getElementsByTagName("meta").namedItem("antiforgeryToken")?.content ?? "";
+      }
+      const response = await fetch(url, { method: "POST", body: formData, headers });
+      return { status: response.status, body: await response.text() };
+    },
+    { url, contentBase64, withAntiforgeryHeader }
+  );
+}
 
 test.describe("@smoke", () => {
   /**
@@ -16,6 +54,8 @@ test.describe("@smoke", () => {
    * - Owner vs Member UI visibility (invite button, danger zone, bulk actions)
    * - Self-action restrictions (cannot delete or change own role)
    * - Access denied page for role-restricted routes (recycle-bin requires Owner/Admin)
+   * - Logo and avatar uploads through the UI, served as images with nosniff through the gateway
+   * - Browser multipart uploads without the antiforgery header, with HTML disguised as PNG, and a Member logo upload are rejected
    *
    * Note: Current test fixtures infrastructure creates only Owner users, so we test
    * by creating users with different roles and switching between them in a single session.
@@ -42,6 +82,92 @@ test.describe("@smoke", () => {
       await page.getByRole("textbox", { name: "Account name" }).fill("Test Organization");
       await page.getByRole("button", { name: "Save changes" }).click();
       await expectToastMessage(context, "Account settings updated successfully");
+    })();
+
+    await step("Upload account logo and profile avatar & verify both are served as PNG images")(async () => {
+      const image = { name: "upload.png", mimeType: "image/png", buffer: Buffer.from(pngImageBase64, "base64") };
+      await page.locator('input[type="file"]').setInputFiles(image);
+      await page.getByRole("button", { name: "Save changes" }).click();
+      await expectToastMessage(context, "Account settings updated successfully");
+
+      await page.goto("/user/profile");
+      await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
+      await page.locator('input[type="file"]').setInputFiles(image);
+      await page.getByRole("button", { name: "Save changes" }).click();
+      await expectToastMessage(context, "Profile updated successfully");
+
+      const tenant = await (await page.request.get("/api/account/tenants/current")).json();
+      const user = await (await page.request.get("/api/account/users/me")).json();
+      expect(tenant.logoUrl).toMatch(/^\/logos\/.+\.png/);
+      expect(user.avatarUrl).toMatch(/^\/avatars\/.+\.png/);
+      for (const imageUrl of [tenant.logoUrl, user.avatarUrl]) {
+        const imageResponse = await page.request.get(imageUrl);
+        expect(imageResponse.status()).toBe(200);
+        expect(imageResponse.headers()["content-type"]).toBe("image/png");
+        expect(imageResponse.headers()["x-content-type-options"]).toBe("nosniff");
+      }
+    })();
+
+    await step("Submit browser uploads without the antiforgery header & verify they are rejected")(async () => {
+      const tenantBefore = await (await page.request.get("/api/account/tenants/current")).json();
+
+      const avatarResponse = await submitUploadFromBrowser(
+        page,
+        "/api/account/users/me/update-avatar",
+        pngImageBase64,
+        false
+      );
+      const logoResponse = await submitUploadFromBrowser(
+        page,
+        "/api/account/tenants/current/update-logo",
+        pngImageBase64,
+        false
+      );
+
+      await expectNetworkErrors(context, [400]);
+      for (const response of [avatarResponse, logoResponse]) {
+        expect(response.status).toBe(400);
+        expect(JSON.parse(response.body).title).toBe("Invalid Antiforgery Token");
+      }
+      const tenantAfter = await (await page.request.get("/api/account/tenants/current")).json();
+      expect(tenantAfter.logoUrl).toBe(tenantBefore.logoUrl);
+    })();
+
+    await step("Submit HTML disguised as a PNG logo with the antiforgery header & verify it is rejected")(async () => {
+      const response = await submitUploadFromBrowser(
+        page,
+        "/api/account/tenants/current/update-logo",
+        htmlDisguisedAsImageBase64,
+        true
+      );
+
+      await expectNetworkErrors(context, [400]);
+      expect(response.status).toBe(400);
+      expect(JSON.parse(response.body).errors.fileStream).toEqual([
+        "Image must be a valid JPEG, PNG, GIF, or WebP file."
+      ]);
+    })();
+
+    await step("Submit an avatar far over the size limit from the browser & verify it is rejected")(async () => {
+      const oversizedContentBase64 = Buffer.alloc(3 * 1024 * 1024, 0x89).toString("base64");
+
+      const withHeader = await submitUploadFromBrowser(
+        page,
+        "/api/account/users/me/update-avatar",
+        oversizedContentBase64,
+        true
+      );
+      const withoutHeader = await submitUploadFromBrowser(
+        page,
+        "/api/account/users/me/update-avatar",
+        oversizedContentBase64,
+        false
+      );
+
+      await expectNetworkErrors(context, [413, 400]);
+      expect(withHeader.status).toBe(413);
+      expect(withoutHeader.status).toBe(400);
+      expect(JSON.parse(withoutHeader.body).title).toBe("Invalid Antiforgery Token");
     })();
 
     await step("Navigate to users page as Owner & verify invite button is visible")(async () => {
@@ -176,6 +302,22 @@ test.describe("@smoke", () => {
       await expect(page.getByRole("textbox", { name: "Account name" })).toHaveAttribute("readonly");
       await expect(page.getByText("Only account owners can modify the account name")).toBeVisible();
       await expect(page.getByRole("button", { name: "Save changes" })).not.toBeVisible();
+    })();
+
+    await step("Submit a logo upload as Member with the antiforgery header & verify it is forbidden")(async () => {
+      const tenantBefore = await (await page.request.get("/api/account/tenants/current")).json();
+
+      const response = await submitUploadFromBrowser(
+        page,
+        "/api/account/tenants/current/update-logo",
+        pngImageBase64,
+        true
+      );
+
+      await expectNetworkErrors(context, [403]);
+      expect(response.status).toBe(403);
+      const tenantAfter = await (await page.request.get("/api/account/tenants/current")).json();
+      expect(tenantAfter.logoUrl).toBe(tenantBefore.logoUrl);
     })();
 
     await step("Verify danger zone is hidden for Member")(async () => {

@@ -1,5 +1,6 @@
 using Account.Features.Tenants.Commands;
 using Account.Features.Tenants.Queries;
+using Microsoft.AspNetCore.Mvc;
 using SharedKernel.ApiResults;
 using SharedKernel.Domain;
 using SharedKernel.Endpoints;
@@ -11,6 +12,9 @@ namespace Account.Api.Endpoints;
 public sealed class TenantEndpoints : IEndpoints
 {
     private const string RoutesPrefix = "/api/account/tenants";
+
+    // Room for the multipart boundaries and part headers around the file, so the request limit never cuts a valid upload
+    private const int MultipartOverheadInBytes = 64 * 1024;
 
     public void MapEndpoints(IEndpointRouteBuilder routes)
     {
@@ -30,7 +34,7 @@ public sealed class TenantEndpoints : IEndpoints
 
         group.MapPost("/current/update-logo", async Task<ApiResult> (IFormFile file, IMediator mediator)
             => await mediator.Send(new UpdateTenantLogoCommand(file.OpenReadStream(), file.ContentType))
-        ).DisableAntiforgery();
+        ).WithFormOptions(multipartBodyLengthLimit: UpdateTenantLogoCommand.MaximumFileSizeInBytes).WithMetadata(new RequestSizeLimitAttribute(UpdateTenantLogoCommand.MaximumFileSizeInBytes + MultipartOverheadInBytes));
 
         group.MapDelete("/current/remove-logo", async Task<ApiResult> (IMediator mediator)
             => await mediator.Send(new RemoveTenantLogoCommand())

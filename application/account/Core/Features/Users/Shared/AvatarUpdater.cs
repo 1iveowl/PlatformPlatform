@@ -7,6 +7,8 @@ namespace Account.Features.Users.Shared;
 
 public sealed class AvatarUpdater(IUserRepository userRepository, [FromKeyedServices("account-storage")] IBlobStorageClient blobStorageClient)
 {
+    // Avatars are public: the gateway's /avatars route serves them without authentication to anyone holding the URL, and
+    // the content hash in the blob name is not a secret. Tenant scoping governs who may replace an avatar, not who may read it.
     private const string ContainerName = "avatars";
 
     public async Task<bool> UpdateAvatar(User user, bool isGravatar, string contentType, Stream stream, CancellationToken cancellationToken)
