@@ -275,4 +275,13 @@
         <value>Reference ID: {0}</value>
         <comment>React: Reference ID: {id}</comment>
     </data>
+    <data name="VerificationStateWrongCode" xml:space="preserve">
+        <value>The code was not accepted</value>
+    </data>
+    <data name="VerificationStateExpired" xml:space="preserve">
+        <value>The code has expired</value>
+    </data>
+    <data name="VerificationStateLocked" xml:space="preserve">
+        <value>Too many attempts</value>
+    </data>
 </root>

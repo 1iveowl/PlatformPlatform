@@ -216,4 +216,13 @@
     <data name="ReferenceId" xml:space="preserve">
         <value>Reference-ID: {0}</value>
     </data>
+    <data name="VerificationStateWrongCode" xml:space="preserve">
+        <value>Koden blev ikke godkendt</value>
+    </data>
+    <data name="VerificationStateExpired" xml:space="preserve">
+        <value>Koden er udløbet</value>
+    </data>
+    <data name="VerificationStateLocked" xml:space="preserve">
+        <value>For mange forsøg</value>
+    </data>
 </root>

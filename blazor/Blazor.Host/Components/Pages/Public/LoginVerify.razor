@@ -22,12 +22,12 @@
 
 <EditForm EditContext="_editContext" FormName="login-verify" OnValidSubmit="CompleteAsync">
     <DataAnnotationsValidator/>
-    <label>
-        @AuthenticationStrings.LoginVerificationCode
-        <InputText @bind-Value="Input.OneTimePassword" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" autofocus data-testid="code"/>
-    </label>
-    <ValidationMessage For="() => Input.OneTimePassword"/>
-    <button type="submit" data-testid="submit">@AuthenticationStrings.Verify</button>
+    <OneTimePasswordInput InputId="one-time-password" Label="@AuthenticationStrings.LoginVerificationCode" @bind-Value="Input.OneTimePassword" Outcome="_outcome"
+                          DescribedBy="one-time-password-validation one-time-password-error"/>
+    <div id="one-time-password-validation">
+        <ValidationMessage For="() => Input.OneTimePassword"/>
+    </div>
+    <button type="submit" disabled="@_outcome.IsLocked" data-testid="submit">@AuthenticationStrings.Verify</button>
 </EditForm>
 
 <VerificationTimer Flow="_flow" Now="_now">
@@ -42,7 +42,7 @@
     <p role="status" data-testid="code-resent">@AuthenticationStrings.NewCodeSent</p>
 }
 
-<FormErrorAlert Errors="_formErrors"/>
+<FormErrorAlert Errors="_formErrors" Id="one-time-password-error" Title="@_outcome.Label"/>
 
 @code {
 
@@ -50,6 +50,7 @@
     private VerificationFlow _flow = null!;
     private FormErrorMapper _formErrors = null!;
     private DateTimeOffset _now;
+    private VerificationOutcome _outcome = VerificationOutcome.None;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -88,6 +89,8 @@
         _formErrors = new FormErrorMapper(_editContext);
     }
 
+    private bool IsShownAsExpired => _flow.GetRemainingSeconds(_now) == 0;
+
     public void Dispose()
     {
         _formErrors.Dispose();
@@ -103,11 +106,13 @@
         }
 
         var preferredTenantId = PreferredTenant.Parse(HttpContext.Request.Cookies[PreferredTenant.CookieName]);
-        var command = new CompleteEmailLoginCommand(Input.OneTimePassword.ToUpperInvariant(), preferredTenantId);
+        var command = new CompleteEmailLoginCommand(Input.GetNormalizedOneTimePassword(), preferredTenantId);
         var result = await EmailAuthentication.CompleteLoginAsync(emailLoginId, command, HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _formErrors.ApplyFailure(result);
+            _outcome = VerificationOutcome.FromFailure(_formErrors.ApplyFailure(result), result.Problem, IsShownAsExpired);
+            // A rejected code is cleared, so the next attempt starts in the first slot
+            Input.OneTimePassword = "";
             return;
         }
 
@@ -126,7 +131,7 @@
         var result = await EmailAuthentication.ResendLoginCodeAsync(emailLoginId, HttpContext.RequestAborted);
         if (!result.IsSuccess)
         {
-            _formErrors.ApplyFailure(result);
+            _outcome = VerificationOutcome.FromFailure(_formErrors.ApplyFailure(result), result.Problem, IsShownAsExpired);
             return;
         }
 

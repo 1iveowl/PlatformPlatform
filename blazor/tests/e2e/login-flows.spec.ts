@@ -127,11 +127,13 @@ test.describe("@smoke", () => {
       await requestNewCodeButton(page).click();
 
       await expectBlazorFormError(page, accountApiMessages.tooManyAttempts);
-      await expect(verificationCodeInput(page)).toBeEnabled();
+      await expect(verificationCodeInput(page)).toBeDisabled();
     })();
 
     await step("Submit the code in lower case & verify full navigation to the requested page")(async () => {
       expect(runtimeRequests).toEqual([]);
+      // The refused resend locks only the page it answered; the code sent before it is still valid on a new load
+      await page.goto(page.url());
 
       await submitOneTimePassword(page, getVerificationCode().toLowerCase());
 

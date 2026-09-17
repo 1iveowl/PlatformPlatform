@@ -33,7 +33,8 @@ function start() {
     const remaining = Math.max(0, remainingAtLoad - elapsed);
     validFor.textContent = template.replace("{0}", formatDuration(remaining));
     validFor.hidden = remaining === 0;
-    expired.hidden = remaining > 0;
+    const expiredText = remaining === 0 ? expired.dataset.expiredText : "";
+    if (expired.textContent !== expiredText) expired.textContent = expiredText;
     if (elapsed >= resendInAtLoad) resend.hidden = false;
     if (remaining === 0 && !resend.hidden) stop();
   };

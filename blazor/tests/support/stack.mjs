@@ -255,8 +255,7 @@ export async function signUpThroughBlazor(browser, browserName, email, locale = 
     await page.waitForURL(/\/blazor\/signup\/verify\?/);
     const verifyUrl = page.url();
     const oneTimePassword = await readOneTimePassword(email, sentAfter);
-    await page.locator('[data-testid="code"]').fill(oneTimePassword);
-    await page.locator('[data-testid="submit"]').click();
+    await submitOneTimePasswordThroughBlazor(page, oneTimePassword);
     await completeWelcomeThroughBlazor(page);
     const storageState = await context.storageState();
     if (failureTraceFile !== undefined) await stopTrace(context);
@@ -268,6 +267,14 @@ export async function signUpThroughBlazor(browser, browserName, email, locale = 
   } finally {
     await context.close();
   }
+}
+
+// Enters a six-character code on a Blazor verification page, which submits itself once, and waits for that post; clicking
+// Verify as well would race the auto-submit
+export async function submitOneTimePasswordThroughBlazor(page, oneTimePassword) {
+  const posted = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname.endsWith("/verify"));
+  await page.locator('[data-testid="code"]').fill(oneTimePassword);
+  await posted;
 }
 
 // Completes the welcome setup a new account owner is sent to after signup: names the tenant, sets up the profile and waits

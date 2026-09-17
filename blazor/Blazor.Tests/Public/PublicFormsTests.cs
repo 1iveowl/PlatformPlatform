@@ -39,6 +39,30 @@ public sealed class PublicFormsTests
     }
 
     [Theory]
+    [InlineData("abcdef", "ABCDEF")]
+    [InlineData("AbCdEf", "ABCDEF")]
+    [InlineData("ABCDEF", "ABCDEF")]
+    public void OneTimePasswordForm_WhenNormalized_ShouldUpperCaseTheSingleField(string code, string expected)
+    {
+        // Arrange
+        var form = new OneTimePasswordForm { OneTimePassword = code };
+
+        // Act
+        var normalized = form.GetNormalizedOneTimePassword();
+
+        // Assert
+        normalized.Should().Be(expected);
+        Validate(form).Should().BeTrue();
+    }
+
+    [Fact]
+    public void OneTimePasswordForm_WhenFiveCharacters_ShouldBeInvalid()
+    {
+        // Act & Assert
+        Validate(new OneTimePasswordForm { OneTimePassword = "abcde" }).Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData(1, true)]
     [InlineData(30, true)]
     [InlineData(0, false)]

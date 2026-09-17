@@ -4,9 +4,14 @@
    new document, which issues a new token. *@
 @inject NavigationManager Navigation
 
-<div role="alert" class="form-error" data-testid="form-error">
+<div id="@Id" role="alert" class="form-error" data-testid="form-error">
     @if (Errors is not null)
     {
+        @if (Title is not null && Errors.FormMessages.Count > 0)
+        {
+            <p class="form-error-title" data-testid="form-error-title">@Title</p>
+        }
+
         @foreach (var message in Errors.FormMessages)
         {
             <p data-testid="form-error-message">@message</p>
@@ -23,6 +28,14 @@
 
     [Parameter]
     public FormErrorMapper? Errors { get; set; }
+
+    // Lets a field reference the alert with aria-describedby
+    [Parameter]
+    public string? Id { get; set; }
+
+    // A localized state label shown above the messages, which stay as the API returned them (the verification pages)
+    [Parameter]
+    public string? Title { get; set; }
 
     // The current path and query, which is already root-absolute under the path base
     private string GetReloadHref()

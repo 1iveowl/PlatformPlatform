@@ -21,6 +21,8 @@ namespace Blazor.Tests.Account;
 
 public sealed record EmailLoginStartBody(string Email);
 
+public sealed record CompleteEmailLoginBody(string OneTimePassword);
+
 public sealed record UpdateCurrentUserBody(string FirstName, string LastName, string Title);
 
 public sealed record RecordedAccountApiRequest(
@@ -50,6 +52,9 @@ public sealed partial class HostFixture : IAsyncLifetime
     public const string FailingEmailPrefix = "fail-";
     public const string FailingFirstName = "fail";
     public const string FieldErrorMessage = "The value is not accepted.";
+    public const string LockedOneTimePassword = "LOCKED";
+    public const string WrongCodeMessage = "The code is wrong or no longer valid.";
+    public const string TooManyAttemptsMessage = "Too many attempts, please request a new code.";
 
     private WebApplication? _accountApi;
     private WebApplication? _host;
@@ -57,6 +62,9 @@ public sealed partial class HostFixture : IAsyncLifetime
     public DevelopmentTokenSigningClient TokenSigningClient { get; } = new();
 
     public ConcurrentDictionary<string, RecordedAccountApiRequest> AccountApiRequests { get; } = new();
+
+    // The one-time password each email login completion received, by email login id
+    public ConcurrentDictionary<string, string> CompletedOneTimePasswords { get; } = new();
 
     // Shared by all tests; every per-user value is set on the request message, never on the client
     public HttpClient Client { get; private set; } = null!;
@@ -165,6 +173,17 @@ public sealed partial class HostFixture : IAsyncLifetime
                 context.Response.Headers["x-access-token"] = $"access-{body.Email}";
                 context.Response.Headers["x-refresh-token"] = $"refresh-{body.Email}";
                 return Results.Json(new { emailLoginId = $"emlog_{Ulid.NewUlid()}", validForSeconds = 300 });
+            }
+        );
+
+        // A login completion that is always refused, the way the account API refuses a wrong code (400) or a fourth attempt
+        // (403), so the verification page's states are observable without a real code
+        accountApi.MapPost("/api/account/authentication/email/login/{emailLoginId}/complete", (string emailLoginId, CompleteEmailLoginBody body) =>
+            {
+                CompletedOneTimePasswords[emailLoginId] = body.OneTimePassword;
+                return body.OneTimePassword == LockedOneTimePassword
+                    ? Results.Problem(TooManyAttemptsMessage, statusCode: StatusCodes.Status403Forbidden)
+                    : Results.Problem(WrongCodeMessage, statusCode: StatusCodes.Status400BadRequest);
             }
         );
 

@@ -18,7 +18,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { baseUrl, completeWelcomeThroughBlazor, launchBrowser, newContext, observeErrors, parseArguments, pathBase, readOneTimePassword, resultsFolder, runtimeRequestPattern } from "./support/stack.mjs";
+import { baseUrl, completeWelcomeThroughBlazor, launchBrowser, newContext, observeErrors, parseArguments, pathBase, readOneTimePassword, resultsFolder, runtimeRequestPattern, submitOneTimePasswordThroughBlazor } from "./support/stack.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const interactiveUrl = `${baseUrl}${pathBase}/development/form-errors/interactive`;
@@ -94,8 +94,7 @@ async function signUpInDanish(email) {
   const sentAfter = Date.now();
   await page.locator(testId("submit")).click();
   await page.waitForURL(/\/blazor\/signup\/verify\?/);
-  await page.locator(testId("code")).fill(await readOneTimePassword(email, sentAfter));
-  await page.locator(testId("submit")).click();
+  await submitOneTimePasswordThroughBlazor(page, await readOneTimePassword(email, sentAfter));
   await completeWelcomeThroughBlazor(page);
   const storageState = await context.storageState();
   await context.close();

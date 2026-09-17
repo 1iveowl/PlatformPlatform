@@ -20,4 +20,10 @@ public sealed class OneTimePasswordForm
     // Six letters A to Z in any case; the page sends the code upper case
     [RegularExpression("^[A-Za-z]{6}$", ErrorMessageResourceType = typeof(CommonStrings), ErrorMessageResourceName = nameof(CommonStrings.VerificationCodeFormat))]
     public string OneTimePassword { get; set; } = "";
+
+    // The code as the account API expects it: the generator issues upper case letters
+    public string GetNormalizedOneTimePassword()
+    {
+        return OneTimePassword.ToUpperInvariant();
+    }
 }

@@ -1,12 +1,13 @@
 @* The code's remaining validity, the expired message and the resend action on a static verification page. The server
    renders the state at the time of the request; js/verification-timer.js, loaded by the host page, counts down from it
-   and reveals the resend action without the WebAssembly runtime. Without the module a reload shows the current state. *@
+   reveals the resend action and announces the expiry without the WebAssembly runtime. Without the module a reload shows the current state. *@
 <div data-verification-timer data-remaining-seconds="@_remaining" data-resend-in-seconds="@_resendIn"
      data-valid-for-template="@AuthenticationStrings.VerificationCodeValidFor">
     <p data-valid-for data-testid="code-valid-for" hidden="@(_remaining == 0)">
         @string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.VerificationCodeValidFor, VerificationFlow.FormatDuration(_remaining))
     </p>
-    <p data-expired data-testid="code-expired" hidden="@(_remaining > 0)">@AuthenticationStrings.VerificationCodeExpired</p>
+    @* A polite live region that is always present and empty until expiry, so the expired text is announced when it appears *@
+    <p data-expired data-expired-text="@AuthenticationStrings.VerificationCodeExpired" aria-live="polite" data-testid="code-expired">@(_remaining == 0 ? AuthenticationStrings.VerificationCodeExpired : null)</p>
     <p>@AuthenticationStrings.CantFindYourCode @AuthenticationStrings.CheckSpamFolder</p>
     <div data-resend-reveal data-testid="resend" hidden="@(_resendIn > 0)">
         @ChildContent

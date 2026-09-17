@@ -31,6 +31,7 @@ import {
   readOneTimePassword,
   redact,
   signUpThroughBlazor,
+  submitOneTimePasswordThroughBlazor,
   writeResult
 } from "./support/stack.mjs";
 
@@ -114,8 +115,7 @@ async function logIn(context, email) {
   const sentAfter = Date.now();
   await page.locator('[data-testid="submit"]').click();
   await page.waitForURL(/\/blazor\/login\/verify\?/);
-  await page.locator('[data-testid="code"]').fill(await readOneTimePassword(email, sentAfter));
-  await page.locator('[data-testid="submit"]').click();
+  await submitOneTimePasswordThroughBlazor(page, await readOneTimePassword(email, sentAfter));
   await page.waitForURL(`${baseUrl}${pathBase}/app`);
   await waitInteractive(page);
   return page;
