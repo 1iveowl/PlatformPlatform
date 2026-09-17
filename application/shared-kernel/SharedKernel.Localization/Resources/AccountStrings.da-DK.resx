@@ -198,4 +198,55 @@
     <data name="ProfilePartiallySaved" xml:space="preserve">
         <value>Dit profilbillede blev gemt, men dine øvrige ændringer blev ikke gemt. Prøv igen.</value>
     </data>
+    <data name="IdentityVerification" xml:space="preserve">
+        <value>Identitetsbekræftelse</value>
+    </data>
+    <data name="IdentityVerificationDescription" xml:space="preserve">
+        <value>Bekræft din identitet med MitID. Dit navn og CPR-nummer bliver ikke gemt.</value>
+    </data>
+    <data name="IdentityVerificationLoginHint" xml:space="preserve">
+        <value>Når du er bekræftet, kan du også logge ind med MitID.</value>
+    </data>
+    <data name="ConfirmWith" xml:space="preserve">
+        <value>Bekræft med</value>
+    </data>
+    <data name="VerifiedWith" xml:space="preserve">
+        <value>Bekræftet med</value>
+    </data>
+    <data name="VerifiedOn" xml:space="preserve">
+        <value>Bekræftet den {0}</value>
+    </data>
+    <data name="LowAssurance" xml:space="preserve">
+        <value>Lavt sikringsniveau</value>
+    </data>
+    <data name="SubstantialAssurance" xml:space="preserve">
+        <value>Betydeligt sikringsniveau</value>
+    </data>
+    <data name="HighAssurance" xml:space="preserve">
+        <value>Højt sikringsniveau</value>
+    </data>
+    <data name="UnknownAssurance" xml:space="preserve">
+        <value>Ukendt sikringsniveau</value>
+    </data>
+    <data name="IdentityAlreadyLinkedTitle" xml:space="preserve">
+        <value>Identiteten er allerede i brug</value>
+    </data>
+    <data name="IdentityAlreadyLinkedMessage" xml:space="preserve">
+        <value>Denne identitet er allerede knyttet til en anden konto.</value>
+    </data>
+    <data name="IdentityAlreadyLinkedHint" xml:space="preserve">
+        <value>Du kan ikke selv løse dette. Kontakt din kontoadministrator.</value>
+    </data>
+    <data name="AssuranceLevelInsufficientTitle" xml:space="preserve">
+        <value>Bekræftelsen er ikke stærk nok</value>
+    </data>
+    <data name="AssuranceLevelInsufficientMessage" xml:space="preserve">
+        <value>Din identitet kunne ikke bekræftes på det krævede niveau.</value>
+    </data>
+    <data name="AssuranceLevelInsufficientHint" xml:space="preserve">
+        <value>Prøv igen, eller kontakt din kontoadministrator.</value>
+    </data>
+    <data name="BackToProfile" xml:space="preserve">
+        <value>Tilbage til profil</value>
+    </data>
 </root>

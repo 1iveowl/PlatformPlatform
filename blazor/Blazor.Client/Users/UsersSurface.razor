@@ -1,10 +1,3 @@
-@using Account.Client
-@using Account.Features.Authentication.Queries
-@using Blazor.Client.Bootstrap
-@using Blazor.Client.Components
-@using Blazor.Client.Session
-@using Microsoft.FluentUI.AspNetCore.Components
-@using SharedKernel.Domain
 @* The users administration surface, the React edition's users page: the list on DataList with search, sort and paging in
    the URL, the side pane opened from a row or from ?userId=, and the role change with its permission rules. The host
    prerenders the frame; the list and the pane load their data only once the component runs in the browser.
@@ -14,6 +7,13 @@
    dialog; UsersFilterModel decides, toolbar-width.js measures. Owners and admins see the tabs to the recycle bin. *@
 @inject SessionState Session
 @inject IServiceProvider Services
+@using Account.Client
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Components
+@using Blazor.Client.Session
+@using Microsoft.FluentUI.AspNetCore.Components
+@using SharedKernel.Domain
 @implements IAsyncDisposable
 @inject ToastService Toasts
 @inject DataListPageCache PageCache
@@ -94,7 +94,9 @@
     public const string UserInvitedToastTestId = "user-invited-toast";
     public const string UsersDeletedToastTestId = "users-deleted-toast";
     private const string SearchId = "users-search";
+
     private const string PaneId = "users-profile-pane";
+
     // The columns after the name, whose cell shows the email and the pending badge on phones instead
     private const string HideBelowSmall = "data-list-hide-below-sm";
 

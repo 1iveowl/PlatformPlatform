@@ -1,0 +1,144 @@
+@* The identity verification section of the profile, the React edition's MitIdVerificationSection. It renders only when the
+   mitid-verification flag is on, which FeatureFlagState knows once the bootstrap was read in the browser, so the prerender
+   shows nothing. The status is read through the typed client. Unverified shows the explanation and the MitID button, which
+   follows the MitID brand rules (colour, height, corner radius, typeface and the wordmark completing the approved phrase
+   "Confirm with MitID"); its styles are classes in app.css. The button posts the start with the profile as the return path,
+   disables itself while the start is pending and navigates the whole document to the returned authorization URL, a
+   different origin. A failed start shows the API message in the section's form alert and offers the button again.
+   Verified shows the wordmark for the theme, the assurance level and the verified date. IdentityVerificationState makes
+   every decision. *@
+@using Account.Client
+@using Blazor.Client.Session
+@using SharedKernel.FeatureFlags
+@implements IDisposable
+@inject FeatureFlagState FlagState
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+@if (_state.GetView(IsVerificationEnabled) is var view && view != IdentityVerificationView.Hidden)
+{
+    <section class="identity-verification" aria-labelledby="identity-verification-heading" data-testid="identity-verification">
+        <h2 id="identity-verification-heading">@AccountStrings.IdentityVerification</h2>
+        <p class="identity-verification-description">
+            @AccountStrings.IdentityVerificationDescription
+            @if (FlagState.IsEnabled(FeatureFlags.MitIdLogin))
+            {
+                @(" ")
+                @AccountStrings.IdentityVerificationLoginHint
+            }
+        </p>
+
+        @if (view == IdentityVerificationView.Loading)
+        {
+            <p data-testid="identity-verification-loading">@CommonStrings.Loading</p>
+        }
+        else if (view == IdentityVerificationView.Verified && _state.MitIdVerification is { } verification)
+        {
+            <div class="identity-verification-verified" data-testid="identity-verification-verified">
+                <p class="identity-verification-verified-with">
+                    @AccountStrings.VerifiedWith
+                    <img src="@AppUrls.ToAbsolute("images/mitid-logo-blue.svg")" alt="MitID" class="mitid-page-wordmark mitid-page-wordmark-light"/>
+                    <img src="@AppUrls.ToAbsolute("images/mitid-logo-white.svg")" alt="MitID" class="mitid-page-wordmark mitid-page-wordmark-dark"/>
+                    <span class="identity-verification-badge" data-testid="identity-verification-assurance">@IdentityVerificationState.GetAssuranceLevelLabel(verification.AssuranceLevel)</span>
+                </p>
+                <p class="identity-verification-date" data-testid="identity-verification-date">
+                    @string.Format(CultureInfo.CurrentCulture, AccountStrings.VerifiedOn, IdentityVerificationState.FormatVerifiedDate(verification.VerifiedAt))
+                </p>
+            </div>
+        }
+        else if (view is IdentityVerificationView.Unverified or IdentityVerificationView.Redirecting)
+        {
+            <button type="button" class="mitid-button mitid-button-inline" disabled="@(view == IdentityVerificationView.Redirecting)" @onclick="StartAsync" data-testid="identity-verification-start">
+                @if (view == IdentityVerificationView.Redirecting)
+                {
+                    @AuthenticationStrings.Redirecting
+                }
+                else
+                {
+                    @AccountStrings.ConfirmWith
+                    <img src="@AppUrls.ToAbsolute("images/mitid-logo-white.svg")" alt="MitID" class="mitid-wordmark"/>
+                }
+            </button>
+        }
+
+        <FormErrorAlert Errors="_formErrors"/>
+    </section>
+}
+
+@code {
+
+    private readonly IdentityVerificationState _state = new();
+    private readonly EditContext _editContext = new(new object());
+    private FormErrorMapper? _formErrors;
+
+    private bool IsVerificationEnabled => FlagState.IsEnabled(FeatureFlags.MitIdVerification);
+
+    public void Dispose()
+    {
+        FlagState.Changed -= OnFeatureFlagsChanged;
+        _formErrors?.Dispose();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _formErrors = new FormErrorMapper(_editContext);
+        FlagState.Changed += OnFeatureFlagsChanged;
+        if (!RendererInfo.IsInteractive) return;
+
+        // The bootstrap read fills the flags; a departure returns null and the section stays hidden
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !bootstrap.IsAuthenticated) return;
+
+        await LoadAsync();
+    }
+
+    private void OnFeatureFlagsChanged()
+    {
+        _ = InvokeAsync(async () =>
+            {
+                await LoadAsync();
+                StateHasChanged();
+            }
+        );
+    }
+
+    private async Task LoadAsync()
+    {
+        if (!_state.ShouldLoad(IsVerificationEnabled)) return;
+
+        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<ExternalAuthenticationClient>().GetVerificationStatusAsync);
+        if (result is null) return;
+
+        if (result.IsSuccess) _state.Loaded(result.Value);
+        else _state.LoadFailed();
+    }
+
+    private async Task StartAsync()
+    {
+        if (!_state.TryBeginStart(IsVerificationEnabled)) return;
+
+        _formErrors!.Clear();
+        var client = Services.GetRequiredService<ExternalAuthenticationClient>();
+        var result = await Session.UnlessLeavingAsync(cancellationToken => client.StartVerificationAsync(IdentityVerificationState.Provider, AppUrls.Edition, IdentityVerificationState.ReturnPath, cancellationToken));
+        if (result is null) return;
+
+        if (!result.IsSuccess)
+        {
+            _state.StartFailed();
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        if (!IdentityVerificationState.IsNavigableAuthorizationUrl(result.Value.AuthorizationUrl))
+        {
+            _state.StartFailed();
+            _formErrors.AddFormMessage(CommonStrings.RequestFailedTitle);
+            return;
+        }
+
+        Navigation.NavigateTo(result.Value.AuthorizationUrl, true);
+    }
+
+}

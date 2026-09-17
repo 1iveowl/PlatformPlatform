@@ -91,6 +91,8 @@ public sealed class StatusPageModelTests
     [InlineData("access_denied", AuthenticationErrorKind.AccessDenied, "LogIn")]
     [InlineData("identity_not_verified", AuthenticationErrorKind.IdentityNotVerified, "LogIn")]
     [InlineData("server_error", AuthenticationErrorKind.ServerError, "LogIn")]
+    [InlineData("identity_already_linked", AuthenticationErrorKind.IdentityAlreadyLinked, "BackToProfile")]
+    [InlineData("assurance_level_insufficient", AuthenticationErrorKind.AssuranceLevelInsufficient, "BackToProfile")]
     public void CreateError_WhenAuthenticationErrorCodeGiven_ShouldPickItsActionsAndThePublicLayout(string errorCode, AuthenticationErrorKind expected, string actions)
     {
         // Act
@@ -106,11 +108,11 @@ public sealed class StatusPageModelTests
     }
 
     [Theory]
-    [InlineData("identity_already_linked")]
-    [InlineData("assurance_level_insufficient")]
+    [InlineData("identity_mismatch")]
+    [InlineData("IDENTITY_ALREADY_LINKED")]
     [InlineData("ACCESS_DENIED")]
     [InlineData("<script>alert(1)</script>")]
-    public void CreateError_WhenCodeIsNotALoginOrSignupCode_ShouldShowTheGenericFailureWithoutEchoingTheCode(string errorCode)
+    public void CreateError_WhenCodeIsNotAKnownExternalAuthenticationCode_ShouldShowTheGenericFailureWithoutEchoingTheCode(string errorCode)
     {
         // Act
         var view = StatusPageModel.CreateError(errorCode, "exlog_1", false, false, null, null, null, "trace-1");
@@ -155,6 +157,7 @@ public sealed class StatusPageModelTests
     [Theory]
     [InlineData(ErrorPageAction.LogIn, "/blazor/login")]
     [InlineData(ErrorPageAction.SignUp, "/blazor/signup")]
+    [InlineData(ErrorPageAction.BackToProfile, "/blazor/user/profile")]
     public void GetActionUrl_WhenActionGiven_ShouldLeadBelowThePathBase(ErrorPageAction action, string expected)
     {
         // Act

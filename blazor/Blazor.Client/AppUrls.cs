@@ -8,6 +8,9 @@ public static class AppUrls
 {
     public const string PathBase = "/blazor";
 
+    // The edition name the account API routes an external authentication callback back to this edition with
+    public const string Edition = "Blazor";
+
     public static readonly string AuthenticatedHome = ToAbsolute("app");
 
     // Accepts "app", "/app", "./app" or "app?x=1#y" and returns the same path under the path base, keeping the query and

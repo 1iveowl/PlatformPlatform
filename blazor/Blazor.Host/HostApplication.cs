@@ -65,6 +65,7 @@ public static class HostApplication
         builder.Services.AddScoped<FeatureFlagState>();
         AddAccountApiClient<EmailAuthenticationClient>(builder.Services, accountApiUrl);
         AddAccountApiClient<AuthenticationClient>(builder.Services, accountApiUrl);
+        AddAccountApiClient<ExternalAuthenticationClient>(builder.Services, accountApiUrl);
         AddAccountApiClient<UsersClient>(builder.Services, accountApiUrl);
         AddAccountApiClient<TenantsClient>(builder.Services, accountApiUrl);
 

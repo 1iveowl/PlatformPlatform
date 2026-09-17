@@ -59,6 +59,7 @@ try {
     result.cases.workerSource = await runWorkerSource(account);
     result.cases.formAction = await runFormAction(account);
     result.cases.manifest = await runManifest();
+    result.cases.identityVerification = await runIdentityVerification();
     // Last, because it logs the account out
     result.cases.theme = await runTheme(account);
     result.cases.externalLogin = await runExternalLogin();
@@ -71,7 +72,7 @@ result.finishedAt = new Date().toISOString();
 // The Development run drives the Development-only fixture pages and signs up with the development verification code, so it
 // is a fixture check and never Production evidence; the Production run checks that those pages are not reachable
 result.hostConfiguration = options.environment === "production" ? "Production host, expected to be the trimmed publish served by blazor-serve" : "Development host run by the AppHost (fixture check)";
-const expectedCaseCount = options.environment === "production" ? 1 : 9;
+const expectedCaseCount = options.environment === "production" ? 1 : 10;
 const verdict = writeResult(`shell-policy-${options.browser}-${options.environment}.json`, result, expectedCaseCount);
 console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: redact(value.failures.join(" ; ")) })));
 console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
@@ -560,6 +561,109 @@ async function runExternalLogin() {
     if (present && !callbackReached) failures.push(`${label}: the MitID start did not reach the login callback`);
   }
   return outcome(details, failures);
+}
+
+// The identity verification section on the Blazor profile in the light and the dark theme: the MitID button keeps the brand
+// geometry, colour and typeface with the approved phrase "Confirm with MitID" and the white wordmark loaded from the host,
+// nothing in <body> has a style attribute and no document reports a violation. Clicking the button with the mock provider
+// completes the verification back on the profile, which shows the verified state with the wordmark for the theme and the
+// assurance level, and no button. Uses an account of its own, because the form action case verifies the shared one. Needs
+// the MitID verification flag on in the AppHost.
+async function runIdentityVerification() {
+  let { storageState } = await signUpThroughReact();
+  const failures = [];
+  const details = {};
+  const identity = `identity:shell-${options.browser}-${Date.now()}`;
+  const profileUrl = `${baseUrl}${pathBase}/user/profile`;
+  const readSection = (page) =>
+    page.evaluate(async () => {
+      await document.fonts.load('600 16px "IBM Plex Sans"');
+      await document.fonts.ready;
+      const images = [...document.querySelectorAll('[data-testid="identity-verification"] img')];
+      await Promise.all(images.filter((image) => !image.complete).map((image) => new Promise((resolve) => image.addEventListener("load", resolve, { once: true }))));
+      const button = document.querySelector('[data-testid="identity-verification-start"]');
+      const style = button ? getComputedStyle(button) : null;
+      const visibleWordmarks = images.filter((image) => getComputedStyle(image).display !== "none");
+      return {
+        theme: document.documentElement.dataset.theme ?? null,
+        buttonText: button?.textContent.replace(/\s+/g, " ").trim() ?? null,
+        height: style?.height ?? null,
+        borderRadius: style?.borderTopLeftRadius ?? null,
+        backgroundColor: style?.backgroundColor ?? null,
+        fontFamily: style?.fontFamily ?? null,
+        fontWeight: style?.fontWeight ?? null,
+        fontLoaded: [...document.fonts].some((face) => face.family.replaceAll('"', "") === "IBM Plex Sans" && face.weight === "600" && face.status === "loaded"),
+        visibleWordmarks: visibleWordmarks.map((image) => ({ source: new URL(image.src).pathname, alt: image.getAttribute("alt"), width: image.naturalWidth })),
+        verified: document.querySelector('[data-testid="identity-verification-verified"]') !== null,
+        assurance: document.querySelector('[data-testid="identity-verification-assurance"]')?.textContent.trim() ?? null,
+        verifiedDate: document.querySelector('[data-testid="identity-verification-date"]')?.textContent.trim() ?? null,
+        styledBodyElements: document.body.querySelectorAll("[style]").length
+      };
+    });
+
+  for (const [step, theme] of [["unverified", "light"], ["verify", "dark"], ["verified", "light"]]) {
+    const context = await newContext(storageState);
+    await context.addInitScript((mode) => localStorage.setItem("theme", mode), theme);
+    await context.addCookies([{ name: mockProviderCookie, value: identity, url: baseUrl }]);
+    const page = await context.newPage();
+    const observations = observe(page);
+    await page.goto(profileUrl, { waitUntil: "load" });
+    const ready = await page
+      .locator(step === "verified" ? '[data-testid="identity-verification-verified"]' : '[data-testid="identity-verification-start"]')
+      .waitFor({ timeout: interactiveTimeoutMs })
+      .then(() => true, () => false);
+    const section = await readSection(page);
+    await settle(page);
+    const violations = await readViolations(page);
+    const stepDetails = { theme, ready, finalUrl: page.url(), section, violations };
+    const label = `identity verification ${step} (${theme})`;
+    if (!ready) failures.push(`${label}: the section did not show ${step === "verified" ? "the verified state" : "the MitID button"}; enable the MitID verification flag in the AppHost`);
+    if (section.theme !== theme) failures.push(`${label}: data-theme ${section.theme}`);
+    if (step !== "verified" && ready) {
+      if (section.buttonText !== "Confirm with") failures.push(`${label}: button text "${section.buttonText}"`);
+      if (section.height !== "48px") failures.push(`${label}: MitID height ${section.height}`);
+      if (section.borderRadius !== "4px") failures.push(`${label}: MitID radius ${section.borderRadius}`);
+      if (section.backgroundColor !== "rgb(0, 96, 230)") failures.push(`${label}: MitID colour ${section.backgroundColor}`);
+      if (!section.fontFamily?.replaceAll('"', "").startsWith("IBM Plex Sans,") || section.fontWeight !== "600") failures.push(`${label}: MitID font ${section.fontFamily} ${section.fontWeight}`);
+      if (!section.fontLoaded) failures.push(`${label}: IBM Plex Sans SemiBold did not load`);
+      if (section.visibleWordmarks.length !== 1 || !section.visibleWordmarks[0].source.endsWith("/images/mitid-logo-white.svg") || section.visibleWordmarks[0].width === 0 || section.visibleWordmarks[0].alt !== "MitID") failures.push(`${label}: button wordmark ${JSON.stringify(section.visibleWordmarks)}`);
+      if (await page.getByRole("button", { name: "Confirm with MitID", exact: true }).count() !== 1) failures.push(`${label}: no button named "Confirm with MitID"`);
+    }
+    if (section.styledBodyElements > 0) failures.push(`${label}: elements with a style attribute`);
+    failures.push(...cleanPageFailures(label, violations, observations));
+
+    if (step === "verify" && ready) {
+      const callback = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/MitId/verification/callback"), { timeout: 30_000 }).then(() => true, () => false);
+      await page.getByRole("button", { name: "Confirm with MitID", exact: true }).click();
+      const callbackReached = await callback;
+      const returned = callbackReached && (await page.waitForURL(profileUrl, { waitUntil: "load", timeout: 30_000 }).then(() => true, () => false));
+      const verified = await page.locator('[data-testid="identity-verification-verified"]').waitFor({ timeout: interactiveTimeoutMs }).then(() => true, () => false);
+      const verifiedSection = verified ? await readSection(page) : null;
+      await settle(page);
+      const verifiedViolations = await readViolations(page);
+      stepDetails.afterVerify = { returned, verified, section: verifiedSection, violations: verifiedViolations, finalUrl: page.url() };
+      if (!returned || !verified) failures.push(`${label}: the verification did not return to the verified profile (${page.url()})`);
+      if (verifiedSection) failures.push(...checkVerifiedSection(`${label} after verifying`, verifiedSection, "white"));
+      failures.push(...cleanPageFailures(`${label} after verifying`, verifiedViolations, observations));
+    }
+    if (step === "verified" && ready) failures.push(...checkVerifiedSection(label, section, "blue"));
+    // The session cookies may have been refreshed in this context, so the next context continues with them
+    storageState = await context.storageState();
+    await context.close();
+    details[step] = stepDetails;
+  }
+  return outcome(details, failures);
+}
+
+function checkVerifiedSection(label, section, wordmarkColour) {
+  const failures = [];
+  if (!section.verified) failures.push(`${label}: no verified state`);
+  if (section.buttonText !== null) failures.push(`${label}: the MitID button is still offered`);
+  if (section.assurance !== "Substantial assurance") failures.push(`${label}: assurance "${section.assurance}"`);
+  if (!section.verifiedDate?.startsWith("Verified on ")) failures.push(`${label}: verified date "${section.verifiedDate}"`);
+  const wordmark = section.visibleWordmarks[0];
+  if (section.visibleWordmarks.length !== 1 || !wordmark.source.endsWith(`/images/mitid-logo-${wordmarkColour}.svg`) || wordmark.width === 0 || wordmark.alt !== "MitID") failures.push(`${label}: verified wordmark ${JSON.stringify(section.visibleWordmarks)}`);
+  return failures;
 }
 
 async function runManifest() {

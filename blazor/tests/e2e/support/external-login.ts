@@ -4,7 +4,7 @@ import { createTestContext, type TestContext } from "@shared/e2e/utils/test-asse
 import { step } from "@shared/e2e/utils/test-step-wrapper";
 import { sendAccountApiRequest } from "./account-api";
 import { logOutThroughBlazor, userMenuButton } from "./authentication";
-import { blazorPath, expectBlazorUrl } from "./routes";
+import { blazorPath, expectBlazorUrl, gotoBlazor } from "./routes";
 import { blazorTexts } from "./texts";
 
 /**
@@ -259,6 +259,19 @@ export async function verifyWithMitIdForBlazor(page: Page): Promise<void> {
   expect(response.status, response.body).toBe(200);
 
   await page.goto((JSON.parse(response.body) as { authorizationUrl: string }).authorizationUrl);
+}
+
+/**
+ * Start a MitID verification from the identity verification section of the Blazor profile as the signed-in user: open the
+ * profile, click the localized "Confirm with MitID" button and let the document leave for the identity provider. The caller
+ * sets the mock provider cookie first and asserts where the flow lands.
+ */
+export async function verifyWithMitIdFromBlazorProfile(page: Page): Promise<void> {
+  await gotoBlazor(page, "user/profile");
+  const confirmButton = page.getByRole("button", { name: blazorTexts().confirmWithMitId, exact: true });
+  await expect(confirmButton).toBeVisible();
+
+  await confirmButton.click();
 }
 
 /**

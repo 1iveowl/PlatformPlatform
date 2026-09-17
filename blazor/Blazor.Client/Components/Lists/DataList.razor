@@ -71,11 +71,13 @@
         {
             <p role="alert" class="data-list-error" data-list-next-error>@_controller.NextPageErrorMessage</p>
         }
+
         @if (_controller.HasMore)
         {
             <div class="data-list-sentinel" data-list-sentinel aria-hidden="true"></div>
             <button type="button" class="button-secondary data-list-load-more" data-list-load-more disabled="@_controller.IsLoadingNext" @onclick="LoadNext">@CommonStrings.DataListLoadMore</button>
         }
+
         <p class="data-list-visually-hidden" role="status" data-list-load-status>@LoadStatusText</p>
     }
     else
@@ -248,13 +250,16 @@
         {
             _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/data-list.js");
             _reference = DotNetObjectReference.Create(this);
-            var options = new { selectionMode = SelectionMode.ToString(), escapeScopeId = EscapeScopeId, focusFallbackId = FocusFallbackId,
+            var options = new
+            {
+                selectionMode = SelectionMode.ToString(), escapeScopeId = EscapeScopeId, focusFallbackId = FocusFallbackId,
                 reportsBreakpoint = PhoneLoadMode != DataListLoadMode.Pages
             };
             _handle = await _module.InvokeAsync<IJSObjectReference>("attach", _root, _reference, options);
         }
 
-        if (_handle is not null && !_disposed) await _handle.InvokeVoidAsync("sync", _controller.ActiveIndex, HeaderSelection.ToString(), _controller.State.SelectedKey is not null,
+        if (_handle is not null && !_disposed)
+            await _handle.InvokeVoidAsync("sync", _controller.ActiveIndex, HeaderSelection.ToString(), _controller.State.SelectedKey is not null,
                 _controller is { HasMore: true, IsLoadingNext: false, NextPageErrorMessage: null }
             );
     }

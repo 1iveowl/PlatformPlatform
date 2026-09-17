@@ -40,7 +40,7 @@ public static class ExternalLoginStart
     public const string LocaleParameter = "Locale";
     public const string ReturnPathParameter = "ReturnPath";
     public const string PreferredTenantIdParameter = "PreferredTenantId";
-    public const string Edition = "Blazor";
+    public const string Edition = AppUrls.Edition;
 
     public static IReadOnlyList<ExternalLoginStartForm> Create(IReadOnlyDictionary<string, bool> systemFeatureFlags, ExternalLoginFlow flow, string locale, string? returnPath, TenantId? preferredTenantId = null)
     {

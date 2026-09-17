@@ -243,4 +243,72 @@
         <value>Your profile picture was saved, but your other changes were not. Try again.</value>
         <comment>Blazor only: the avatar step of a profile save committed and the profile update failed</comment>
     </data>
+    <data name="IdentityVerification" xml:space="preserve">
+        <value>Identity verification</value>
+        <comment>React: Identity verification</comment>
+    </data>
+    <data name="IdentityVerificationDescription" xml:space="preserve">
+        <value>Prove who you are with MitID. Your name and personal identification number are not stored.</value>
+        <comment>React: Prove who you are with MitID. Your name and personal identification number are not stored.</comment>
+    </data>
+    <data name="IdentityVerificationLoginHint" xml:space="preserve">
+        <value>Once verified, you can also log on with MitID.</value>
+        <comment>React: Once verified, you can also log on with MitID.</comment>
+    </data>
+    <data name="ConfirmWith" xml:space="preserve">
+        <value>Confirm with</value>
+        <comment>React: Confirm with &lt;0/&gt;, where the MitID wordmark follows with the alt text MitID</comment>
+    </data>
+    <data name="VerifiedWith" xml:space="preserve">
+        <value>Verified with</value>
+        <comment>React: Verified with &lt;0/&gt;, where the MitID wordmark follows with the alt text MitID</comment>
+    </data>
+    <data name="VerifiedOn" xml:space="preserve">
+        <value>Verified on {0}</value>
+        <comment>React: Verified on {verifiedDate}</comment>
+    </data>
+    <data name="LowAssurance" xml:space="preserve">
+        <value>Low assurance</value>
+        <comment>React: Low assurance</comment>
+    </data>
+    <data name="SubstantialAssurance" xml:space="preserve">
+        <value>Substantial assurance</value>
+        <comment>React: Substantial assurance</comment>
+    </data>
+    <data name="HighAssurance" xml:space="preserve">
+        <value>High assurance</value>
+        <comment>React: High assurance</comment>
+    </data>
+    <data name="UnknownAssurance" xml:space="preserve">
+        <value>Unknown assurance</value>
+        <comment>React: Unknown assurance</comment>
+    </data>
+    <data name="IdentityAlreadyLinkedTitle" xml:space="preserve">
+        <value>Identity already in use</value>
+        <comment>React: Identity already in use</comment>
+    </data>
+    <data name="IdentityAlreadyLinkedMessage" xml:space="preserve">
+        <value>This identity is already linked to another account.</value>
+        <comment>React: This identity is already linked to another account.</comment>
+    </data>
+    <data name="IdentityAlreadyLinkedHint" xml:space="preserve">
+        <value>You cannot resolve this yourself. Contact your account administrator.</value>
+        <comment>React: You cannot resolve this yourself. Contact your account administrator.</comment>
+    </data>
+    <data name="AssuranceLevelInsufficientTitle" xml:space="preserve">
+        <value>Verification not strong enough</value>
+        <comment>React: Verification not strong enough</comment>
+    </data>
+    <data name="AssuranceLevelInsufficientMessage" xml:space="preserve">
+        <value>Your identity could not be verified at the required level.</value>
+        <comment>React: Your identity could not be verified at the required level.</comment>
+    </data>
+    <data name="AssuranceLevelInsufficientHint" xml:space="preserve">
+        <value>Please try again, or contact your account administrator.</value>
+        <comment>React: Please try again, or contact your account administrator.</comment>
+    </data>
+    <data name="BackToProfile" xml:space="preserve">
+        <value>Back to profile</value>
+        <comment>React: Back to profile</comment>
+    </data>
 </root>

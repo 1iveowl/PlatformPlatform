@@ -42,6 +42,7 @@ public static class AccountApiRegistration
             );
             services.AddScoped<EmailAuthenticationClient>();
             services.AddScoped<AuthenticationClient>();
+            services.AddScoped<ExternalAuthenticationClient>();
             services.AddScoped<UsersClient>();
             services.AddScoped<TenantsClient>();
             return services.AddScoped<IBootstrapSource, HttpBootstrapSource>();

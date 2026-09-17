@@ -16,8 +16,8 @@ public enum SessionErrorKind
     TenantDeleted
 }
 
-// The refusals an external login or signup callback redirects to, with the React edition's error codes. The MitID
-// verification refusals (identity_already_linked, assurance_level_insufficient) are not login or signup outcomes.
+// The refusals an external login, signup or identity verification callback redirects to, with the React edition's error
+// codes. A verification refusal that shares a code with login (authentication_failed, session_expired) renders as that code.
 public enum AuthenticationErrorKind
 {
     UserNotFound,
@@ -27,14 +27,17 @@ public enum AuthenticationErrorKind
     InvalidRequest,
     AccessDenied,
     IdentityNotVerified,
-    ServerError
+    ServerError,
+    IdentityAlreadyLinked,
+    AssuranceLevelInsufficient
 }
 
 // Where an action on the error page leads
 public enum ErrorPageAction
 {
     LogIn,
-    SignUp
+    SignUp,
+    BackToProfile
 }
 
 // What the error page shows, decided once by StatusPageModel.CreateError. Session or Authentication is set for a
@@ -71,6 +74,8 @@ public static class StatusPageModel
     public const string AccessDeniedCode = "access_denied";
     public const string IdentityNotVerifiedCode = "identity_not_verified";
     public const string ServerErrorCode = "server_error";
+    public const string IdentityAlreadyLinkedCode = "identity_already_linked";
+    public const string AssuranceLevelInsufficientCode = "assurance_level_insufficient";
 
     // An external login id is a prefix, an underscore and a ULID; anything else is not a reference support can look up
     private const int MaximumReferenceIdLength = 64;
@@ -108,25 +113,34 @@ public static class StatusPageModel
             AccessDeniedCode => AuthenticationErrorKind.AccessDenied,
             IdentityNotVerifiedCode => AuthenticationErrorKind.IdentityNotVerified,
             ServerErrorCode => AuthenticationErrorKind.ServerError,
+            IdentityAlreadyLinkedCode => AuthenticationErrorKind.IdentityAlreadyLinked,
+            AssuranceLevelInsufficientCode => AuthenticationErrorKind.AssuranceLevelInsufficient,
             _ => null
         };
     }
 
     // The primary action first, as in the React edition: no account leads to signup, an existing account to login, and a
-    // provider without an email to signup with email; every other refusal is retried from login
+    // provider without an email to signup with email; a verification refusal only a signed-in user meets returns to the
+    // profile, where the retry lives; every other refusal is retried from login
     public static ErrorPageAction[] GetActions(AuthenticationErrorKind authentication)
     {
         return authentication switch
         {
             AuthenticationErrorKind.UserNotFound or AuthenticationErrorKind.EmailNotProvided => [ErrorPageAction.SignUp, ErrorPageAction.LogIn],
             AuthenticationErrorKind.AccountAlreadyExists => [ErrorPageAction.LogIn, ErrorPageAction.SignUp],
+            AuthenticationErrorKind.IdentityAlreadyLinked or AuthenticationErrorKind.AssuranceLevelInsufficient => [ErrorPageAction.BackToProfile],
             _ => [ErrorPageAction.LogIn]
         };
     }
 
     public static string GetActionUrl(ErrorPageAction action)
     {
-        return AppUrls.ToAbsolute(action == ErrorPageAction.SignUp ? "signup" : "login");
+        return action switch
+        {
+            ErrorPageAction.SignUp => AppUrls.ToAbsolute("signup"),
+            ErrorPageAction.BackToProfile => AppUrls.ToAbsolute("user/profile"),
+            _ => AppUrls.ToAbsolute("login")
+        };
     }
 
     // The reference id of a refused external login as the query carried it, when it has the shape of one; otherwise none

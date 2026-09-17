@@ -1,9 +1,10 @@
-@* The profile page, the React edition's user profile without the identity verification section: email and role are shown;
+@* The profile page, the React edition's user profile: email and role are shown;
    the avatar, first name, last name and title are edited. The host prerenders the heading; the profile loads once the
    component runs in the browser. Save runs ProfileSave: the avatar upload or removal, then the profile PUT, after which
    the bootstrap is read again so the shell shows the new name and avatar from the refreshed session claims without a
    reload. A failure is shown in the form alert as the API returned it; after a partial save the steps the server confirms
-   are kept as saved and the rest stays unsaved for a retry. *@
+   are kept as saved and the rest stays unsaved for a retry. The identity verification section below the form renders and
+   decides for itself (IdentityVerificationSection). *@
 @using Account.Client
 @using Account.Features.Users.Requests
 @using Blazor.Client.Bootstrap
@@ -56,6 +57,8 @@
         </EditForm>
 
         <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges"/>
+
+        <IdentityVerificationSection/>
     }
     else if (_loadFailed)
     {

@@ -1,6 +1,6 @@
 @* The error page's content, the React edition's ErrorPage, for an ErrorPageView decided by StatusPageModel. A session error
-   keeps its title, text and login link. A refused external login or signup shows the React edition's title and message for
-   its code, its login and signup actions and the reference id of the refused attempt. The code is recorded on the message
+   keeps its title, text and login link. A refused external login, signup or identity verification shows the React edition's
+   title and message for its code, its actions (log in, sign up or back to profile) and the reference id of the refused attempt. The code is recorded on the message
    only when it is a known one, and every value renders as encoded text. A failure offers Try again, which returns to the page that failed, Go to home and
    Show details, a native disclosure so it works without a runtime: the exception message and stack in Development, the
    reference id elsewhere. The same markup renders in the public layout and inside the shell. *@
@@ -21,18 +21,18 @@
         <h1 data-testid="error-title">@AuthenticationTitle(authentication)</h1>
         <p data-testid="error-message" data-error-code="@View.ErrorCode">
             @AuthenticationMessage(authentication)
-            @if (authentication == AuthenticationErrorKind.IdentityNotVerified)
+            @if (AuthenticationHint(authentication) is { } hint)
             {
                 <br/>
-                @AuthenticationStrings.IdentityNotVerifiedHint
+                @hint
             }
         </p>
         <div class="status-page-actions">
             @for (var index = 0; index < View.Actions.Length; index++)
             {
                 var action = View.Actions[index];
-                <a href="@StatusPageModel.GetActionUrl(action)" class="@(index == 0 ? "button-primary" : "button-secondary")" data-enhance-nav="false" data-testid="error-@(action == ErrorPageAction.SignUp ? "signup" : "login")">
-                    @(action == ErrorPageAction.SignUp ? CommonStrings.SignUp : CommonStrings.LogIn)
+                <a href="@StatusPageModel.GetActionUrl(action)" class="@(index == 0 ? "button-primary" : "button-secondary")" data-enhance-nav="false" data-testid="@ActionTestId(action)">
+                    @ActionLabel(action)
                 </a>
             }
         </div>
@@ -93,6 +93,8 @@
             AuthenticationErrorKind.InvalidRequest => AuthenticationStrings.InvalidRequestTitle,
             AuthenticationErrorKind.AccessDenied => AuthenticationStrings.AccessDeniedTitle,
             AuthenticationErrorKind.IdentityNotVerified => AuthenticationStrings.IdentityNotVerifiedTitle,
+            AuthenticationErrorKind.IdentityAlreadyLinked => AccountStrings.IdentityAlreadyLinkedTitle,
+            AuthenticationErrorKind.AssuranceLevelInsufficient => AccountStrings.AssuranceLevelInsufficientTitle,
             _ => CommonStrings.SomethingWentWrong
         };
     }
@@ -108,7 +110,40 @@
             AuthenticationErrorKind.InvalidRequest => AuthenticationStrings.InvalidRequestMessage,
             AuthenticationErrorKind.AccessDenied => AuthenticationStrings.AccessDeniedMessage,
             AuthenticationErrorKind.IdentityNotVerified => AuthenticationStrings.IdentityNotVerifiedMessage,
+            AuthenticationErrorKind.IdentityAlreadyLinked => AccountStrings.IdentityAlreadyLinkedMessage,
+            AuthenticationErrorKind.AssuranceLevelInsufficient => AccountStrings.AssuranceLevelInsufficientMessage,
             _ => AuthenticationStrings.UnexpectedErrorMessage
+        };
+    }
+
+    private static string? AuthenticationHint(AuthenticationErrorKind authentication)
+    {
+        return authentication switch
+        {
+            AuthenticationErrorKind.IdentityNotVerified => AuthenticationStrings.IdentityNotVerifiedHint,
+            AuthenticationErrorKind.IdentityAlreadyLinked => AccountStrings.IdentityAlreadyLinkedHint,
+            AuthenticationErrorKind.AssuranceLevelInsufficient => AccountStrings.AssuranceLevelInsufficientHint,
+            _ => null
+        };
+    }
+
+    private static string ActionLabel(ErrorPageAction action)
+    {
+        return action switch
+        {
+            ErrorPageAction.SignUp => CommonStrings.SignUp,
+            ErrorPageAction.BackToProfile => AccountStrings.BackToProfile,
+            _ => CommonStrings.LogIn
+        };
+    }
+
+    private static string ActionTestId(ErrorPageAction action)
+    {
+        return action switch
+        {
+            ErrorPageAction.SignUp => "error-signup",
+            ErrorPageAction.BackToProfile => "error-profile",
+            _ => "error-login"
         };
     }
 

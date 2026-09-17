@@ -695,6 +695,79 @@ h1:focus {
     height: 1rem;
 }
 
+/* The MitID button inside the profile's identity verification section (Blazor.Client/Profile/IdentityVerificationSection)
+   keeps the brand geometry above and takes the width of its label, as in the React edition. While the start is pending it
+   stays MitID blue and shows the wait cursor. */
+.mitid-button-inline {
+    width: fit-content;
+}
+
+.mitid-button:disabled {
+    background: #0060e6;
+    cursor: wait;
+}
+
+.identity-verification {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 40rem;
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.identity-verification h2,
+.identity-verification p {
+    margin: 0;
+}
+
+.identity-verification-description,
+.identity-verification-date {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.identity-verification-verified {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.identity-verification-verified-with {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.identity-verification-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    background: var(--surface-hover);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* The MitID wordmark on the page background: blue in the light theme and white in the dark theme. The hidden variant is
+   display: none, so it is neither laid out nor named to assistive technology. */
+.mitid-page-wordmark {
+    position: relative;
+    top: -1px;
+    width: auto;
+    height: 0.875rem;
+}
+
+.mitid-page-wordmark-dark,
+:root[data-theme="dark"] .mitid-page-wordmark-light {
+    display: none;
+}
+
+:root[data-theme="dark"] .mitid-page-wordmark-dark {
+    display: inline;
+}
+
 /* In-house toast region and modal dialogs: every style is a class here, so the components write no style attribute and
    the nonce-only style policy stays unchanged */
 .toast-region {

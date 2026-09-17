@@ -15,7 +15,7 @@ import {
   startExternalFlowByUrl,
   trackRedirects,
   uniqueIdentifier,
-  verifyWithMitIdForBlazor
+  verifyWithMitIdFromBlazorProfile
 } from "@blazor/e2e/external-login";
 import { submitOneTimePassword } from "@blazor/e2e/one-time-password";
 import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
@@ -181,7 +181,7 @@ test.describe("@smoke", () => {
    * - Flows start from the buttons on the Blazor login and signup pages; the MitID button carries the approved phrase, the wordmark and the brand geometry
    * - Google login returns to a deep link; hostile return paths are dropped for the Blazor home
    * - A Google denial lands on the localized Blazor error page without the provider's error description
-   * - MitID verification returns to the Blazor profile; a low assurance verification lands on the Blazor error page
+   * - MitID verification starts from the button on the Blazor profile: a low assurance verification lands on the verification not strong enough page, which leads back to the profile; a stale authentication lands on the authentication failed page; a successful verification returns to the profile, which shows the verified state instead of the button
    * - MitID login with the verified identity returns to a deep link; an unbound identity lands on the Blazor error page
    * - Every redirect stays on external authentication endpoints or below the Blazor path base
    */
@@ -195,28 +195,46 @@ test.describe("@smoke", () => {
     const identity = `identity:${uniqueIdentifier()}`;
     const redirects = trackRedirects(page);
 
-    await step("Sign up with email and verify with MitID for Blazor & verify return to the Blazor profile")(async () => {
+    await step("Sign up with email & verify with MitID at a low assurance level from the Blazor profile & verify the verification not strong enough page")(async () => {
       await page.context().clearCookies();
       await signUpThroughBlazor(page, uniqueBlazorEmail());
-      await setMockProviderCookie(page, identity);
-      redirects.length = 0;
-
-      await verifyWithMitIdForBlazor(page);
-
-      await expectBlazorUrl(page, "user/profile");
-      await expect(userMenuButton(page)).toBeVisible();
-      expectRedirectsInsideBlazor(redirects);
-    })();
-
-    await step("Verify with MitID at a low assurance level & verify the Blazor error page")(async () => {
       await setMockProviderCookie(page, "lowassurance");
       redirects.length = 0;
 
-      await verifyWithMitIdForBlazor(page);
+      await verifyWithMitIdFromBlazorProfile(page);
 
-      await expectBlazorUrl(page, "error");
-      expect(new URL(page.url()).searchParams.get("error")).not.toBeNull();
-      await expect(page.getByRole("heading", { name: blazorTexts().somethingWentWrong })).toBeVisible();
+      await expectBlazorErrorPage(page, "assurance_level_insufficient", blazorTexts().assuranceLevelInsufficient);
+      await expect(page.getByText(blazorTexts().assuranceLevelInsufficientMessage)).toBeVisible();
+      expectRedirectsInsideBlazor(redirects);
+    })();
+
+    await step("Go back to profile from the refusal & verify the MitID button is offered again")(async () => {
+      await page.getByRole("link", { name: blazorTexts().backToProfile }).click();
+
+      await expectBlazorUrl(page, "user/profile");
+      await expect(page.getByRole("button", { name: blazorTexts().confirmWithMitId, exact: true })).toBeVisible();
+    })();
+
+    await step("Verify with MitID reporting a stale authentication & verify the authentication failed page")(async () => {
+      await setMockProviderCookie(page, "staleauthentication");
+      redirects.length = 0;
+
+      await verifyWithMitIdFromBlazorProfile(page);
+
+      await expectBlazorErrorPage(page, "authentication_failed", blazorTexts().authenticationFailed);
+      expectRedirectsInsideBlazor(redirects);
+    })();
+
+    await step("Verify with MitID from the Blazor profile & verify the verified state replaces the button")(async () => {
+      await setMockProviderCookie(page, identity);
+      redirects.length = 0;
+
+      await verifyWithMitIdFromBlazorProfile(page);
+
+      await expectBlazorUrl(page, "user/profile");
+      await expect(page.getByText(blazorTexts().substantialAssurance, { exact: true })).toBeVisible();
+      await expect(page.getByRole("img", { name: "MitID" })).toBeVisible();
+      await expect(page.getByRole("button", { name: blazorTexts().confirmWithMitId })).toHaveCount(0);
       expectRedirectsInsideBlazor(redirects);
     })();
 

@@ -15,9 +15,6 @@ public sealed record StartExternalVerificationCommand(string? ReturnPath = null)
     public ExternalProviderType ProviderType { get; init; }
 }
 
-[PublicAPI]
-public sealed record StartExternalVerificationResponse(string AuthorizationUrl);
-
 /// <summary>
 ///     Starts an identity verification for the signed-in user. This is a command rather than a redirect endpoint on
 ///     purpose: a GET that requires authorization offers no protection against cross-site request forgery here,

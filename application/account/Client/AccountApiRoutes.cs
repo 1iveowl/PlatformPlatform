@@ -1,5 +1,6 @@
 using System.Globalization;
 using Account.Features.EmailAuthentication.Domain;
+using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.Users.Requests;
 using SharedKernel.Domain;
 
@@ -43,6 +44,8 @@ public static class AccountApiRoutes
 
     public const string CurrentTenant = "/api/account/tenants/current";
 
+    public const string VerificationStatus = "/api/account/authentication/verification";
+
     private const string DateFormat = "yyyy-MM-dd";
 
     // The external login and signup starts are document navigations, not typed client calls; the provider is the name of
@@ -55,6 +58,13 @@ public static class AccountApiRoutes
     public static string StartExternalSignup(string provider)
     {
         return $"/api/account/authentication/{Uri.EscapeDataString(provider)}/signup/start";
+    }
+
+    // The edition names the client the verification callback returns to; the account API reads it from the query string only,
+    // so the request body stays the one the React edition sends
+    public static string StartExternalVerification(ExternalProviderType provider, string edition)
+    {
+        return $"/api/account/authentication/{provider}/verification/start?Edition={Uri.EscapeDataString(edition)}";
     }
 
     public static string CompleteEmailLogin(EmailLoginId emailLoginId)

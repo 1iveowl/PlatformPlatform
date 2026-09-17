@@ -150,6 +150,26 @@ public sealed partial class HostSecurityTests
     }
 
     [Theory]
+    [InlineData("identity_already_linked", "en-US", "Identity already in use", "This identity is already linked to another account.", "You cannot resolve this yourself. Contact your account administrator.", "Back to profile")]
+    [InlineData("identity_already_linked", "da-DK", "Identiteten er allerede i brug", "Denne identitet er allerede knyttet til en anden konto.", "Du kan ikke selv løse dette. Kontakt din kontoadministrator.", "Tilbage til profil")]
+    [InlineData("assurance_level_insufficient", "en-US", "Verification not strong enough", "Your identity could not be verified at the required level.", "Please try again, or contact your account administrator.", "Back to profile")]
+    [InlineData("assurance_level_insufficient", "da-DK", "Bekræftelsen er ikke stærk nok", "Din identitet kunne ikke bekræftes på det krævede niveau.", "Prøv igen, eller kontakt din kontoadministrator.", "Tilbage til profil")]
+    public async Task ErrorPage_WhenIdentityVerificationRefusalGiven_ShouldRenderItsTextBackToProfileAndReferenceIdInTheCulture(string errorCode, string culture, string title, string message, string hint, string backToProfile)
+    {
+        // Act
+        var html = WebUtility.HtmlDecode(await GetPageAsync($"blazor/error?error={errorCode}&id=exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ", culture));
+
+        // Assert
+        html.Should().Contain(PublicNavigationMarker).And.Contain($">{title}</h1>").And.Contain(message).And.Contain(hint);
+        html.Should().Contain($"data-error-code=\"{errorCode}\"");
+        var referenceLabel = culture == "da-DK" ? "Reference-ID" : "Reference ID";
+        html.Should().Contain($"data-testid=\"error-reference-id\">{referenceLabel}: exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ</p>");
+        ErrorActions(html).Should().Equal(("profile", "/blazor/user/profile"));
+        Regex.IsMatch(html, $"data-testid=\"error-profile\">\\s*{Regex.Escape(backToProfile)}\\s*</a>").Should().BeTrue();
+        html.Should().NotContain("data-testid=\"error-login\"").And.NotContain("data-testid=\"error-try-again\"");
+    }
+
+    [Theory]
     [InlineData("<script>alert(1)</script>", "<img src=x onerror=alert(1)>")]
     [InlineData("identity_already_linked\" data-injected=\"1", "exlog_1\" data-injected=\"1")]
     [InlineData("access_denied&error_description=The user denied access", "exlog_1")]
@@ -219,7 +239,7 @@ public sealed partial class HostSecurityTests
 
     private static (string TestId, string Href)[] ErrorActions(string html)
     {
-        return Regex.Matches(html, "<a href=\"([^\"]+)\" class=\"button-(?:primary|secondary)\" data-enhance-nav=\"false\" data-testid=\"error-(login|signup)\"")
+        return Regex.Matches(html, "<a href=\"([^\"]+)\" class=\"button-(?:primary|secondary)\" data-enhance-nav=\"false\" data-testid=\"error-(login|signup|profile)\"")
             .Select(match => (match.Groups[2].Value, match.Groups[1].Value))
             .ToArray();
     }
