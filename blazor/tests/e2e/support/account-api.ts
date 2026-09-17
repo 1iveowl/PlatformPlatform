@@ -140,3 +140,136 @@ export function expectAccountApiProblem(response: AccountApiResponse, status: nu
   expect(response.status).toBe(status);
   expect((JSON.parse(response.body) as { detail?: string }).detail).toBe(detail);
 }
+
+/**
+ * A user of the signed-in user's account as the recycle bin endpoint returns it
+ */
+export interface AccountApiDeletedUser {
+  id: string;
+  email: string;
+  role: AccountApiUser["role"];
+}
+
+/**
+ * Invite one user to the signed-in user's account through the account API and return the response, which the caller asserts
+ * @param page Playwright page instance of a signed-in user
+ * @param email The email address to invite
+ */
+export function inviteUserThroughAccountApi(page: Page, email: string): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "POST", "/api/account/users/invite", { email });
+}
+
+/**
+ * Soft delete one user through the account API and return the response, which the caller asserts
+ * @param page Playwright page instance of a signed-in user
+ * @param userId The id of the user to delete
+ */
+export function deleteUserResponseThroughAccountApi(page: Page, userId: string): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "DELETE", `/api/account/users/${encodeURIComponent(userId)}`);
+}
+
+/**
+ * Soft delete several users in one request through the account API and return the response, which the caller asserts
+ * @param page Playwright page instance of a signed-in user
+ * @param userIds The ids of the users to delete
+ */
+export function bulkDeleteUsersThroughAccountApi(page: Page, userIds: string[]): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "POST", "/api/account/users/bulk-delete", { userIds });
+}
+
+/**
+ * List the deleted users of the signed-in user's account through the account API and return the response
+ * @param page Playwright page instance of a signed-in user
+ */
+export function getDeletedUsersResponseThroughAccountApi(page: Page): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "GET", "/api/account/users/deleted?PageSize=1000");
+}
+
+/**
+ * The deleted users of the signed-in owner's or admin's account, read through the account API
+ * @param page Playwright page instance of a signed-in owner or admin
+ */
+export async function getDeletedUsersThroughAccountApi(page: Page): Promise<AccountApiDeletedUser[]> {
+  const response = await getDeletedUsersResponseThroughAccountApi(page);
+  expect(response.status, response.body).toBe(200);
+  return (JSON.parse(response.body) as { users: AccountApiDeletedUser[] }).users;
+}
+
+/**
+ * The emails of the active users of the signed-in user's account, read through the account API
+ * @param page Playwright page instance of a signed-in user
+ */
+export async function getUserEmailsThroughAccountApi(page: Page): Promise<string[]> {
+  const response = await sendAccountApiRequest(page, "GET", "/api/account/users?PageSize=1000");
+  expect(response.status, response.body).toBe(200);
+  return (JSON.parse(response.body) as { users: AccountApiUser[] }).users.map((user) => user.email).sort();
+}
+
+/**
+ * Restore one deleted user through the account API and return the response, which the caller asserts
+ * @param page Playwright page instance of a signed-in user
+ * @param userId The id of the deleted user
+ */
+export function restoreUserThroughAccountApi(page: Page, userId: string): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "POST", `/api/account/users/${encodeURIComponent(userId)}/restore`);
+}
+
+/**
+ * Permanently delete one deleted user through the account API and return the response, which the caller asserts
+ * @param page Playwright page instance of a signed-in user
+ * @param userId The id of the deleted user
+ */
+export function purgeUserThroughAccountApi(page: Page, userId: string): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "DELETE", `/api/account/users/${encodeURIComponent(userId)}/purge`);
+}
+
+/**
+ * Permanently delete several deleted users in one request through the account API and return the response
+ * @param page Playwright page instance of a signed-in user
+ * @param userIds The ids of the deleted users
+ */
+export function bulkPurgeUsersThroughAccountApi(page: Page, userIds: string[]): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "POST", "/api/account/users/deleted/bulk-purge", { userIds });
+}
+
+/**
+ * Permanently delete every user in the signed-in user's recycle bin through the account API and return the response
+ * @param page Playwright page instance of a signed-in user
+ */
+export function emptyRecycleBinThroughAccountApi(page: Page): Promise<AccountApiResponse> {
+  return sendAccountApiRequest(page, "POST", "/api/account/users/deleted/empty-recycle-bin");
+}
+
+/**
+ * Update the signed-in user's own profile through the account API. The endpoint asks the gateway to refresh the
+ * authentication tokens, so the response carries cookies with claims issued from the user's current role
+ * @param page Playwright page instance of a signed-in user
+ * @param profile The profile to save
+ */
+export async function refreshClaimsByUpdatingProfileThroughAccountApi(page: Page, profile: { firstName: string; lastName: string }): Promise<void> {
+  const response = await sendAccountApiRequest(page, "PUT", "/api/account/users/me", { ...profile, title: "" });
+  expect(response.status, response.body).toBe(200);
+}
+
+/**
+ * Well-formed user ids that belong to no user: the given id with its third-to-last character changed, so no id is the given
+ * user's, and its last two characters numbering the ids
+ * @param userId A real user id to derive the ids from
+ * @param count The number of ids
+ */
+export function unknownUserIds(userId: string, count: number): string[] {
+  const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+  const changed = alphabet[(alphabet.indexOf(userId.at(-3)!.toUpperCase()) + 1) % alphabet.length];
+  return Array.from({ length: count }, (_, index) => `${userId.slice(0, -3)}${changed}${alphabet[Math.floor(index / 32) % 32]}${alphabet[index % 32]}`);
+}
+
+/**
+ * Expect an account API response to be a validation problem with the given message on the given property
+ * @param response The response to assert
+ * @param property The camel-cased property the message belongs to
+ * @param message The expected message, in English as the API returns it
+ */
+export function expectAccountApiValidationProblem(response: AccountApiResponse, property: string, message: string): void {
+  expect(response.status).toBe(400);
+  expect((JSON.parse(response.body) as { errors?: Record<string, string[]> }).errors).toEqual({ [property]: [message] });
+}

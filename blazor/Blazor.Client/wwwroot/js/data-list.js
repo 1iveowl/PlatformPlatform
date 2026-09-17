@@ -130,7 +130,7 @@ export function attach(root, dotNet, options) {
     return true;
   };
 
-  const press = { timer: 0, x: 0, y: 0, openedAt: -Infinity };
+  const press = { timer: 0, pointerId: -1, x: 0, y: 0, openedAt: -Infinity };
 
   const cancelPress = () => {
     window.clearTimeout(press.timer);
@@ -144,6 +144,7 @@ export function attach(root, dotNet, options) {
     if (event.pointerType === "mouse" || !event.isPrimary) return;
     const row = rowOf(event.target);
     if (row === null || event.target.closest(interactiveDescendant) !== null) return;
+    press.pointerId = event.pointerId;
     press.x = event.clientX;
     press.y = event.clientY;
     press.timer = window.setTimeout(() => {
@@ -152,8 +153,15 @@ export function attach(root, dotNet, options) {
     }, LongPressMilliseconds);
   };
 
+  // Only the pressing pointer ends or moves a press; a mouse moving on a touch device leaves it running
+  const isPressingPointer = (event) => press.timer !== 0 && event.pointerId === press.pointerId;
+
   const onPointerMove = (event) => {
-    if (press.timer !== 0 && Math.hypot(event.clientX - press.x, event.clientY - press.y) > LongPressTolerance) cancelPress();
+    if (isPressingPointer(event) && Math.hypot(event.clientX - press.x, event.clientY - press.y) > LongPressTolerance) cancelPress();
+  };
+
+  const onPointerEnd = (event) => {
+    if (isPressingPointer(event)) cancelPress();
   };
 
   const recentlyPressed = () => performance.now() - press.openedAt < 1000;
@@ -197,8 +205,8 @@ export function attach(root, dotNet, options) {
   root.addEventListener("focusin", onFocusIn);
   root.addEventListener("pointerdown", onPointerDown);
   root.addEventListener("pointermove", onPointerMove);
-  root.addEventListener("pointerup", cancelPress);
-  root.addEventListener("pointercancel", cancelPress);
+  root.addEventListener("pointerup", onPointerEnd);
+  root.addEventListener("pointercancel", onPointerEnd);
   root.addEventListener("contextmenu", onContextMenu);
   root.addEventListener("click", onClickCapture, true);
   document.addEventListener("keydown", onDocumentKeyDown);
@@ -239,8 +247,8 @@ export function attach(root, dotNet, options) {
       root.removeEventListener("focusin", onFocusIn);
       root.removeEventListener("pointerdown", onPointerDown);
       root.removeEventListener("pointermove", onPointerMove);
-      root.removeEventListener("pointerup", cancelPress);
-      root.removeEventListener("pointercancel", cancelPress);
+      root.removeEventListener("pointerup", onPointerEnd);
+      root.removeEventListener("pointercancel", onPointerEnd);
       root.removeEventListener("contextmenu", onContextMenu);
       root.removeEventListener("click", onClickCapture, true);
       document.removeEventListener("keydown", onDocumentKeyDown);

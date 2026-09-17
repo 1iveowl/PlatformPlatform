@@ -1,5 +1,5 @@
 @* The invite user dialog, the React edition's InviteUserDialog. A guarded dialog: once an email is typed, Escape, the close
-   button, the backdrop and Cancel ask before it is discarded. The field is validated as the server validates it, and a
+   button, the backdrop and Cancel ask before it is discarded, as soon as a character is typed. The field is validated as the server validates it, and a
    rejection (not an owner, no account name, an existing or deleted user) is shown in the dialog as the API returned it. *@
 @using Account.Client
 @using Account.Features.Users.Requests
@@ -16,7 +16,8 @@
         <p>
             <label>
                 @CommonStrings.Email
-                <InputText @bind-Value="_form.Email" type="email" autocomplete="off" placeholder="@UsersStrings.InviteEmailPlaceholder" data-testid="invite-email"/>
+                <InputText @bind-Value="_form.Email" type="email" autocomplete="off" placeholder="@UsersStrings.InviteEmailPlaceholder" data-testid="invite-email"
+                           @oninput="OnEmailInput"/>
             </label>
             <ValidationMessage For="() => _form.Email"/>
         </p>
@@ -36,6 +37,8 @@
     private FormErrorMapper _formErrors = null!;
     private bool _isSending;
     private bool _preparedOpen;
+    // The text in the field as typed; the bound model only changes when the field raises change, which Escape does not
+    private string _typedEmail = "";
 
     [Parameter]
     [EditorRequired]
@@ -48,7 +51,7 @@
     [Parameter]
     public EventCallback OnInvited { get; set; }
 
-    private bool HasUnsavedChanges => _form.Email.Length > 0;
+    private bool HasUnsavedChanges => _typedEmail.Length > 0 || _form.Email.Length > 0;
 
     public void Dispose()
     {
@@ -70,6 +73,7 @@
         if (!Open) return;
 
         _form.Email = "";
+        _typedEmail = "";
         _formErrors.Clear();
         _editContext.MarkAsUnmodified();
     }
@@ -88,7 +92,13 @@
         }
 
         _form.Email = "";
+        _typedEmail = "";
         await OnInvited.InvokeAsync();
+    }
+
+    private void OnEmailInput(ChangeEventArgs args)
+    {
+        _typedEmail = args.Value?.ToString() ?? "";
     }
 
 }
