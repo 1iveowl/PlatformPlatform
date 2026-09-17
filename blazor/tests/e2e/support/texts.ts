@@ -2,8 +2,9 @@ import { test } from "@playwright/test";
 
 /**
  * The cultures the Blazor edition ships, with the resource texts the specs assert on. The values mirror the en-US and
- * da-DK resources in application/shared-kernel/SharedKernel.Localization; error messages returned by the account API are
- * not in this map because they are shown in English, as returned, in every culture.
+ * da-DK resources in application/shared-kernel/SharedKernel.Localization, and the mail texts mirror the en-US and da-DK
+ * catalogs of the account's email templates in application/account/WebApp/emails/translations; error messages returned by
+ * the account API are not in this map because they are shown in English, as returned, in every culture.
  */
 export const blazorCultures = [
   {
@@ -115,7 +116,19 @@ export const blazorCultures = [
     accountAlreadyExists: "Account already exists",
     emailNotProvided: "Email address required",
     authenticationFailed: "Authentication failed",
-    referenceId: "Reference ID: "
+    referenceId: "Reference ID: ",
+    verificationCodeExpired: "Your verification code has expired",
+    verificationStateWrongCode: "The code was not accepted",
+    verificationStateExpired: "The code has expired",
+    verificationStateLocked: "Too many attempts",
+    mailSignupSubject: "Confirm your email address",
+    mailLoginSubjectAfterProductName: " login verification code",
+    mailResendSubject: "Your verification code (resend)",
+    mailUnknownUserSubject: "No account found",
+    mailConfirmationCodeBelow: "Your confirmation code is below",
+    mailEnterInBrowser: "Enter it in your open browser window. It is only valid for a few minutes.",
+    mailResendExpiry: "This code will expire in a few minutes.",
+    mailUnknownUserQuestion: "Is this the right email address?"
   },
   {
     locale: "da-DK",
@@ -226,7 +239,19 @@ export const blazorCultures = [
     accountAlreadyExists: "Konto findes allerede",
     emailNotProvided: "E-mailadresse påkrævet",
     authenticationFailed: "Godkendelse mislykkedes",
-    referenceId: "Reference-ID: "
+    referenceId: "Reference-ID: ",
+    verificationCodeExpired: "Din bekræftelseskode er udløbet",
+    verificationStateWrongCode: "Koden blev ikke godkendt",
+    verificationStateExpired: "Koden er udløbet",
+    verificationStateLocked: "For mange forsøg",
+    mailSignupSubject: "Bekræft din e-mailadresse",
+    mailLoginSubjectAfterProductName: "-bekræftelseskode til login",
+    mailResendSubject: "Din bekræftelseskode (gensendt)",
+    mailUnknownUserSubject: "Ingen konto fundet",
+    mailConfirmationCodeBelow: "Din bekræftelseskode står herunder",
+    mailEnterInBrowser: "Indtast den i dit åbne browservindue. Den er kun gyldig i få minutter.",
+    mailResendExpiry: "Denne kode udløber om få minutter.",
+    mailUnknownUserQuestion: "Er det den rigtige e-mailadresse?"
   }
 ] as const;
 
@@ -261,6 +286,8 @@ export function blazorTexts(): BlazorCulture {
 export const accountApiMessages = {
   wrongCode: "The code is wrong or no longer valid.",
   tooManyAttempts: "Too many attempts, please request a new code.",
+  codeNoLongerValid: "The code is no longer valid, please request a new code.",
+  tooManyStarts: "Too many attempts to confirm this email address. Please try again later.",
   cannotChangeOwnUserRole: "You cannot change your own user role.",
   onlyOwnersCanChangeUserRoles: "Only owners are allowed to change the user roles of users.",
   userNotFound: (userId: string) => `User with id '${userId}' not found.`
