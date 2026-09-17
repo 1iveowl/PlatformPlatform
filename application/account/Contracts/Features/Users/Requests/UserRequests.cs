@@ -59,3 +59,13 @@ public sealed record BulkPurgeUsersCommand(UserId[] UserIds);
 // FromTheme are the selected modes (system, light or dark), ResolvedTheme the light or dark theme the browser applied.
 [PublicAPI]
 public sealed record ChangeThemeCommand(string FromTheme, string Theme, string? ResolvedTheme);
+
+// The zoom level is a device preference the browser stores; the account API only records the change as telemetry. Both
+// values are the level as the browser stores it: 0.875, 1, 1.125 or 1.25.
+[PublicAPI]
+public sealed record ChangeZoomLevelCommand(string FromZoomLevel, string ZoomLevel);
+
+// Stores the user's language (en-US or da-DK); the response asks the gateway to refresh the session, so the next request
+// carries the new locale claim
+[PublicAPI]
+public sealed record ChangeLocaleCommand(string Locale);

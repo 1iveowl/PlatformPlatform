@@ -242,6 +242,42 @@ public sealed class UsersClientTests
     }
 
     [Fact]
+    public async Task ChangeZoomLevelAsync_WhenCalled_ShouldPutServerJsonToChangeZoomLevelRoute()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.ChangeZoomLevelAsync(new ChangeZoomLevelCommand("1", "1.25"), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Put);
+        request.PathAndQuery.Should().Be("/api/account/users/me/change-zoom-level");
+        request.Body.Should().Be(SerializeServerCommand(new ServerCommands.ChangeZoomLevelCommand("1", "1.25")));
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangeLocaleAsync_WhenCalled_ShouldPutServerJsonToChangeLocaleRoute()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.ChangeLocaleAsync(new ChangeLocaleCommand("da-DK"), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Put);
+        request.PathAndQuery.Should().Be("/api/account/users/me/change-locale");
+        request.Body.Should().Be(SerializeServerCommand(new ServerCommands.ChangeLocaleCommand("da-DK")));
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task ChangeUserRoleAsync_WhenCalled_ShouldPutServerJsonToUserRoute()
     {
         // Arrange

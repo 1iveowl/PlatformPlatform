@@ -13,7 +13,7 @@ Every user-visible string in the Blazor edition comes from `application/shared-k
 2. Add a key to the neutral file (`<Group>Strings.resx`, en-US) and to `<Group>Strings.da-DK.resx` in the same commit; `LocalizationResourceTests` fails on a key missing from either. Use sentence case, the wording the React catalogs use for the same text, and real Danish characters (æøå), never ASCII substitutes. Put a string in `CommonStrings` when more than one feature uses it, otherwise in the feature's group.
 3. Format placeholders with `string.Format(CultureInfo.CurrentCulture, <Group>Strings.Key, value)`; resources use `{0}`-style placeholders. Format numbers and dates for display with `CultureInfo.CurrentCulture`, and use `CultureInfo.InvariantCulture` only for values sent to the API or written to a URL.
 4. Put validation messages on the form model with `ErrorMessageResourceType` set to the group's class and `ErrorMessageResourceName = nameof(<Group>Strings.Key)` (`typeof(CommonStrings)` and `nameof(CommonStrings.Key)` for a shared message), so no framework default English message reaches a page.
-5. Leave culture selection to the platform: `HostShell.GetLocale` (a signed-in user's locale claim, else the best `Accept-Language` match, else en-US) is the only request culture provider, registered after `UseAuthentication`. Never read the query string, a culture cookie or the browser language, and never set a culture per component.
+5. Leave culture selection to the platform: `HostShell.GetLocale` is the only request culture provider, registered after `UseAuthentication`, and picks in this order: a signed-in user's locale claim, then the `preferred-locale` cookie when it names a supported culture exactly, then the best `Accept-Language` match, then en-US. The cookie is an untrusted hint the host validates; the public navigation's `LanguageMenu` and the preferences page write it through `wwwroot/js/theme.js` (`LocalePreference`), and a signed-in user's language is saved on the user first so the claim wins after login. Never read the query string, the framework's culture cookie or the browser language, and never set a culture per component; a language change reaches the host by loading the document again.
 6. Keep the client on the host's culture: `App.razor` renders `<html lang="@CultureInfo.CurrentUICulture.Name">`, and `Blazor.Client/Program.cs` calls `ClientCulture.Apply` before `RunAsync`. The client project sets `BlazorWebAssemblyLoadAllGlobalizationData` because the culture may differ from the browser language; do not remove it.
 7. Send the culture with every API call through the registered `LocaleHeaderHandler` (`X-Locale` from `CurrentUICulture`); the host adapter adds the same header from `HostShell.GetLocale`.
 8. Localize the component library's built-in text through `FluentResourceLocalizer`, set as `LibraryConfiguration.Localizer` in both containers. Add a key to `FluentComponentStrings` when a component's built-in text becomes visible; an uncovered key falls back to the library's English default.
@@ -56,7 +56,7 @@ public string Email { get; set; } = "";
 ### Example 3 - One Culture From Prerender to the Browser
 
 ```csharp
-// ✅ DO: the host's selection is the only provider (blazor/Blazor.Host/HostApplication.cs)
+// ✅ DO: the host's selection (claim, preferred-locale cookie, Accept-Language, en-US) is the only provider (blazor/Blazor.Host/HostApplication.cs)
 options.RequestCultureProviders.Clear();
 options.RequestCultureProviders.Add(new CustomRequestCultureProvider(context => Task.FromResult<ProviderCultureResult?>(new ProviderCultureResult(HostShell.GetLocale(context)))));
 
@@ -65,6 +65,6 @@ ClientCulture.Apply((IJSInProcessRuntime)host.Services.GetRequiredService<IJSRun
 
 await host.RunAsync();
 
-// ❌ DON'T: a culture from the browser or from a cookie; it would differ from the prerendered markup and flash
+// ❌ DON'T: a culture from the browser or from a cookie in the client; it would differ from the prerendered markup and flash
 CultureInfo.CurrentUICulture = new CultureInfo(await JS.InvokeAsync<string>("blazorCulture.get"));
 ```

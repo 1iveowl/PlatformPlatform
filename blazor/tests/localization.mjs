@@ -9,6 +9,14 @@
 //    installed before any script runs proves the translated texts never showed another value. API calls from the
 //    runtime send X-Locale with that culture.
 // 3. The users page on the shared DataList renders its paginator texts in the claim culture.
+// 4. The public language menu writes the preferred-locale cookie (Path=/, Secure, SameSite=Lax, one year, not HttpOnly)
+//    and loads the page again in the chosen language, which then wins over the browser language across a reload and an
+//    enhanced navigation. A malformed cookie, unknown stored theme and zoom values and a storage that throws fall back to
+//    the defaults without breaking the page.
+// 5. The preferences page applies theme and zoom at once (data attributes on <html>, no style attribute, the telemetry
+//    PUTs), moves through the zoom levels with the Arrow keys, saves the language on the user and loads the page again in
+//    it; after a reload, a logout (the login page follows the cookie) and a new login with a conflicting cookie, the
+//    language comes from the server and theme and zoom from the device.
 // Every page asserts zero content security policy violations and no page errors.
 //
 // Prerequisites: the AppHost stack running through the aspire-restart skill (Development), or a trimmed publish served in
@@ -17,7 +25,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { baseUrl, isProductionPolicy, launchBrowser, newContext, observeErrors, parseArguments, pathBase, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
+import { baseUrl, isProductionPolicy, launchBrowser, newContext, observeErrors, parseArguments, pathBase, readOneTimePassword, resultsFolder, signUpThroughBlazor, submitOneTimePasswordThroughBlazor } from "./support/stack.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const interactiveTimeoutMs = 60_000;
@@ -33,6 +41,7 @@ const cultures = {
     interactive: "Interactive: True",
     formatSample: "Number and date format: 1,234,567.89 9/15/2026",
     logOut: "Log out",
+    preferencesHeading: "User preferences",
     pagePattern: /^Page 1 of \d+$/,
     nextPage: "Next page"
   },
@@ -43,6 +52,7 @@ const cultures = {
     interactive: "Interaktiv: True",
     formatSample: "Tal- og datoformat: 1.234.567,89 15.09.2026",
     logOut: "Log ud",
+    preferencesHeading: "Brugerpræferencer",
     pagePattern: /^Side 1 af \d+$/,
     nextPage: "Næste side"
   }
@@ -192,6 +202,175 @@ for (const [claimLocale, browserLocale] of [
     })
   );
 }
+
+async function preferredLocaleCookie(context) {
+  return (await context.cookies(baseUrl)).find((cookie) => cookie.name === "preferred-locale");
+}
+
+function assertPreferredLocaleCookie(cookie, locale) {
+  assert(cookie !== undefined, "The preferred-locale cookie was not written.");
+  assertEqual(
+    { value: cookie.value, path: cookie.path, secure: cookie.secure, sameSite: cookie.sameSite, httpOnly: cookie.httpOnly },
+    { value: locale, path: "/", secure: true, sameSite: "Lax", httpOnly: false },
+    "preferred-locale cookie"
+  );
+  const days = (cookie.expires * 1000 - Date.now()) / 86_400_000;
+  assert(days > 364 && days <= 365.01, `The preferred-locale cookie expires in ${days} days.`);
+}
+
+// No element in <body> has a style attribute and the zoom level is never a style property. On <html> the framework's
+// WebAssembly loader sets its own --blazor-load-percentage properties, as the shell-policy theme case also allows.
+async function assertNoStyleAttribute(page) {
+  const styled = await page.evaluate(() => ({
+    body: [...document.body.querySelectorAll("[style]")].map((element) => element.outerHTML.slice(0, 120)),
+    rootZoom: document.documentElement.style.getPropertyValue("--zoom-level"),
+    rootFontSize: document.documentElement.style.fontSize
+  }));
+  assertEqual(styled, { body: [], rootZoom: "", rootFontSize: "" }, "Style attributes");
+}
+
+await check("public language menu writes the preferred-locale cookie and renders the chosen language over the browser language", () =>
+  withPage("en-US", undefined, async (page, observations) => {
+    await page.goto(`${baseUrl}${pathBase}/login`, { waitUntil: "load" });
+    assertEqual((await page.locator("h1").textContent()).trim(), cultures["en-US"].loginHeading, "Heading before");
+    await page.locator(testId("language-menu-trigger")).click();
+    const danish = page.locator('[data-language-choice="da-DK"]');
+    await danish.waitFor();
+    assertEqual(await page.locator('[data-language-choice="en-US"]').getAttribute("aria-checked"), "true", "Checked language before");
+    await Promise.all([page.waitForEvent("load"), danish.click()]);
+    await page.locator("h1", { hasText: cultures["da-DK"].loginHeading }).waitFor();
+    assertPreferredLocaleCookie(await preferredLocaleCookie(page.context()), "da-DK");
+    await assertCleanPage(page, observations, "da-DK");
+
+    await page.reload({ waitUntil: "load" });
+    await assertCleanPage(page, observations, "da-DK");
+    await page.locator(testId("nav-signup")).click();
+    await page.waitForURL(/\/blazor\/signup$/);
+    await assertCleanPage(page, observations, "da-DK");
+
+    await page.locator(testId("language-menu-trigger")).click();
+    assertEqual(await danish.getAttribute("aria-checked"), "true", "Checked language after");
+    await Promise.all([page.waitForEvent("load"), page.locator('[data-language-choice="en-US"]').click()]);
+    await page.waitForFunction(() => document.documentElement.lang === "en-US");
+    assertPreferredLocaleCookie(await preferredLocaleCookie(page.context()), "en-US");
+    await assertCleanPage(page, observations, "en-US");
+  })
+);
+
+await check("malformed preferred-locale cookie, unknown stored preferences and a throwing storage fall back to the defaults", () =>
+  withPage("da-DK", undefined, async (page, observations) => {
+    await page.context().addCookies([{ name: "preferred-locale", value: "xx-XX", url: baseUrl }]);
+    await page.goto(`${baseUrl}${pathBase}/login`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      localStorage.setItem("theme", "sepia");
+      localStorage.setItem("zoom-level", "3");
+    });
+    await page.reload({ waitUntil: "load" });
+    const stored = await page.evaluate(() => ({ theme: document.documentElement.dataset.themeMode, zoom: document.documentElement.getAttribute("data-zoom-level") }));
+    assertEqual(stored, { theme: "system", zoom: null }, "Unknown stored values");
+    await assertCleanPage(page, observations, "da-DK");
+
+    await page.context().addInitScript(() => {
+      Object.defineProperty(window, "localStorage", { configurable: true, get: () => { throw new DOMException("Blocked", "SecurityError"); } });
+    });
+    await page.reload({ waitUntil: "load" });
+    const blocked = await page.evaluate(() => ({ theme: document.documentElement.dataset.themeMode, zoom: document.documentElement.getAttribute("data-zoom-level") }));
+    assertEqual(blocked, { theme: "system", zoom: null }, "Blocked storage");
+    await page.locator(testId("nav-signup")).click();
+    await page.waitForURL(/\/blazor\/signup$/);
+    assertEqual((await page.locator("h1").count()) > 0, true, "Signup page rendered");
+    await assertCleanPage(page, observations, "da-DK");
+  })
+);
+
+await check("preferences page applies theme, zoom and language and they survive reload, logout and a new login", async () => {
+  const email = `preferences-${stamp}@example.com`;
+  const user = await signUpThroughBlazor(browser, options.browser, email, "en-US");
+  return withPage("en-US", user.storageState, async (page, observations) => {
+    const context = page.context();
+    const root = () => page.evaluate(() => ({ theme: document.documentElement.dataset.theme, zoom: document.documentElement.getAttribute("data-zoom-level"), fontSize: getComputedStyle(document.documentElement).fontSize }));
+    const put = (route) => page.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname === `/api/account/users/me/${route}`);
+    const choice = (id) => page.locator(`${testId(id)} input`);
+
+    await page.goto(`${baseUrl}${pathBase}/user/preferences`, { waitUntil: "load" });
+    await page.locator(`${testId("theme-system")} input:not([disabled])`).waitFor({ timeout: interactiveTimeoutMs });
+    await page.locator(`${testId("language-en-US")} input:checked:not([disabled])`).waitFor({ timeout: interactiveTimeoutMs });
+    assertEqual((await page.locator("h1").textContent()).trim(), cultures["en-US"].preferencesHeading, "Heading");
+    const baseFontSize = parseFloat((await root()).fontSize);
+
+    const themePut = put("change-theme");
+    await page.locator(testId("theme-dark")).click();
+    assert((await themePut).ok(), "change-theme failed.");
+    await page.locator(testId("theme-updated-toast")).waitFor();
+    assertEqual((await root()).theme, "dark", "Theme after click");
+
+    const zoomPut = put("change-zoom-level");
+    await page.locator(testId("zoom-level-1.25")).click();
+    assert((await zoomPut).ok(), "change-zoom-level failed.");
+    await page.locator(testId("zoom-level-updated-toast")).waitFor();
+    let state = await root();
+    assertEqual(state.zoom, "1.25", "Zoom after click");
+    assertEqual(parseFloat(state.fontSize), baseFontSize * 1.25, "Root font size at 1.25");
+    assertEqual(await page.evaluate(() => localStorage.getItem("zoom-level")), "1.25", "Stored zoom");
+
+    await choice("zoom-level-1.25").focus();
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForFunction(() => document.documentElement.getAttribute("data-zoom-level") === "1.125");
+    await page.keyboard.press("ArrowRight");
+    await page.waitForFunction(() => document.documentElement.getAttribute("data-zoom-level") === "1.25");
+    assertEqual(await choice("zoom-level-1.25").isChecked(), true, "Zoom radio after the Arrow keys");
+    await assertNoStyleAttribute(page);
+    await assertCleanPage(page, observations, "en-US");
+
+    const localePut = put("change-locale");
+    const loaded = page.waitForEvent("load");
+    await page.locator(testId("language-da-DK")).click();
+    assert((await localePut).ok(), "change-locale failed.");
+    await loaded;
+    await page.locator("h1", { hasText: cultures["da-DK"].preferencesHeading }).waitFor({ timeout: interactiveTimeoutMs });
+    // The heading is prerendered; an enabled group means the runtime runs, with the da-DK resources it loads on demand, so
+    // the reload below cannot cancel a download (WebKit reports that as a page error)
+    await page.locator(`${testId("language-da-DK")} input:checked:not([disabled])`).waitFor({ timeout: interactiveTimeoutMs });
+    assertPreferredLocaleCookie(await preferredLocaleCookie(context), "da-DK");
+    await assertCleanPage(page, observations, "da-DK");
+
+    await page.reload({ waitUntil: "load" });
+    await page.locator(`${testId("language-da-DK")} input:checked:not([disabled])`).waitFor({ timeout: interactiveTimeoutMs });
+    await page.locator(`${testId("theme-dark")} input:checked`).waitFor({ timeout: interactiveTimeoutMs });
+    await page.locator(`${testId("zoom-level-1.25")} input:checked`).waitFor({ timeout: interactiveTimeoutMs });
+    state = await root();
+    assertEqual({ theme: state.theme, zoom: state.zoom }, { theme: "dark", zoom: "1.25" }, "Device preferences after reload");
+    await assertNoStyleAttribute(page);
+    await assertCleanPage(page, observations, "da-DK");
+
+    await page.locator("#user-menu-trigger").click();
+    await Promise.all([page.waitForURL(/\/blazor\/login/, { timeout: interactiveTimeoutMs }), page.locator('[role="menu"] [role="menuitem"]').last().click()]);
+    await page.waitForLoadState("load");
+    await page.locator("h1", { hasText: cultures["da-DK"].loginHeading }).waitFor();
+    await assertCleanPage(page, observations, "da-DK");
+
+    // A conflicting cookie before the new login: the saved language must come from the server's locale claim
+    await context.addCookies([{ name: "preferred-locale", value: "en-US", url: baseUrl, secure: true, sameSite: "Lax" }]);
+    await page.goto(`${baseUrl}${pathBase}/login`, { waitUntil: "load" });
+    await page.locator(testId("email")).fill(email);
+    const sentAfter = Date.now();
+    await page.locator(testId("submit")).click();
+    await page.waitForURL(/\/blazor\/login\/verify\?/);
+    await submitOneTimePasswordThroughBlazor(page, await readOneTimePassword(email, sentAfter));
+    await page.waitForURL(`${baseUrl}${pathBase}/app`, { timeout: interactiveTimeoutMs });
+    // Leaving a document while its runtime still downloads makes Firefox report the aborted downloads as page errors
+    await page.locator(testId("render-mode"), { hasText: cultures["da-DK"].interactive }).waitFor({ timeout: interactiveTimeoutMs });
+    await page.goto(`${baseUrl}${pathBase}/user/preferences`, { waitUntil: "load" });
+    await page.locator(`${testId("language-da-DK")} input:checked:not([disabled])`).waitFor({ timeout: interactiveTimeoutMs });
+    await page.locator(`${testId("theme-dark")} input:checked`).waitFor({ timeout: interactiveTimeoutMs });
+    await page.locator(`${testId("zoom-level-1.25")} input:checked`).waitFor({ timeout: interactiveTimeoutMs });
+    state = await root();
+    assertEqual({ theme: state.theme, zoom: state.zoom }, { theme: "dark", zoom: "1.25" }, "Device preferences after a new login");
+    await assertNoStyleAttribute(page);
+    await assertCleanPage(page, observations, "da-DK");
+    return { baseFontSize };
+  });
+});
 
 await browser.close();
 

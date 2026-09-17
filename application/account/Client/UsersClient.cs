@@ -69,6 +69,16 @@ public sealed class UsersClient(HttpClient httpClient)
         return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.ChangeTheme, command, cancellationToken);
     }
 
+    public Task<ApiCallResult> ChangeZoomLevelAsync(ChangeZoomLevelCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.ChangeZoomLevel, command, cancellationToken);
+    }
+
+    public Task<ApiCallResult> ChangeLocaleAsync(ChangeLocaleCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.ChangeLocale, command, cancellationToken);
+    }
+
     public Task<ApiCallResult<DeletedUsersResponse>> GetDeletedUsersAsync(GetDeletedUsersQuery query, CancellationToken cancellationToken)
     {
         return _transport.GetAsync<DeletedUsersResponse>(AccountApiRoutes.GetDeletedUsers(query), cancellationToken);

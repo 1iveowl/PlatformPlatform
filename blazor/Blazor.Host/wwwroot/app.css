@@ -30,6 +30,26 @@
     --border-faint: #2e2e34;
 }
 
+/* The zoom level. wwwroot/js/theme.js sets data-zoom-level on <html> before first paint from the stored level (no attribute
+   for the default); only the supported levels have a rule, so an unknown value keeps the default. The root font size
+   scales every rem-based size, and no style attribute is written. */
+:root {
+    --zoom-level: 1;
+    font-size: calc(100% * var(--zoom-level));
+}
+
+:root[data-zoom-level="0.875"] {
+    --zoom-level: 0.875;
+}
+
+:root[data-zoom-level="1.125"] {
+    --zoom-level: 1.125;
+}
+
+:root[data-zoom-level="1.25"] {
+    --zoom-level: 1.25;
+}
+
 body {
     background: var(--surface);
     color: var(--text);
@@ -1385,4 +1405,74 @@ h1:focus {
 
 .form-error-title {
     font-weight: 600;
+}
+
+/* The preferences page (Blazor.Client/Preferences/PreferencesSurface) */
+.preferences-section {
+    margin-block: 1.5rem;
+}
+
+.preferences-section h2 {
+    margin-block: 0 0.25rem;
+    font-size: 1.125rem;
+}
+
+.preferences-description {
+    margin-block: 0 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+/* The toggle group (Blazor.Client/Components/ToggleGroup): native radio inputs, visually hidden, inside labels styled from
+   the input's state */
+.toggle-group {
+    display: flex;
+    max-width: 40rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.toggle-group-item {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.toggle-group-item + .toggle-group-item {
+    border-inline-start: 1px solid var(--border);
+}
+
+.toggle-group-item:hover {
+    background: var(--surface-hover);
+}
+
+.toggle-group-item:has(.toggle-group-input:checked) {
+    background: var(--surface-accent);
+    font-weight: 600;
+}
+
+.toggle-group-item:has(.toggle-group-input:focus-visible) {
+    outline: 2px solid var(--text);
+    outline-offset: -3px;
+}
+
+.toggle-group-item:has(.toggle-group-input:disabled) {
+    color: var(--text-disabled);
+    cursor: default;
+}
+
+.toggle-group-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
 }

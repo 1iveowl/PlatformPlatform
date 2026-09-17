@@ -10,6 +10,7 @@ using Blazor.Client.Bootstrap;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 using Blazor.Client.Localization;
+using Blazor.Client.Preferences;
 using Blazor.Client.Session;
 using Blazor.Host.Account;
 using Blazor.Host.Components;
@@ -54,6 +55,7 @@ public static class HostApplication
         builder.Services.AddScoped<ApiFailurePresenter>();
         builder.Services.AddScoped<DataListPageCache>();
         builder.Services.AddScoped<SessionState>();
+        builder.Services.AddScoped<DevicePreferences>();
 
         // The static server-rendered form handlers call the account API directly through the typed clients, the way the gateway
         // reaches it; HostAccountApiHandler relays the current request's credentials by hand. The feature flag state is
@@ -170,8 +172,9 @@ public static class HostApplication
         return options;
     }
 
-    // The platform's selection order in HostShell.GetLocale is the only provider, so the query string, the culture cookie and
-    // the framework's own Accept-Language matching never pick a culture
+    // The platform's selection order in HostShell.GetLocale (the locale claim, the preferred-locale cookie, Accept-Language,
+    // en-US) is the only provider, so the query string, the framework's culture cookie and the framework's own
+    // Accept-Language matching never pick a culture
     public static RequestLocalizationOptions CreateRequestLocalizationOptions()
     {
         var options = new RequestLocalizationOptions()

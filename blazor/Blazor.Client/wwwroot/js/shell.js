@@ -127,3 +127,22 @@ export function readTheme() {
   document.dispatchEvent(new CustomEvent("theme:read", { detail }));
   return detail.theme === undefined ? null : detail;
 }
+
+// The zoom level and the preferred locale cookie are owned by the host's js/theme.js too, through the same kind of events
+export function setZoomLevel(zoomLevel) {
+  const detail = { zoomLevel };
+  document.dispatchEvent(new CustomEvent("zoom:set", { detail }));
+  return detail.fromZoomLevel === undefined ? null : detail;
+}
+
+export function readZoomLevel() {
+  const detail = {};
+  document.dispatchEvent(new CustomEvent("zoom:read", { detail }));
+  return detail.zoomLevel === undefined ? null : detail;
+}
+
+export function rememberLocale(locale) {
+  const detail = { locale };
+  document.dispatchEvent(new CustomEvent("locale:remember", { detail }));
+  return detail.remembered === true;
+}

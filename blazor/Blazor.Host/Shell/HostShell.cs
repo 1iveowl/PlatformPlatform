@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Blazor.Client;
+using Blazor.Client.Preferences;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 using SharedKernel.Localization;
@@ -136,14 +137,17 @@ public sealed class HostShell
         return string.Join(";", directives);
     }
 
-    // The locale claim for a signed-in user; for an anonymous visitor the best supported Accept-Language entry. Request
-    // localization sets the request culture from this value, so rendering and the API calls of the request use the same one.
+    // The locale claim for a signed-in user; otherwise the language chosen on this device (the preferred-locale cookie, an
+    // untrusted hint used only when it names a supported culture exactly); otherwise the best supported Accept-Language
+    // entry; otherwise en-US. Request localization sets the request culture from this value, so rendering and the API calls
+    // of the request, the signup's locale included, use the same one.
     public static string GetLocale(HttpContext context)
     {
         var acceptLanguages = context.Request.GetTypedHeaders().AcceptLanguage
             .OrderByDescending(language => language.Quality ?? 1)
             .Select(language => language.Value.ToString());
-        return SupportedCultures.SelectLocale(context.User.FindFirstValue("locale"), acceptLanguages);
+        var preferredLocale = context.Request.Cookies[LocalePreference.CookieName];
+        return SupportedCultures.SelectLocale(context.User.FindFirstValue("locale"), preferredLocale, acceptLanguages);
     }
 
     // Relative ("./") specifiers and targets become root-absolute; bare specifiers such as "_framework/resource-collection.js"

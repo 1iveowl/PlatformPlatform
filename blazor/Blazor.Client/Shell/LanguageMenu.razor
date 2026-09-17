@@ -1,0 +1,35 @@
+@* The language selector for the public navigation, the React edition's LocaleSwitcher: a button named "Change language"
+   that opens a menu of the supported languages by their own names, with a check on the language the page renders in. It
+   renders statically, because public pages have no runtime: the host's wwwroot/js/theme.js opens and closes the menu the
+   way it does the theme menu, writes the chosen language to the preferred-locale cookie and loads the page again, so the
+   host renders it in that language. A signed-in user's saved language still wins over the cookie. *@
+
+<div class="theme-menu" data-language-menu>
+    <button type="button" id="@TriggerId" class="theme-menu-trigger" aria-label="@CommonStrings.ChangeLanguage" aria-haspopup="menu" aria-expanded="false"
+            aria-controls="@ListId" data-language-menu-trigger data-testid="language-menu-trigger">
+        <span aria-hidden="true">🌐</span>
+    </button>
+    <div id="@ListId" class="theme-menu-list" role="menu" aria-labelledby="@TriggerId" hidden data-language-menu-list>
+        @foreach (var locale in LocalePreference.Locales)
+        {
+            <button type="button" role="menuitemradio" class="menu-item" tabindex="-1" lang="@locale" aria-checked="@(locale == CurrentLocale ? "true" : "false")"
+                    data-language-choice="@locale">
+                <span class="menu-item-check" aria-hidden="true">✓</span>@LocalePreference.Label(locale)
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+
+    // Distinguishes two menus on one document
+    [Parameter]
+    public string IdPrefix { get; set; } = "language-menu";
+
+    private static string CurrentLocale => CultureInfo.CurrentUICulture.Name;
+
+    private string TriggerId => $"{IdPrefix}-trigger";
+
+    private string ListId => $"{IdPrefix}-list";
+
+}

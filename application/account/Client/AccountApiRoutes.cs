@@ -29,6 +29,8 @@ public static class AccountApiRoutes
     public const string InviteUser = "/api/account/users/invite";
 
     public const string ChangeTheme = "/api/account/users/me/change-theme";
+    public const string ChangeZoomLevel = "/api/account/users/me/change-zoom-level";
+    public const string ChangeLocale = "/api/account/users/me/change-locale";
 
     public const string UpdateAvatar = "/api/account/users/me/update-avatar";
 

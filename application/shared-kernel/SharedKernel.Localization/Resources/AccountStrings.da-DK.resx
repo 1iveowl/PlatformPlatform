@@ -249,4 +249,40 @@
     <data name="BackToProfile" xml:space="preserve">
         <value>Tilbage til profil</value>
     </data>
+    <data name="UserPreferences" xml:space="preserve">
+        <value>Brugerpræferencer</value>
+    </data>
+    <data name="UserPreferencesDescription" xml:space="preserve">
+        <value>Tilpas dit tema, sprog og zoomindstillinger.</value>
+    </data>
+    <data name="Theme" xml:space="preserve">
+        <value>Tema</value>
+    </data>
+    <data name="ThemeDescription" xml:space="preserve">
+        <value>Vælg hvordan applikationen ser ud for dig på denne enhed.</value>
+    </data>
+    <data name="LanguageDescription" xml:space="preserve">
+        <value>Vælg dit foretrukne sprog. Gemt på din profil.</value>
+    </data>
+    <data name="Zoom" xml:space="preserve">
+        <value>Zoom</value>
+    </data>
+    <data name="ZoomSmall" xml:space="preserve">
+        <value>Lille</value>
+    </data>
+    <data name="ZoomDefault" xml:space="preserve">
+        <value>Standard</value>
+    </data>
+    <data name="ZoomLarge" xml:space="preserve">
+        <value>Stor</value>
+    </data>
+    <data name="ZoomLarger" xml:space="preserve">
+        <value>Større</value>
+    </data>
+    <data name="ThemeUpdated" xml:space="preserve">
+        <value>Tema opdateret</value>
+    </data>
+    <data name="ZoomLevelUpdated" xml:space="preserve">
+        <value>Zoomniveau opdateret</value>
+    </data>
 </root>

@@ -338,4 +338,13 @@
     <data name="HoursAgo" xml:space="preserve">
         <value>{0} hours ago</value>
     </data>
+    <data name="ChangeLanguage" xml:space="preserve">
+        <value>Change language</value>
+    </data>
+    <data name="LanguageEnglish" xml:space="preserve">
+        <value>English</value>
+    </data>
+    <data name="LanguageDanish" xml:space="preserve">
+        <value>Dansk</value>
+    </data>
 </root>

@@ -1,12 +1,13 @@
 @using Blazor.Client.Shell
 @* Navigation for the static server-rendered public surface. Links inside the public surface use enhanced navigation; the
    link into the authenticated surface opts out, so crossing the authentication boundary is a full document load. The theme
-   menu is static; the host's theme.js drives it. *@
+   and language menus are static; the host's theme.js drives them. *@
 <nav class="public-nav" data-testid="public-nav">
     <a href="@AppUrls.ToAbsolute("")" data-testid="nav-landing">@AuthenticationStrings.Home</a> |
     <a href="@AppUrls.ToAbsolute("login")" data-testid="nav-login">@CommonStrings.LogIn</a> |
     <a href="@AppUrls.ToAbsolute("signup")" data-testid="nav-signup">@CommonStrings.SignUp</a> |
     <a href="@AppUrls.ToAbsolute("legal/terms")" data-testid="nav-terms">@CommonStrings.Terms</a> |
     <a href="@AppUrls.AuthenticatedHome" data-enhance-nav="false" data-testid="nav-app">@AuthenticationStrings.OpenTheApp</a>
+    <LanguageMenu/>
     <ThemeMenu/>
 </nav>

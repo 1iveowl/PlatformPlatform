@@ -1,0 +1,134 @@
+@* The preferences page, the React edition's user preferences: theme, language and zoom, each applied as soon as it is
+   chosen. Theme and zoom level are device preferences: DevicePreferences applies and stores them through the host's
+   theme.js, which the shell's user menu shares, reports them as telemetry and a short toast confirms the change. The
+   language is saved on the user: LocaleChange allows one change at a time, and only after the account API confirmed it
+   is the choice remembered in the preferred-locale cookie and the page loaded again, so the host renders the new culture
+   from the refreshed locale claim. A refused change keeps the current language selected and shows the failure as the
+   API returned it; choosing again retries. During prerender the groups render disabled, because the device's theme and
+   zoom level are only known in the browser. *@
+@using Account.Client
+@using Account.Features.Users.Requests
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Session
+@implements IDisposable
+@inject SessionState Session
+@inject DevicePreferences Preferences
+@inject IServiceProvider Services
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+
+<AppShell>
+    <h1>@AccountStrings.UserPreferences</h1>
+    <p>@AccountStrings.UserPreferencesDescription</p>
+
+    <section class="preferences-section" data-testid="preferences-theme">
+        <h2 id="preferences-theme-label">@AccountStrings.Theme</h2>
+        <p id="preferences-theme-description" class="preferences-description">@AccountStrings.ThemeDescription</p>
+        <ToggleGroup Name="theme" Items="ThemeItems" Value="@(Preferences.IsLoaded ? ThemePreference.Format(Preferences.Theme) : null)"
+                     Disabled="!Preferences.IsLoaded" LabelId="preferences-theme-label" DescriptionId="preferences-theme-description"
+                     TestId="theme-group" OnChange="OnThemeChangedAsync"/>
+    </section>
+
+    <section class="preferences-section" data-testid="preferences-language">
+        <h2 id="preferences-language-label">@AccountStrings.Language</h2>
+        <p id="preferences-language-description" class="preferences-description">@AccountStrings.LanguageDescription</p>
+        <ToggleGroup Name="language" Items="LanguageItems" Value="@_locale.CurrentLocale" Revision="_locale.Revision"
+                     Disabled="!_isInteractive || _locale.IsPending" LabelId="preferences-language-label" DescriptionId="preferences-language-description"
+                     TestId="language-group" OnChange="OnLocaleChangedAsync"/>
+    </section>
+
+    <section class="preferences-section" data-testid="preferences-zoom">
+        <h2 id="preferences-zoom-label">@AccountStrings.Zoom</h2>
+        <ToggleGroup Name="zoom-level" Items="ZoomItems" Value="@(Preferences.IsLoaded ? Preferences.ZoomLevel : null)" Disabled="!Preferences.IsLoaded"
+                     LabelId="preferences-zoom-label" TestId="zoom-group" OnChange="OnZoomLevelChangedAsync"/>
+    </section>
+</AppShell>
+
+@code {
+
+    public const string ThemeUpdatedToastTestId = "theme-updated-toast";
+    public const string ZoomLevelUpdatedToastTestId = "zoom-level-updated-toast";
+
+    private static readonly ToggleGroupItem[] ThemeItems = ThemePreference.Modes
+        .Select(mode => new ToggleGroupItem(ThemePreference.Format(mode), ThemeMenu.Label(mode), $"theme-{ThemePreference.Format(mode)}"))
+        .ToArray();
+
+    private static readonly ToggleGroupItem[] LanguageItems = LocalePreference.Locales
+        .Select(locale => new ToggleGroupItem(locale, LocalePreference.Label(locale), $"language-{locale}"))
+        .ToArray();
+
+    private static readonly ToggleGroupItem[] ZoomItems = ZoomPreference.Levels
+        .Select(level => new ToggleGroupItem(level, ZoomPreference.Label(level), $"zoom-level-{level}"))
+        .ToArray();
+
+    private readonly LocaleChange _locale = new(CultureInfo.CurrentUICulture.Name);
+    private bool _isInteractive;
+    private long? _toastId;
+
+    public void Dispose()
+    {
+        Preferences.Changed -= OnPreferencesChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Preferences.Changed += OnPreferencesChanged;
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive) return;
+
+        if (!bootstrap.IsAuthenticated)
+        {
+            Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();
+            return;
+        }
+
+        _isInteractive = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive) await Preferences.LoadAsync();
+    }
+
+    private void OnPreferencesChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnThemeChangedAsync(string theme)
+    {
+        if (await Preferences.ChangeThemeAsync(ThemePreference.Parse(theme))) ShowToast(AccountStrings.ThemeUpdated, ThemeUpdatedToastTestId);
+    }
+
+    private async Task OnZoomLevelChangedAsync(string zoomLevel)
+    {
+        if (await Preferences.ChangeZoomLevelAsync(zoomLevel)) ShowToast(AccountStrings.ZoomLevelUpdated, ZoomLevelUpdatedToastTestId);
+    }
+
+    private async Task OnLocaleChangedAsync(string locale)
+    {
+        if (!_locale.TryBegin(locale)) return;
+
+        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
+        var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<UsersClient>().ChangeLocaleAsync(new ChangeLocaleCommand(_locale.PendingLocale!), cancellationToken));
+        if (result is null) return;
+
+        if (!result.IsSuccess)
+        {
+            _locale.Fail();
+            if (result.Outcome != ApiCallOutcome.Unauthorized) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        await Preferences.RememberLocaleAsync(_locale.PendingLocale!);
+        Navigation.NavigateTo(Navigation.Uri, true);
+    }
+
+    // One confirmation at a time, so repeated changes replace the toast instead of stacking
+    private void ShowToast(string title, string testId)
+    {
+        if (_toastId is { } previous) Toasts.Dismiss(previous);
+        _toastId = Toasts.Show(ToastKind.Success, title, null, testId).Id;
+    }
+
+}

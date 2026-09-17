@@ -1,0 +1,51 @@
+@* A row of mutually exclusive choices that applies the chosen one at once, the React edition's ToggleGroup with a single
+   value. It is a radiogroup of native radio inputs, each inside its label, so the browser supplies the radio semantics
+   and the keyboard: Tab enters the group on the checked choice (the first when none is), the Arrow keys move and select,
+   and Space selects. The input is visually hidden and the label is styled from its state (checked, focus-visible,
+   disabled) by classes in app.css; nothing writes a style attribute. Value is what the owner last confirmed; Revision
+   renders the choices afresh when the owner refused a choice the browser already checked. *@
+
+<div role="radiogroup" class="toggle-group" aria-labelledby="@LabelId" aria-describedby="@DescriptionId" data-testid="@TestId">
+    @foreach (var item in Items)
+    {
+        <label @key="(Revision, item.Value)" class="toggle-group-item" data-testid="@item.TestId">
+            <input type="radio" class="toggle-group-input" name="@Name" value="@item.Value" checked="@(item.Value == Value)" disabled="@Disabled"
+                   @onchange="() => OnChange.InvokeAsync(item.Value)"/>
+            <span>@item.Label</span>
+        </label>
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public string Name { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<ToggleGroupItem> Items { get; set; } = [];
+
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public int Revision { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public string LabelId { get; set; } = "";
+
+    [Parameter]
+    public string? DescriptionId { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnChange { get; set; }
+
+}

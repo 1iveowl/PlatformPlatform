@@ -311,4 +311,40 @@
         <value>Back to profile</value>
         <comment>React: Back to profile</comment>
     </data>
+    <data name="UserPreferences" xml:space="preserve">
+        <value>User preferences</value>
+    </data>
+    <data name="UserPreferencesDescription" xml:space="preserve">
+        <value>Customize your theme, language, and zoom settings.</value>
+    </data>
+    <data name="Theme" xml:space="preserve">
+        <value>Theme</value>
+    </data>
+    <data name="ThemeDescription" xml:space="preserve">
+        <value>Choose how the application looks to you on this device.</value>
+    </data>
+    <data name="LanguageDescription" xml:space="preserve">
+        <value>Select your preferred language. Saved to your profile.</value>
+    </data>
+    <data name="Zoom" xml:space="preserve">
+        <value>Zoom</value>
+    </data>
+    <data name="ZoomSmall" xml:space="preserve">
+        <value>Small</value>
+    </data>
+    <data name="ZoomDefault" xml:space="preserve">
+        <value>Default</value>
+    </data>
+    <data name="ZoomLarge" xml:space="preserve">
+        <value>Large</value>
+    </data>
+    <data name="ZoomLarger" xml:space="preserve">
+        <value>Larger</value>
+    </data>
+    <data name="ThemeUpdated" xml:space="preserve">
+        <value>Theme updated</value>
+    </data>
+    <data name="ZoomLevelUpdated" xml:space="preserve">
+        <value>Zoom level updated</value>
+    </data>
 </root>

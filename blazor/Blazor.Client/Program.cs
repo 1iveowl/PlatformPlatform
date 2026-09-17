@@ -2,6 +2,7 @@ using Blazor.Client.Bootstrap;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 using Blazor.Client.Localization;
+using Blazor.Client.Preferences;
 using Blazor.Client.Session;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.FluentUI.AspNetCore.Components;
@@ -26,6 +27,7 @@ builder.Services.AddScoped<SessionState>();
 
 // Logout and tenant switch, one at a time, for whichever component offers them
 builder.Services.AddScoped<SessionTransition>();
+builder.Services.AddScoped<DevicePreferences>();
 
 var host = builder.Build();
 

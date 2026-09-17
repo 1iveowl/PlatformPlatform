@@ -294,4 +294,13 @@
     <data name="HoursAgo" xml:space="preserve">
         <value>{0} timer siden</value>
     </data>
+    <data name="ChangeLanguage" xml:space="preserve">
+        <value>Skift sprog</value>
+    </data>
+    <data name="LanguageEnglish" xml:space="preserve">
+        <value>English</value>
+    </data>
+    <data name="LanguageDanish" xml:space="preserve">
+        <value>Dansk</value>
+    </data>
 </root>
