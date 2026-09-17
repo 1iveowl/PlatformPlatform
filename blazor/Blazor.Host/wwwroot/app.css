@@ -352,6 +352,30 @@ h1:focus {
     padding-block: 1rem;
 }
 
+/* Below the small breakpoint a column with this class is hidden and phone-only content in the remaining cell shows; the
+   minimum-width query below reverses both. A list in the infinite load mode, which only phones use, has no select column */
+.data-list-hide-below-sm {
+    display: none;
+}
+
+.data-list[data-list-load-mode="infinite"] .data-list-select {
+    display: none;
+}
+
+/* A long-press opens the row menu, so the browser's own callout and text selection stay out of the way */
+.data-list[data-list-load-mode="infinite"] tr.data-list-row {
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+.data-list-sentinel {
+    block-size: 1px;
+}
+
+.data-list-load-more {
+    align-self: center;
+}
+
 .profile-pane {
     flex: 0 0 22rem;
     border-inline-start: 1px solid var(--border-subtle);
@@ -1090,6 +1114,15 @@ h1:focus {
 }
 
 @media (min-width: 40rem) {
+    .data-list-table th.data-list-hide-below-sm,
+    .data-list-table td.data-list-hide-below-sm {
+        display: table-cell;
+    }
+
+    .data-list-phone-only {
+        display: none;
+    }
+
     .app-shell {
         grid-template-columns: auto 1fr;
         grid-template-rows: auto 1fr;

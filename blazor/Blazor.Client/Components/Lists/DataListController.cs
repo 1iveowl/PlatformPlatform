@@ -9,8 +9,24 @@
 //
 // Only the latest load may change the view. An older load that completes later, for an earlier search, sort or page, is
 // discarded, and the cache refuses to store it when the list was invalidated in between.
+//
+// In the infinite load mode the rows are pages 0 to pageOffset in order, and pageOffset in the URL is the last loaded page,
+// replaced rather than pushed as pages are appended. Restoring a range (a reload, Back or a copied URL) reads every page
+// the cache still holds and fetches at most MaxRestoreFetches missing pages; when the budget runs out the range ends at
+// the last page loaded, pageOffset is corrected, and the next page is one request away. Appending is one request at a
+// time, rows already loaded are never repeated, a failed page keeps the rows and can be retried, and loading stops at
+// the total count the server reports.
 
 namespace Blazor.Client.Components.Lists;
+
+public enum DataListLoadMode
+{
+    // One server page at a time with the paginator
+    Pages,
+
+    // Pages 0 to pageOffset appended in one scrolling list, the next page loaded on request
+    Infinite
+}
 
 public enum DataListStatus
 {
@@ -30,6 +46,11 @@ public sealed class DataListController<TItem>(
 ) : IDisposable
 {
     public const int PageSize = 25;
+
+    public const int MaxRestoreFetches = 4;
+
+    // The bulk endpoints accept at most this many ids, so select-all never selects more
+    public const int MaxSelectedKeys = 100;
 
     private CancellationTokenSource? _loadCancellation;
     private string[] _pageKeys = [];
@@ -56,6 +77,15 @@ public sealed class DataListController<TItem>(
     public DataListStatus Status { get; private set; } = DataListStatus.Loading;
 
     public string? ErrorMessage { get; private set; }
+
+    public DataListLoadMode LoadMode { get; private set; } = DataListLoadMode.Pages;
+
+    public bool IsLoadingNext { get; private set; }
+
+    // The failure of the last attempt to append a page; the loaded rows stay and the next attempt retries
+    public string? NextPageErrorMessage { get; private set; }
+
+    public bool HasMore => LoadMode == DataListLoadMode.Infinite && Status == DataListStatus.Ready && State.PageOffset + 1 < TotalPages;
 
     public DataListSelection Selection { get; } = new(selectionMode);
 
@@ -84,6 +114,14 @@ public sealed class DataListController<TItem>(
         var state = State;
         Status = DataListStatus.Loading;
         ErrorMessage = null;
+        NextPageErrorMessage = null;
+        IsLoadingNext = false;
+
+        if (LoadMode == DataListLoadMode.Infinite)
+        {
+            await LoadRangeAsync(version, state, cancellation);
+            return;
+        }
 
         DataListLoadResult<TItem> result;
         try
@@ -103,6 +141,57 @@ public sealed class DataListController<TItem>(
         ErrorMessage = result.ErrorMessage;
         Status = result.ErrorMessage is not null ? DataListStatus.Error : Items.Count == 0 ? DataListStatus.Empty : DataListStatus.Ready;
         if (result.PageOffset != state.PageOffset) Navigate(State.WithPage(result.PageOffset), true);
+    }
+
+    // Switching keeps pageOffset and the activated row: the pages mode shows page pageOffset, the infinite mode pages 0 to
+    // pageOffset. Selected rows that are no longer loaded are deselected.
+    public async Task SetLoadModeAsync(DataListLoadMode loadMode)
+    {
+        if (loadMode == LoadMode) return;
+        LoadMode = loadMode;
+        await LoadAsync();
+        var before = Selection.Keys.ToArray();
+        if (Selection.Retain(_pageKeys)) await NotifyIfChangedAsync(before);
+    }
+
+    // Appends the page after the last loaded one; returns false when nothing was requested
+    public async Task<bool> LoadNextAsync()
+    {
+        if (!HasMore || IsLoadingNext || _loadCancellation is null) return false;
+        var version = _version;
+        var cancellation = _loadCancellation;
+        var state = State;
+        var nextOffset = state.PageOffset + 1;
+        IsLoadingNext = true;
+        NextPageErrorMessage = null;
+
+        DataListLoadResult<TItem> result;
+        try
+        {
+            result = await DataListLoader.LoadAsync(cache, CacheScope, ListId, state.WithPage(nextOffset), PageSize, Fetch, cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            return true;
+        }
+        finally
+        {
+            if (version == _version) IsLoadingNext = false;
+        }
+
+        if (version != _version) return true;
+        if (result.Page is null)
+        {
+            NextPageErrorMessage = result.ErrorMessage;
+            return true;
+        }
+
+        TotalCount = result.Page.TotalCount;
+        // A shorter list than before: the requested page no longer exists, so everything is loaded
+        if (result.PageOffset != nextOffset) return true;
+        Append(result.Page.Items);
+        Navigate(State.WithPage(nextOffset), true);
+        return true;
     }
 
     // Returns true when the view changed and needs a render
@@ -198,7 +287,7 @@ public sealed class DataListController<TItem>(
     public Task ToggleAllAsync()
     {
         var before = Selection.Keys.ToArray();
-        Selection.ToggleAll(_pageKeys);
+        Selection.ToggleAll(_pageKeys, MaxSelectedKeys);
         return NotifyIfChangedAsync(before);
     }
 
@@ -208,6 +297,82 @@ public sealed class DataListController<TItem>(
         if (State.SelectedKey is null) return false;
         Navigate(State.WithSelectedKey(null), true);
         return true;
+    }
+
+    private async Task LoadRangeAsync(int version, DataListState state, CancellationTokenSource cancellation)
+    {
+        var loaded = new List<TItem>();
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        var lastOffset = -1;
+        var totalCount = 0;
+        string? errorMessage = null;
+        string? nextPageErrorMessage = null;
+        var fetches = 0;
+        try
+        {
+            for (var pageOffset = 0; pageOffset <= state.PageOffset; pageOffset++)
+            {
+                var pageState = state.WithPage(pageOffset);
+                if (!cache.TryGet<TItem>(CacheScope, ListId, state.QueryKey, PageSize, pageOffset, out _))
+                {
+                    if (fetches == MaxRestoreFetches) break;
+                    fetches++;
+                }
+
+                var result = await DataListLoader.LoadAsync(cache, CacheScope, ListId, pageState, PageSize, Fetch, cancellation.Token);
+                if (result.Page is null)
+                {
+                    if (pageOffset == 0)
+                    {
+                        errorMessage = result.ErrorMessage;
+                    }
+                    else
+                    {
+                        nextPageErrorMessage = result.ErrorMessage;
+                    }
+
+                    break;
+                }
+
+                totalCount = result.Page.TotalCount;
+                if (result.PageOffset != pageOffset) break;
+                foreach (var item in result.Page.Items)
+                {
+                    if (keys.Add(keySelector(item))) loaded.Add(item);
+                }
+
+                lastOffset = pageOffset;
+                if ((pageOffset + 1) * PageSize >= totalCount) break;
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (version != _version) return;
+
+        Items = loaded;
+        TotalCount = totalCount;
+        _pageKeys = loaded.Select(keySelector).ToArray();
+        ErrorMessage = errorMessage;
+        NextPageErrorMessage = nextPageErrorMessage;
+        Status = errorMessage is not null ? DataListStatus.Error : Items.Count == 0 ? DataListStatus.Empty : DataListStatus.Ready;
+        var correctedOffset = Math.Max(0, lastOffset);
+        if (correctedOffset != state.PageOffset) Navigate(State.WithPage(correctedOffset), true);
+    }
+
+    private void Append(IReadOnlyList<TItem> items)
+    {
+        var keys = new HashSet<string>(_pageKeys, StringComparer.Ordinal);
+        var appended = Items.ToList();
+        foreach (var item in items)
+        {
+            if (keys.Add(keySelector(item))) appended.Add(item);
+        }
+
+        Items = appended;
+        _pageKeys = appended.Select(keySelector).ToArray();
     }
 
     private TItem Activate(int index)

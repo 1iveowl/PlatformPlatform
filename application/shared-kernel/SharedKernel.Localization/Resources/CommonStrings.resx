@@ -52,6 +52,15 @@
         <value>Loading</value>
         <comment>React: Loading</comment>
     </data>
+    <data name="DataListLoadMore" xml:space="preserve">
+        <value>Load more</value>
+    </data>
+    <data name="DataListLoadingMore" xml:space="preserve">
+        <value>Loading more</value>
+    </data>
+    <data name="DataListAllLoaded" xml:space="preserve">
+        <value>All rows loaded</value>
+    </data>
     <data name="DismissNotification" xml:space="preserve">
         <value>Dismiss notification</value>
     </data>

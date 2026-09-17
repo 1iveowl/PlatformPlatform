@@ -45,6 +45,15 @@
     <data name="DataListLoading" xml:space="preserve">
         <value>Indlæser</value>
     </data>
+    <data name="DataListLoadMore" xml:space="preserve">
+        <value>Indlæs flere</value>
+    </data>
+    <data name="DataListLoadingMore" xml:space="preserve">
+        <value>Indlæser flere</value>
+    </data>
+    <data name="DataListAllLoaded" xml:space="preserve">
+        <value>Alle rækker er indlæst</value>
+    </data>
     <data name="DismissNotification" xml:space="preserve">
         <value>Luk notifikationen</value>
     </data>

@@ -262,12 +262,239 @@ public sealed class DataListControllerTests
         changes.Should().Equal((0, false));
     }
 
-    private static (DataListController<string> Controller, FakeBrowser Browser, FakeListServer Server) Create(string uri)
+    [Fact]
+    public async Task SetLoadMode_WhenInfiniteAndTheRangeIsCached_ShouldRestoreEveryPageWithoutFetching()
+    {
+        // Arrange
+        var cache = new DataListPageCache();
+        var (browsing, _, _) = Create(Page, cache: cache);
+        await browsing.LoadAsync();
+        await browsing.GoToPageAsync(1);
+        await browsing.GoToPageAsync(2);
+        var (controller, browser, server) = Create($"{Page}?pageOffset=2", cache: cache);
+
+        // Act
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+
+        // Assert
+        server.Requests.Should().BeEmpty();
+        controller.Items.Should().HaveCount(60);
+        controller.State.PageOffset.Should().Be(2);
+        controller.HasMore.Should().BeFalse();
+        browser.History.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SetLoadMode_WhenInfiniteAfterCacheEvictionWithALargeOffset_ShouldFetchAtMostTheBudgetAndCorrectTheOffset()
+    {
+        // Arrange
+        var (controller, browser, server) = Create($"{Page}?pageOffset=9", 300);
+
+        // Act
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+
+        // Assert
+        server.Requests.Select(request => request.PageOffset).Should().Equal(0, 1, 2, 3);
+        controller.Items.Should().HaveCount(4 * DataListController<string>.PageSize);
+        controller.State.PageOffset.Should().Be(3);
+        controller.HasMore.Should().BeTrue();
+        browser.History.Should().Equal(($"{Page}?pageOffset=3", true));
+    }
+
+    [Fact]
+    public async Task SetLoadMode_WhenInfiniteWithAnOffsetBeyondTheEnd_ShouldStopAtTheLastPage()
+    {
+        // Arrange
+        var (controller, browser, server) = Create($"{Page}?pageOffset=50");
+
+        // Act
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+
+        // Assert
+        server.Requests.Should().HaveCount(3);
+        controller.Items.Should().HaveCount(60);
+        controller.HasMore.Should().BeFalse();
+        browser.Uri.Should().Be($"{Page}?pageOffset=2");
+    }
+
+    [Fact]
+    public async Task LoadNext_ShouldAppendPagesReplaceTheOffsetAndStopAtTheEnd()
+    {
+        // Arrange
+        var (controller, browser, server) = Create(Page);
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+
+        // Act
+        var first = await controller.LoadNextAsync();
+        var second = await controller.LoadNextAsync();
+        var afterEnd = await controller.LoadNextAsync();
+
+        // Assert
+        (first, second, afterEnd).Should().Be((true, true, false));
+        controller.Items.Should().HaveCount(60);
+        controller.Items[59].Should().Be("row-059");
+        controller.HasMore.Should().BeFalse();
+        server.Requests.Should().HaveCount(3);
+        browser.History.Should().Equal(($"{Page}?pageOffset=1", true), ($"{Page}?pageOffset=2", true));
+    }
+
+    [Fact]
+    public async Task LoadNext_WhenAPageRepeatsLoadedRows_ShouldAppendEachRowOnce()
+    {
+        // Arrange
+        var (controller, _, server) = Create(Page);
+        controller.Fetch = async (request, cancellationToken) =>
+        {
+            var result = await server.FetchAsync(request, cancellationToken);
+            // A row inserted before the first page shifts row-024 onto the second page as well
+            return request.PageOffset == 1 ? DataListFetchResult<string>.Success(["row-024", .. result.Page!.Items], result.Page.TotalCount) : result;
+        };
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+
+        // Act
+        await controller.LoadNextAsync();
+
+        // Assert
+        controller.Items.Should().OnlyHaveUniqueItems();
+        controller.Items.Should().HaveCount(50);
+    }
+
+    [Fact]
+    public async Task LoadNext_WhenRequestedWhileOneIsInFlight_ShouldIgnoreTheSecondRequest()
+    {
+        // Arrange
+        var (controller, _, server) = Create(Page);
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+        server.Hold(2);
+
+        // Act
+        var pending = controller.LoadNextAsync();
+        var duplicate = await controller.LoadNextAsync();
+        server.Release(2);
+        await pending;
+
+        // Assert
+        duplicate.Should().BeFalse();
+        server.Requests.Should().HaveCount(2);
+        controller.Items.Should().HaveCount(50);
+    }
+
+    [Fact]
+    public async Task LoadNext_WhenThePageFails_ShouldKeepTheRowsAndLoadItOnRetry()
+    {
+        // Arrange
+        var (controller, browser, server) = Create(Page);
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+        server.FailWithStatus = 500;
+
+        // Act
+        await controller.LoadNextAsync();
+        var failed = (controller.NextPageErrorMessage, controller.Items.Count, controller.HasMore);
+        server.FailWithStatus = null;
+        await controller.LoadNextAsync();
+
+        // Assert
+        failed.NextPageErrorMessage.Should().NotBeNull();
+        failed.Count.Should().Be(25);
+        failed.HasMore.Should().BeTrue();
+        controller.NextPageErrorMessage.Should().BeNull();
+        controller.Items.Should().HaveCount(50);
+        browser.Uri.Should().Be($"{Page}?pageOffset=1");
+    }
+
+    [Fact]
+    public async Task LoadNext_WhenTheFilterChangesWhileAPageIsInFlight_ShouldDiscardThePageAndStartOver()
+    {
+        // Arrange
+        var (controller, browser, server) = Create(Page);
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+        await controller.LoadNextAsync();
+        server.Hold(3);
+
+        // Act
+        var pending = controller.LoadNextAsync();
+        await controller.SetFiltersAsync(new Dictionary<string, string?> { ["search"] = "x" });
+        await pending;
+
+        // Assert
+        controller.Items.Should().HaveCount(25);
+        controller.Items[0].Should().Be("row-000x");
+        controller.State.PageOffset.Should().Be(0);
+        controller.IsLoadingNext.Should().BeFalse();
+        browser.Uri.Should().Be($"{Page}?search=x");
+    }
+
+    [Fact]
+    public async Task SetFilters_WhenInfiniteAndAnOlderSearchCompletesLast_ShouldKeepTheCurrentRange()
+    {
+        // Arrange
+        var (controller, _, server) = Create(Page);
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+        server.Hold(2);
+        var olderSearch = controller.SetFiltersAsync(new Dictionary<string, string?> { ["search"] = "old" });
+        await controller.SetFiltersAsync(new Dictionary<string, string?> { ["search"] = "new" });
+
+        // Act
+        server.Release(2);
+        await olderSearch;
+
+        // Assert
+        controller.Items.Should().HaveCount(25);
+        controller.Items.Should().OnlyContain(row => row.EndsWith("new"));
+    }
+
+    [Fact]
+    public async Task SetLoadMode_WhenSwitchingAfterSeveralPages_ShouldKeepTheOffsetAndTheActivatedRowAndDeselectUnloadedRows()
+    {
+        // Arrange
+        var (controller, _, server) = Create(Page);
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+        await controller.LoadNextAsync();
+        await controller.LoadNextAsync();
+        await controller.ClickAsync(55, false, false);
+        await controller.ToggleAsync(1);
+
+        // Act
+        await controller.SetLoadModeAsync(DataListLoadMode.Pages);
+        var pages = (controller.Items[0], controller.ActiveIndex, controller.Selection.Keys.ToArray());
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+
+        // Assert
+        pages.Item1.Should().Be("row-050");
+        pages.ActiveIndex.Should().Be(5);
+        pages.Item3.Should().Equal("row-055");
+        controller.State.PageOffset.Should().Be(2);
+        controller.Items.Should().HaveCount(60);
+        controller.ActiveIndex.Should().Be(55);
+        server.Requests.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task ToggleAll_WhenMoreRowsThanTheBulkLimitAreLoaded_ShouldSelectOnlyTheLimit()
+    {
+        // Arrange
+        var (controller, _, _) = Create(Page, 300);
+        await controller.SetLoadModeAsync(DataListLoadMode.Infinite);
+        for (var page = 0; page < 4; page++)
+        {
+            await controller.LoadNextAsync();
+        }
+
+        // Act
+        await controller.ToggleAllAsync();
+
+        // Assert
+        controller.Items.Should().HaveCount(125);
+        controller.Selection.Keys.Should().HaveCount(DataListController<string>.MaxSelectedKeys);
+        controller.Selection.Keys.Should().NotContain("row-100");
+    }
+
+    private static (DataListController<string> Controller, FakeBrowser Browser, FakeListServer Server) Create(string uri, int rowCount = 60, DataListPageCache? cache = null)
     {
         var browser = new FakeBrowser { Uri = uri };
-        var server = new FakeListServer(60);
+        var server = new FakeListServer(rowCount);
         var options = new DataListUrlOptions("Name", ["Name"], ["search"], "userId");
-        var controller = new DataListController<string>(new DataListPageCache(), options, DataListSelectionMode.Multiple, row => row, () => browser.Uri, browser.Navigate)
+        var controller = new DataListController<string>(cache ?? new DataListPageCache(), options, DataListSelectionMode.Multiple, row => row, () => browser.Uri, browser.Navigate)
         {
             ListId = "rows", CacheScope = "tnt_1/usr_1", Fetch = server.FetchAsync
         };

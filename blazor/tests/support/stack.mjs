@@ -68,8 +68,9 @@ function gatewayCertificateFingerprint() {
 
 // An explicit locale: headless Chromium in the container otherwise reports "en-US@posix", which the .NET runtime rejects
 // as a culture name and aborts the WebAssembly start
-export async function newContext(browser, browserName, storageState, locale = "en-US") {
-  const context = await browser.newContext({ ignoreHTTPSErrors: browserName !== "chromium", locale, storageState });
+// contextOptions: further Playwright context options, for example a phone viewport with touch
+export async function newContext(browser, browserName, storageState, locale = "en-US", contextOptions = {}) {
+  const context = await browser.newContext({ ignoreHTTPSErrors: browserName !== "chromium", locale, storageState, ...contextOptions });
   // Violations are also reported to Node through a binding, so a strict verdict sees those of documents the page has left
   const violations = [];
   policyViolationsByContext.set(context, violations);

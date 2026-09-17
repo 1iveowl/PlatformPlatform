@@ -140,4 +140,37 @@ public sealed class DataListSelectionTests
         activates.Should().BeFalse();
         selection.Keys.Should().BeEquivalentTo("a");
     }
+
+    [Fact]
+    public void ToggleAll_WhenMoreRowsThanTheCapAreLoaded_ShouldSelectTheCapThenClear()
+    {
+        // Arrange
+        var selection = new DataListSelection(DataListSelectionMode.Multiple);
+
+        // Act
+        selection.ToggleAll(PageKeys, 3);
+        var capped = selection.Keys.ToArray();
+        selection.ToggleAll(PageKeys, 3);
+
+        // Assert
+        capped.Should().Equal("a", "b", "c");
+        selection.Keys.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Retain_ShouldDeselectKeysThatAreNoLongerLoaded()
+    {
+        // Arrange
+        var selection = new DataListSelection(DataListSelectionMode.Multiple);
+        selection.ToggleAll(PageKeys);
+
+        // Act
+        var changed = selection.Retain(["b", "d", "z"]);
+        var unchanged = selection.Retain(["b", "d"]);
+
+        // Assert
+        changed.Should().BeTrue();
+        unchanged.Should().BeFalse();
+        selection.Keys.Should().BeEquivalentTo("b", "d");
+    }
 }

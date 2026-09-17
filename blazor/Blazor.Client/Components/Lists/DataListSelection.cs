@@ -80,16 +80,22 @@ public sealed class DataListSelection(DataListSelectionMode mode)
     }
 
     // The header checkbox: selects every row on the page unless all are already selected, then clears them
-    public void ToggleAll(IReadOnlyList<string> pageKeys)
+    // Selects the loaded rows, never more than maxKeys in total, and clears them once the cap is reached; unloaded rows are never
+    // implied
+    public void ToggleAll(IReadOnlyList<string> pageKeys, int maxKeys = int.MaxValue)
     {
         if (Mode != DataListSelectionMode.Multiple) return;
-        if (GetHeaderSelection(pageKeys) == DataListHeaderSelection.All)
+        if (GetHeaderSelection(pageKeys) == DataListHeaderSelection.All || _keys.Count >= maxKeys)
         {
             _keys.ExceptWith(pageKeys);
         }
         else
         {
-            _keys.UnionWith(pageKeys);
+            foreach (var key in pageKeys)
+            {
+                if (_keys.Count >= maxKeys) break;
+                _keys.Add(key);
+            }
         }
 
         AnchorIndex = null;
@@ -100,6 +106,14 @@ public sealed class DataListSelection(DataListSelectionMode mode)
         var selectedOnPage = pageKeys.Count(_keys.Contains);
         if (selectedOnPage == 0) return DataListHeaderSelection.None;
         return selectedOnPage == pageKeys.Count ? DataListHeaderSelection.All : DataListHeaderSelection.Some;
+    }
+
+    // Deselects every key that is not loaded; returns true when the selection changed
+    public bool Retain(IReadOnlyList<string> loadedKeys)
+    {
+        var removed = _keys.RemoveWhere(key => !loadedKeys.Contains(key));
+        if (removed > 0) AnchorIndex = null;
+        return removed > 0;
     }
 
     // Returns true when anything was selected

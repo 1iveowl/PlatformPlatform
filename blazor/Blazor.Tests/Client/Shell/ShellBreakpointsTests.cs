@@ -4,7 +4,7 @@ using FluentAssertions;
 namespace Blazor.Tests.Client.Shell;
 
 // A media query condition cannot read a CSS custom property, so the breakpoints are literals in three places: ShellBreakpoints,
-// the media queries in the host stylesheet and the matchMedia queries in shell.js. These tests fail when one drifts.
+// the media queries in the host stylesheet and the matchMedia queries in shell.js and data-list.js. These tests fail when one drifts.
 public sealed class ShellBreakpointsTests
 {
     private static readonly string BlazorRoot = FindBlazorRoot();
@@ -31,6 +31,16 @@ public sealed class ShellBreakpointsTests
 
         // Assert
         module.Should().Contain($"\"(min-width: {breakpoint})\"");
+    }
+
+    [Fact]
+    public void DataListModule_ShouldQueryTheSmallBreakpoint()
+    {
+        // Act
+        var module = File.ReadAllText(Path.Combine(BlazorRoot, "Blazor.Client", "wwwroot", "js", "data-list.js"));
+
+        // Assert
+        module.Should().Contain($"\"(min-width: {ShellBreakpoints.Small})\"");
     }
 
     [Fact]

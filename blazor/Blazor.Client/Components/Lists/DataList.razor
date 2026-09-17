@@ -3,6 +3,11 @@
    paginator and the server-page cache. See DataListController for the state and loading rules and data-list.js for the
    keyboard model.
 
+   Below the small breakpoint a list that sets PhoneLoadMode to Infinite drops the paginator: data-list.js reports the
+   breakpoint, the rows of pages 0 to pageOffset scroll as one list, and the next page is appended when the sentinel after
+   the last row scrolls into view or the load more button is pressed. The long-press and right-click that open a row's menu
+   are handled in data-list.js too; the row menu button stays visible, so they are never the only way to its actions.
+
    QuickGrid gets no sortable column and no pagination state: the wrapper renders its own sort buttons and paginator, so
    QuickGrid never writes its sort, direction or page parameters to the URL. The rows come from a synchronous items provider
    over the page the wrapper has already loaded, so no QuickGrid provider call is in flight when anything renders.
@@ -16,7 +21,8 @@
 @inject IJSRuntime JavaScriptRuntime
 
 <div class="data-list" id="@_rootId" data-list-state="@_controller.Status.ToString().ToLowerInvariant()" data-list-total-count="@_controller.TotalCount"
-     data-list-page-offset="@_controller.State.PageOffset" data-list-selected-count="@_controller.Selection.Keys.Count" @attributes="AdditionalAttributes" @ref="_root">
+     data-list-page-offset="@_controller.State.PageOffset" data-list-selected-count="@_controller.Selection.Keys.Count"
+     data-list-load-mode="@_controller.LoadMode.ToString().ToLowerInvariant()" data-list-loaded-count="@_controller.Items.Count" @attributes="AdditionalAttributes" @ref="_root">
     @if (_controller.Status == DataListStatus.Error)
     {
         <p role="alert" class="data-list-error" data-list-error>@_controller.ErrorMessage</p>
@@ -59,7 +65,23 @@
             }
         </div>
     }
-    <DataListPaginator PageOffset="_controller.State.PageOffset" TotalPages="_controller.TotalPages" TotalCount="_controller.TotalCount" OnPageRequested="GoToPageAsync"/>
+    @if (_controller.LoadMode == DataListLoadMode.Infinite)
+    {
+        @if (_controller.NextPageErrorMessage is not null)
+        {
+            <p role="alert" class="data-list-error" data-list-next-error>@_controller.NextPageErrorMessage</p>
+        }
+        @if (_controller.HasMore)
+        {
+            <div class="data-list-sentinel" data-list-sentinel aria-hidden="true"></div>
+            <button type="button" class="button-secondary data-list-load-more" data-list-load-more disabled="@_controller.IsLoadingNext" @onclick="LoadNext">@CommonStrings.DataListLoadMore</button>
+        }
+        <p class="data-list-visually-hidden" role="status" data-list-load-status>@LoadStatusText</p>
+    }
+    else
+    {
+        <DataListPaginator PageOffset="_controller.State.PageOffset" TotalPages="_controller.TotalPages" TotalCount="_controller.TotalCount" OnPageRequested="GoToPageAsync"/>
+    }
 </div>
 
 @code {
@@ -138,6 +160,10 @@
     [Parameter]
     public string SelectAllLabel { get; set; } = CommonStrings.SelectAllRowsOnPage;
 
+    // How the list loads below the small breakpoint; above it the list always shows pages with the paginator
+    [Parameter]
+    public DataListLoadMode PhoneLoadMode { get; set; } = DataListLoadMode.Pages;
+
     [Parameter]
     public RenderFragment<TItem>? RowMenu { get; set; }
 
@@ -179,6 +205,13 @@
 
     private DataListHeaderSelection HeaderSelection => _controller.Selection.GetHeaderSelection(_controller.PageKeys);
 
+    private string LoadStatusText => _controller switch
+    {
+        { IsLoadingNext: true } => CommonStrings.DataListLoadingMore,
+        { Status: DataListStatus.Ready, HasMore: false } => CommonStrings.DataListAllLoaded,
+        _ => ""
+    };
+
     private RenderFragment<ColumnBase<TItem>> SelectAllHeader => _ =>
         @<input type="checkbox" data-list-select-all aria-label="@SelectAllLabel" checked="@(HeaderSelection == DataListHeaderSelection.All)"
                 disabled="@(_controller.Items.Count == 0)" @onchange="ToggleAllAsync"/>;
@@ -215,11 +248,15 @@
         {
             _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/data-list.js");
             _reference = DotNetObjectReference.Create(this);
-            var options = new { selectionMode = SelectionMode.ToString(), escapeScopeId = EscapeScopeId, focusFallbackId = FocusFallbackId };
+            var options = new { selectionMode = SelectionMode.ToString(), escapeScopeId = EscapeScopeId, focusFallbackId = FocusFallbackId,
+                reportsBreakpoint = PhoneLoadMode != DataListLoadMode.Pages
+            };
             _handle = await _module.InvokeAsync<IJSObjectReference>("attach", _root, _reference, options);
         }
 
-        if (_handle is not null && !_disposed) await _handle.InvokeVoidAsync("sync", _controller.ActiveIndex, HeaderSelection.ToString(), _controller.State.SelectedKey is not null);
+        if (_handle is not null && !_disposed) await _handle.InvokeVoidAsync("sync", _controller.ActiveIndex, HeaderSelection.ToString(), _controller.State.SelectedKey is not null,
+                _controller is { HasMore: true, IsLoadingNext: false, NextPageErrorMessage: null }
+            );
     }
 
     // Invalidates every cached page of this list, clears the selection and loads the current page again
@@ -251,6 +288,28 @@
     {
         var index = _controller.PageKeys.ToList().IndexOf(KeySelector(item));
         return index < 0 ? Task.CompletedTask : ActivateRow(index);
+    }
+
+    // Called by data-list.js when the list attaches and whenever the viewport crosses the small breakpoint
+    [JSInvokable]
+    public async Task SetCompact(bool isCompact)
+    {
+        var loadMode = isCompact ? PhoneLoadMode : DataListLoadMode.Pages;
+        if (loadMode == _controller.LoadMode) return;
+        await LoadAndRefreshAsync(() => _controller.SetLoadModeAsync(loadMode));
+        if (_handle is not null && !_disposed) await _handle.InvokeVoidAsync("revealActive", _controller.ActiveIndex);
+    }
+
+    // Called by the sentinel observer and the load more button; a request while one is in flight is ignored
+    [JSInvokable]
+    public async Task LoadNext()
+    {
+        var loading = _controller.LoadNextAsync();
+        if (!loading.IsCompleted) StateHasChanged();
+        if (!await loading || _disposed) return;
+        if (_grid is not null) await _grid.RefreshDataAsync();
+        StateHasChanged();
+        if (OnStateChanged is not null) await OnStateChanged(_controller.State);
     }
 
     [JSInvokable]

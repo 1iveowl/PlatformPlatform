@@ -57,7 +57,7 @@
             {
                 <DataList @ref="_list" TItem="UserDetails" data-testid="users-grid" ListId="@UsersListSource.ListId" CacheScope="@UsersListSource.CacheScope(_bootstrap)"
                           Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
-                          SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
+                          SelectionMode="DataListSelectionMode.Multiple" PhoneLoadMode="DataListLoadMode.Infinite" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
                           FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="@PaneId"
                           FocusFallbackId="@SearchId" RowLabel="RowLabel" SelectAllLabel="@UsersStrings.SelectAllUsers" RowMenu="RowMenu" OnActivated="OpenProfileAsync"
                           OnClosed="OnProfileClosedAsync" OnSelectionChanged="OnSelectionChangedAsync" OnMultipleSelected="CloseProfileAsync"
@@ -95,6 +95,8 @@
     public const string UsersDeletedToastTestId = "users-deleted-toast";
     private const string SearchId = "users-search";
     private const string PaneId = "users-profile-pane";
+    // The columns after the name, whose cell shows the email and the pending badge on phones instead
+    private const string HideBelowSmall = "data-list-hide-below-sm";
 
     private readonly UsersFilterModel _filterModel = new();
     private readonly UserProfileState _profile = new();
@@ -135,18 +137,23 @@
                                                                                {
                                                                                    <span class="user-title">@user.Title</span>
                                                                                }
+                                                                               <span class="user-title data-list-phone-only" data-testid="user-phone-email">@user.Email</span>
+                                                                               @if (!user.EmailConfirmed)
+                                                                               {
+                                                                                   <span class="profile-pane-badge data-list-phone-only" data-testid="user-pending-badge">@UsersStrings.Pending</span>
+                                                                               }
                                                                            </span>
                                                                        </span>, nameof(SortableUserProperties.Name)
             ),
-            new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email)
+            new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email), HideBelowSmall
             ),
             new DataListColumn<UserDetails>(UsersStrings.Created, user => @<text>@RelativeTime.Format(user.CreatedAt, TimeProvider.System.GetUtcNow())</text>,
-                nameof(SortableUserProperties.CreatedAt)
+                nameof(SortableUserProperties.CreatedAt), HideBelowSmall
             ),
             new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<text>@RelativeTime.Format(user.LastSeenAt, TimeProvider.System.GetUtcNow())</text>,
-                nameof(SortableUserProperties.LastSeenAt)
+                nameof(SortableUserProperties.LastSeenAt), HideBelowSmall
             ),
-            new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role)
+            new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role), HideBelowSmall
             )
         ];
 

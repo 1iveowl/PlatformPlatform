@@ -20,7 +20,14 @@
 //    the defaults.
 // 9. Empty result: the empty state with both paging buttons disabled; typing a search replaces the history entry.
 // 10. A mutation stand-in invalidates the list and the current page is requested again.
-// Every case asserts zero content security policy violations, no style attribute inside either list, and no page errors.
+// 11. Phone, on the users page at 390 by 844 with touch: one visible data column with the email and pending badge in the
+//     name cell; a long-press opens the row menu without activating the row (a touch long-press through the DevTools
+//     protocol in Chromium only, because page.touchscreen can only tap; a right-click in every browser); a tap opens the
+//     pane; arrows move focus without activating and Enter activates.
+// 12. Phone loading: no paginator; scrolling the sentinel into view appends the next page and replaces pageOffset; the
+//     load more button works from the keyboard with one request however the sentinel and the button race; the status
+//     announces that every row is loaded; Back restores the loaded range from the page cache and a reload restores it.
+// Every case asserts zero content security policy violations, no style attribute inside the lists, and no page errors.
 //
 // Prerequisites: the AppHost stack running through the aspire-restart skill, with the Blazor host resource started in
 // Development.
@@ -106,11 +113,11 @@ async function withFixture(action, url = fixtureUrl, expected = null) {
   }
 }
 
-async function assertCleanDocument(page, observations, expected) {
+async function assertCleanDocument(page, observations, expected, lists = [primary, secondary]) {
   await page.waitForTimeout(settleMs);
   const violations = await page.evaluate(() => window.__policyViolations);
   assert(violations.length === 0, `Policy violations: ${JSON.stringify(violations)}`);
-  const styled = await page.locator(`${primary} [style], ${secondary} [style], ${primary}[style], ${secondary}[style]`).count();
+  const styled = await page.locator(lists.flatMap((list) => [`${list} [style]`, `${list}[style]`]).join(", ")).count();
   assert(styled === 0, `${styled} elements inside the lists carry a style attribute.`);
   assert(observations.pageErrors.length === 0, `Page errors: ${observations.pageErrors.join(" | ")}`);
   const errorResponses = observations.errorResponses.filter((response) => !expected?.response.test(response));
@@ -398,6 +405,145 @@ await check("invalidation requests the current page again", () =>
     await waitList(page, primary);
     assert(usersRequests.length === before + 1, `Invalidation made ${usersRequests.length - before} users requests.`);
     assert((await page.locator(primary).getAttribute("data-list-selected-count")) === "0", "Invalidation kept the selection.");
+  })
+);
+
+const phoneOptions = { viewport: { width: 390, height: 844 }, hasTouch: true };
+const usersUrl = `${baseUrl}${pathBase}/account/users`;
+const usersGrid = testId("users-grid");
+const openMenu = `${usersGrid} [role="menu"]`;
+
+async function withPhone(action, url = usersUrl) {
+  const context = await newContext(browser, options.browser, owner.storageState, "en-US", phoneOptions);
+  const page = await context.newPage();
+  const observations = observeErrors(page);
+  const usersRequests = [];
+  page.on("request", (request) => {
+    if (usersRequestPattern.test(request.url())) usersRequests.push(request.url());
+  });
+  try {
+    await page.goto(url, { waitUntil: "load" });
+    const detail = await action({ page, usersRequests });
+    await assertCleanDocument(page, observations, null, [usersGrid]);
+    return detail;
+  } finally {
+    await context.close();
+  }
+}
+
+// The infinite load mode is set only once data-list.js reported the phone width, so this also waits for interactivity
+async function waitPhoneList(page, { loadedCount, pageOffset } = {}) {
+  const loaded = loadedCount === undefined ? "" : `[data-list-loaded-count="${loadedCount}"]`;
+  const offset = pageOffset === undefined ? "" : `[data-list-page-offset="${pageOffset}"]`;
+  await page.locator(`${usersGrid}[data-list-state="ready"][data-list-load-mode="infinite"]${loaded}${offset}`).waitFor({ timeout: interactiveTimeoutMs });
+  await page.waitForTimeout(settleMs);
+}
+
+const nameCell = (page, index) => rows(page, usersGrid).nth(index).locator("[data-user-row]");
+const pageOffsetRequests = (usersRequests, pageOffset) => usersRequests.filter((url) => new URL(url).searchParams.get("PageOffset") === String(pageOffset)).length;
+
+// A touch user closes the menu by tapping outside it
+async function closeRowMenu(page) {
+  await page.locator(`${usersGrid} .data-list-row-menu-backdrop`).click({ position: { x: 5, y: 5 } });
+  await page.locator(openMenu).waitFor({ state: "detached" });
+}
+
+await check("phone: one column, long-press and right-click open the row menu, tap opens the pane, arrows and Enter", () =>
+  withPhone(async ({ page }) => {
+    await waitPhoneList(page);
+    const visibleColumns = await page.evaluate(
+      (selector) =>
+        [...document.querySelectorAll(`${selector} thead th`)].filter((header) => getComputedStyle(header).display !== "none" && !header.classList.contains("data-list-menu")).length,
+      usersGrid
+    );
+    assert(visibleColumns === 1, `Expected one visible data column, found ${visibleColumns}.`);
+    assert(await rows(page, usersGrid).nth(0).locator(testId("user-phone-email")).isVisible(), "The name cell does not show the email.");
+    assert((await page.locator(`${usersGrid} ${testId("user-pending-badge")}`).first().isVisible()), "No pending badge on an invited user.");
+    assert((await page.locator(`${usersGrid} [data-list-page]`).count()) === 0, "The paginator renders on a phone.");
+    assert(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), "The page scrolls horizontally.");
+
+    let longPress = "right-click only";
+    if (options.browser === "chromium") {
+      const box = await nameCell(page, 1).boundingBox();
+      const cdp = await page.context().newCDPSession(page);
+      const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+      await page.waitForTimeout(800);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await page.locator(openMenu).waitFor();
+      await page.waitForTimeout(settleMs);
+      assert((await rows(page, usersGrid).nth(1).locator(testId("user-actions")).getAttribute("aria-expanded")) === "true", "The long-press opened another row's menu.");
+      assert(!new URL(page.url()).searchParams.has("userId"), "The long-press activated the row.");
+      await closeRowMenu(page);
+
+      // A touch that moves is a scroll, not a long-press
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: point.x, y: point.y + 40 }] });
+      await page.waitForTimeout(800);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await page.waitForTimeout(settleMs);
+      assert((await page.locator(openMenu).count()) === 0, "A moving touch opened the row menu.");
+      longPress = "touch long-press and right-click";
+    }
+
+    await nameCell(page, 2).click({ button: "right" });
+    await page.locator(openMenu).waitFor();
+    assert((await rows(page, usersGrid).nth(2).locator(testId("user-actions")).getAttribute("aria-expanded")) === "true", "The right-click opened another row's menu.");
+    assert(!new URL(page.url()).searchParams.has("userId"), "The right-click activated the row.");
+    await closeRowMenu(page);
+
+    await nameCell(page, 3).tap();
+    await page.waitForURL(/userId=usr_/);
+    await page.locator(`${testId("profile-pane")}:not([hidden])`).waitFor();
+    const tapped = new URL(page.url()).searchParams.get("userId");
+
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(settleMs);
+    assert((await focusedRowIndex(page, usersGrid)) === 4, `ArrowDown moved focus to ${await focusedRowIndex(page, usersGrid)}.`);
+    assert(new URL(page.url()).searchParams.get("userId") === tapped, "ArrowDown activated the row.");
+    await page.keyboard.press("Enter");
+    await page.waitForURL((url) => url.searchParams.has("userId") && url.searchParams.get("userId") !== tapped);
+    await page.keyboard.press("Escape");
+    await page.waitForURL((url) => !url.searchParams.has("userId"));
+    return { longPress };
+  })
+);
+
+await check("phone: the sentinel and load more append pages, Back and reload restore the loaded range", () =>
+  withPhone(async ({ page, usersRequests }) => {
+    await waitPhoneList(page, { loadedCount: 25, pageOffset: 0 });
+    const loadMore = page.locator(`${usersGrid} [data-list-load-more]`);
+    assert((await loadMore.textContent()).trim() === "Load more", "The load more button has no accessible name.");
+    await page.locator(`${usersGrid} [data-list-sentinel]`).scrollIntoViewIfNeeded();
+    await waitPhoneList(page, { loadedCount: invitedUsers + 1, pageOffset: 1 });
+    await page.waitForURL((url) => url.searchParams.get("pageOffset") === "1");
+    assert(pageOffsetRequests(usersRequests, 1) === 1, `The next page was requested ${pageOffsetRequests(usersRequests, 1)} times.`);
+    assert((await loadMore.count()) === 0, "The load more button stays after the last page.");
+    assert((await page.locator(`${usersGrid} [data-list-load-status]`).textContent()) === "All rows loaded", "The end of the list is not announced.");
+    const appendedUrl = page.url();
+
+    // Sorting starts over at the first page with a history entry; Back restores both pages from the cache
+    await page.locator(`${usersGrid} [data-list-sort="Name"]`).click();
+    await page.waitForURL(/sortOrder=Descending/);
+    await waitPhoneList(page, { loadedCount: 25, pageOffset: 0 });
+    const requestsBeforeBack = usersRequests.length;
+    await page.goBack({ waitUntil: "commit" });
+    await page.waitForURL(appendedUrl, { waitUntil: "commit" });
+    await waitPhoneList(page, { loadedCount: invitedUsers + 1, pageOffset: 1 });
+    assert(usersRequests.length === requestsBeforeBack, `Back made ${usersRequests.length - requestsBeforeBack} users requests.`);
+
+    await page.reload({ waitUntil: "load" });
+    await waitPhoneList(page, { loadedCount: invitedUsers + 1, pageOffset: 1 });
+
+    // From the first page again, the load more button is reached and pressed with the keyboard
+    await page.goto(usersUrl, { waitUntil: "load" });
+    await waitPhoneList(page, { loadedCount: 25, pageOffset: 0 });
+    const requestsBeforeLoadMore = pageOffsetRequests(usersRequests, 1);
+    await loadMore.focus();
+    await page.keyboard.press("Enter");
+    await waitPhoneList(page, { loadedCount: invitedUsers + 1, pageOffset: 1 });
+    assert(pageOffsetRequests(usersRequests, 1) - requestsBeforeLoadMore === 1, "Load more and the sentinel requested the next page twice.");
+    return { usersRequests: usersRequests.length };
   })
 );
 
