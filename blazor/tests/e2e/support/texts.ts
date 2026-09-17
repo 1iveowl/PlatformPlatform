@@ -88,7 +88,21 @@ export const blazorCultures = [
     emailColumn: "Email",
     createdColumn: "Created",
     lastSeenColumn: "Last seen",
-    roleColumn: "Role"
+    roleColumn: "Role",
+    mainNavigation: "Main navigation",
+    toggleSidebar: "Toggle sidebar",
+    openNavigationMenu: "Open navigation menu",
+    mobileNavigationMenu: "Mobile navigation menu",
+    closeMenu: "Close menu",
+    changeTheme: "Change theme",
+    themeSystem: "System",
+    themeLight: "Light",
+    themeDark: "Dark",
+    pageNotFound: "Page not found",
+    goToHome: "Go to home",
+    showDetails: "Show details",
+    hideDetails: "Hide details",
+    tryAgain: "Try again"
   },
   {
     locale: "da-DK",
@@ -172,7 +186,21 @@ export const blazorCultures = [
     emailColumn: "E-mail",
     createdColumn: "Oprettet",
     lastSeenColumn: "Sidst set",
-    roleColumn: "Rolle"
+    roleColumn: "Rolle",
+    mainNavigation: "Hovednavigation",
+    toggleSidebar: "Skift sidepanel",
+    openNavigationMenu: "Åbn navigationsmenu",
+    mobileNavigationMenu: "Mobilnavigationsmenu",
+    closeMenu: "Luk menu",
+    changeTheme: "Skift tema",
+    themeSystem: "System",
+    themeLight: "Lys",
+    themeDark: "Mørk",
+    pageNotFound: "Siden blev ikke fundet",
+    goToHome: "Gå til forsiden",
+    showDetails: "Vis detaljer",
+    hideDetails: "Skjul detaljer",
+    tryAgain: "Prøv igen"
   }
 ] as const;
 

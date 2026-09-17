@@ -917,6 +917,12 @@ h1:focus {
         overflow-y: auto;
     }
 
+    /* The footer stays at the bottom when the collapsed sidebar hides the navigation, so the user menu that opens upward
+       from it stays inside the viewport */
+    .app-sidebar-footer {
+        margin-block-start: auto;
+    }
+
     .app-shell[data-sidebar="collapsed"] .app-sidebar {
         width: 4rem;
     }
