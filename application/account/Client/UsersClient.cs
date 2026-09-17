@@ -6,6 +6,10 @@ namespace Account.Client;
 
 public sealed class UsersClient(HttpClient httpClient)
 {
+    // The endpoint binds IFormFile file; the server derives the stored name from the content, so the file name is fixed
+    private const string AvatarFormFieldName = "file";
+    private const string AvatarFileName = "avatar";
+
     private readonly AccountApiTransport _transport = new(httpClient);
 
     public Task<ApiCallResult<UsersResponse>> GetUsersAsync(GetUsersQuery query, CancellationToken cancellationToken)
@@ -26,6 +30,18 @@ public sealed class UsersClient(HttpClient httpClient)
     public Task<ApiCallResult> UpdateCurrentUserAsync(UpdateCurrentUserCommand command, CancellationToken cancellationToken)
     {
         return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.CurrentUser, command, cancellationToken);
+    }
+
+    // Sends the image as the multipart form file the endpoint binds; the antiforgery token, locale and 401 handling come from
+    // the same handler chain as every other state-changing call
+    public Task<ApiCallResult> UpdateAvatarAsync(UpdateAvatarCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendFileAsync(HttpMethod.Post, AccountApiRoutes.UpdateAvatar, AvatarFormFieldName, command.FileStream, command.ContentType, AvatarFileName, cancellationToken);
+    }
+
+    public Task<ApiCallResult> RemoveAvatarAsync(CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.RemoveAvatar, cancellationToken);
     }
 
     public Task<ApiCallResult> ChangeUserRoleAsync(UserId userId, ChangeUserRoleCommand command, CancellationToken cancellationToken)

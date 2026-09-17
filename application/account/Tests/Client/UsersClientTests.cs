@@ -1,9 +1,12 @@
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using Account.Client;
 using Account.Features.Users.Domain;
 using Account.Features.Users.Requests;
 using FluentAssertions;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Net.Http.Headers;
 using SharedKernel.ApiResults;
 using SharedKernel.Domain;
 using SharedKernel.Persistence;
@@ -113,6 +116,111 @@ public sealed class UsersClientTests
         request.PathAndQuery.Should().Be("/api/account/users/me");
         request.Body.Should().Be(SerializeServerCommand(new ServerCommands.UpdateCurrentUserCommand("Ada", "Lovelace", "Engineer")));
         result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateAvatarAsync_WhenCalled_ShouldPostOneMultipartFileNamedFileWithItsContentType()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+        var fileBytes = "avatar-image-bytes"u8.ToArray();
+
+        // Act
+        var result = await client.UpdateAvatarAsync(new UpdateAvatarCommand(new MemoryStream(fileBytes), "image/png"), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Post);
+        request.PathAndQuery.Should().Be("/api/account/users/me/update-avatar");
+        var contentType = MediaTypeHeaderValue.Parse(request.ContentType);
+        contentType.MediaType.Value.Should().Be("multipart/form-data");
+        var boundary = HeaderUtilities.RemoveQuotes(contentType.Boundary).Value!;
+        var reader = new MultipartReader(boundary, new MemoryStream(Encoding.UTF8.GetBytes(request.Body!)));
+        var section = await reader.ReadNextSectionAsync();
+        section.Should().NotBeNull();
+        var disposition = section.GetContentDispositionHeader()!;
+        disposition.IsFileDisposition().Should().BeTrue();
+        disposition.Name.Value.Should().Be("file");
+        disposition.FileName.Value.Should().Be("avatar");
+        section.ContentType.Should().Be("image/png");
+        using var sectionContent = new MemoryStream();
+        await section.Body.CopyToAsync(sectionContent);
+        sectionContent.ToArray().Should().Equal(fileBytes);
+        (await reader.ReadNextSectionAsync()).Should().BeNull();
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateAvatarAsync_WhenSentThroughTheHeaderHandlers_ShouldCarryTheAntiforgeryTokenAndLocale()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var chain = new AntiforgeryHeaderHandler(new FixedAntiforgeryTokenSource("antiforgery-token")) { InnerHandler = new LocaleHeaderHandler(() => "da-DK") { InnerHandler = handler } };
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(chain));
+
+        // Act
+        await client.UpdateAvatarAsync(new UpdateAvatarCommand(new MemoryStream([1, 2, 3]), "image/jpeg"), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Headers[AccountApiHeaders.AntiforgeryToken].Should().Equal("antiforgery-token");
+        request.Headers[AccountApiHeaders.Locale].Should().Equal("da-DK");
+    }
+
+    [Fact]
+    public async Task UpdateAvatarAsync_WhenValidationFails_ShouldReturnTheFieldErrorsAsReturned()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.BadRequest, """{"title":"Bad Request","status":400,"errors":{"fileSteam":["Image must be a valid JPEG, PNG, GIF, or WebP file."]}}""", "application/problem+json");
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.UpdateAvatarAsync(new UpdateAvatarCommand(new MemoryStream([1]), "image/png"), CancellationToken.None);
+
+        // Assert
+        result.Outcome.Should().Be(ApiCallOutcome.ValidationFailure);
+        result.Problem!.Errors["fileSteam"].Should().Equal("Image must be a valid JPEG, PNG, GIF, or WebP file.");
+    }
+
+    [Fact]
+    public async Task UpdateAvatarAsync_WhenTheRequestIsTooLargeWithoutBody_ShouldReturnAFailureWithTheStatus()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.RequestEntityTooLarge);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.UpdateAvatarAsync(new UpdateAvatarCommand(new MemoryStream([1]), "image/png"), CancellationToken.None);
+
+        // Assert
+        result.Outcome.Should().Be(ApiCallOutcome.Failure);
+        result.Problem!.StatusCode.Should().Be(413);
+    }
+
+    [Fact]
+    public async Task RemoveAvatarAsync_WhenCalled_ShouldDeleteRemoveAvatarRouteWithoutBody()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.RemoveAvatarAsync(CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Delete);
+        request.PathAndQuery.Should().Be("/api/account/users/me/remove-avatar");
+        request.Body.Should().BeNull();
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdateAvatarCommand_ShouldHaveTheServerSizeLimit()
+    {
+        // Act and Assert
+        UpdateAvatarCommand.MaximumFileSizeInBytes.Should().Be(ServerCommands.UpdateAvatarCommand.MaximumFileSizeInBytes);
     }
 
     [Fact]
@@ -361,5 +469,13 @@ public sealed class UsersClientTests
     private static string SerializeServerCommand<TCommand>(TCommand command)
     {
         return JsonSerializer.Serialize(command, ApiJsonSerializerOptions.Create());
+    }
+
+    private sealed class FixedAntiforgeryTokenSource(string antiforgeryToken) : IAntiforgeryTokenSource
+    {
+        public ValueTask<string?> GetTokenAsync(CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<string?>(antiforgeryToken);
+        }
     }
 }

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,7 +51,7 @@ public sealed class ImageUploadWebApplicationFactory : AccountWebApplicationFact
 
     public static async Task AssertAntiforgeryRejectedAsync(HttpResponseMessage response)
     {
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
         body.GetProperty("title").GetString().Should().Be("Invalid Antiforgery Token");
     }

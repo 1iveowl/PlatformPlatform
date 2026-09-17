@@ -408,7 +408,7 @@ public static class ImageContentInspector
             var bits = (uint)(payload[1] | (payload[2] << 8) | (payload[3] << 16) | (payload[4] << 24));
             width = (int)(bits & 0x3FFF) + 1;
             height = (int)((bits >> 14) & 0x3FFF) + 1;
-            return (bits >> 29) == 0;
+            return bits >> 29 == 0;
         }
 
         return false;

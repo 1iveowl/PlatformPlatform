@@ -24,4 +24,11 @@ public static class UserDetailsExtensions
             ? string.Concat(new[] { user.FirstName, user.LastName }.Where(name => !string.IsNullOrEmpty(name)).Select(name => char.ToUpperInvariant(name![0])))
             : user.Email[..Math.Min(1, user.Email.Length)].ToUpperInvariant();
     }
+
+    extension(CurrentUserResponse user)
+    {
+        public string Initials => $"{user.FirstName} {user.LastName}".Trim().Length > 0
+            ? string.Concat(new[] { user.FirstName, user.LastName }.Where(name => !string.IsNullOrEmpty(name)).Select(name => char.ToUpperInvariant(name![0])))
+            : user.Email[..Math.Min(1, user.Email.Length)].ToUpperInvariant();
+    }
 }

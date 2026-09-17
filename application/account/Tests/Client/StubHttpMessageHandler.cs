@@ -34,9 +34,9 @@ public sealed class StubHttpMessageHandler(Func<HttpRequestMessage, Cancellation
     {
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
         var headers = request.Headers.ToDictionary(header => header.Key, header => header.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
-        Requests.Add(new RecordedRequest(request.Method, request.RequestUri!.PathAndQuery, body, headers));
+        Requests.Add(new RecordedRequest(request.Method, request.RequestUri!.PathAndQuery, body, headers, request.Content?.Headers.ContentType?.ToString()));
         return await respond(request, cancellationToken);
     }
 }
 
-public sealed record RecordedRequest(HttpMethod Method, string PathAndQuery, string? Body, Dictionary<string, string[]> Headers);
+public sealed record RecordedRequest(HttpMethod Method, string PathAndQuery, string? Body, Dictionary<string, string[]> Headers, string? ContentType = null);

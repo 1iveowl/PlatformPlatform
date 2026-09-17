@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using SharedKernel.ApiResults;
@@ -37,6 +38,16 @@ internal sealed class AccountApiTransport(HttpClient httpClient)
     public Task<ApiCallResult<TResponse>> SendAsync<TRequest, TResponse>(HttpMethod method, string path, TRequest body, CancellationToken cancellationToken)
     {
         return SendAsync<TResponse>(CreateRequest(method, path, body), cancellationToken);
+    }
+
+    // One file as a multipart form part with its field name, file name and declared content type. The stream is disposed
+    // with the request; the handler chain adds the same headers as for a JSON body.
+    public Task<ApiCallResult> SendFileAsync(HttpMethod method, string path, string fieldName, Stream content, string contentType, string fileName, CancellationToken cancellationToken)
+    {
+        var fileContent = new StreamContent(content);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        var form = new MultipartFormDataContent { { fileContent, fieldName, fileName } };
+        return SendAsync(new HttpRequestMessage(method, path) { Content = form }, cancellationToken);
     }
 
     private static HttpRequestMessage CreateRequest<TRequest>(HttpMethod method, string path, TRequest body)

@@ -1,8 +1,11 @@
-@* The profile page, the React edition's user profile without the avatar and identity verification sections: email and
-   role are shown, first name, last name and title are edited. The host prerenders the heading; the profile loads once
-   the component runs in the browser. After a save the bootstrap is read again, so the shell shows the new name from the
-   refreshed session claims without a reload. *@
+@* The profile page, the React edition's user profile without the identity verification section: email and role are shown;
+   the avatar, first name, last name and title are edited. The host prerenders the heading; the profile loads once the
+   component runs in the browser. Save runs ProfileSave: the avatar upload or removal, then the profile PUT, after which
+   the bootstrap is read again so the shell shows the new name and avatar from the refreshed session claims without a
+   reload. A failure is shown in the form alert as the API returned it; after a partial save the steps the server confirms
+   are kept as saved and the rest stays unsaved for a retry. *@
 @using Account.Client
+@using Account.Features.Users.Requests
 @using Blazor.Client.Bootstrap
 @using Blazor.Client.Session
 @using Blazor.Client.Users
@@ -19,6 +22,8 @@
     {
         <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" data-testid="profile-form">
             <DataAnnotationsValidator/>
+            <AvatarPicker @ref="_avatarPicker" AvatarUrl="@_avatar.DisplayUrl(user.AvatarUrl)" Initials="@user.Initials" Disabled="_isSaving"
+                          OnFileSelected="OnAvatarSelected" OnRemove="OnAvatarRemovedAsync"/>
             <dl>
                 <dt>@CommonStrings.Email</dt>
                 <dd data-testid="profile-email">@user.Email</dd>
@@ -46,6 +51,7 @@
                 </label>
                 <ValidationMessage For="() => _form.Title"/>
             </p>
+            <FormErrorAlert Errors="_formErrors"/>
             <button type="submit" disabled="@_isSaving" data-testid="save-profile">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
         </EditForm>
 
@@ -65,6 +71,9 @@
 
     public const string ProfileUpdatedToastTestId = "profile-updated-toast";
 
+    private readonly AvatarDraft _avatar = new();
+    private readonly CancellationTokenSource _disposed = new();
+    private AvatarPicker? _avatarPicker;
     private EditContext _editContext = null!;
     private ProfileForm _form = new();
     private FormErrorMapper? _formErrors;
@@ -73,10 +82,13 @@
     private ProfileForm _saved = new();
     private CurrentUserResponse? _user;
 
-    private bool HasUnsavedChanges => _user is not null && _form.HasChangesFrom(_saved);
+    // Stays true while a save runs, so the guard holds until the server confirmed what was intended
+    private bool HasUnsavedChanges => _user is not null && (_isSaving || _avatar.HasChanges || _form.HasChangesFrom(_saved));
 
     public void Dispose()
     {
+        // Cancelled, not disposed: a save still running reads the token once more to discard its result
+        _disposed.Cancel();
         _formErrors?.Dispose();
     }
 
@@ -109,27 +121,109 @@
         _formErrors = new FormErrorMapper(_editContext);
     }
 
-    // The account API asks the gateway to refresh the session's claims on the same response, so the bootstrap read after
-    // it carries the new name for the header
+    private void OnAvatarSelected(ChosenFile file)
+    {
+        _avatar.Select(file.ContentType!, file.PreviewUrl);
+    }
+
+    private async Task OnAvatarRemovedAsync()
+    {
+        _avatar.Remove(_user?.AvatarUrl);
+        if (_avatarPicker is not null) await _avatarPicker.ResetAsync();
+    }
+
     private async Task SaveAsync()
     {
+        if (_isSaving || _user is null) return;
+
         _isSaving = true;
-        var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<UsersClient>().UpdateCurrentUserAsync(_form.ToCommand(), cancellationToken));
-        if (result is null) return;
+        var intent = _avatar.Intent;
+        var intended = _form.Trimmed();
+        var outcome = await ProfileSave.RunAsync(intent, _user.AvatarUrl, intended, CreateSaveCalls(intended), _disposed.Token);
+        if (outcome.Status == ProfileSaveStatus.Abandoned) return;
 
         _isSaving = false;
-        if (!result.IsSuccess)
+        if (outcome.Status == ProfileSaveStatus.Saved)
         {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result, _formErrors);
+            await CompleteSaveAsync(intent, intended);
             return;
         }
 
-        _saved = _form.Trimmed();
-        _form.FirstName = _saved.FirstName;
-        _form.LastName = _saved.LastName;
-        _form.Title = _saved.Title;
+        await ApplyConfirmedStateAsync(outcome, intended);
+        if (outcome.Failure is { } failure && _formErrors is not null)
+        {
+            if (intent == AvatarIntent.Upload && !outcome.AvatarSaved && AvatarFileRules.IsTooLargeResponse(failure)) _formErrors.AddFormMessage(AccountStrings.AvatarTooLarge);
+            else _formErrors.ApplyFailure(failure);
+
+            if (intent != AvatarIntent.Keep && outcome is { AvatarSaved: true, ProfileSaved: false }) _formErrors.AddFormMessage(AccountStrings.ProfilePartiallySaved);
+        }
+    }
+
+    private ProfileSaveCalls CreateSaveCalls(ProfileForm intended)
+    {
+        var client = Services.GetRequiredService<UsersClient>();
+        var contentType = _avatar.ContentType;
+        return new ProfileSaveCalls(
+            abandoned => Session.UnlessLeavingAsync(async cancellationToken =>
+                {
+                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, abandoned);
+                    var stream = await _avatarPicker!.ReadSelectedFileAsync(UpdateAvatarCommand.MaximumFileSizeInBytes, linked.Token)
+                                 ?? throw new InvalidOperationException("The avatar picker holds no selected file to upload.");
+                    return await client.UpdateAvatarAsync(new UpdateAvatarCommand(stream, contentType!), linked.Token);
+                }
+            ),
+            abandoned => Session.UnlessLeavingAsync(cancellationToken => WithAbandonedAsync(cancellationToken, abandoned, client.RemoveAvatarAsync)),
+            abandoned => Session.UnlessLeavingAsync(cancellationToken => WithAbandonedAsync(cancellationToken, abandoned, token => client.UpdateCurrentUserAsync(intended.ToCommand(), token))),
+            abandoned => Session.UnlessLeavingAsync(cancellationToken => WithAbandonedAsync(cancellationToken, abandoned, client.GetCurrentUserAsync))
+        );
+    }
+
+    private static async Task<TResult> WithAbandonedAsync<TResult>(CancellationToken cancellationToken, CancellationToken abandoned, Func<CancellationToken, Task<TResult>> call)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, abandoned);
+        return await call(linked.Token);
+    }
+
+    // The account API asks the gateway to refresh the session's claims on the profile PUT's response, so the bootstrap read
+    // after it carries the new name and avatar for the header
+    private async Task CompleteSaveAsync(AvatarIntent intent, ProfileForm intended)
+    {
+        SetSavedProfile(intended);
         Toasts.Show(ToastKind.Success, AccountStrings.ProfileUpdated, null, ProfileUpdatedToastTestId);
+        if (intent != AvatarIntent.Keep)
+        {
+            // The avatar endpoints return no URL, so the stored one is read back
+            var current = await Session.UnlessLeavingAsync(Services.GetRequiredService<UsersClient>().GetCurrentUserAsync);
+            if (current is null) return;
+
+            if (current.IsSuccess) _user = current.Value;
+        }
+
+        await ResetAvatarAsync();
         await Session.RefreshUnlessLeavingAsync();
+    }
+
+    // Keeps what the server confirmed after a failed step: a confirmed avatar change is no longer unsaved, confirmed profile
+    // values become the saved values, and the fields keep what the user typed
+    private async Task ApplyConfirmedStateAsync(ProfileSaveOutcome outcome, ProfileForm intended)
+    {
+        if (outcome.ConfirmedUser is { } confirmedUser) _user = confirmedUser;
+        if (outcome.ProfileSaved) _saved = intended;
+        if (outcome.AvatarSaved && _avatar.HasChanges) await ResetAvatarAsync();
+    }
+
+    private async Task ResetAvatarAsync()
+    {
+        _avatar.Reset();
+        if (_avatarPicker is not null) await _avatarPicker.ResetAsync();
+    }
+
+    private void SetSavedProfile(ProfileForm intended)
+    {
+        _saved = intended;
+        _form.FirstName = intended.FirstName;
+        _form.LastName = intended.LastName;
+        _form.Title = intended.Title;
     }
 
 }

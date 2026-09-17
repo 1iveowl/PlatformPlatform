@@ -29,6 +29,10 @@ public static class AccountApiRoutes
 
     public const string ChangeTheme = "/api/account/users/me/change-theme";
 
+    public const string UpdateAvatar = "/api/account/users/me/update-avatar";
+
+    public const string RemoveAvatar = "/api/account/users/me/remove-avatar";
+
     public const string DeletedUsers = "/api/account/users/deleted";
 
     public const string BulkPurgeUsers = "/api/account/users/deleted/bulk-purge";

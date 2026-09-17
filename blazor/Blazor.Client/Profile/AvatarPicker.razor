@@ -1,0 +1,187 @@
+@* The profile's avatar picker, the React edition's UserAvatarPicker: the current avatar, the selected file's preview or the
+   initials on a button that opens the "Change profile picture" menu with "Upload profile picture" and, while an image is
+   shown, "Remove profile picture". The whole picker is a drop zone for one file. A picked or dropped file is checked
+   against the update-avatar endpoint's limits (AvatarFileRules) before it is accepted; a refused file shows its message
+   under the picker and keeps the earlier selection. The file and its blob: preview are held by js/file-picker.js, which
+   revokes the preview when it is replaced, reset or disposed with this component. The menu is in-house, as the shell's
+   user menu, because the component library's menu writes style attributes; its keyboard model is MenuNavigation's. *@
+@using Blazor.Client.Components.Menus
+@using Blazor.Client.Users
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+
+<div @ref="_dropZone" class="avatar-picker" data-testid="avatar-drop-zone">
+    <button @ref="_trigger" type="button" id="@TriggerId" class="avatar-picker-trigger" aria-label="@AccountStrings.ChangeProfilePicture" aria-haspopup="menu"
+            aria-expanded="@(_isOpen ? "true" : "false")" aria-controls="@(_isOpen ? MenuId : null)" disabled="@Disabled" data-testid="avatar-menu-trigger" @onclick="Toggle">
+        <UserAvatar AvatarUrl="@AvatarUrl" Initials="@Initials"/>
+    </button>
+    @if (_isOpen)
+    {
+        <div class="menu-backdrop" @onclick="() => Close(false)"></div>
+        <div id="@MenuId" role="menu" class="avatar-picker-menu" aria-labelledby="@TriggerId" @onkeydown="OnKeyDown">
+            @for (var index = 0; index < Items.Count; index++)
+            {
+                var item = Items[index];
+                var itemIndex = index;
+                <button @key="item.TestId" @ref="_itemElements[itemIndex]" type="button" role="menuitem" class="menu-item" tabindex="-1" data-testid="@item.TestId"
+                        @onclick="() => SelectAsync(item)">
+                    @item.Label
+                </button>
+            }
+        </div>
+    }
+    <input @ref="_input" type="file" class="visually-hidden" accept="@AvatarFileRules.Accept" tabindex="-1" aria-hidden="true" disabled="@Disabled"
+           data-testid="avatar-file-input"/>
+</div>
+@if (_error is not null)
+{
+    <p class="validation-message" role="alert" data-testid="avatar-error">@_error</p>
+}
+
+@code {
+
+    private const string MenuId = "avatar-picker-menu";
+    private const string TriggerId = "avatar-picker-trigger";
+
+    private readonly ElementReference[] _itemElements = new ElementReference[2];
+    private int _activeIndex = -1;
+    private DotNetObjectReference<AvatarPicker>? _dotNet;
+    private ElementReference _dropZone;
+    private string? _error;
+    private ElementReference _input;
+    private FilePickerInterop? _interop;
+    private bool _isOpen;
+    private bool _moveFocus;
+    private ElementReference _trigger;
+
+    // The image shown: the saved avatar, the selection's preview, or null for the initials
+    [Parameter]
+    public string? AvatarUrl { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public string Initials { get; set; } = "";
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<ChosenFile> OnFileSelected { get; set; }
+
+    [Parameter]
+    public EventCallback OnRemove { get; set; }
+
+    private IReadOnlyList<PickerMenuItem> Items =>
+        AvatarUrl is null
+            ? [new PickerMenuItem(AccountStrings.UploadProfilePicture, "upload-avatar", OpenFileDialogAsync)]
+            : [new PickerMenuItem(AccountStrings.UploadProfilePicture, "upload-avatar", OpenFileDialogAsync), new PickerMenuItem(AccountStrings.RemoveProfilePicture, "remove-avatar", RemoveAsync)];
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interop is not null) await _interop.DisposeAsync();
+        _dotNet?.Dispose();
+    }
+
+    // Called by file-picker.js for a picked or dropped file; true when the file becomes the selection
+    [JSInvokable]
+    public async Task<bool> OnFileChosen(ChosenFile file)
+    {
+        if (Disabled) return false;
+
+        var error = AvatarFileRules.Validate(file.Size, file.ContentType);
+        await InvokeAsync(async () =>
+            {
+                _error = error;
+                if (error is null) await OnFileSelected.InvokeAsync(file);
+                StateHasChanged();
+            }
+        );
+        return error is null;
+    }
+
+    // The selected file's content, bounded to maximumSize, or null when nothing is selected
+    public ValueTask<Stream?> ReadSelectedFileAsync(long maximumSize, CancellationToken cancellationToken)
+    {
+        return _interop?.ReadSelectedAsync(maximumSize, cancellationToken) ?? ValueTask.FromResult<Stream?>(null);
+    }
+
+    // Forgets the selection and releases its preview, after a save or when the form returns to the saved avatar
+    public async Task ResetAsync()
+    {
+        _error = null;
+        if (_interop is not null) await _interop.ResetAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNet = DotNetObjectReference.Create(this);
+            _interop = new FilePickerInterop(JavaScriptRuntime);
+            await _interop.AttachAsync(_dropZone, _input, _dotNet);
+        }
+
+        if (!_moveFocus) return;
+
+        _moveFocus = false;
+        await (_isOpen && _activeIndex >= 0 ? _itemElements[_activeIndex] : _trigger).FocusAsync();
+    }
+
+    private void Toggle()
+    {
+        if (_isOpen)
+        {
+            Close(true);
+            return;
+        }
+
+        _isOpen = true;
+        _activeIndex = 0;
+        _moveFocus = true;
+    }
+
+    private void Close(bool returnFocus)
+    {
+        _isOpen = false;
+        _activeIndex = -1;
+        _moveFocus = returnFocus;
+    }
+
+    private async Task SelectAsync(PickerMenuItem item)
+    {
+        Close(false);
+        await item.OnSelect();
+    }
+
+    private async Task OpenFileDialogAsync()
+    {
+        if (_interop is not null) await _interop.OpenAsync();
+    }
+
+    private async Task RemoveAsync()
+    {
+        _error = null;
+        await OnRemove.InvokeAsync();
+    }
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "Escape":
+                Close(true);
+                return;
+            case "Tab":
+                Close(false);
+                return;
+        }
+
+        if (MenuNavigation.MoveForKey(args.Key, Items, _ => false, _activeIndex) is not { } index || index < 0) return;
+
+        _activeIndex = index;
+        _moveFocus = true;
+    }
+
+    private sealed record PickerMenuItem(string Label, string TestId, Func<Task> OnSelect);
+
+}

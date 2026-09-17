@@ -231,4 +231,16 @@
     <data name="Sessions" xml:space="preserve">
         <value>Sessions</value>
     </data>
+    <data name="AvatarTooLarge" xml:space="preserve">
+        <value>Image must be smaller than 1 MB.</value>
+        <comment>React: Image must be smaller than 1 MB.</comment>
+    </data>
+    <data name="AvatarTypeInvalid" xml:space="preserve">
+        <value>Please select a JPEG, PNG, GIF, or WebP image.</value>
+        <comment>React: Please select a JPEG, PNG, GIF, or WebP image.</comment>
+    </data>
+    <data name="ProfilePartiallySaved" xml:space="preserve">
+        <value>Your profile picture was saved, but your other changes were not. Try again.</value>
+        <comment>Blazor only: the avatar step of a profile save committed and the profile update failed</comment>
+    </data>
 </root>

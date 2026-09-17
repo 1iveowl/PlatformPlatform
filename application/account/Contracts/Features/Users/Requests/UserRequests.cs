@@ -32,6 +32,16 @@ public sealed record ChangeUserRoleCommand
 [PublicAPI]
 public sealed record UpdateCurrentUserCommand(string FirstName, string LastName, string Title);
 
+// The avatar image the update-avatar endpoint binds as the multipart form file "file", with the limits its validator
+// enforces. The client sends the stream as the file and disposes it with the request.
+[PublicAPI]
+public sealed record UpdateAvatarCommand(Stream FileStream, string ContentType)
+{
+    public const long MaximumFileSizeInBytes = 1024 * 1024;
+
+    public static readonly IReadOnlyList<string> AllowedContentTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+}
+
 [PublicAPI]
 public sealed record BulkDeleteUsersCommand(UserId[] UserIds);
 

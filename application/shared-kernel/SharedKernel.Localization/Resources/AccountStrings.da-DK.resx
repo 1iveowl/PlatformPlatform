@@ -189,4 +189,13 @@
     <data name="Sessions" xml:space="preserve">
         <value>Sessioner</value>
     </data>
+    <data name="AvatarTooLarge" xml:space="preserve">
+        <value>Billedet skal være mindre end 1 MB.</value>
+    </data>
+    <data name="AvatarTypeInvalid" xml:space="preserve">
+        <value>Vælg et JPEG-, PNG-, GIF- eller WebP-billede.</value>
+    </data>
+    <data name="ProfilePartiallySaved" xml:space="preserve">
+        <value>Dit profilbillede blev gemt, men dine øvrige ændringer blev ikke gemt. Prøv igen.</value>
+    </data>
 </root>
