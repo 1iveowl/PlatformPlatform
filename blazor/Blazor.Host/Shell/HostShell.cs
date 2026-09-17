@@ -184,6 +184,55 @@ public sealed class HostShell
         }
     }
 
+    // Static asset responses name further preloads in a Link header with targets relative to the asset: the scoped stylesheet
+    // bundle lists "_content/<package>/<package>.bundle.scp.css". Chromium resolves such a target against the response URL, as
+    // RFC 8288 specifies, but WebKit and Firefox resolve it against the document URL, which requests a path below the page and
+    // returns 404 on any page deeper than one segment. Rewriting each relative target root-absolute against the response URL
+    // makes every browser request the file Chromium already does.
+    public static Task RewriteLinkHeadersAsync(HttpContext context, RequestDelegate next)
+    {
+        var responsePath = $"{context.Request.PathBase}{context.Request.Path}";
+        context.Response.OnStarting(() =>
+            {
+                var headers = context.Response.Headers;
+                if (headers.Link.Count > 0) headers.Link = ToRootAbsoluteLinkHeader(headers.Link.ToString(), responsePath);
+                return Task.CompletedTask;
+            }
+        );
+
+        return next(context);
+    }
+
+    public static string ToRootAbsoluteLinkHeader(string header, string responsePath)
+    {
+        if (!Uri.TryCreate($"http://host{responsePath}", UriKind.Absolute, out var responseUrl)) return header;
+
+        var rewritten = new StringBuilder(header.Length);
+        var position = 0;
+        while (true)
+        {
+            var start = header.IndexOf('<', position);
+            var end = start < 0 ? -1 : header.IndexOf('>', start + 1);
+            if (end < 0) break;
+
+            rewritten.Append(header, position, start + 1 - position);
+            rewritten.Append(ToRootAbsoluteLinkTarget(header[(start + 1)..end], responseUrl));
+            rewritten.Append('>');
+            position = end + 1;
+        }
+
+        rewritten.Append(header, position, header.Length - position);
+        return rewritten.ToString();
+    }
+
+    private static string ToRootAbsoluteLinkTarget(string target, Uri responseUrl)
+    {
+        if (target.StartsWith('/') || target.StartsWith("http://", StringComparison.Ordinal) || target.StartsWith("https://", StringComparison.Ordinal)) return target;
+
+        var resolved = new Uri(responseUrl, target);
+        return $"{resolved.AbsolutePath}{resolved.Query}{resolved.Fragment}";
+    }
+
     private static IReadOnlyDictionary<string, string>? RewriteEntries(IReadOnlyDictionary<string, string>? entries)
     {
         return entries?.ToDictionary(entry => ToAbsoluteSpecifier(entry.Key), entry => AppUrls.ToAbsolute(entry.Value));

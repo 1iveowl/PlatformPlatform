@@ -33,6 +33,14 @@ public sealed record RecordedAccountApiRequest(
     string? Locale
 );
 
+// One host for every test class that needs it: InitializeAsync sets ACCOUNT_API_URL and PUBLIC_URL for the process, so a
+// second fixture running in parallel would point the first host at another stand-in account API
+[CollectionDefinition(Name)]
+public sealed class HostCollection : ICollectionFixture<HostFixture>
+{
+    public const string Name = "Host";
+}
+
 // Runs the real host on loopback in Development, the way the gateway reaches it, with a stand-in account API that records
 // what the host sends. Tokens are signed with the development signing client, which reads the key the AppHost writes.
 public sealed partial class HostFixture : IAsyncLifetime

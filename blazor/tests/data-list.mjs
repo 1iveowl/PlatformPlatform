@@ -28,7 +28,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { baseUrl, isKnownHostConsoleError, isKnownHostErrorResponse, launchBrowser, newContext, observeErrors, parseArguments, pathBase, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
+import { baseUrl, launchBrowser, newContext, observeErrors, parseArguments, pathBase, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const fixtureUrl = `${baseUrl}${pathBase}/development/data-list`;
@@ -113,10 +113,10 @@ async function assertCleanDocument(page, observations, expected) {
   const styled = await page.locator(`${primary} [style], ${secondary} [style], ${primary}[style], ${secondary}[style]`).count();
   assert(styled === 0, `${styled} elements inside the lists carry a style attribute.`);
   assert(observations.pageErrors.length === 0, `Page errors: ${observations.pageErrors.join(" | ")}`);
-  const errorResponses = observations.errorResponses.filter((response) => !isKnownHostErrorResponse(response) && !expected?.response.test(response));
+  const errorResponses = observations.errorResponses.filter((response) => !expected?.response.test(response));
   assert(errorResponses.length === 0, `Error responses: ${errorResponses.join(" | ")}`);
   const expectedCount = observations.errorResponses.filter((response) => expected?.response.test(response)).length;
-  const consoleErrors = observations.consoleErrors.filter((message) => !isKnownHostConsoleError(message));
+  const consoleErrors = observations.consoleErrors;
   const unexpectedConsole = consoleErrors.filter((message) => !expected?.console.test(message));
   const expectedConsole = consoleErrors.length - unexpectedConsole.length;
   assert(unexpectedConsole.length === 0 && expectedConsole <= expectedCount, `Console errors: ${consoleErrors.join(" | ")}`);

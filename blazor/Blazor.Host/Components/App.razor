@@ -18,10 +18,14 @@
     <meta name="theme-color" content="@Shell.Brand.ThemeColorLight" data-light="@Shell.Brand.ThemeColorLight" data-dark="@Shell.Brand.ThemeColorDark"/>
     <title>@Shell.Brand.ProductName</title>
     <link rel="manifest" href="@AppUrls.ToAbsolute(HostShell.ManifestPath)"/>
-    @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce *@
+    @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce.
+       data-permanent keyed by the href: enhanced navigation otherwise treats any two <link> elements as the same node and
+       copies the new one's attributes onto the old one by one, so leaving an interactive page turned a runtime preload into
+       a stylesheet link for dotnet.js (Firefox refuses its MIME type) and entering one set rel="preload" before "as". With a
+       distinct key a preload link is only ever kept as it is, inserted or removed, never rewritten into another link. *@
     @foreach (var link in _preloadLinks)
     {
-        <link href="@link.Href" rel="@link.Rel" as="@link.As" fetchpriority="@link.FetchPriority" crossorigin="@link.CrossOrigin" integrity="@link.Integrity"/>
+        <link href="@link.Href" rel="@link.Rel" as="@link.As" fetchpriority="@link.FetchPriority" crossorigin="@link.CrossOrigin" integrity="@link.Integrity" data-permanent="@link.Href"/>
     }
     <link rel="stylesheet" href="@Shell.BrandStylesheetUrl" nonce="@_nonce"/>
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["_content/Microsoft.FluentUI.AspNetCore.Components/css/default-fuib.css"])" nonce="@_nonce"/>

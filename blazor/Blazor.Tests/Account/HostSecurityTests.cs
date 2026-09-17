@@ -10,7 +10,8 @@ using Microsoft.Extensions.Options;
 
 namespace Blazor.Tests.Account;
 
-public sealed partial class HostSecurityTests(HostFixture fixture) : IClassFixture<HostFixture>
+[Collection(HostCollection.Name)]
+public sealed partial class HostSecurityTests(HostFixture fixture)
 {
     public enum InvalidToken
     {

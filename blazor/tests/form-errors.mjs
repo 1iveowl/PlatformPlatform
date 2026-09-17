@@ -18,7 +18,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { baseUrl, completeWelcomeThroughBlazor, isKnownHostErrorResponse, launchBrowser, newContext, observeErrors, parseArguments, pathBase, readOneTimePassword, resultsFolder, runtimeRequestPattern } from "./support/stack.mjs";
+import { baseUrl, completeWelcomeThroughBlazor, launchBrowser, newContext, observeErrors, parseArguments, pathBase, readOneTimePassword, resultsFolder, runtimeRequestPattern } from "./support/stack.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const interactiveUrl = `${baseUrl}${pathBase}/development/form-errors/interactive`;
@@ -190,8 +190,7 @@ await check("static form renders API messages from the POST response and validat
 
     await assertCleanPage(page, observations);
     assertEqual(runtimeRequests, [], "WebAssembly runtime requests on the static form");
-    const unexpectedResponses = observations.errorResponses.filter((response) => !isKnownHostErrorResponse(response));
-    assert(unexpectedResponses.length === 0, `Error responses: ${unexpectedResponses.join(" | ")}.`);
+    assert(observations.errorResponses.length === 0, `Error responses: ${observations.errorResponses.join(" | ")}.`);
   } finally {
     await context.close();
   }

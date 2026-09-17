@@ -111,6 +111,7 @@ public static class HostApplication
                 return Task.CompletedTask;
             }
         );
+        app.Use(HostShell.RewriteLinkHeadersAsync);
         app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
         app.UseRouting();
 

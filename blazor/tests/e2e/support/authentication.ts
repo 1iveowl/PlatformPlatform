@@ -5,12 +5,6 @@ import { expectBlazorUrl, gotoBlazor } from "./routes";
 import { blazorTexts } from "./texts";
 
 /**
- * Error responses the Blazor host causes itself and that are owned outside the tests: below the second path segment
- * WebKit and Firefox resolve the scoped stylesheet preloads relative to the document and receive 404.
- */
-const knownHostErrorResponseSuffix = ".bundle.scp.css - HTTP 404";
-
-/**
  * The Playwright test for Blazor specs. Every test gets the built-in page fixture, which is a fresh browser context per
  * test with no stored authentication state, so nothing is shared between tests, projects or workers. An automatic
  * fixture asserts the error monitoring started by createTestContext when each test ends.
@@ -22,8 +16,6 @@ export const test = base.extend<{ unexpectedErrorCheck: void }>({
 
       const testContext = (page as Page & { __testContext?: TestContext }).__testContext;
       expect(testContext, "Start every Blazor test with createTestContext(page).").toBeDefined();
-      const monitoring = testContext!.monitoring;
-      monitoring.networkErrors = monitoring.networkErrors.filter((error) => !error.endsWith(knownHostErrorResponseSuffix));
       await assertNoUnexpectedErrors(testContext!);
     },
     { auto: true }

@@ -25,7 +25,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { baseUrl, isKnownHostConsoleError, isKnownHostErrorResponse, launchBrowser, newContext, observeErrors, parseArguments, pathBase, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
+import { baseUrl, launchBrowser, newContext, observeErrors, parseArguments, pathBase, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const interactiveUrl = `${baseUrl}${pathBase}/development/form-errors/interactive`;
@@ -152,10 +152,8 @@ async function assertCleanDocument(page, observations) {
   assert(state.violations.length === 0, `Policy violations: ${JSON.stringify(state.violations)}.`);
   assert(state.styleAttributes === 0, `${state.styleAttributes} style attributes in the toast region or a dialog.`);
   assert(observations.pageErrors.length === 0, `Page errors: ${observations.pageErrors.join(" | ")}.`);
-  const unexpectedResponses = observations.errorResponses.filter((response) => !isKnownHostErrorResponse(response));
-  assert(unexpectedResponses.length === 0, `Error responses: ${unexpectedResponses.join(" | ")}.`);
-  const unexpectedConsoleErrors = observations.consoleErrors.filter((message) => !isKnownHostConsoleError(message));
-  assert(unexpectedConsoleErrors.length === 0, `Console errors: ${unexpectedConsoleErrors.join(" | ")}.`);
+  assert(observations.errorResponses.length === 0, `Error responses: ${observations.errorResponses.join(" | ")}.`);
+  assert(observations.consoleErrors.length === 0, `Console errors: ${observations.consoleErrors.join(" | ")}.`);
 }
 
 await check("clean page follows an in-app link without a dialog", () =>
