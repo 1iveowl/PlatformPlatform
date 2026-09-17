@@ -56,10 +56,16 @@ public sealed class ExternalAuthenticationHelper(
         var externalLoginCookie = externalAuthenticationService.GetExternalLoginCookie();
         var externalLoginIdFromState = externalAuthenticationService.GetExternalLoginIdFromState(state);
 
+        // The cookie's destination is used only once the cookie is known to belong to the flow in the state. Before that
+        // the edition cannot be recovered safely, and borrowing the destination of another flow would be a guess.
+        var destination = externalLoginCookie is not null && externalLoginIdFromState == externalLoginCookie.ExternalLoginId
+            ? externalLoginCookie.Destination
+            : ExternalLoginDestination.Fallback;
+
         if (externalLoginIdFromState is null && externalLoginCookie is null)
         {
             logger.LogWarning("Missing state and cookie");
-            return FailedRedirect(null!, externalLoginCookie!, ExternalLoginResult.InvalidState, loginType);
+            return FailedRedirect(destination, null!, externalLoginCookie!, ExternalLoginResult.InvalidState, loginType);
         }
 
         Activity.Current?.SetTag("flow_id", externalLoginIdFromState?.ToString() ?? externalLoginCookie?.ExternalLoginId.ToString());
@@ -67,44 +73,44 @@ public sealed class ExternalAuthenticationHelper(
         if (externalLoginIdFromState is null)
         {
             logger.LogWarning("Missing external login ID from state");
-            return FailedRedirect(null!, externalLoginCookie!, ExternalLoginResult.InvalidState, loginType);
+            return FailedRedirect(destination, null!, externalLoginCookie!, ExternalLoginResult.InvalidState, loginType);
         }
 
         if (externalLoginCookie is null)
         {
             logger.LogWarning("Replay detected for flow '{FlowId}' - session cookie missing", externalLoginIdFromState);
-            return FailedRedirect(null!, externalLoginCookie!, ExternalLoginResult.LoginReplayDetected, loginType);
+            return FailedRedirect(destination, null!, externalLoginCookie!, ExternalLoginResult.LoginReplayDetected, loginType);
         }
 
         var externalLogin = await externalLoginRepository.GetByIdAsync(externalLoginIdFromState, cancellationToken);
         if (externalLogin is null)
         {
             logger.LogWarning("Session not found for external login '{ExternalLoginId}'", externalLoginIdFromState);
-            return FailedRedirect(null!, externalLoginCookie, ExternalLoginResult.SessionNotFound, loginType);
+            return FailedRedirect(destination, null!, externalLoginCookie, ExternalLoginResult.SessionNotFound, loginType);
         }
 
         if (externalLoginIdFromState != externalLoginCookie.ExternalLoginId)
         {
             logger.LogWarning("Flow ID mismatch for external login '{ExternalLoginId}'", externalLoginIdFromState);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowIdMismatch, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.FlowIdMismatch, loginType);
         }
 
         if (!externalAuthenticationService.ValidateBrowserFingerprint(externalLoginCookie.FingerprintHash))
         {
             logger.LogWarning("Session hijacking detected for external login '{ExternalLoginId}'", externalLoginIdFromState);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.SessionHijackingDetected, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.SessionHijackingDetected, loginType);
         }
 
         if (externalLogin.IsExpired(timeProvider.GetUtcNow()))
         {
             logger.LogWarning("Login expired for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.LoginExpired, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.LoginExpired, loginType);
         }
 
         if (externalLogin.IsConsumed)
         {
             logger.LogWarning("Login already completed for external login '{ExternalLoginId}'", externalLoginIdFromState);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.LoginAlreadyCompleted, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.LoginAlreadyCompleted, loginType);
         }
 
         // The route only decides which handler runs; every decision below is made on the persisted flow. The checks
@@ -112,19 +118,19 @@ public sealed class ExternalAuthenticationHelper(
         if (externalLogin.Type != loginType)
         {
             logger.LogWarning("Flow type mismatch for external login '{ExternalLoginId}' started as '{FlowType}' and presented to a '{CallbackType}' callback", externalLogin.Id, externalLogin.Type, loginType);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
         }
 
         if (externalLogin.ProviderType != providerType)
         {
             logger.LogWarning("Provider mismatch for external login '{ExternalLoginId}' started with '{FlowProvider}' and presented to a '{CallbackProvider}' callback", externalLogin.Id, externalLogin.ProviderType, providerType);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
         }
 
         if (!ExternalAuthenticationPolicy.IsFlowSupported(externalLogin.ProviderType, externalLogin.Type))
         {
             logger.LogWarning("Provider '{ProviderType}' does not support the '{FlowType}' flow", externalLogin.ProviderType, externalLogin.Type);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
         }
 
         // Checked here as well as at the start, so a flow already in flight cannot be completed after the deployment
@@ -132,7 +138,7 @@ public sealed class ExternalAuthenticationHelper(
         if (!oauthProviderFactory.IsFlowEnabled(externalLogin.ProviderType, externalLogin.Type))
         {
             logger.LogWarning("Provider '{ProviderType}' is not enabled for the '{FlowType}' flow", externalLogin.ProviderType, externalLogin.Type);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
         }
 
         var httpContext = httpContextAccessor.HttpContext!;
@@ -143,32 +149,32 @@ public sealed class ExternalAuthenticationHelper(
         if (useMockProvider != externalLogin.UsedMockProvider)
         {
             logger.LogWarning("Provider selection changed between start and callback for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.FlowNotSupported, loginType);
         }
 
         if (ExternalAuthenticationPolicy.RequiresAuthenticatedUser(externalLogin.Type))
         {
-            var bindingResult = ValidateUserBinding(externalLogin, externalLoginCookie, loginType);
+            var bindingResult = ValidateUserBinding(destination, externalLogin, externalLoginCookie, loginType);
             if (bindingResult is not null) return bindingResult;
         }
 
         if (!string.IsNullOrEmpty(error))
         {
             logger.LogWarning("OAuth error received: '{Error}' - '{ErrorDescription}'", error, errorDescription);
-            return OAuthErrorRedirect(externalLogin, externalLoginCookie, error, loginType);
+            return OAuthErrorRedirect(destination, externalLogin, externalLoginCookie, error, loginType);
         }
 
         if (string.IsNullOrEmpty(code))
         {
             logger.LogWarning("Authorization code missing from OAuth callback");
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
         }
 
         var oauthProvider = oauthProviderFactory.GetProvider(externalLogin.ProviderType, useMockProvider);
         if (oauthProvider is null)
         {
             logger.LogWarning("Provider '{ProviderType}' not configured", externalLogin.ProviderType);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
         }
 
         var redirectUri = ExternalAuthenticationService.GetRedirectUri(externalLogin.ProviderType, loginType);
@@ -176,27 +182,27 @@ public sealed class ExternalAuthenticationHelper(
         if (tokenResponse is null)
         {
             logger.LogWarning("Token exchange failed for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
         }
 
         var userProfile = await oauthProvider.GetUserProfileAsync(tokenResponse, cancellationToken);
         if (userProfile is null)
         {
             logger.LogWarning("Failed to get user profile for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
         }
 
         // A profile without an email has nothing to verify; the login handler resolves such a user by identity alone
         if (userProfile.Email is not null && !userProfile.EmailVerified)
         {
             logger.LogWarning("Email not verified for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.CodeExchangeFailed, loginType);
         }
 
         if (userProfile.Nonce != externalLogin.Nonce)
         {
             logger.LogWarning("Nonce mismatch for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.NonceMismatch, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.NonceMismatch, loginType);
         }
 
         // A provider that reports when the person authenticated must report an authentication that happened during
@@ -205,7 +211,7 @@ public sealed class ExternalAuthenticationHelper(
         if (userProfile.AuthenticationInstant is not null && !IsWithinFlowWindow(userProfile.AuthenticationInstant.Value, externalLogin))
         {
             logger.LogWarning("Stale authentication for external login '{ExternalLoginId}': the provider reports an authentication outside this flow's window", externalLogin.Id);
-            return FailedRedirect(externalLogin, externalLoginCookie, ExternalLoginResult.StaleAuthentication, loginType);
+            return FailedRedirect(destination, externalLogin, externalLoginCookie, ExternalLoginResult.StaleAuthentication, loginType);
         }
 
         return CallbackValidationResult.Success(externalLogin, externalLoginCookie, userProfile);
@@ -230,12 +236,12 @@ public sealed class ExternalAuthenticationHelper(
     ///     when it reports no user the gateway lost the session rather than someone else presenting the callback, and
     ///     that is a different, retryable outcome.
     /// </summary>
-    private CallbackValidationResult? ValidateUserBinding(ExternalLogin externalLogin, ExternalLoginCookie cookie, ExternalLoginType loginType)
+    private CallbackValidationResult? ValidateUserBinding(ExternalLoginDestination destination, ExternalLogin externalLogin, ExternalLoginCookie cookie, ExternalLoginType loginType)
     {
         if (cookie.UserId is null || cookie.UserId != externalLogin.UserId)
         {
             logger.LogWarning("User binding mismatch for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, cookie, ExternalLoginResult.VerificationUserMismatch, loginType);
+            return FailedRedirect(destination, externalLogin, cookie, ExternalLoginResult.VerificationUserMismatch, loginType);
         }
 
         // The cookie has already matched, so this gate buys no identification and costs availability: a callback whose
@@ -246,19 +252,20 @@ public sealed class ExternalAuthenticationHelper(
         if (!executionContext.UserInfo.IsAuthenticated)
         {
             logger.LogWarning("No authenticated session on the callback for external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, cookie, ExternalLoginResult.VerificationSessionLost, loginType);
+            return FailedRedirect(destination, externalLogin, cookie, ExternalLoginResult.VerificationSessionLost, loginType);
         }
 
         if (executionContext.UserInfo.Id != externalLogin.UserId)
         {
             logger.LogWarning("Authenticated user does not match the user bound to external login '{ExternalLoginId}'", externalLogin.Id);
-            return FailedRedirect(externalLogin, cookie, ExternalLoginResult.VerificationUserMismatch, loginType);
+            return FailedRedirect(destination, externalLogin, cookie, ExternalLoginResult.VerificationUserMismatch, loginType);
         }
 
         return null;
     }
 
     private CallbackValidationResult FailedRedirect(
+        ExternalLoginDestination destination,
         ExternalLogin? externalLogin,
         ExternalLoginCookie cookie,
         ExternalLoginResult loginResult,
@@ -281,13 +288,12 @@ public sealed class ExternalAuthenticationHelper(
 
         var oidcError = ExternalAuthenticationService.MapToOidcError(loginResult);
         var referenceId = externalLogin?.Id.ToString() ?? Activity.Current?.TraceId.ToString();
-        var redirectUrl = $"/error?error={oidcError}&id={referenceId}";
-
-        var errorResult = Result<string>.Redirect(redirectUrl);
+        var errorResult = Result<string>.Redirect(destination.GetErrorUrl(oidcError, referenceId));
         return CallbackValidationResult.Failure(externalLogin!, cookie, errorResult);
     }
 
     private CallbackValidationResult OAuthErrorRedirect(
+        ExternalLoginDestination destination,
         ExternalLogin externalLogin,
         ExternalLoginCookie cookie,
         string oauthError,
@@ -303,8 +309,7 @@ public sealed class ExternalAuthenticationHelper(
 
         CollectFailedEvent(loginType, externalLogin, ExternalLoginResult.IdentityProviderError, timeInSeconds, oauthError);
 
-        var sanitizedError = Uri.EscapeDataString(oauthError);
-        var errorResult = Result<string>.Redirect($"/error?error={sanitizedError}&id={externalLogin.Id}");
+        var errorResult = Result<string>.Redirect(destination.GetErrorUrl(oauthError, externalLogin.Id.ToString()));
         return CallbackValidationResult.Failure(externalLogin, cookie, errorResult);
     }
 

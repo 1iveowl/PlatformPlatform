@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Http;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Cqrs;
 using SharedKernel.ExecutionContext;
-using SharedKernel.OpenIdConnect;
 using SharedKernel.Telemetry;
 using ExternalIdentity = Account.Features.ExternalAuthentication.Domain.ExternalIdentity;
 
@@ -54,35 +53,36 @@ public sealed class CompleteExternalSignupHandler(
             if (!validationResult.IsSuccess) return validationResult.ErrorResult!;
 
             var externalLogin = validationResult.ExternalLogin;
+            var destination = validationResult.Cookie.Destination;
             var userProfile = validationResult.UserProfile!;
 
             if (userProfile.Email is null)
             {
                 logger.LogWarning("Profile without an email cannot sign up for external login '{ExternalLoginId}'", externalLogin.Id);
-                return SignupFailedRedirect(externalLogin, ExternalLoginResult.EmailNotProvided);
+                return SignupFailedRedirect(destination, externalLogin, ExternalLoginResult.EmailNotProvided);
             }
 
             var existingUser = await userRepository.GetUserByEmailUnfilteredAsync(userProfile.Email, cancellationToken);
             if (existingUser is not null)
             {
                 logger.LogWarning("User already exists for external login '{ExternalLoginId}'", externalLogin.Id);
-                return SignupFailedRedirect(externalLogin, ExternalLoginResult.AccountAlreadyExists);
+                return SignupFailedRedirect(destination, externalLogin, ExternalLoginResult.AccountAlreadyExists);
             }
 
-            var locale = externalAuthenticationService.GetLocaleCookie() ?? userProfile.Locale;
+            var locale = validationResult.Cookie.Locale ?? userProfile.Locale;
 
             var createTenantResult = await mediator.Send(new CreateTenantCommand(userProfile.Email, true, locale), cancellationToken);
             if (!createTenantResult.IsSuccess)
             {
                 logger.LogWarning("Failed to create tenant for external signup '{ExternalLoginId}'", externalLogin.Id);
-                return SignupFailedRedirect(externalLogin, ExternalLoginResult.CodeExchangeFailed);
+                return SignupFailedRedirect(destination, externalLogin, ExternalLoginResult.CodeExchangeFailed);
             }
 
             var user = await userRepository.GetByIdAsync(createTenantResult.Value!.UserId, cancellationToken);
             if (user is null)
             {
                 logger.LogWarning("Failed to get user after tenant creation for external signup '{ExternalLoginId}'", externalLogin.Id);
-                return SignupFailedRedirect(externalLogin, ExternalLoginResult.CodeExchangeFailed);
+                return SignupFailedRedirect(destination, externalLogin, ExternalLoginResult.CodeExchangeFailed);
             }
 
             var externalIdentity = ExternalIdentity.Create(user.TenantId, user.Id, externalLogin.ProviderType, userProfile.ProviderUserId, userProfile.Issuer, userProfile.Subject);
@@ -127,19 +127,15 @@ public sealed class CompleteExternalSignupHandler(
             var signupTimeInSeconds = (int)(timeProvider.GetUtcNow() - externalLogin.CreatedAt).TotalSeconds;
             events.CollectEvent(new ExternalSignupCompleted(createTenantResult.Value.TenantId, externalLogin.ProviderType, signupTimeInSeconds));
 
-            var returnPath = ReturnPathHelper.GetReturnPathCookie(httpContext) ?? "/";
-            ReturnPathHelper.ClearReturnPathCookie(httpContext);
-
-            return Result<string>.Redirect(returnPath);
+            return Result<string>.Redirect(destination.GetSuccessUrl());
         }
         finally
         {
             externalAuthenticationService.ClearExternalLoginCookie();
-            externalAuthenticationService.ClearLocaleCookie();
         }
     }
 
-    private Result<string> SignupFailedRedirect(ExternalLogin externalLogin, ExternalLoginResult loginResult)
+    private Result<string> SignupFailedRedirect(ExternalLoginDestination destination, ExternalLogin externalLogin, ExternalLoginResult loginResult)
     {
         var timeInSeconds = (int)(timeProvider.GetUtcNow() - externalLogin.CreatedAt).TotalSeconds;
         if (!externalLogin.IsConsumed)
@@ -151,6 +147,6 @@ public sealed class CompleteExternalSignupHandler(
         events.CollectEvent(new ExternalSignupFailed(externalLogin.Id, loginResult, timeInSeconds));
 
         var oidcError = ExternalAuthenticationService.MapToOidcError(loginResult);
-        return Result<string>.Redirect($"/error?error={oidcError}&id={externalLogin.Id}");
+        return Result<string>.Redirect(destination.GetErrorUrl(oidcError, externalLogin.Id.ToString()));
     }
 }

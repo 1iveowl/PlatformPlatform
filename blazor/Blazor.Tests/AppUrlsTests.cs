@@ -100,6 +100,20 @@ public sealed class AppUrlsTests
     [InlineData("/dashboard")]
     [InlineData("/blazor")]
     [InlineData("/blazor-other/app")]
+    [InlineData("/blazorx/app")]
+    [InlineData("/blazor/../dashboard")]
+    [InlineData("/blazor/./../dashboard")]
+    [InlineData("/blazor/%2e%2e/dashboard")]
+    [InlineData("/blazor/%2E%2E%2Fdashboard")]
+    [InlineData("/blazor/..%2fdashboard")]
+    [InlineData("/blazor/%2f%2fevil.example.com")]
+    [InlineData("/blazor/%5cevil.example.com")]
+    [InlineData("/blazor/\t/evil.example.com")]
+    [InlineData("/blazor/app\n")]
+    [InlineData("/blazor/app%")]
+    [InlineData("/blazor/app%zz")]
+    [InlineData("/dashboard?returnPath=/blazor/app")]
+    [InlineData("/blazor/https://evil.example.com")]
     public void SanitizeReturnPath_WhenNotALocalPathUnderPathBase_ShouldReturnAuthenticatedHome(string? returnPath)
     {
         // Act

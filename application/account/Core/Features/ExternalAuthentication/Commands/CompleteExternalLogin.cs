@@ -11,7 +11,6 @@ using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Cqrs;
 using SharedKernel.Domain;
 using SharedKernel.ExecutionContext;
-using SharedKernel.OpenIdConnect;
 using SharedKernel.Telemetry;
 using ExternalIdentity = Account.Features.ExternalAuthentication.Domain.ExternalIdentity;
 
@@ -55,6 +54,7 @@ public sealed class CompleteExternalLoginHandler(
             if (!validationResult.IsSuccess) return validationResult.ErrorResult!;
 
             var externalLogin = validationResult.ExternalLogin;
+            var destination = validationResult.Cookie.Destination;
             var externalLoginCookie = validationResult.Cookie;
             var userProfile = validationResult.UserProfile!;
 
@@ -82,11 +82,11 @@ public sealed class CompleteExternalLoginHandler(
                 if (!suppliesEmail && loginCapableIdentities.Length == 0)
                 {
                     logger.LogWarning("No verified '{ProviderType}' identity for external login '{ExternalLoginId}'", externalLogin.ProviderType, externalLogin.Id);
-                    return LoginFailedRedirect(externalLogin, ExternalLoginResult.IdentityNotVerified);
+                    return LoginFailedRedirect(destination, externalLogin, ExternalLoginResult.IdentityNotVerified);
                 }
 
                 logger.LogWarning("No active users found for external login '{ExternalLoginId}'", externalLogin.Id);
-                return LoginFailedRedirect(externalLogin, ExternalLoginResult.UserNotFound);
+                return LoginFailedRedirect(destination, externalLogin, ExternalLoginResult.UserNotFound);
             }
 
             if (lookup == ExternalLoginLookup.Email)
@@ -97,7 +97,7 @@ public sealed class CompleteExternalLoginHandler(
                 if (existingIdentity is not null && existingIdentity.ProviderUserId != userProfile.ProviderUserId)
                 {
                     logger.LogWarning("Identity mismatch for user '{UserId}' with provider '{ProviderType}'", user.Id, externalLogin.ProviderType);
-                    return LoginFailedRedirect(externalLogin, ExternalLoginResult.IdentityMismatch);
+                    return LoginFailedRedirect(destination, externalLogin, ExternalLoginResult.IdentityMismatch);
                 }
 
                 if (existingIdentity is null)
@@ -157,15 +157,11 @@ public sealed class CompleteExternalLoginHandler(
             var loginTimeInSeconds = (int)(timeProvider.GetUtcNow() - externalLogin.CreatedAt).TotalSeconds;
             events.CollectEvent(new ExternalLoginCompleted(user.Id, externalLogin.ProviderType, lookup, loginTimeInSeconds));
 
-            var returnPath = ReturnPathHelper.GetReturnPathCookie(httpContext) ?? "/";
-            ReturnPathHelper.ClearReturnPathCookie(httpContext);
-
-            return Result<string>.Redirect(returnPath);
+            return Result<string>.Redirect(destination.GetSuccessUrl());
         }
         finally
         {
             externalAuthenticationService.ClearExternalLoginCookie();
-            externalAuthenticationService.ClearLocaleCookie();
         }
     }
 
@@ -228,7 +224,7 @@ public sealed class CompleteExternalLoginHandler(
         return users.Where(u => activeTenantIds.Contains(u.TenantId)).ToArray();
     }
 
-    private Result<string> LoginFailedRedirect(ExternalLogin externalLogin, ExternalLoginResult loginResult)
+    private Result<string> LoginFailedRedirect(ExternalLoginDestination destination, ExternalLogin externalLogin, ExternalLoginResult loginResult)
     {
         var timeInSeconds = (int)(timeProvider.GetUtcNow() - externalLogin.CreatedAt).TotalSeconds;
         if (!externalLogin.IsConsumed)
@@ -240,6 +236,6 @@ public sealed class CompleteExternalLoginHandler(
         events.CollectEvent(new ExternalLoginFailed(externalLogin.Id, loginResult, timeInSeconds));
 
         var oidcError = ExternalAuthenticationService.MapToOidcError(loginResult);
-        return Result<string>.Redirect($"/error?error={oidcError}&id={externalLogin.Id}");
+        return Result<string>.Redirect(destination.GetErrorUrl(oidcError, externalLogin.Id.ToString()));
     }
 }

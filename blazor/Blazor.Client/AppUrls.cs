@@ -1,3 +1,5 @@
+using SharedKernel.Navigation;
+
 namespace Blazor.Client;
 
 // The one place that knows the path base the gateway routes to this edition. The policy's base-uri 'none' makes the
@@ -23,11 +25,10 @@ public static class AppUrls
         return url == PathBase || url.StartsWith($"{PathBase}/", StringComparison.Ordinal) || url.StartsWith($"{PathBase}?", StringComparison.Ordinal);
     }
 
-    // Only a local path below the path base is honoured, so a return path can never redirect off site
+    // Only a canonical local path below the path base is honoured, under the same rule the account API applies to the
+    // return path of an external login, so a return path can neither redirect off site nor resolve outside this edition
     public static string SanitizeReturnPath(string? returnPath)
     {
-        if (string.IsNullOrEmpty(returnPath)) return AuthenticatedHome;
-        if (!returnPath.StartsWith($"{PathBase}/", StringComparison.Ordinal) || returnPath.Contains("//") || returnPath.Contains('\\')) return AuthenticatedHome;
-        return returnPath;
+        return LocalReturnPath.IsValid(returnPath, $"{PathBase}/") ? returnPath! : AuthenticatedHome;
     }
 }

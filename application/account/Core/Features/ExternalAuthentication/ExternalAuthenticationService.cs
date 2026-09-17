@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Account.Features.Authentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.ExternalAuthentication.Shared;
 using Account.Integrations.OAuth;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
@@ -10,13 +11,19 @@ using SharedKernel.SinglePageApp;
 
 namespace Account.Features.ExternalAuthentication;
 
-public sealed record ExternalLoginCookie(ExternalLoginId ExternalLoginId, string FingerprintHash, TenantId? PreferredTenantId, UserId? UserId);
+public sealed record ExternalLoginCookie(
+    ExternalLoginId ExternalLoginId,
+    string FingerprintHash,
+    TenantId? PreferredTenantId,
+    UserId? UserId,
+    ExternalLoginDestination Destination,
+    string? Locale
+);
 
 public sealed class ExternalAuthenticationService(IHttpContextAccessor httpContextAccessor, IDataProtectionProvider dataProtectionProvider, OAuthProviderFactory oauthProviderFactory, ILogger<ExternalAuthenticationService> logger)
 {
     private const string DataProtectionPurpose = "ExternalLogin";
     private const string ExternalLoginCookieName = "__Host-external-login";
-    private const string LocaleCookieName = "__Host-external-login-locale";
 
     /// <summary>
     ///     How much longer the flow cookie lives than the flow itself. The two used to expire together, so somebody
@@ -27,6 +34,9 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
     ///     means something genuinely anomalous rather than merely late.
     /// </summary>
     private const int CookieGracePeriodSeconds = 600;
+
+    private const int LegacyPartCount = 4;
+    private const int PartCount = 7;
 
     private static readonly TimeSpan ExternalLoginCookieLifetime = TimeSpan.FromSeconds(ExternalLogin.ValidForSeconds + CookieGracePeriodSeconds);
 
@@ -41,21 +51,15 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
     ///     minted before a deploy still parses. The user id is carried here rather than read from the session at the
     ///     callback, because the access token cookie is SameSite=Strict and is not sent when the identity provider
     ///     redirects the browser back; this cookie is SameSite=Lax and encrypted, so it is the only binding that does
-    ///     not depend on the gateway re-minting a token.
+    ///     not depend on the gateway re-minting a token. The destination and locale travel in the same cookie for the
+    ///     same reason and so that they belong to this flow alone: starting another flow overwrites them together with
+    ///     the flow id, so a flow can never complete with a destination or locale chosen for a different one.
     /// </summary>
-    public void SetExternalLoginCookie(ExternalLoginId externalLoginId, TenantId? preferredTenantId = null, UserId? userId = null)
+    public void SetExternalLoginCookie(ExternalLoginId externalLoginId, ExternalLoginDestination destination, TenantId? preferredTenantId = null, UserId? userId = null, string? locale = null)
     {
         var fingerprintHash = GenerateBrowserFingerprintHash();
-        var rawValue = $"{externalLoginId}|{fingerprintHash}";
-        if (preferredTenantId is not null || userId is not null)
-        {
-            rawValue += $"|{preferredTenantId}";
-        }
-
-        if (userId is not null)
-        {
-            rawValue += $"|{userId}";
-        }
+        var escapedReturnPath = destination.ReturnPath is null ? string.Empty : Uri.EscapeDataString(destination.ReturnPath);
+        var rawValue = $"{externalLoginId}|{fingerprintHash}|{preferredTenantId}|{userId}|{destination.Edition}|{locale}|{escapedReturnPath}";
 
         var cookieValue = _dataProtector.Protect(rawValue);
         httpContextAccessor.HttpContext!.Response.Cookies.Append(
@@ -73,6 +77,10 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
         );
     }
 
+    /// <summary>
+    ///     The destination and locale are validated again on the way out, so the callback consumes them under the same
+    ///     rules that admitted them; a value that fails is dropped for the edition's default rather than trusted.
+    /// </summary>
     public ExternalLoginCookie? GetExternalLoginCookie()
     {
         var cookieValue = httpContextAccessor.HttpContext?.Request.Cookies[ExternalLoginCookieName];
@@ -83,7 +91,7 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
             var decryptedValue = _dataProtector.Unprotect(cookieValue);
 
             var parts = decryptedValue.Split('|');
-            if (parts.Length is not (2 or 3 or 4)) return null;
+            if (parts.Length is not (2 or 3 or LegacyPartCount or PartCount)) return null;
 
             if (!ExternalLoginId.TryParse(parts[0], out var externalLoginId)) return null;
 
@@ -91,11 +99,21 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
                 ? parsedTenantId
                 : null;
 
-            var userId = parts.Length == 4 && UserId.TryParse(parts[3], out var parsedUserId)
+            var userId = parts.Length >= LegacyPartCount && UserId.TryParse(parts[3], out var parsedUserId)
                 ? parsedUserId
                 : null;
 
-            return new ExternalLoginCookie(externalLoginId, parts[1], preferredTenantId, userId);
+            if (parts.Length < PartCount)
+            {
+                return new ExternalLoginCookie(externalLoginId, parts[1], preferredTenantId, userId, ExternalLoginDestination.Create(ExternalLoginEdition.React, null), null);
+            }
+
+            if (!ExternalLoginDestination.TryParseEdition(parts[4], out var edition)) return null;
+
+            var returnPath = parts[6].Length == 0 ? null : Uri.UnescapeDataString(parts[6]);
+            var destination = ExternalLoginDestination.Create(edition, returnPath);
+
+            return new ExternalLoginCookie(externalLoginId, parts[1], preferredTenantId, userId, destination, ToSupportedLocale(parts[5]));
         }
         catch (Exception ex)
         {
@@ -109,30 +127,11 @@ public sealed class ExternalAuthenticationService(IHttpContextAccessor httpConte
         httpContextAccessor.HttpContext!.Response.Cookies.Delete(ExternalLoginCookieName, new CookieOptions { Secure = true });
     }
 
-    public void SetLocaleCookie(string locale)
+    /// <summary>Returns the supported locale's canonical name for an exact match ignoring case, and null for anything else.</summary>
+    public static string? ToSupportedLocale(string? locale)
     {
-        httpContextAccessor.HttpContext!.Response.Cookies.Append(
-            LocaleCookieName,
-            locale,
-            new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                IsEssential = true,
-                MaxAge = ExternalLoginCookieLifetime
-            }
-        );
-    }
-
-    public string? GetLocaleCookie()
-    {
-        return httpContextAccessor.HttpContext?.Request.Cookies[LocaleCookieName];
-    }
-
-    public void ClearLocaleCookie()
-    {
-        httpContextAccessor.HttpContext!.Response.Cookies.Delete(LocaleCookieName, new CookieOptions { Secure = true });
+        if (string.IsNullOrEmpty(locale)) return null;
+        return SinglePageAppConfiguration.SupportedLocalizations.FirstOrDefault(supported => supported.Equals(locale, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

@@ -2,10 +2,8 @@ using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Shared;
 using Account.Features.Users.Domain;
 using JetBrains.Annotations;
-using Microsoft.AspNetCore.Http;
 using SharedKernel.Cqrs;
 using SharedKernel.Domain;
-using SharedKernel.OpenIdConnect;
 using SharedKernel.Telemetry;
 using ExternalIdentity = Account.Features.ExternalAuthentication.Domain.ExternalIdentity;
 
@@ -30,7 +28,6 @@ public sealed class CompleteExternalVerificationHandler(
     IUserRepository userRepository,
     ExternalAuthenticationHelper externalAuthenticationHelper,
     ExternalAuthenticationService externalAuthenticationService,
-    IHttpContextAccessor httpContextAccessor,
     ITelemetryEventsCollector events,
     TimeProvider timeProvider,
     ILogger<CompleteExternalVerificationHandler> logger
@@ -47,6 +44,7 @@ public sealed class CompleteExternalVerificationHandler(
             if (!validationResult.IsSuccess) return validationResult.ErrorResult!;
 
             var externalLogin = validationResult.ExternalLogin;
+            var destination = validationResult.Cookie.Destination;
             var userProfile = validationResult.UserProfile!;
 
             // Guaranteed by ExternalLogin.Create and re-checked against the flow cookie and the session in ValidateCallback
@@ -56,7 +54,7 @@ public sealed class CompleteExternalVerificationHandler(
             if (userProfile.AssuranceLevel is null)
             {
                 logger.LogWarning("Provider '{ProviderType}' returned no assurance level for external login '{ExternalLoginId}'", externalLogin.ProviderType, externalLogin.Id);
-                return VerificationFailedRedirect(externalLogin, ExternalLoginResult.AssuranceLevelInsufficient);
+                return VerificationFailedRedirect(destination, externalLogin, ExternalLoginResult.AssuranceLevelInsufficient);
             }
 
             if (userProfile.AuthenticationInstant is null)
@@ -64,13 +62,13 @@ public sealed class CompleteExternalVerificationHandler(
                 // Without an authentication time the freshness of the verification cannot be established, which is
                 // the property StaleAuthentication guards, so that is the honest result rather than the assurance level
                 logger.LogWarning("Provider '{ProviderType}' returned no authentication time for external login '{ExternalLoginId}'", externalLogin.ProviderType, externalLogin.Id);
-                return VerificationFailedRedirect(externalLogin, ExternalLoginResult.StaleAuthentication);
+                return VerificationFailedRedirect(destination, externalLogin, ExternalLoginResult.StaleAuthentication);
             }
 
             if (userProfile.AssuranceLevel < ExternalAuthenticationPolicy.RequiredAssuranceLevel)
             {
                 logger.LogWarning("Provider '{ProviderType}' authenticated at '{AssuranceLevel}' for external login '{ExternalLoginId}', below the required '{RequiredAssuranceLevel}'", externalLogin.ProviderType, userProfile.AssuranceLevel, externalLogin.Id, ExternalAuthenticationPolicy.RequiredAssuranceLevel);
-                return VerificationFailedRedirect(externalLogin, ExternalLoginResult.AssuranceLevelInsufficient);
+                return VerificationFailedRedirect(destination, externalLogin, ExternalLoginResult.AssuranceLevelInsufficient);
             }
 
             var existingIdentity = await externalIdentityRepository.GetByUserIdAndProviderUnfilteredAsync(userId, externalLogin.ProviderType, cancellationToken);
@@ -81,12 +79,12 @@ public sealed class CompleteExternalVerificationHandler(
                 // is refused. A back office administrator can revoke the binding when someone verified with the wrong
                 // identity, for example on a shared device.
                 logger.LogWarning("User '{UserId}' is already verified with another '{ProviderType}' identity", userId, externalLogin.ProviderType);
-                return VerificationFailedRedirect(externalLogin, ExternalLoginResult.IdentityMismatch);
+                return VerificationFailedRedirect(destination, externalLogin, ExternalLoginResult.IdentityMismatch);
             }
 
             if (existingIdentity is null)
             {
-                var conflictResult = await ResolveIdentityHeldByAnotherUser(externalLogin, userProfile.ProviderUserId, tenantId, cancellationToken);
+                var conflictResult = await ResolveIdentityHeldByAnotherUser(destination, externalLogin, userProfile.ProviderUserId, tenantId, cancellationToken);
                 if (conflictResult is not null) return conflictResult;
 
                 var externalIdentity = ExternalIdentity.CreateForVerification(
@@ -110,16 +108,11 @@ public sealed class CompleteExternalVerificationHandler(
             var verificationTimeInSeconds = (int)(timeProvider.GetUtcNow() - externalLogin.CreatedAt).TotalSeconds;
             events.CollectEvent(new ExternalVerificationCompleted(userId, externalLogin.ProviderType, userProfile.AssuranceLevel.Value, verificationTimeInSeconds));
 
-            var httpContext = httpContextAccessor.HttpContext!;
-            var returnPath = ReturnPathHelper.GetReturnPathCookie(httpContext) ?? "/";
-            ReturnPathHelper.ClearReturnPathCookie(httpContext);
-
-            return Result<string>.Redirect(returnPath);
+            return Result<string>.Redirect(destination.GetSuccessUrl());
         }
         finally
         {
             externalAuthenticationService.ClearExternalLoginCookie();
-            externalAuthenticationService.ClearLocaleCookie();
         }
     }
 
@@ -129,7 +122,7 @@ public sealed class CompleteExternalVerificationHandler(
     ///     again; a row held by a live user is refused with a distinct result, because inserting would otherwise fail
     ///     in the database and surface as a server error.
     /// </summary>
-    private async Task<Result<string>?> ResolveIdentityHeldByAnotherUser(ExternalLogin externalLogin, string providerUserId, TenantId tenantId, CancellationToken cancellationToken)
+    private async Task<Result<string>?> ResolveIdentityHeldByAnotherUser(ExternalLoginDestination destination, ExternalLogin externalLogin, string providerUserId, TenantId tenantId, CancellationToken cancellationToken)
     {
         var identitiesInTenant = (await externalIdentityRepository.GetByProviderUserIdUnfilteredAsync(externalLogin.ProviderType, providerUserId, cancellationToken))
             .Where(ei => ei.TenantId == tenantId)
@@ -143,7 +136,7 @@ public sealed class CompleteExternalVerificationHandler(
         if (identitiesInTenant.Any(ei => liveUserIds.Contains(ei.UserId)))
         {
             logger.LogWarning("The '{ProviderType}' identity presented for external login '{ExternalLoginId}' is already held by another user in the tenant", externalLogin.ProviderType, externalLogin.Id);
-            return VerificationFailedRedirect(externalLogin, ExternalLoginResult.IdentityHeldByAnotherUser);
+            return VerificationFailedRedirect(destination, externalLogin, ExternalLoginResult.IdentityHeldByAnotherUser);
         }
 
         foreach (var recycledIdentity in identitiesInTenant)
@@ -154,7 +147,7 @@ public sealed class CompleteExternalVerificationHandler(
         return null;
     }
 
-    private Result<string> VerificationFailedRedirect(ExternalLogin externalLogin, ExternalLoginResult loginResult)
+    private Result<string> VerificationFailedRedirect(ExternalLoginDestination destination, ExternalLogin externalLogin, ExternalLoginResult loginResult)
     {
         var timeInSeconds = (int)(timeProvider.GetUtcNow() - externalLogin.CreatedAt).TotalSeconds;
         if (!externalLogin.IsConsumed)
@@ -166,6 +159,6 @@ public sealed class CompleteExternalVerificationHandler(
         events.CollectEvent(new ExternalVerificationFailed(externalLogin.Id, loginResult, timeInSeconds));
 
         var oidcError = ExternalAuthenticationService.MapToOidcError(loginResult);
-        return Result<string>.Redirect($"/error?error={oidcError}&id={externalLogin.Id}");
+        return Result<string>.Redirect(destination.GetErrorUrl(oidcError, externalLogin.Id.ToString()));
     }
 }

@@ -157,17 +157,17 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    protected async Task<(string CallbackUrl, string[] Cookies)> StartLoginFlow(string? returnPath = null, string? locale = null, TenantId? preferredTenantId = null, ExternalProviderType providerType = ExternalProviderType.Google)
+    protected async Task<(string CallbackUrl, string[] Cookies)> StartLoginFlow(string? returnPath = null, string? locale = null, TenantId? preferredTenantId = null, ExternalProviderType providerType = ExternalProviderType.Google, string? edition = null)
     {
-        var url = BuildStartUrl(providerType, "login", returnPath, locale, preferredTenantId);
+        var url = BuildStartUrl(providerType, "login", returnPath, locale, preferredTenantId, edition);
         var response = await NoRedirectHttpClient.GetAsync(url);
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         return (response.Headers.Location!.ToString(), ExtractSetCookieHeaders(response));
     }
 
-    protected async Task<(string CallbackUrl, string[] Cookies)> StartSignupFlow(string? returnPath = null, string? locale = null, ExternalProviderType providerType = ExternalProviderType.Google)
+    protected async Task<(string CallbackUrl, string[] Cookies)> StartSignupFlow(string? returnPath = null, string? locale = null, ExternalProviderType providerType = ExternalProviderType.Google, string? edition = null)
     {
-        var url = BuildStartUrl(providerType, "signup", returnPath, locale);
+        var url = BuildStartUrl(providerType, "signup", returnPath, locale, null, edition);
         var response = await NoRedirectHttpClient.GetAsync(url);
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         return (response.Headers.Location!.ToString(), ExtractSetCookieHeaders(response));
@@ -177,9 +177,9 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
     ///     Starts a verification flow as the given signed-in user and returns the callback URL the mock provider would
     ///     redirect the browser to, together with the cookies to replay into the callback.
     /// </summary>
-    protected async Task<(string CallbackUrl, string[] Cookies)> StartVerificationFlow(HttpClient authenticatedHttpClient, ExternalProviderType providerType = ExternalProviderType.MitId, string mockProviderCookieValue = "true", string? returnPath = null)
+    protected async Task<(string CallbackUrl, string[] Cookies)> StartVerificationFlow(HttpClient authenticatedHttpClient, ExternalProviderType providerType = ExternalProviderType.MitId, string mockProviderCookieValue = "true", string? returnPath = null, string? edition = null)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/account/authentication/{providerType}/verification/start")
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/account/authentication/{providerType}/verification/start{(edition is null ? "" : $"?Edition={edition}")}")
         {
             Content = JsonContent.Create(new { ReturnPath = returnPath })
         };
@@ -463,13 +463,14 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         _webApplicationFactory.Dispose();
     }
 
-    private static string BuildStartUrl(ExternalProviderType providerType, string flowType, string? returnPath, string? locale, TenantId? preferredTenantId = null)
+    private static string BuildStartUrl(ExternalProviderType providerType, string flowType, string? returnPath, string? locale, TenantId? preferredTenantId = null, string? edition = null)
     {
         var url = $"/api/account/authentication/{providerType}/{flowType}/start";
         var queryParams = new List<string>();
         if (returnPath is not null) queryParams.Add($"returnPath={Uri.EscapeDataString(returnPath)}");
         if (locale is not null) queryParams.Add($"locale={locale}");
         if (preferredTenantId is not null) queryParams.Add($"preferredTenantId={preferredTenantId}");
+        if (edition is not null) queryParams.Add($"edition={Uri.EscapeDataString(edition)}");
         if (queryParams.Count > 0) url += "?" + string.Join("&", queryParams);
         return url;
     }

@@ -44,7 +44,7 @@ public sealed class StartExternalVerificationHandler(
         var actor = new ExternalLoginActor(userInfo.Id, userInfo.TenantId, userInfo.SessionId);
 
         var result = await StartExternalAuthenticationHelper.StartFlow(
-            command.ProviderType, ExternalLoginType.Verification, null, actor, command.ReturnPath,
+            command.ProviderType, ExternalLoginType.Verification, null, actor, null, command.ReturnPath ?? string.Empty,
             externalLoginRepository, oauthProviderFactory, externalAuthenticationService, httpContextAccessor, events, cancellationToken
         );
 

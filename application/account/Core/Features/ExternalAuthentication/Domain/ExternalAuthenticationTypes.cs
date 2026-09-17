@@ -79,3 +79,15 @@ public enum ExternalIdentityCapabilities
     Login = 1,
     Verification = 2
 }
+
+/// <summary>
+///     The client edition a flow was started from, which decides where its callback sends the browser. The set is
+///     closed on purpose: a destination is chosen from it on the server, never taken from a URL the client supplies.
+/// </summary>
+[PublicAPI]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ExternalLoginEdition
+{
+    React,
+    Blazor
+}

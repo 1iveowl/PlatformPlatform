@@ -1,4 +1,5 @@
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.ExternalAuthentication.Shared;
 using Account.Integrations.OAuth;
 using JetBrains.Annotations;
 using Microsoft.AspNetCore.Http;
@@ -28,7 +29,7 @@ public sealed class StartExternalLoginHandler(
     public async Task<Result<string>> Handle(StartExternalLoginCommand command, CancellationToken cancellationToken)
     {
         var result = await StartExternalAuthenticationHelper.StartFlow(
-            command.ProviderType, ExternalLoginType.Login, command.PreferredTenantId, null, null,
+            command.ProviderType, ExternalLoginType.Login, command.PreferredTenantId, null, null, null,
             externalLoginRepository, oauthProviderFactory, externalAuthenticationService, httpContextAccessor, events, cancellationToken
         );
 
@@ -54,7 +55,7 @@ public sealed class StartExternalSignupHandler(
     public async Task<Result<string>> Handle(StartExternalSignupCommand command, CancellationToken cancellationToken)
     {
         var result = await StartExternalAuthenticationHelper.StartFlow(
-            command.ProviderType, ExternalLoginType.Signup, null, null, null,
+            command.ProviderType, ExternalLoginType.Signup, null, null, null, null,
             externalLoginRepository, oauthProviderFactory, externalAuthenticationService, httpContextAccessor, events, cancellationToken
         );
 
@@ -80,6 +81,7 @@ internal static class StartExternalAuthenticationHelper
         ExternalLoginType loginType,
         TenantId? preferredTenantId,
         ExternalLoginActor? actor,
+        string? edition,
         string? returnPath,
         IExternalLoginRepository externalLoginRepository,
         OAuthProviderFactory oauthProviderFactory,
@@ -102,6 +104,18 @@ internal static class StartExternalAuthenticationHelper
         }
 
         var httpContext = httpContextAccessor.HttpContext!;
+
+        // The edition always comes from the query string, so the verification request body the React client sends stays
+        // unchanged; login and signup are started by a plain link and carry the return path there too, while
+        // verification passes its return path from the body
+        if (!ExternalLoginDestination.TryParseEdition(edition ?? httpContext.Request.Query["Edition"].ToString(), out var parsedEdition))
+        {
+            return Result<string>.BadRequest("The edition is not supported.");
+        }
+
+        var destination = ExternalLoginDestination.Create(parsedEdition, returnPath ?? httpContext.Request.Query["ReturnPath"].ToString());
+        var locale = ExternalAuthenticationService.ToSupportedLocale(httpContext.Request.Query["Locale"].ToString());
+
         var useMockProvider = oauthProviderFactory.ShouldUseMockProvider(httpContext);
 
         var oauthProvider = oauthProviderFactory.GetProvider(providerType, useMockProvider);
@@ -122,21 +136,10 @@ internal static class StartExternalAuthenticationHelper
         await externalLoginRepository.AddAsync(externalLogin, cancellationToken);
 
         var stateToken = externalAuthenticationService.ProtectState(externalLogin.Id);
-        externalAuthenticationService.SetExternalLoginCookie(externalLogin.Id, preferredTenantId, actor?.UserId);
 
-        // Login and signup are started by a plain link and carry the return path in the query string; a command
-        // started flow passes it directly. ReturnPathHelper rejects anything that is not a relative path.
-        var effectiveReturnPath = returnPath ?? httpContext.Request.Query["ReturnPath"].ToString();
-        if (!string.IsNullOrEmpty(effectiveReturnPath))
-        {
-            ReturnPathHelper.SetReturnPathCookie(httpContext, effectiveReturnPath);
-        }
-
-        var locale = httpContext.Request.Query["Locale"].ToString();
-        if (!string.IsNullOrEmpty(locale))
-        {
-            externalAuthenticationService.SetLocaleCookie(locale);
-        }
+        // Always written in full, so a new flow without a valid return path or locale replaces whatever an earlier
+        // flow in this browser chose instead of inheriting it
+        externalAuthenticationService.SetExternalLoginCookie(externalLogin.Id, destination, preferredTenantId, actor?.UserId, locale);
 
         var redirectUri = ExternalAuthenticationService.GetRedirectUri(providerType, loginType);
         var authorizationUrl = oauthProvider.BuildAuthorizationUrl(stateToken, codeChallenge, nonce, redirectUri);

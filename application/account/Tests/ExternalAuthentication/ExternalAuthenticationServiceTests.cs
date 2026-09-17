@@ -3,6 +3,7 @@ using System.Text;
 using Account.Features.Authentication.Domain;
 using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.ExternalAuthentication.Shared;
 using Account.Integrations.OAuth;
 using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
@@ -286,7 +287,7 @@ public sealed class ExternalAuthenticationServiceTests
         var service = CreateService(httpContext);
 
         // Act
-        service.SetExternalLoginCookie(ExternalLoginId.NewId());
+        service.SetExternalLoginCookie(ExternalLoginId.NewId(), ExternalLoginDestination.Fallback);
 
         // Assert
         var setCookieHeader = httpContext.Response.Headers["Set-Cookie"].ToString();
@@ -305,7 +306,7 @@ public sealed class ExternalAuthenticationServiceTests
         writeContext.Request.Headers["User-Agent"] = "TestBrowser/1.0";
         writeContext.Request.Headers["Accept-Language"] = "en-US";
         var writeService = CreateServiceWithProvider(writeContext, dataProtectionProvider);
-        writeService.SetExternalLoginCookie(externalLoginId);
+        writeService.SetExternalLoginCookie(externalLoginId, ExternalLoginDestination.Fallback);
 
         var setCookieHeader = writeContext.Response.Headers["Set-Cookie"].ToString();
         var cookieValue = setCookieHeader.Split(';')[0].Split('=', 2)[1];
