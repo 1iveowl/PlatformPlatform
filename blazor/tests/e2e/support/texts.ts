@@ -221,7 +221,26 @@ export const blazorCultures = [
     loggedOutInAnotherTab: "You were logged out from another browser tab.",
     differentUserLoggedIn: "Different user logged in",
     differentUserLoggedInInAnotherTab: "A different user logged in from another browser tab.",
-    reload: "Reload"
+    reload: "Reload",
+    accountSettings: "Account settings",
+    changeLogo: "Change logo",
+    uploadLogo: "Upload logo",
+    removeLogo: "Remove logo",
+    accountSettingsUpdated: "Account settings updated successfully",
+    onlyOwnersCanModifyAccountName: "Only account owners can modify the account name",
+    dangerZone: "Danger zone",
+    deleteAccount: "Delete account",
+    features: "Features",
+    featuresDescription: "Toggle features available to your account.",
+    featurePreferences: "Feature preferences",
+    featurePreferencesDescription: "Customize which optional features are enabled for your account.",
+    featureUpdated: "Feature updated successfully",
+    preferenceUpdated: "Preference updated successfully",
+    featureFlagUpdatedDetail: (flagName: string) => `${flagName}. It takes up to 5 minutes for changes to reach all users.`,
+    accountOverviewFlagName: "Account overview page",
+    accountOverviewFlagDescription: "Show the account overview dashboard with user statistics at /account. When disabled, signed-in users go straight to the users list.",
+    compactViewFlagName: "Compact view",
+    compactViewFlagDescription: "Reduce spacing between UI elements for a denser layout"
   },
   {
     locale: "da-DK",
@@ -437,7 +456,26 @@ export const blazorCultures = [
     loggedOutInAnotherTab: "Du blev logget ud fra en anden browsertab.",
     differentUserLoggedIn: "En anden bruger loggede ind",
     differentUserLoggedInInAnotherTab: "En anden bruger loggede ind fra en anden browsertab.",
-    reload: "Genindlæs"
+    reload: "Genindlæs",
+    accountSettings: "Kontoindstillinger",
+    changeLogo: "Skift logo",
+    uploadLogo: "Upload logo",
+    removeLogo: "Fjern logo",
+    accountSettingsUpdated: "Kontoindstillinger opdateret",
+    onlyOwnersCanModifyAccountName: "Kun kontoejere kan ændre kontonavnet",
+    dangerZone: "Farezone",
+    deleteAccount: "Slet konto",
+    features: "Funktioner",
+    featuresDescription: "Skift funktioner tilgængelige for din konto.",
+    featurePreferences: "Funktionspræferencer",
+    featurePreferencesDescription: "Tilpas hvilke valgfri funktioner der er aktiveret for din konto.",
+    featureUpdated: "Funktion opdateret succesfuldt",
+    preferenceUpdated: "Præference opdateret succesfuldt",
+    featureFlagUpdatedDetail: (flagName: string) => `${flagName}. Det tager op til 5 minutter, før ændringer når alle brugere.`,
+    accountOverviewFlagName: "Kontooversigtsside",
+    accountOverviewFlagDescription: "Vis kontooversigten med brugerstatistik på /account. Når deaktiveret, sendes loggede brugere direkte til brugerlisten.",
+    compactViewFlagName: "Kompakt visning",
+    compactViewFlagDescription: "Reducér afstanden mellem UI-elementer for et tættere layout"
   }
 ] as const;
 
@@ -503,5 +541,11 @@ export const accountApiMessages = {
   invalidImageType: "Image must be of type JPEG, PNG, GIF, or WebP.",
   sessionAlreadyRevoked: (sessionId: string) => `Session with id '${sessionId}' is already revoked.`,
   antiforgeryValidationFailed: "Antiforgery validation failed for request.",
-  mitIdVerificationNotEnabled: "Provider 'MitId' is not enabled for the 'Verification' flow."
+  mitIdVerificationNotEnabled: "Provider 'MitId' is not enabled for the 'Verification' flow.",
+  onlyOwnersCanUpdateTenantInformation: "Only owners are allowed to update tenant information.",
+  onlyOwnersCanUpdateTenantLogo: "Only owners are allowed to update tenant logo.",
+  onlyOwnersCanRemoveTenantLogo: "Only owners are allowed to remove tenant logo.",
+  onlyOwnersCanConfigureTenantFeatureFlags: "Only owners are allowed to configure tenant feature flags.",
+  featureFlagMustHaveUserScope: "Feature flag must have user scope.",
+  featureFlagNotConfigurableByUsers: (flagKey: string) => `Feature flag '${flagKey}' is not configurable by users.`
 } as const;

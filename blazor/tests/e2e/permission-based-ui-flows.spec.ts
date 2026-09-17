@@ -1,10 +1,34 @@
+/// <reference types="node" />
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { expect } from "@playwright/test";
-import { changeUserRoleThroughAccountApi, deleteUserThroughAccountApi, findUserThroughAccountApi, inviteUsersThroughAccountApi } from "@blazor/e2e/account-api";
-import { logInInvitedUserThroughBlazor, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
+import {
+  changeUserRoleThroughAccountApi,
+  deleteUserThroughAccountApi,
+  expectAccountApiProblem,
+  findUserThroughAccountApi,
+  inviteUsersThroughAccountApi
+} from "@blazor/e2e/account-api";
+import { logInInvitedUserThroughBlazor, signUpThroughBlazor, test, userMenuButton } from "@blazor/e2e/authentication";
 import { expectNoPolicyViolations, trackPolicyViolations } from "@blazor/e2e/policy";
 import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
+import {
+  accountNameInput,
+  chooseLogoFile,
+  gotoAccountSettingsPage,
+  logoImage,
+  logoPickerButton,
+  type LogoUploadFile,
+  readCurrentTenantThroughAccountApi,
+  removeLogoThroughPicker,
+  removeTenantLogoThroughAccountApi,
+  saveAccountSettingsButton,
+  updateTenantNameThroughAccountApi,
+  uploadTenantLogoThroughAccountApi
+} from "@blazor/e2e/settings";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
-import { blazorLocale, blazorTexts } from "@blazor/e2e/texts";
+import { accountApiMessages, blazorLocale, blazorTexts } from "@blazor/e2e/texts";
+import { blazorToast, dismissBlazorToast } from "@blazor/e2e/toast";
 import {
   deletedUserRow,
   expectDeletedUsersListLoaded,
@@ -16,22 +40,43 @@ import {
   userRow,
   usersTabs
 } from "@blazor/e2e/users";
-import { assertNoUnexpectedErrors, createTestContext } from "@shared/e2e/utils/test-assertions";
+import { assertNoUnexpectedErrors, createTestContext, expectNetworkErrors } from "@shared/e2e/utils/test-assertions";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
+
+/**
+ * The fixture image the account logo steps upload, the image the profile specification uploads as an avatar
+ */
+const logoFile = path.join(__dirname, "fixtures", "avatar.png");
+
+/**
+ * The same image as a multipart upload, for the direct posts an admin and a member are refused
+ */
+const logoUpload: LogoUploadFile = { name: "logo.png", mimeType: "image/png", buffer: readFileSync(logoFile) };
+
+/**
+ * The name the owner gives the account, which everyone else then sees in the read-only field
+ */
+const renamedAccountName = "Renamed account";
 
 test.describe("@smoke", () => {
   /**
-   * What the users pages show an owner, an admin and a member of one account, mirroring the users steps of the React
-   * permission-based UI test; the account settings steps belong to the settings specification
+   * What the users pages and the account settings page show an owner, an admin and a member of one account, mirroring the
+   * users and settings steps of the React permission-based UI test
    * - Owner: Invite user, the recycle bin tab, Delete and Change role disabled on the own row, "Delete 2 users" for a Ctrl or
    *   Cmd selection of two other users, disabled with its reason while the selection includes the owner
+   * - Owner: the account settings page with the editable name, Save changes and the danger zone; renaming the account shows
+   *   the toast and updates the shell header without a reload, and a logo is uploaded through the picker and removed again,
+   *   each checked against the account the API stores
    * - Admin: no Invite user, only View profile in a row menu, no bulk delete for a selection, and the recycle bin with
-   *   restore and delete for one user but no Empty recycle bin
+   *   restore and delete for one user but no Empty recycle bin; the account API refuses a direct name, logo and logo
+   *   removal write with its own message, and the stored account is unchanged
    * - Member: no Invite user, only View profile on the own row, no tabs, no bulk delete for a selection, and Access denied
    *   with Go to home on the recycle bin
+   * - Member: the account settings page with the read-only name, its explanation, no Save changes, no logo picker and no
+   *   danger zone; the same three account API writes are refused and the stored account is unchanged
    * - No securitypolicyviolation event and no style attribute on any document
    */
-  test("should show users administration controls according to the owner, admin and member roles", async ({ page, browser }) => {
+  test("should show users and account settings controls according to the owner, admin and member roles", async ({ page, browser }) => {
     const context = createTestContext(page);
     const texts = blazorTexts();
     await trackPolicyViolations(page);
@@ -76,6 +121,49 @@ test.describe("@smoke", () => {
       await expectNoPolicyViolations(page);
     })();
 
+    await step("Open the account settings as the owner and rename the account & verify the toast and the header without a reload")(async () => {
+      await gotoAccountSettingsPage(page);
+      await expect(accountNameInput(page)).toBeEnabled();
+      await expect(page.getByText(texts.onlyOwnersCanModifyAccountName, { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: texts.dangerZone, exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: texts.deleteAccount, exact: true })).toBeVisible();
+
+      await accountNameInput(page).fill(renamedAccountName);
+      await saveAccountSettingsButton(page).click();
+
+      const toast = blazorToast(page, texts.accountSettingsUpdated);
+      await expect(toast).toBeVisible();
+      expect((await readCurrentTenantThroughAccountApi(page)).name).toBe(renamedAccountName);
+      await expect(userMenuButton(page)).toHaveAccessibleDescription(`Blazor User ${renamedAccountName}`);
+      await dismissBlazorToast(page, toast);
+    })();
+
+    await step("Upload an account logo through the picker and save & verify the stored logo and the picker image")(async () => {
+      await chooseLogoFile(page, logoFile);
+
+      await saveAccountSettingsButton(page).click();
+
+      const toast = blazorToast(page, texts.accountSettingsUpdated);
+      await expect(toast).toBeVisible();
+      const logoUrl = (await readCurrentTenantThroughAccountApi(page)).logoUrl;
+      expect(logoUrl!.startsWith("/logos/")).toBe(true);
+      await expect(logoImage(logoPickerButton(page))).toHaveAttribute("src", logoUrl!);
+      await dismissBlazorToast(page, toast);
+    })();
+
+    await step("Remove the account logo through the picker and save & verify the initials and no stored logo")(async () => {
+      await removeLogoThroughPicker(page);
+      await expect(logoImage(logoPickerButton(page))).toHaveCount(0);
+
+      await saveAccountSettingsButton(page).click();
+
+      const toast = blazorToast(page, texts.accountSettingsUpdated);
+      await expect(toast).toBeVisible();
+      expect((await readCurrentTenantThroughAccountApi(page)).logoUrl).toBeNull();
+      await dismissBlazorToast(page, toast);
+      await expectNoPolicyViolations(page);
+    })();
+
     // === ADMIN ===
     const adminContext = await browser.newContext({ locale: blazorLocale(), baseURL: blazorUrl(), ignoreHTTPSErrors: true });
     const adminPage = await adminContext.newPage();
@@ -108,6 +196,17 @@ test.describe("@smoke", () => {
       await expect(adminPage.getByRole("button", { name: texts.restore, exact: true })).toBeVisible();
       await expect(adminPage.getByRole("button", { name: texts.delete, exact: true })).toBeVisible();
       await expectNoPolicyViolations(adminPage);
+    })();
+
+    await step("Send a name, a logo and a logo removal to the account API as the admin & verify each is refused and the account is unchanged")(async () => {
+      const before = await readCurrentTenantThroughAccountApi(adminPage);
+
+      expectAccountApiProblem(await updateTenantNameThroughAccountApi(adminPage, "Admin renamed"), 403, accountApiMessages.onlyOwnersCanUpdateTenantInformation);
+      expectAccountApiProblem(await uploadTenantLogoThroughAccountApi(adminPage, logoUpload), 403, accountApiMessages.onlyOwnersCanUpdateTenantLogo);
+      expectAccountApiProblem(await removeTenantLogoThroughAccountApi(adminPage), 403, accountApiMessages.onlyOwnersCanRemoveTenantLogo);
+
+      expect(await readCurrentTenantThroughAccountApi(adminPage)).toEqual(before);
+      await expectNetworkErrors(adminTestContext, [403]);
     })();
 
     // === MEMBER ===
@@ -144,6 +243,29 @@ test.describe("@smoke", () => {
       await expectNoPolicyViolations(memberPage);
       await memberPage.getByRole("link", { name: texts.goToHome, exact: true }).click();
       await expectBlazorUrl(memberPage, "app");
+    })();
+
+    await step("Open the account settings as the member & verify the read-only name, its explanation and no Save, picker or danger zone")(async () => {
+      await gotoAccountSettingsPage(memberPage);
+
+      await expect(accountNameInput(memberPage)).toHaveValue(renamedAccountName);
+      await expect(accountNameInput(memberPage)).toHaveAttribute("readonly", "");
+      await expect(memberPage.getByText(texts.onlyOwnersCanModifyAccountName, { exact: true })).toBeVisible();
+      await expect(saveAccountSettingsButton(memberPage)).toHaveCount(0);
+      await expect(logoPickerButton(memberPage)).toHaveCount(0);
+      await expect(memberPage.getByRole("heading", { name: texts.dangerZone, exact: true })).toHaveCount(0);
+      await expectNoPolicyViolations(memberPage);
+    })();
+
+    await step("Send a name, a logo and a logo removal to the account API as the member & verify each is refused and the account is unchanged")(async () => {
+      const before = await readCurrentTenantThroughAccountApi(memberPage);
+
+      expectAccountApiProblem(await updateTenantNameThroughAccountApi(memberPage, "Member renamed"), 403, accountApiMessages.onlyOwnersCanUpdateTenantInformation);
+      expectAccountApiProblem(await uploadTenantLogoThroughAccountApi(memberPage, logoUpload), 403, accountApiMessages.onlyOwnersCanUpdateTenantLogo);
+      expectAccountApiProblem(await removeTenantLogoThroughAccountApi(memberPage), 403, accountApiMessages.onlyOwnersCanRemoveTenantLogo);
+
+      expect(await readCurrentTenantThroughAccountApi(memberPage)).toEqual(before);
+      await expectNetworkErrors(memberTestContext, [403]);
     })();
 
     await expectNoPolicyViolations(page);
