@@ -119,7 +119,8 @@ Applies to the team lead and pair-programmer definitions in the fork.
 
 - One task set per lead session; the lead hands off through Linear, not through its own transcript. Session
   recovery already exists in `team-lead.md`; make it the normal path rather than the exception.
-- Compaction policy: compact or restart at 200k tokens of context, never run to the 1M limit. Prefer
+- Compaction policy: compact or restart at the hand-off point in `.claude/reference/constitution.md` section 6
+  (200k until 2026-09-17, then a 300k trial), never run to the 1M limit. Prefer
   `/rewind` to a cached prefix over compaction when the tail is what needs dropping.
 - Receipts, not transcripts: every agent definition gets a "return" section capping the final message at about
   1,500 tokens (status, commit, check results, blockers, path to full logs). Spawn prompts point at the Linear

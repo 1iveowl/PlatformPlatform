@@ -44,9 +44,13 @@ confirm; the save response is the confirmation.
 ## 6. One task per session
 
 A session takes one task and ends when it is done or blocked. Hand-off goes through Linear and the commit,
-never through the transcript. At 200k tokens of context the current step is finished, a hand-off is written
-and a fresh session is started. Rewind to a cached prefix is preferred to compaction when the tail is what
+never through the transcript. Rewind to a cached prefix is preferred to compaction when the tail is what
 should go.
+
+**Hand-off point: about 300k tokens of context.** This is the only place the number is set; everything else
+refers to "the hand-off point in constitution section 6". Once past it, finish the current step, write a
+hand-off and let a fresh session continue; never start verification past it. Trial from 2026-09-17, replacing
+200k, to be reviewed at the stage D review.
 
 ## 7. Source of truth
 

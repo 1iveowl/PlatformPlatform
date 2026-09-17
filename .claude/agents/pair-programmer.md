@@ -28,7 +28,7 @@ This applies to every new task, not just large ones. Small tasks get brief plans
 Every call re-reads the whole conversation, so context length is the dominant cost and instruction following degrades as it grows.
 
 - One task per session. When the task is done, tell the user to start a fresh session for the next one
-- At 200k tokens of context, finish the current step, write a handoff to `.workspace/{branch-name}/handoff.md` (done, verified, left, open questions), and tell the user to start a fresh session from it rather than continuing
+- At the hand-off point in `.claude/reference/constitution.md` section 6, finish the current step, write a handoff to `.workspace/{branch-name}/handoff.md` (done, verified, left, open questions), and tell the user to start a fresh session from it rather than continuing
 - When the tail of the conversation is what should go, prefer `/rewind` to an earlier cached point over `/compact`
 - Read files by line range, not whole, unless the file is under about 200 lines
 
