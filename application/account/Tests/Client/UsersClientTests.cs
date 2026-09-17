@@ -205,6 +205,39 @@ public sealed class UsersClientTests
         handler.Requests.Should().ContainSingle();
     }
 
+    [Fact]
+    public async Task InviteUserAsync_WhenCalled_ShouldPostServerJson()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.OK);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.InviteUserAsync(new InviteUserCommand("ada@example.com"), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Post);
+        request.PathAndQuery.Should().Be("/api/account/users/invite");
+        request.Body.Should().Be(SerializeServerCommand(new ServerCommands.InviteUserCommand("ada@example.com")));
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task InviteUserAsync_WhenUserAlreadyExists_ShouldReturnTheProblemDetail()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.BadRequest, """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"Bad Request","status":400,"detail":"The user 'ada@example.com' already exists."}""", "application/problem+json");
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.InviteUserAsync(new InviteUserCommand("ada@example.com"), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.Detail.Should().Be("The user 'ada@example.com' already exists.");
+    }
+
     private static string UserDetailsJson(UserId userId)
     {
         return $$"""{"id":"{{userId}}","createdAt":"2026-01-02T03:04:05+00:00","modifiedAt":null,"lastSeenAt":null,"email":"ada@example.com","role":"Admin","firstName":"Ada","lastName":"Lovelace","title":"","emailConfirmed":true,"avatarUrl":null}""";

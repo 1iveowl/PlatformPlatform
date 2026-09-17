@@ -306,4 +306,19 @@
     <data name="HideDetails" xml:space="preserve">
         <value>Hide details</value>
     </data>
+    <data name="JustNow" xml:space="preserve">
+        <value>Just now</value>
+    </data>
+    <data name="MinuteAgo" xml:space="preserve">
+        <value>{0} minute ago</value>
+    </data>
+    <data name="MinutesAgo" xml:space="preserve">
+        <value>{0} minutes ago</value>
+    </data>
+    <data name="HourAgo" xml:space="preserve">
+        <value>{0} hour ago</value>
+    </data>
+    <data name="HoursAgo" xml:space="preserve">
+        <value>{0} hours ago</value>
+    </data>
 </root>

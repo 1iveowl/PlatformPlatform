@@ -1,0 +1,94 @@
+@* The invite user dialog, the React edition's InviteUserDialog. A guarded dialog: once an email is typed, Escape, the close
+   button, the backdrop and Cancel ask before it is discarded. The field is validated as the server validates it, and a
+   rejection (not an owner, no account name, an existing or deleted user) is shown in the dialog as the API returned it. *@
+@using Account.Client
+@using Account.Features.Users.Requests
+@implements IDisposable
+@inject IServiceProvider Services
+
+<DirtyDialog @ref="_dialog" Open="Open" OpenChanged="OpenChanged" HasUnsavedChanges="HasUnsavedChanges" Title="@UsersStrings.InviteUser" TestId="invite-user-dialog">
+    <EditForm EditContext="_editContext" OnValidSubmit="InviteAsync" class="invite-user-form" data-testid="invite-user-form">
+        <DataAnnotationsValidator/>
+        <p class="modal-dialog-description">@UsersStrings.InviteInstructions</p>
+
+        <FormErrorAlert Errors="_formErrors"/>
+
+        <p>
+            <label>
+                @CommonStrings.Email
+                <InputText @bind-Value="_form.Email" type="email" autocomplete="off" placeholder="@UsersStrings.InviteEmailPlaceholder" data-testid="invite-email"/>
+            </label>
+            <ValidationMessage For="() => _form.Email"/>
+        </p>
+
+        <div class="modal-dialog-actions">
+            <button type="button" class="button-secondary" disabled="@_isSending" data-testid="invite-cancel" @onclick="() => _dialog.RequestCloseAsync()">@CommonStrings.Cancel</button>
+            <button type="submit" class="button-primary" disabled="@_isSending" data-testid="invite-send">@(_isSending ? UsersStrings.Sending : UsersStrings.SendInvite)</button>
+        </div>
+    </EditForm>
+</DirtyDialog>
+
+@code {
+
+    private readonly InviteUserForm _form = new();
+    private DirtyDialog _dialog = null!;
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private bool _isSending;
+    private bool _preparedOpen;
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    // Raised after the server accepted the invitation; the owner closes the dialog
+    [Parameter]
+    public EventCallback OnInvited { get; set; }
+
+    private bool HasUnsavedChanges => _form.Email.Length > 0;
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_form);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    // Every opening starts with an empty field and no messages
+    protected override void OnParametersSet()
+    {
+        if (Open == _preparedOpen) return;
+
+        _preparedOpen = Open;
+        if (!Open) return;
+
+        _form.Email = "";
+        _formErrors.Clear();
+        _editContext.MarkAsUnmodified();
+    }
+
+    private async Task InviteAsync()
+    {
+        if (_isSending) return;
+
+        _isSending = true;
+        var result = await Services.GetRequiredService<UsersClient>().InviteUserAsync(new InviteUserCommand(_form.Email.Trim()), CancellationToken.None);
+        _isSending = false;
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        _form.Email = "";
+        await OnInvited.InvokeAsync();
+    }
+
+}

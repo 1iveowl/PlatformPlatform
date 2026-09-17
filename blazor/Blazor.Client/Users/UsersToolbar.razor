@@ -1,0 +1,44 @@
+@using Account.Features.Authentication.Queries
+@* The users page's actions, the React edition's UserToolbar: "Invite user" for an owner with at most one row selected, and
+   "Delete {n} users" for an owner with two or more selected, disabled with its reason shown while the selection includes
+   the signed-in user. UserRolePermissions decides what shows; members and admins see neither action. *@
+
+<div class="users-actions" data-testid="users-actions">
+    @if (UserRolePermissions.CanInvite(CurrentUser, SelectedUsers.Count))
+    {
+        <button type="button" class="button-primary" data-testid="invite-user" @onclick="OnInvite">@UsersStrings.InviteUser</button>
+    }
+    @if (UserRolePermissions.ShowsBulkDelete(CurrentUser, SelectedUsers.Count))
+    {
+        <button type="button" class="button-destructive" disabled="@(BulkDeleteReason is not null)" aria-describedby="@(BulkDeleteReason is null ? null : ReasonId)"
+                data-testid="bulk-delete-users" @onclick="OnBulkDelete">
+            @string.Format(CultureInfo.CurrentCulture, UsersStrings.DeleteCountUsers, SelectedUsers.Count)
+        </button>
+        @if (BulkDeleteReason is { } reason)
+        {
+            <span id="@ReasonId" class="users-actions-reason" data-testid="bulk-delete-reason">@reason</span>
+        }
+    }
+</div>
+
+@code {
+
+    private const string ReasonId = "users-bulk-delete-reason";
+
+    [Parameter]
+    [EditorRequired]
+    public BootstrapUser? CurrentUser { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<UserDetails> SelectedUsers { get; set; } = [];
+
+    [Parameter]
+    public EventCallback OnInvite { get; set; }
+
+    [Parameter]
+    public EventCallback OnBulkDelete { get; set; }
+
+    private string? BulkDeleteReason => UserRolePermissions.DeleteDisabledReason(UserRolePermissions.ForBulkDelete(CurrentUser, SelectedUsers.Select(user => user.Id).ToArray()));
+
+}

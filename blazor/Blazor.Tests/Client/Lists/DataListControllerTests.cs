@@ -180,6 +180,58 @@ public sealed class DataListControllerTests
         controller.ActiveIndex.Should().Be(-1);
     }
 
+    [Fact]
+    public async Task ToggleAll_ShouldSelectThePageAndReportAMultipleSelection()
+    {
+        // Arrange
+        var (controller, _, _) = Create(Page);
+        await controller.LoadAsync();
+        var changes = new List<(int Count, bool IsMultiple)>();
+        controller.SelectionChanged = (keys, isMultiple) =>
+        {
+            changes.Add((keys.Count, isMultiple));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        await controller.ToggleAllAsync();
+
+        // Assert
+        controller.Selection.Keys.Should().HaveCount(DataListController<string>.PageSize);
+        controller.Selection.GetHeaderSelection(controller.PageKeys).Should().Be(DataListHeaderSelection.All);
+        changes.Should().Equal((DataListController<string>.PageSize, true));
+    }
+
+    [Theory]
+    [InlineData("sort")]
+    [InlineData("page")]
+    [InlineData("filter")]
+    public async Task SelectAll_WhenSortPageOrFilterChanges_ShouldReportTheClearedSelection(string change)
+    {
+        // Arrange
+        var (controller, _, _) = Create(Page);
+        await controller.LoadAsync();
+        await controller.ToggleAllAsync();
+        var changes = new List<(int Count, bool IsMultiple)>();
+        controller.SelectionChanged = (keys, isMultiple) =>
+        {
+            changes.Add((keys.Count, isMultiple));
+            return Task.CompletedTask;
+        };
+
+        // Act
+        await (change switch
+        {
+            "sort" => controller.SortAsync("Name"),
+            "page" => controller.GoToPageAsync(1),
+            _ => controller.SetFiltersAsync(new Dictionary<string, string?> { ["search"] = "row" })
+        });
+
+        // Assert
+        controller.Selection.Keys.Should().BeEmpty();
+        changes.Should().Equal((0, false));
+    }
+
     private static (DataListController<string> Controller, FakeBrowser Browser, FakeListServer Server) Create(string uri)
     {
         var browser = new FakeBrowser { Uri = uri };

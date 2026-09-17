@@ -84,6 +84,19 @@ h1:focus {
     margin-block: 1rem;
 }
 
+.users-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-inline-start: auto;
+}
+
+.users-actions-reason {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
 .users-layout {
     display: flex;
     gap: 1rem;
@@ -614,6 +627,11 @@ h1:focus {
 .modal-dialog-title {
     margin: 0;
     font-size: 1.125rem;
+}
+
+.modal-dialog-description {
+    margin-block: 0.5rem 1rem;
+    color: var(--text-muted);
 }
 
 .modal-dialog-actions {

@@ -1,14 +1,16 @@
 @using Account.Client
 @using Account.Features.Authentication.Queries
 @using Blazor.Client.Bootstrap
+@using Blazor.Client.Components
 @using Blazor.Client.Session
 @using Microsoft.FluentUI.AspNetCore.Components
 @using SharedKernel.Domain
 @* The users administration surface, the React edition's users page: the list on DataList with search, sort and paging in
    the URL, the side pane opened from a row or from ?userId=, and the role change with its permission rules. The host
    prerenders the frame; the list and the pane load their data only once the component runs in the browser.
-   Deletion, invitation, the filter dialog and the recycle bin are not part of this surface yet; role, status and date
-   filters in a deep link are still applied through UsersListSource. *@
+   An owner invites users from the toolbar and deletes one user from the row menu or a multiple selection from the toolbar;
+   UserRolePermissions decides which actions show. The filter dialog and the recycle bin are not part of this surface yet;
+   role, status and date filters in a deep link are still applied through UsersListSource. *@
 @inject SessionState Session
 @inject IServiceProvider Services
 @inject ToastService Toasts
@@ -17,9 +19,15 @@
     <h1>@CommonStrings.Users</h1>
     <p>@UsersStrings.ManageUsers</p>
 
-    <div class="users-toolbar" role="search">
-        <FluentTextInput Id="@SearchId" data-testid="search" AriaLabel="@CommonStrings.Search" Placeholder="@CommonStrings.Search" Immediate="true" ImmediateDelay="500"
-                         Value="@_filters.GetValueOrDefault(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+    <div class="users-toolbar">
+        <div role="search">
+            <FluentTextInput Id="@SearchId" data-testid="search" AriaLabel="@CommonStrings.Search" Placeholder="@CommonStrings.Search" Immediate="true" ImmediateDelay="500"
+                             Value="@_filters.GetValueOrDefault(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+        </div>
+        @if (_bootstrap is not null)
+        {
+            <UsersToolbar CurrentUser="_bootstrap.User" SelectedUsers="_selectedUsers" OnInvite="OpenInviteDialog" OnBulkDelete="OpenBulkDeleteDialog"/>
+        }
     </div>
 
     <div class="users-layout">
@@ -30,8 +38,9 @@
                           Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UsersListSource.DefaultOrderBy"
                           SelectionMode="DataListSelectionMode.Multiple" SelectedKeyParameter="@UsersListSource.SelectedKeyParameter"
                           FilterParameters="UsersListSource.FilterParameters" NormalizeFilters="UsersListSource.NormalizeFilters" EscapeScopeId="@PaneId"
-                          FocusFallbackId="@SearchId" RowLabel="RowLabel" RowMenu="RowMenu" OnActivated="OpenProfileAsync" OnClosed="OnProfileClosedAsync"
-                          OnMultipleSelected="CloseProfileAsync" OnStateChanged="OnListStateChangedAsync">
+                          FocusFallbackId="@SearchId" RowLabel="RowLabel" SelectAllLabel="@UsersStrings.SelectAllUsers" RowMenu="RowMenu" OnActivated="OpenProfileAsync"
+                          OnClosed="OnProfileClosedAsync" OnSelectionChanged="OnSelectionChangedAsync" OnMultipleSelected="CloseProfileAsync"
+                          OnStateChanged="OnListStateChangedAsync">
                     <EmptyContent>
                         <div data-testid="empty-state">
                             <p>@UsersStrings.NoUsersFound</p>
@@ -50,21 +59,31 @@
     </div>
 
     <ChangeUserRoleDialog Open="_isRoleDialogOpen" OpenChanged="OnRoleDialogOpenChanged" User="_roleUser" OnSaved="OnRoleSavedAsync"/>
+
+    <InviteUserDialog Open="_isInviteDialogOpen" OpenChanged="OnInviteDialogOpenChanged" OnInvited="OnInvitedAsync"/>
+
+    <DeleteUsersDialog Open="_isDeleteDialogOpen" OpenChanged="OnDeleteDialogOpenChanged" Users="_deleteUsers" OnDeleted="OnUsersDeletedAsync"/>
 </AppShell>
 
 @code {
 
     public const string RoleUpdatedToastTestId = "role-updated-toast";
+    public const string UserInvitedToastTestId = "user-invited-toast";
+    public const string UsersDeletedToastTestId = "users-deleted-toast";
     private const string SearchId = "users-search";
     private const string PaneId = "users-profile-pane";
 
     private readonly UserProfileState _profile = new();
     private BootstrapResponse? _bootstrap;
     private IReadOnlyList<DataListColumn<UserDetails>> _columns = [];
+    private IReadOnlyList<UserDetails> _deleteUsers = [];
     private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private bool _isDeleteDialogOpen;
+    private bool _isInviteDialogOpen;
     private bool _isRoleDialogOpen;
     private DataList<UserDetails>? _list;
     private UserDetails? _roleUser;
+    private IReadOnlyList<UserDetails> _selectedUsers = [];
 
     private IReadOnlyList<UserDetails> PageItems => _list is { Status: DataListStatus.Ready or DataListStatus.Empty } list ? list.Items : [];
 
@@ -93,10 +112,10 @@
             ),
             new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email)
             ),
-            new DataListColumn<UserDetails>(UsersStrings.Created, user => @<text>@user.CreatedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)</text>,
+            new DataListColumn<UserDetails>(UsersStrings.Created, user => @<text>@RelativeTime.Format(user.CreatedAt, TimeProvider.System.GetUtcNow())</text>,
                 nameof(SortableUserProperties.CreatedAt)
             ),
-            new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<text>@(user.LastSeenAt?.ToLocalTime().ToString("d", CultureInfo.CurrentCulture) ?? "")</text>,
+            new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<text>@RelativeTime.Format(user.LastSeenAt, TimeProvider.System.GetUtcNow())</text>,
                 nameof(SortableUserProperties.LastSeenAt)
             ),
             new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role)
@@ -125,7 +144,7 @@
         return user.Email;
     }
 
-    // Everyone can view a profile; only an owner sees the role action, disabled on their own row
+    // Everyone can view a profile; only an owner sees the role and delete actions, disabled on their own row
     private RenderFragment<UserDetails> RowMenu => user =>
         @<DataListRowMenu Label="@UsersStrings.UserActions" Items="RowMenuItems(user)" TestId="user-actions"/>;
 
@@ -135,7 +154,13 @@
         if (!UserRolePermissions.IsOwner(_bootstrap?.User)) return [viewProfile];
 
         var canChangeRole = UserRolePermissions.ForTarget(_bootstrap?.User, user.Id) == RoleChangePermission.Allowed;
-        return [viewProfile, new DataListRowMenuItem(UsersStrings.ChangeRole, () => OpenRoleDialogAsync(user), !canChangeRole, "action-change-role")];
+        var canDelete = UserRolePermissions.ForDelete(_bootstrap?.User, user.Id) == UserDeletePermission.Allowed;
+        return
+        [
+            viewProfile,
+            new DataListRowMenuItem(UsersStrings.ChangeRole, () => OpenRoleDialogAsync(user), !canChangeRole, "action-change-role"),
+            new DataListRowMenuItem(UsersStrings.Delete, () => OpenDeleteDialogAsync([user]), !canDelete, "action-delete")
+        ];
     }
 
     private Task<DataListFetchResult<UserDetails>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
@@ -223,6 +248,68 @@
         var reloadProfile = _profile.UserId == change.User.Id.Value ? LoadProfileAsync(change.User.Id.Value, null) : Task.CompletedTask;
         if (_list is not null) await _list.InvalidateAsync();
         await reloadProfile;
+    }
+
+    // The selection holds rows of the loaded page only; the list clears it on a page, sort or filter change
+    private Task OnSelectionChangedAsync(IReadOnlySet<string> keys)
+    {
+        _selectedUsers = PageItems.Where(user => keys.Contains(user.Id.Value)).ToArray();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void OpenInviteDialog()
+    {
+        _isInviteDialogOpen = true;
+    }
+
+    private void OnInviteDialogOpenChanged(bool isOpen)
+    {
+        _isInviteDialogOpen = isOpen;
+    }
+
+    private async Task OnInvitedAsync()
+    {
+        _isInviteDialogOpen = false;
+        Toasts.Show(ToastKind.Success, UsersStrings.UserInvited, null, UserInvitedToastTestId);
+        if (_list is not null) await _list.InvalidateAsync();
+    }
+
+    private void OpenBulkDeleteDialog()
+    {
+        OpenDeleteDialog(_selectedUsers);
+    }
+
+    private void OpenDeleteDialog(IReadOnlyList<UserDetails> users)
+    {
+        _deleteUsers = users;
+        _isDeleteDialogOpen = true;
+        StateHasChanged();
+    }
+
+    private Task OpenDeleteDialogAsync(IReadOnlyList<UserDetails> users)
+    {
+        OpenDeleteDialog(users);
+        return Task.CompletedTask;
+    }
+
+    private void OnDeleteDialogOpenChanged(bool isOpen)
+    {
+        _isDeleteDialogOpen = isOpen;
+        if (!isOpen) _deleteUsers = [];
+    }
+
+    // The pane closes when it shows a deleted user, and every cached page of the list is dropped so no deleted row remains
+    private async Task OnUsersDeletedAsync(IReadOnlyList<UserDetails> users)
+    {
+        _isDeleteDialogOpen = false;
+        _deleteUsers = [];
+        var message = users.Count == 1
+            ? string.Format(CultureInfo.CurrentCulture, UsersStrings.UserDeleted, users[0].DisplayNameOrEmail)
+            : string.Format(CultureInfo.CurrentCulture, UsersStrings.UsersDeleted, users.Count);
+        Toasts.Show(ToastKind.Success, message, null, UsersDeletedToastTestId);
+        if (users.Any(user => user.Id.Value == _profile.UserId)) await CloseProfileAsync();
+        if (_list is not null) await _list.InvalidateAsync();
     }
 
 }

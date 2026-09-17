@@ -264,4 +264,19 @@
     <data name="HideDetails" xml:space="preserve">
         <value>Skjul detaljer</value>
     </data>
+    <data name="JustNow" xml:space="preserve">
+        <value>Lige nu</value>
+    </data>
+    <data name="MinuteAgo" xml:space="preserve">
+        <value>{0} minut siden</value>
+    </data>
+    <data name="MinutesAgo" xml:space="preserve">
+        <value>{0} minutter siden</value>
+    </data>
+    <data name="HourAgo" xml:space="preserve">
+        <value>{0} time siden</value>
+    </data>
+    <data name="HoursAgo" xml:space="preserve">
+        <value>{0} timer siden</value>
+    </data>
 </root>

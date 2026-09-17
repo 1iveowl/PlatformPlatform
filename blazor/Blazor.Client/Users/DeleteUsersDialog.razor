@@ -1,0 +1,106 @@
+@* The delete user confirmation, the React edition's DeleteUserDialog, for one user from the row menu or several from the
+   toolbar. One user is deleted through DELETE /users/{id}, several through bulk delete. A rejection (yourself, not an
+   owner, a user that no longer exists) is shown in the dialog as the API returned it; nothing is deleted then. Escape and
+   Cancel close the dialog unless a deletion is in flight. *@
+@using Account.Client
+@using Account.Features.Users.Requests
+@implements IDisposable
+@inject IServiceProvider Services
+
+<ModalDialog Open="Open" Role="alertdialog" TitleId="@_titleId" DescriptionId="@_descriptionId" OnDismissRequested="CloseAsync" TestId="delete-users-dialog">
+    <EditForm EditContext="_editContext" OnSubmit="DeleteAsync" class="delete-users-form" data-testid="delete-users-form">
+        <div class="modal-dialog-header">
+            <h2 id="@_titleId" class="modal-dialog-title">@(IsSingleUser ? UsersStrings.DeleteUser : UsersStrings.DeleteUsers)</h2>
+        </div>
+        <p id="@_descriptionId" class="modal-dialog-description" data-testid="delete-users-confirmation">
+            @(IsSingleUser
+                ? string.Format(CultureInfo.CurrentCulture, UsersStrings.ConfirmDeleteUser, Users[0].DisplayNameOrEmail)
+                : string.Format(CultureInfo.CurrentCulture, UsersStrings.ConfirmDeleteCountUsers, Users.Count)
+            )
+        </p>
+
+        <FormErrorAlert Errors="_formErrors"/>
+
+        <div class="modal-dialog-actions">
+            <button type="button" class="button-secondary" disabled="@_isDeleting" data-testid="delete-users-cancel" @onclick="CloseAsync">@CommonStrings.Cancel</button>
+            <button type="submit" class="button-destructive" disabled="@_isDeleting" data-testid="delete-users-confirm">@UsersStrings.Delete</button>
+        </div>
+    </EditForm>
+</ModalDialog>
+
+@code {
+
+    private readonly string _descriptionId = $"delete-users-{Guid.NewGuid():N}-description";
+    private readonly string _titleId = $"delete-users-{Guid.NewGuid():N}-title";
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private bool _isDeleting;
+    private bool _preparedOpen;
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<UserDetails> Users { get; set; } = [];
+
+    // Raised after the server deleted the users, with the users deleted; the owner closes the dialog
+    [Parameter]
+    public EventCallback<IReadOnlyList<UserDetails>> OnDeleted { get; set; }
+
+    private bool IsSingleUser => Users.Count == 1;
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(new DeleteUsersForm());
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    // Every opening starts with no messages
+    protected override void OnParametersSet()
+    {
+        if (Open == _preparedOpen) return;
+
+        _preparedOpen = Open;
+        if (Open) _formErrors.Clear();
+    }
+
+    private Task CloseAsync()
+    {
+        return _isDeleting ? Task.CompletedTask : OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_isDeleting || Users.Count == 0) return;
+
+        _isDeleting = true;
+        _formErrors.Clear();
+        var users = Users.ToArray();
+        var usersClient = Services.GetRequiredService<UsersClient>();
+        var result = users.Length == 1
+            ? await usersClient.DeleteUserAsync(users[0].Id, CancellationToken.None)
+            : await usersClient.BulkDeleteUsersAsync(new BulkDeleteUsersCommand(users.Select(user => user.Id).ToArray()), CancellationToken.None);
+        _isDeleting = false;
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        await OnDeleted.InvokeAsync(users);
+    }
+
+    // The confirmation has no fields; the form only carries the server's messages
+    private sealed class DeleteUsersForm;
+
+}

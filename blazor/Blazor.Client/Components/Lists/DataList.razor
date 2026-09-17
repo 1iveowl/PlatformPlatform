@@ -26,7 +26,7 @@
                    aria-busy="@(_controller.Status == DataListStatus.Loading ? "true" : "false")">
             @if (SelectionMode == DataListSelectionMode.Multiple)
             {
-                <TemplateColumn TGridItem="TItem" Title="@CommonStrings.SelectAllRowsOnPage" Class="data-list-select" HeaderTemplate="SelectAllHeader">
+                <TemplateColumn TGridItem="TItem" Title="@SelectAllLabel" Class="data-list-select" HeaderTemplate="SelectAllHeader">
                     <input type="checkbox" tabindex="-1" data-list-select aria-label="@string.Format(CultureInfo.CurrentCulture, CommonStrings.SelectRow, RowLabel?.Invoke(context) ?? KeySelector(context))"
                            checked="@_controller.Selection.Keys.Contains(KeySelector(context))" @onchange="() => ToggleItemAsync(context)"/>
                 </TemplateColumn>
@@ -134,6 +134,10 @@
     [Parameter]
     public Func<TItem, string>? RowLabel { get; set; }
 
+    // The accessible name of the select-all checkbox in the header, such as "Select all users"
+    [Parameter]
+    public string SelectAllLabel { get; set; } = CommonStrings.SelectAllRowsOnPage;
+
     [Parameter]
     public RenderFragment<TItem>? RowMenu { get; set; }
 
@@ -173,7 +177,7 @@
     private DataListHeaderSelection HeaderSelection => _controller.Selection.GetHeaderSelection(_controller.PageKeys);
 
     private RenderFragment<ColumnBase<TItem>> SelectAllHeader => _ =>
-        @<input type="checkbox" data-list-select-all aria-label="@CommonStrings.SelectAllRowsOnPage" checked="@(HeaderSelection == DataListHeaderSelection.All)"
+        @<input type="checkbox" data-list-select-all aria-label="@SelectAllLabel" checked="@(HeaderSelection == DataListHeaderSelection.All)"
                 disabled="@(_controller.Items.Count == 0)" @onchange="ToggleAllAsync"/>;
 
     protected override void OnInitialized()
