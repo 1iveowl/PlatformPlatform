@@ -52,4 +52,30 @@ public sealed class UsersClient(HttpClient httpClient)
     {
         return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.ChangeTheme, command, cancellationToken);
     }
+
+    public Task<ApiCallResult<DeletedUsersResponse>> GetDeletedUsersAsync(GetDeletedUsersQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<DeletedUsersResponse>(AccountApiRoutes.GetDeletedUsers(query), cancellationToken);
+    }
+
+    public Task<ApiCallResult> RestoreUserAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Post, AccountApiRoutes.RestoreUser(userId), cancellationToken);
+    }
+
+    public Task<ApiCallResult> PurgeUserAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.PurgeUser(userId), cancellationToken);
+    }
+
+    public Task<ApiCallResult> BulkPurgeUsersAsync(BulkPurgeUsersCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Post, AccountApiRoutes.BulkPurgeUsers, command, cancellationToken);
+    }
+
+    // Returns the number of users the server purged
+    public Task<ApiCallResult<int>> EmptyRecycleBinAsync(CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync<int>(HttpMethod.Post, AccountApiRoutes.EmptyRecycleBin, cancellationToken);
+    }
 }

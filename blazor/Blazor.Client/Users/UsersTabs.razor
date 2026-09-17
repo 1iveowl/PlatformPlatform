@@ -1,0 +1,16 @@
+@* The users pages' tabs, the React edition's UserTabNavigation: All users and Recycle bin, shown to owners and admins
+   (RecycleBinPermissions.CanView). They are links, so each tab is its own page with its own URL state. *@
+
+<nav class="users-tabs" aria-label="@UsersStrings.UserTabs" data-testid="users-tabs">
+    <a href="@AppUrls.ToAbsolute("account/users")" class="users-tab" aria-current="@(IsRecycleBin ? null : "page")" data-testid="tab-all-users">@UsersStrings.AllUsers</a>
+    <a href="@AppUrls.ToAbsolute(RecycleBinPath)" class="users-tab" aria-current="@(IsRecycleBin ? "page" : null)" data-testid="tab-recycle-bin">@UsersStrings.RecycleBin</a>
+</nav>
+
+@code {
+
+    public const string RecycleBinPath = "account/users/recycle-bin";
+
+    [Parameter]
+    public bool IsRecycleBin { get; set; }
+
+}

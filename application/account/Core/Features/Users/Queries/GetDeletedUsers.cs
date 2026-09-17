@@ -3,31 +3,12 @@ using FluentValidation;
 using JetBrains.Annotations;
 using Mapster;
 using SharedKernel.Cqrs;
-using SharedKernel.Domain;
 using SharedKernel.ExecutionContext;
 
 namespace Account.Features.Users.Queries;
 
 [PublicAPI]
 public sealed record GetDeletedUsersQuery(int? PageOffset = null, int PageSize = 25) : IRequest<Result<DeletedUsersResponse>>;
-
-[PublicAPI]
-public sealed record DeletedUsersResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, DeletedUserDetails[] Users);
-
-[PublicAPI]
-public sealed record DeletedUserDetails(
-    UserId Id,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt,
-    DateTimeOffset? DeletedAt,
-    string Email,
-    UserRole Role,
-    string? FirstName,
-    string? LastName,
-    string? Title,
-    bool EmailConfirmed,
-    string? AvatarUrl
-);
 
 public sealed class GetDeletedUsersQueryValidator : AbstractValidator<GetDeletedUsersQuery>
 {

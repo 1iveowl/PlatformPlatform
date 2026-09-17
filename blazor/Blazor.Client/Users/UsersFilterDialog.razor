@@ -1,0 +1,72 @@
+@* The filter dialog, the React edition's UserFilterDialog, opened from the filter button while the toolbar is too narrow
+   for inline filters: the search, the modified-date range, the role and the status. Every control applies at once through
+   the URL, as in React; Clear removes the search and every filter and closes the dialog, OK closes it. *@
+
+<ModalDialog Open="Open" TitleId="@TitleId" OnDismissRequested="CloseAsync" ClosesOnBackdrop="true" TestId="users-filter-dialog">
+    <div class="modal-dialog-header">
+        <h2 id="@TitleId" class="modal-dialog-title">@UsersStrings.Filters</h2>
+    </div>
+    <div class="users-filter-dialog-body">
+        <label class="users-filter-field">
+            <span class="users-filter-label">@CommonStrings.Search</span>
+            <span class="users-filter-search">
+                <input type="search" class="users-filter-control" placeholder="@CommonStrings.Search" value="@Search" data-testid="filter-dialog-search"
+                       @onchange="OnSearchChangedAsync"/>
+                @if (!string.IsNullOrEmpty(Search))
+                {
+                    <button type="button" class="button-secondary" aria-label="@UsersStrings.ClearSearch" data-testid="filter-dialog-clear-search"
+                            @onclick="ClearSearchAsync">
+                        ×
+                    </button>
+                }
+            </span>
+        </label>
+        <UsersFilters Filters="Filters" IdPrefix="users-dialog-filters" Class="users-filters-stacked" OnChange="OnChange"/>
+    </div>
+    <div class="modal-dialog-actions">
+        <button type="button" class="button-secondary" disabled="@(!UsersFilterModel.CanClear(Filters))" data-testid="filter-dialog-clear" @onclick="OnClear">
+            @UsersStrings.Clear
+        </button>
+        <button type="button" class="button-primary" data-testid="filter-dialog-ok" @onclick="CloseAsync">@CommonStrings.Ok</button>
+    </div>
+</ModalDialog>
+
+@code {
+
+    private const string TitleId = "users-filter-dialog-title";
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyDictionary<string, string> Filters { get; set; } = new Dictionary<string, string>();
+
+    [Parameter]
+    public EventCallback<IReadOnlyDictionary<string, string?>> OnChange { get; set; }
+
+    [Parameter]
+    public EventCallback OnClear { get; set; }
+
+    private string? Search => Filters.GetValueOrDefault(UsersListSource.SearchParameter);
+
+    private Task CloseAsync()
+    {
+        return OpenChanged.InvokeAsync(false);
+    }
+
+    private Task OnSearchChangedAsync(ChangeEventArgs args)
+    {
+        return OnChange.InvokeAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = args.Value?.ToString() });
+    }
+
+    private Task ClearSearchAsync()
+    {
+        return OnChange.InvokeAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = null });
+    }
+
+}

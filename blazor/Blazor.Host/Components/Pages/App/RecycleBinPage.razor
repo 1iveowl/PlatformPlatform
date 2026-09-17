@@ -1,0 +1,13 @@
+@* The users recycle bin page. The page is server-rendered and prerenders the WebAssembly component it hosts: the prerender
+   carries the heading, the tabs and the empty list frame, or the access-denied state for a member, never user data,
+   because the list loads its data only once the component runs in the browser. *@
+@page "/account/users/recycle-bin"
+@using Blazor.Client.Users
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>@UsersStrings.UserRecycleBin</PageTitle>
+
+<DeletedUsersSurface @rendermode="InteractiveWebAssembly"/>

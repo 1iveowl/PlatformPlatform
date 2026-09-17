@@ -21,7 +21,9 @@ public sealed class DataListUrlOptions
         string parameterPrefix = "",
         Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? normalizeFilters = null)
     {
-        if (!sortKeys.Contains(defaultOrderBy, StringComparer.Ordinal))
+        // A list without sortable columns (the recycle bin, which the server orders) passes no sort keys; its default order
+        // is then never written and an orderBy in the URL is ignored
+        if (sortKeys.Count > 0 && !sortKeys.Contains(defaultOrderBy, StringComparer.Ordinal))
         {
             throw new ArgumentException($"The default sort key '{defaultOrderBy}' is not one of the sort keys.", nameof(defaultOrderBy));
         }

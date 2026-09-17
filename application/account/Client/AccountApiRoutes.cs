@@ -29,6 +29,12 @@ public static class AccountApiRoutes
 
     public const string ChangeTheme = "/api/account/users/me/change-theme";
 
+    public const string DeletedUsers = "/api/account/users/deleted";
+
+    public const string BulkPurgeUsers = "/api/account/users/deleted/bulk-purge";
+
+    public const string EmptyRecycleBin = "/api/account/users/deleted/empty-recycle-bin";
+
     public const string Tenants = "/api/account/tenants";
 
     public const string CurrentTenant = "/api/account/tenants/current";
@@ -75,6 +81,23 @@ public static class AccountApiRoutes
     public static string ChangeUserRole(UserId userId)
     {
         return $"{User(userId)}/change-user-role";
+    }
+
+    public static string RestoreUser(UserId userId)
+    {
+        return $"{User(userId)}/restore";
+    }
+
+    public static string PurgeUser(UserId userId)
+    {
+        return $"{User(userId)}/purge";
+    }
+
+    // Bound with [AsParameters] like the users query; the first page omits PageOffset
+    public static string GetDeletedUsers(GetDeletedUsersQuery query)
+    {
+        var pageOffset = query.PageOffset is { } offset ? $"{nameof(GetDeletedUsersQuery.PageOffset)}={offset.ToString(CultureInfo.InvariantCulture)}&" : "";
+        return $"{DeletedUsers}?{pageOffset}{nameof(GetDeletedUsersQuery.PageSize)}={query.PageSize.ToString(CultureInfo.InvariantCulture)}";
     }
 
     // The endpoint binds the query with [AsParameters], so the parameter names are the PascalCase property names, enums

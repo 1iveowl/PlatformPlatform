@@ -12,6 +12,14 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="ActionCannotBeUndone" xml:space="preserve">
+        <value>This action cannot be undone.</value>
+        <comment>React: This action cannot be undone.</comment>
+    </data>
+    <data name="Active" xml:space="preserve">
+        <value>Active</value>
+        <comment>React: Active</comment>
+    </data>
     <data name="AddYourAccountName" xml:space="preserve">
         <value>Add your account name</value>
         <comment>React: Add your account name</comment>
@@ -80,6 +88,22 @@
         <value>Are you sure you want to delete {0}?</value>
         <comment>React: Are you sure you want to delete &lt;0&gt;{userDisplayName}&lt;/0&gt;?</comment>
     </data>
+    <data name="ConfirmEmptyRecycleBin" xml:space="preserve">
+        <value>This will permanently delete {0} users in the recycle bin.</value>
+        <comment>React: This will permanently delete &lt;0&gt;{totalDeletedUsersCount} users&lt;/0&gt; in the recycle bin.</comment>
+    </data>
+    <data name="ConfirmEmptyRecycleBinOneUser" xml:space="preserve">
+        <value>This will permanently delete 1 user in the recycle bin.</value>
+        <comment>React: This will permanently delete &lt;0&gt;1 user&lt;/0&gt; in the recycle bin.</comment>
+    </data>
+    <data name="ConfirmPermanentlyDeleteCountUsers" xml:space="preserve">
+        <value>Are you sure you want to permanently delete {0} users?</value>
+        <comment>React: Are you sure you want to permanently delete &lt;0&gt;{0} users&lt;/0&gt;?</comment>
+    </data>
+    <data name="ConfirmPermanentlyDeleteUser" xml:space="preserve">
+        <value>Are you sure you want to permanently delete {0}?</value>
+        <comment>React: Are you sure you want to permanently delete &lt;0&gt;{userDisplayName}&lt;/0&gt;?</comment>
+    </data>
     <data name="Created" xml:space="preserve">
         <value>Created</value>
         <comment>React: Created</comment>
@@ -92,6 +116,22 @@
         <value>Delete {0} users</value>
         <comment>React: Delete {0} users</comment>
     </data>
+    <data name="Deleted" xml:space="preserve">
+        <value>Deleted</value>
+        <comment>React: Deleted</comment>
+    </data>
+    <data name="DeletedUsers" xml:space="preserve">
+        <value>Deleted users</value>
+        <comment>React: Deleted users</comment>
+    </data>
+    <data name="DeletedUsersAppearHere" xml:space="preserve">
+        <value>Deleted users will appear here for recovery</value>
+        <comment>React: Deleted users will appear here for recovery</comment>
+    </data>
+    <data name="DeletePermanently" xml:space="preserve">
+        <value>Delete permanently</value>
+        <comment>React: Delete permanently</comment>
+    </data>
     <data name="DeleteUser" xml:space="preserve">
         <value>Delete user</value>
         <comment>React: Delete user</comment>
@@ -99,6 +139,14 @@
     <data name="DeleteUsers" xml:space="preserve">
         <value>Delete users</value>
         <comment>React: Delete users</comment>
+    </data>
+    <data name="EmptyRecycleBin" xml:space="preserve">
+        <value>Empty recycle bin</value>
+        <comment>React: Empty recycle bin</comment>
+    </data>
+    <data name="EndDate" xml:space="preserve">
+        <value>End date</value>
+        <comment>React: none; one of the two date inputs of Modified date</comment>
     </data>
     <data name="Filters" xml:space="preserve">
         <value>Filters</value>
@@ -148,6 +196,10 @@
         <value>No users found</value>
         <comment>React: No users found</comment>
     </data>
+    <data name="OneUserPermanentlyDeleted" xml:space="preserve">
+        <value>1 user permanently deleted</value>
+        <comment>React: 1 user permanently deleted</comment>
+    </data>
     <data name="OnlyOwnersCanChangeRoles" xml:space="preserve">
         <value>Only owners can change user roles</value>
         <comment>React: Only owners can change user roles</comment>
@@ -164,9 +216,33 @@
         <value>Pending</value>
         <comment>React: Pending</comment>
     </data>
+    <data name="PermanentlyDeleteUser" xml:space="preserve">
+        <value>Permanently delete user</value>
+        <comment>React: Permanently delete user</comment>
+    </data>
+    <data name="PermanentlyDeleteUsers" xml:space="preserve">
+        <value>Permanently delete users</value>
+        <comment>React: Permanently delete users</comment>
+    </data>
     <data name="RecycleBin" xml:space="preserve">
         <value>Recycle bin</value>
         <comment>React: Recycle bin</comment>
+    </data>
+    <data name="RecycleBinIsEmpty" xml:space="preserve">
+        <value>Recycle bin is empty</value>
+        <comment>React: Recycle bin is empty</comment>
+    </data>
+    <data name="Restore" xml:space="preserve">
+        <value>Restore</value>
+        <comment>React: Restore</comment>
+    </data>
+    <data name="RestoreCountUsers" xml:space="preserve">
+        <value>Restore {0} users</value>
+        <comment>React: Restore {0} users</comment>
+    </data>
+    <data name="Restoring" xml:space="preserve">
+        <value>Restoring...</value>
+        <comment>React: Restoring...</comment>
     </data>
     <data name="Role" xml:space="preserve">
         <value>Role</value>
@@ -191,6 +267,10 @@
     <data name="ShowSearchFilters" xml:space="preserve">
         <value>Show search filters</value>
         <comment>React: Show search filters</comment>
+    </data>
+    <data name="StartDate" xml:space="preserve">
+        <value>Start date</value>
+        <comment>React: none; one of the two date inputs of Modified date</comment>
     </data>
     <data name="TenantNameRequiredMessage" xml:space="preserve">
         <value>Your team needs to know who's inviting them. Add an account name to get started.</value>
@@ -230,6 +310,18 @@
         <value>User not in current view</value>
         <comment>React: User not in current view</comment>
     </data>
+    <data name="UserPermanentlyDeleted" xml:space="preserve">
+        <value>User permanently deleted: {0}</value>
+        <comment>React: User permanently deleted: {userDisplayName}</comment>
+    </data>
+    <data name="UserRecycleBin" xml:space="preserve">
+        <value>User recycle bin</value>
+        <comment>React: User recycle bin</comment>
+    </data>
+    <data name="UserRestored" xml:space="preserve">
+        <value>User restored successfully: {0}</value>
+        <comment>React: User restored successfully: {userName}</comment>
+    </data>
     <data name="UserRole" xml:space="preserve">
         <value>User role</value>
         <comment>React: User role</comment>
@@ -237,6 +329,14 @@
     <data name="UserRoleUpdated" xml:space="preserve">
         <value>User role updated successfully for {0}</value>
         <comment>React: User role updated successfully for {userDisplayName}</comment>
+    </data>
+    <data name="UsersPermanentlyDeleted" xml:space="preserve">
+        <value>{0} users permanently deleted</value>
+        <comment>React: {0} users permanently deleted</comment>
+    </data>
+    <data name="UsersRestored" xml:space="preserve">
+        <value>{0} users restored successfully</value>
+        <comment>React: {0} users restored successfully</comment>
     </data>
     <data name="UserStatus" xml:space="preserve">
         <value>User status</value>

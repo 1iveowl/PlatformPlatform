@@ -12,6 +12,9 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="AccessDenied" xml:space="preserve">
+        <value>Adgang nægtet</value>
+    </data>
     <data name="AccountName" xml:space="preserve">
         <value>Kontonavn</value>
     </data>
@@ -86,6 +89,9 @@
     </data>
     <data name="NextPage" xml:space="preserve">
         <value>Næste side</value>
+    </data>
+    <data name="NoPermissionToAccessPage" xml:space="preserve">
+        <value>Du har ikke tilladelse til at tilgå denne side.</value>
     </data>
     <data name="Notifications" xml:space="preserve">
         <value>Notifikationer</value>

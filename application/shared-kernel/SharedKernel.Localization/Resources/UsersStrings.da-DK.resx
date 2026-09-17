@@ -12,6 +12,12 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="ActionCannotBeUndone" xml:space="preserve">
+        <value>Denne handling kan ikke fortrydes.</value>
+    </data>
+    <data name="Active" xml:space="preserve">
+        <value>Aktiv</value>
+    </data>
     <data name="AddYourAccountName" xml:space="preserve">
         <value>Tilføj dit kontonavn</value>
     </data>
@@ -63,6 +69,18 @@
     <data name="ConfirmDeleteUser" xml:space="preserve">
         <value>Er du sikker på, at du vil slette {0}?</value>
     </data>
+    <data name="ConfirmEmptyRecycleBin" xml:space="preserve">
+        <value>Dette vil permanent slette {0} brugere i papirkurven.</value>
+    </data>
+    <data name="ConfirmEmptyRecycleBinOneUser" xml:space="preserve">
+        <value>Dette vil permanent slette 1 bruger i papirkurven.</value>
+    </data>
+    <data name="ConfirmPermanentlyDeleteCountUsers" xml:space="preserve">
+        <value>Er du sikker på, at du vil slette {0} brugere permanent?</value>
+    </data>
+    <data name="ConfirmPermanentlyDeleteUser" xml:space="preserve">
+        <value>Er du sikker på, at du vil slette {0} permanent?</value>
+    </data>
     <data name="Created" xml:space="preserve">
         <value>Oprettet</value>
     </data>
@@ -72,11 +90,29 @@
     <data name="DeleteCountUsers" xml:space="preserve">
         <value>Slet {0} brugere</value>
     </data>
+    <data name="Deleted" xml:space="preserve">
+        <value>Slettet</value>
+    </data>
+    <data name="DeletedUsers" xml:space="preserve">
+        <value>Slettede brugere</value>
+    </data>
+    <data name="DeletedUsersAppearHere" xml:space="preserve">
+        <value>Slettede brugere vil blive vist her til gendannelse</value>
+    </data>
+    <data name="DeletePermanently" xml:space="preserve">
+        <value>Slet permanent</value>
+    </data>
     <data name="DeleteUser" xml:space="preserve">
         <value>Slet bruger</value>
     </data>
     <data name="DeleteUsers" xml:space="preserve">
         <value>Slet brugere</value>
+    </data>
+    <data name="EmptyRecycleBin" xml:space="preserve">
+        <value>Tøm papirkurv</value>
+    </data>
+    <data name="EndDate" xml:space="preserve">
+        <value>Slutdato</value>
     </data>
     <data name="Filters" xml:space="preserve">
         <value>Filtre</value>
@@ -114,6 +150,9 @@
     <data name="NoUsersFound" xml:space="preserve">
         <value>Ingen brugere fundet</value>
     </data>
+    <data name="OneUserPermanentlyDeleted" xml:space="preserve">
+        <value>1 bruger slettet permanent</value>
+    </data>
     <data name="OnlyOwnersCanChangeRoles" xml:space="preserve">
         <value>Kun ejere kan ændre brugerroller</value>
     </data>
@@ -126,8 +165,26 @@
     <data name="Pending" xml:space="preserve">
         <value>Afventer</value>
     </data>
+    <data name="PermanentlyDeleteUser" xml:space="preserve">
+        <value>Slet bruger permanent</value>
+    </data>
+    <data name="PermanentlyDeleteUsers" xml:space="preserve">
+        <value>Slet brugere permanent</value>
+    </data>
     <data name="RecycleBin" xml:space="preserve">
         <value>Papirkurv</value>
+    </data>
+    <data name="RecycleBinIsEmpty" xml:space="preserve">
+        <value>Papirkurven er tom</value>
+    </data>
+    <data name="Restore" xml:space="preserve">
+        <value>Gendan</value>
+    </data>
+    <data name="RestoreCountUsers" xml:space="preserve">
+        <value>Gendan {0} brugere</value>
+    </data>
+    <data name="Restoring" xml:space="preserve">
+        <value>Gendanner...</value>
     </data>
     <data name="Role" xml:space="preserve">
         <value>Rolle</value>
@@ -146,6 +203,9 @@
     </data>
     <data name="ShowSearchFilters" xml:space="preserve">
         <value>Vis søgefiltre</value>
+    </data>
+    <data name="StartDate" xml:space="preserve">
+        <value>Startdato</value>
     </data>
     <data name="TenantNameRequiredMessage" xml:space="preserve">
         <value>Dit team skal vide, hvem der inviterer dem. Tilføj et kontonavn for at komme i gang.</value>
@@ -177,11 +237,26 @@
     <data name="UserNotInCurrentView" xml:space="preserve">
         <value>Bruger ikke i nuværende visning</value>
     </data>
+    <data name="UserPermanentlyDeleted" xml:space="preserve">
+        <value>Bruger slettet permanent: {0}</value>
+    </data>
+    <data name="UserRecycleBin" xml:space="preserve">
+        <value>Papirkurv for brugere</value>
+    </data>
+    <data name="UserRestored" xml:space="preserve">
+        <value>Bruger genoprettet succesfuldt: {0}</value>
+    </data>
     <data name="UserRole" xml:space="preserve">
         <value>Brugerrolle</value>
     </data>
     <data name="UserRoleUpdated" xml:space="preserve">
         <value>Brugerrolle opdateret succesfuldt for {0}</value>
+    </data>
+    <data name="UsersPermanentlyDeleted" xml:space="preserve">
+        <value>{0} brugere slettet permanent</value>
+    </data>
+    <data name="UsersRestored" xml:space="preserve">
+        <value>{0} brugere genoprettet succesfuldt</value>
     </data>
     <data name="UserStatus" xml:space="preserve">
         <value>Brugerstatus</value>

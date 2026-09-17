@@ -238,6 +238,121 @@ public sealed class UsersClientTests
         result.Problem!.Detail.Should().Be("The user 'ada@example.com' already exists.");
     }
 
+    [Theory]
+    [InlineData(null, "/api/account/users/deleted?PageSize=25")]
+    [InlineData(2, "/api/account/users/deleted?PageOffset=2&PageSize=25")]
+    public async Task GetDeletedUsersAsync_WhenCalled_ShouldGetDeletedRouteAndReadResponse(int? pageOffset, string expectedPathAndQuery)
+    {
+        // Arrange
+        var userId = UserId.NewId();
+        var json = $$"""{"totalCount":1,"pageSize":25,"totalPages":1,"currentPageOffset":0,"users":[{"id":"{{userId}}","createdAt":"2026-01-02T03:04:05+00:00","modifiedAt":null,"deletedAt":"2026-02-03T04:05:06+00:00","email":"ada@example.com","role":"Member","firstName":null,"lastName":null,"title":null,"emailConfirmed":true,"avatarUrl":null}]}""";
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.OK, json);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.GetDeletedUsersAsync(new GetDeletedUsersQuery(pageOffset), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Get);
+        request.PathAndQuery.Should().Be(expectedPathAndQuery);
+        result.IsSuccess.Should().BeTrue();
+        var user = result.Value!.Users.Should().ContainSingle().Subject;
+        user.Id.Should().Be(userId);
+        user.DeletedAt.Should().Be(new DateTimeOffset(2026, 2, 3, 4, 5, 6, TimeSpan.Zero));
+        user.Role.Should().Be(UserRole.Member);
+    }
+
+    [Fact]
+    public async Task RestoreUserAsync_WhenCalled_ShouldPostRestoreRouteWithoutBody()
+    {
+        // Arrange
+        var userId = UserId.NewId();
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.RestoreUserAsync(userId, CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Post);
+        request.PathAndQuery.Should().Be($"/api/account/users/{userId}/restore");
+        request.Body.Should().BeNull();
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PurgeUserAsync_WhenCalled_ShouldDeletePurgeRouteWithoutBody()
+    {
+        // Arrange
+        var userId = UserId.NewId();
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.PurgeUserAsync(userId, CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Delete);
+        request.PathAndQuery.Should().Be($"/api/account/users/{userId}/purge");
+        request.Body.Should().BeNull();
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task BulkPurgeUsersAsync_WhenCalled_ShouldPostServerJson()
+    {
+        // Arrange
+        UserId[] userIds = [UserId.NewId(), UserId.NewId()];
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.NoContent);
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.BulkPurgeUsersAsync(new BulkPurgeUsersCommand(userIds), CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Post);
+        request.PathAndQuery.Should().Be("/api/account/users/deleted/bulk-purge");
+        request.Body.Should().Be(SerializeServerCommand(new ServerCommands.BulkPurgeUsersCommand(userIds)));
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task EmptyRecycleBinAsync_WhenCalled_ShouldPostEmptyRouteAndReadTheCount()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.OK, "3");
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.EmptyRecycleBinAsync(CancellationToken.None);
+
+        // Assert
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Post);
+        request.PathAndQuery.Should().Be("/api/account/users/deleted/empty-recycle-bin");
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task EmptyRecycleBinAsync_WhenNotOwner_ShouldReturnTheProblemDetail()
+    {
+        // Arrange
+        var handler = StubHttpMessageHandler.Returning(HttpStatusCode.Forbidden, """{"title":"Forbidden","status":403,"detail":"Only owners can empty the deleted users recycle bin."}""", "application/problem+json");
+        var client = new UsersClient(StubHttpMessageHandler.CreateHttpClient(handler));
+
+        // Act
+        var result = await client.EmptyRecycleBinAsync(CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.Detail.Should().Be("Only owners can empty the deleted users recycle bin.");
+    }
+
     private static string UserDetailsJson(UserId userId)
     {
         return $$"""{"id":"{{userId}}","createdAt":"2026-01-02T03:04:05+00:00","modifiedAt":null,"lastSeenAt":null,"email":"ada@example.com","role":"Admin","firstName":"Ada","lastName":"Lovelace","title":"","emailConfirmed":true,"avatarUrl":null}""";

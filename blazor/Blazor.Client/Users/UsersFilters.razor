@@ -1,0 +1,107 @@
+@* The users page's role, status and modified-date filters, the React edition's inline filters, rendered inline in the
+   toolbar and inside the filter dialog. Native selects and date inputs keep the page free of style attributes; the two
+   date inputs share one group label and apply as one range. UsersFilterModel builds every URL change; the owner applies it
+   through DataList.SetFiltersAsync. *@
+
+<div class="users-filters @Class" data-testid="@TestId">
+    <div role="group" class="users-filter-dates" aria-labelledby="@($"{IdPrefix}-dates-label")" data-testid="date-filter">
+        <span id="@($"{IdPrefix}-dates-label")" class="users-filter-label">@UsersStrings.ModifiedDate</span>
+        <span class="users-filter-date-inputs">
+            <input type="date" class="users-filter-control" aria-label="@UsersStrings.StartDate" value="@_dateRange.Start" max="@_dateRange.End" data-testid="start-date"
+                   @onchange="OnStartDateChangedAsync"/>
+            <input type="date" class="users-filter-control" aria-label="@UsersStrings.EndDate" value="@_dateRange.End" min="@_dateRange.Start" data-testid="end-date"
+                   @onchange="OnEndDateChangedAsync"/>
+        </span>
+    </div>
+    <label class="users-filter-field">
+        <span class="users-filter-label">@UsersStrings.UserRole</span>
+        <select class="users-filter-control" data-testid="role-filter" @onchange="OnRoleChangedAsync">
+            <option value="" selected="@(Role is null)">@UsersStrings.AnyRole</option>
+            @foreach (var role in Enum.GetValues<UserRole>())
+            {
+                <option value="@role" selected="@(Role == role.ToString())">@UserRoleText.Label(role)</option>
+            }
+        </select>
+    </label>
+    <label class="users-filter-field">
+        <span class="users-filter-label">@UsersStrings.UserStatus</span>
+        <select class="users-filter-control" data-testid="status-filter" @onchange="OnStatusChangedAsync">
+            <option value="" selected="@(Status is null)">@UsersStrings.AnyStatus</option>
+            @foreach (var status in Enum.GetValues<UserStatus>())
+            {
+                <option value="@status" selected="@(Status == status.ToString())">@StatusLabel(status)</option>
+            }
+        </select>
+    </label>
+</div>
+
+@code {
+
+    private UsersDateRange _appliedRange = new("", "");
+    private UsersDateRange _dateRange = new("", "");
+
+    // The normalized filters of the list's URL state
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyDictionary<string, string> Filters { get; set; } = new Dictionary<string, string>();
+
+    [Parameter]
+    [EditorRequired]
+    public string IdPrefix { get; set; } = "";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    // Raised with the URL changes a control made; the owner applies them
+    [Parameter]
+    public EventCallback<IReadOnlyDictionary<string, string?>> OnChange { get; set; }
+
+    private string? Role => Filters.GetValueOrDefault(UsersListSource.UserRoleParameter);
+
+    private string? Status => Filters.GetValueOrDefault(UsersListSource.UserStatusParameter);
+
+    // The inputs follow the URL when its range changes (a clear, Back or Forward) and otherwise keep a partly entered range
+    protected override void OnParametersSet()
+    {
+        var range = UsersFilterModel.DateRange(Filters);
+        if (range == _appliedRange) return;
+        _appliedRange = range;
+        _dateRange = range;
+    }
+
+    private static string StatusLabel(UserStatus status)
+    {
+        return status == UserStatus.Active ? UsersStrings.Active : UsersStrings.Pending;
+    }
+
+    private Task OnStartDateChangedAsync(ChangeEventArgs args)
+    {
+        _dateRange = _dateRange with { Start = args.Value?.ToString() ?? "" };
+        return ApplyAsync(UsersFilterModel.DateRangeChanges(_dateRange.Start, _dateRange.End));
+    }
+
+    private Task OnEndDateChangedAsync(ChangeEventArgs args)
+    {
+        _dateRange = _dateRange with { End = args.Value?.ToString() ?? "" };
+        return ApplyAsync(UsersFilterModel.DateRangeChanges(_dateRange.Start, _dateRange.End));
+    }
+
+    private Task OnRoleChangedAsync(ChangeEventArgs args)
+    {
+        return ApplyAsync(UsersFilterModel.RoleChanges(args.Value?.ToString()));
+    }
+
+    private Task OnStatusChangedAsync(ChangeEventArgs args)
+    {
+        return ApplyAsync(UsersFilterModel.StatusChanges(args.Value?.ToString()));
+    }
+
+    private Task ApplyAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return UsersFilterModel.Changes(Filters, changes) ? OnChange.InvokeAsync(changes) : Task.CompletedTask;
+    }
+
+}

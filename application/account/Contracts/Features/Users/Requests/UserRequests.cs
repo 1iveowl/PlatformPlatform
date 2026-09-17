@@ -8,7 +8,7 @@ namespace Account.Features.Users.Requests;
 // Requests of the users endpoints. Each record keeps the name and JSON shape of the command or query it is mapped to,
 // because the name is the OpenAPI schema name and the query properties are the query string parameters. The user id of
 // ChangeUserRoleCommand travels in the route, not in the body, and BulkDeleteUsersCommand carries the ids of the users to
-// delete in the body.
+// delete in the body, as BulkPurgeUsersCommand carries the ids of the deleted users to purge.
 
 [PublicAPI]
 public sealed record GetUsersQuery(
@@ -37,6 +37,13 @@ public sealed record BulkDeleteUsersCommand(UserId[] UserIds);
 
 [PublicAPI]
 public sealed record InviteUserCommand(string Email);
+
+// The recycle bin is paged by PageOffset only; the server orders the deleted users by deletion time, newest first
+[PublicAPI]
+public sealed record GetDeletedUsersQuery(int? PageOffset = null, int PageSize = 25);
+
+[PublicAPI]
+public sealed record BulkPurgeUsersCommand(UserId[] UserIds);
 
 // The theme is a device preference the browser stores; the account API only records the change as telemetry. Theme and
 // FromTheme are the selected modes (system, light or dark), ResolvedTheme the light or dark theme the browser applied.

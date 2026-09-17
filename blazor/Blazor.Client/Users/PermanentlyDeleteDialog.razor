@@ -1,0 +1,132 @@
+@* The permanent delete confirmation, the React edition's PermanentlyDeleteUserDialog, for one deleted user (purge), several
+   (bulk purge) or the whole recycle bin (empty). A refusal is shown in the dialog as the API returned it and nothing is
+   deleted then. Escape and Cancel close the dialog unless a deletion is in flight. *@
+@using Account.Client
+@using Account.Features.Users.Requests
+@implements IDisposable
+@inject IServiceProvider Services
+
+<ModalDialog Open="Open" Role="alertdialog" TitleId="@TitleId" DescriptionId="@DescriptionId" OnDismissRequested="CloseAsync" TestId="permanently-delete-dialog">
+    <EditForm EditContext="_editContext" OnSubmit="DeleteAsync" data-testid="permanently-delete-form">
+        <div class="modal-dialog-header">
+            <h2 id="@TitleId" class="modal-dialog-title">@Title</h2>
+        </div>
+        <div id="@DescriptionId" class="modal-dialog-description" data-testid="permanently-delete-confirmation">
+            <p>@Confirmation</p>
+            <p>@UsersStrings.ActionCannotBeUndone</p>
+        </div>
+
+        <FormErrorAlert Errors="_formErrors"/>
+
+        <div class="modal-dialog-actions">
+            <button type="button" class="button-secondary" disabled="@_isDeleting" data-testid="permanently-delete-cancel" @onclick="CloseAsync">@CommonStrings.Cancel</button>
+            <button type="submit" class="button-destructive" disabled="@_isDeleting" data-testid="permanently-delete-confirm">
+                @(IsEmptyRecycleBin ? UsersStrings.EmptyRecycleBin : UsersStrings.DeletePermanently)
+            </button>
+        </div>
+    </EditForm>
+</ModalDialog>
+
+@code {
+
+    private const string DescriptionId = "permanently-delete-description";
+    private const string TitleId = "permanently-delete-title";
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private bool _isDeleting;
+    private bool _preparedOpen;
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    // The users to purge; empty when the whole recycle bin is emptied
+    [Parameter]
+    public IReadOnlyList<DeletedUserDetails> Users { get; set; } = [];
+
+    [Parameter]
+    public bool IsEmptyRecycleBin { get; set; }
+
+    // The number of users in the recycle bin, shown when emptying it
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    // Raised after the server deleted the users, with the users deleted (none when emptied) and the number deleted
+    [Parameter]
+    public EventCallback<(IReadOnlyList<DeletedUserDetails> Users, int Count)> OnDeleted { get; set; }
+
+    private string Title => IsEmptyRecycleBin ? UsersStrings.EmptyRecycleBin : Users.Count == 1 ? UsersStrings.PermanentlyDeleteUser : UsersStrings.PermanentlyDeleteUsers;
+
+    private string Confirmation => IsEmptyRecycleBin
+        ? TotalCount == 1 ? UsersStrings.ConfirmEmptyRecycleBinOneUser : string.Format(CultureInfo.CurrentCulture, UsersStrings.ConfirmEmptyRecycleBin, TotalCount)
+        : Users.Count == 1
+            ? string.Format(CultureInfo.CurrentCulture, UsersStrings.ConfirmPermanentlyDeleteUser, Users[0].DisplayNameOrEmail)
+            : string.Format(CultureInfo.CurrentCulture, UsersStrings.ConfirmPermanentlyDeleteCountUsers, Users.Count);
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(new PermanentlyDeleteForm());
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    // Every opening starts with no messages
+    protected override void OnParametersSet()
+    {
+        if (Open == _preparedOpen) return;
+
+        _preparedOpen = Open;
+        if (Open) _formErrors.Clear();
+    }
+
+    private Task CloseAsync()
+    {
+        return _isDeleting ? Task.CompletedTask : OpenChanged.InvokeAsync(false);
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_isDeleting || (!IsEmptyRecycleBin && Users.Count == 0)) return;
+
+        _isDeleting = true;
+        _formErrors.Clear();
+        var users = Users.ToArray();
+        var usersClient = Services.GetRequiredService<UsersClient>();
+        if (IsEmptyRecycleBin)
+        {
+            var emptied = await usersClient.EmptyRecycleBinAsync(CancellationToken.None);
+            _isDeleting = false;
+            if (!emptied.IsSuccess)
+            {
+                _formErrors.ApplyFailure(emptied);
+                return;
+            }
+
+            await OnDeleted.InvokeAsync(([], emptied.Value));
+            return;
+        }
+
+        var result = users.Length == 1
+            ? await usersClient.PurgeUserAsync(users[0].Id, CancellationToken.None)
+            : await usersClient.BulkPurgeUsersAsync(new BulkPurgeUsersCommand(users.Select(user => user.Id).ToArray()), CancellationToken.None);
+        _isDeleting = false;
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        await OnDeleted.InvokeAsync((users, users.Length));
+    }
+
+    // The confirmation has no fields; the form only carries the server's messages
+    private sealed class PermanentlyDeleteForm;
+
+}

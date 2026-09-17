@@ -84,6 +84,98 @@ h1:focus {
     margin-block: 1rem;
 }
 
+/* The users pages' tabs and filters (Blazor.Client/Users/UsersTabs, UsersFilters and UsersFilterDialog) */
+.users-tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--border-strong);
+    margin-block: 1rem;
+}
+
+.users-tab {
+    padding: 0.5rem 0.75rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+}
+
+.users-tab[aria-current="page"] {
+    color: var(--text);
+    border-bottom-color: var(--brand-primary);
+    font-weight: 600;
+}
+
+.users-filters {
+    display: flex;
+    gap: 0.5rem;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.users-filters-stacked {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.users-filter-field,
+.users-filter-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.users-filter-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.users-filter-date-inputs,
+.users-filter-search {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.users-filter-control {
+    min-height: 2.25rem;
+    padding-inline: 0.5rem;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 0.375rem;
+    font: inherit;
+}
+
+.users-filter-search .users-filter-control {
+    flex: 1;
+}
+
+.users-filter-button {
+    position: relative;
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.users-filter-badge {
+    display: inline-flex;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--brand-primary);
+    color: var(--brand-primary-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.users-filter-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-block: 1rem;
+}
+
 .users-actions {
     display: flex;
     gap: 0.5rem;

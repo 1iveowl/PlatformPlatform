@@ -9,21 +9,42 @@
    the URL, the side pane opened from a row or from ?userId=, and the role change with its permission rules. The host
    prerenders the frame; the list and the pane load their data only once the component runs in the browser.
    An owner invites users from the toolbar and deletes one user from the row menu or a multiple selection from the toolbar;
-   UserRolePermissions decides which actions show. The filter dialog and the recycle bin are not part of this surface yet;
-   role, status and date filters in a deep link are still applied through UsersListSource. *@
+   UserRolePermissions decides which actions show. The role, status and modified-date filters show inline while the toolbar
+   is at least 54 rem wide and otherwise behind the filter button, which carries the active count and opens the filter
+   dialog; UsersFilterModel decides, toolbar-width.js measures. Owners and admins see the tabs to the recycle bin. *@
 @inject SessionState Session
 @inject IServiceProvider Services
+@implements IAsyncDisposable
 @inject ToastService Toasts
+@inject DataListPageCache PageCache
+@inject IJSRuntime JavaScriptRuntime
 
 <AppShell>
     <h1>@CommonStrings.Users</h1>
     <p>@UsersStrings.ManageUsers</p>
 
-    <div class="users-toolbar">
+    @if (RecycleBinPermissions.CanView(_bootstrap?.User))
+    {
+        <UsersTabs/>
+    }
+
+    <div class="users-toolbar" data-testid="users-toolbar" @ref="_toolbar">
         <div role="search">
             <FluentTextInput Id="@SearchId" data-testid="search" AriaLabel="@CommonStrings.Search" Placeholder="@CommonStrings.Search" Immediate="true" ImmediateDelay="500"
                              Value="@_filters.GetValueOrDefault(UsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
         </div>
+        @if (_filterModel.IsExpanded)
+        {
+            <UsersFilters Filters="_filters" IdPrefix="users-inline-filters" TestId="inline-filters" OnChange="SetFiltersAsync"/>
+        }
+        <button type="button" class="button-secondary users-filter-button" data-testid="filter-button" aria-haspopup="@(_filterModel.IsExpanded || _filterModel.IsWide ? null : "dialog")"
+                @onclick="OnFilterButtonClickedAsync">
+            @_filterModel.ButtonLabel
+            @if (_filterModel.ShowsBadge(_filters))
+            {
+                <span class="users-filter-badge" data-testid="filter-count">@UsersFilterModel.ActiveCount(_filters).ToString(CultureInfo.CurrentCulture)</span>
+            }
+        </button>
         @if (_bootstrap is not null)
         {
             <UsersToolbar CurrentUser="_bootstrap.User" SelectedUsers="_selectedUsers" OnInvite="OpenInviteDialog" OnBulkDelete="OpenBulkDeleteDialog"/>
@@ -62,6 +83,8 @@
 
     <InviteUserDialog Open="_isInviteDialogOpen" OpenChanged="OnInviteDialogOpenChanged" OnInvited="OnInvitedAsync"/>
 
+    <UsersFilterDialog Open="_filterModel.IsDialogOpen" OpenChanged="OnFilterDialogOpenChanged" Filters="_filters" OnChange="SetFiltersAsync" OnClear="ClearFiltersAsync"/>
+
     <DeleteUsersDialog Open="_isDeleteDialogOpen" OpenChanged="OnDeleteDialogOpenChanged" Users="_deleteUsers" OnDeleted="OnUsersDeletedAsync"/>
 </AppShell>
 
@@ -73,6 +96,7 @@
     private const string SearchId = "users-search";
     private const string PaneId = "users-profile-pane";
 
+    private readonly UsersFilterModel _filterModel = new();
     private readonly UserProfileState _profile = new();
     private BootstrapResponse? _bootstrap;
     private IReadOnlyList<DataListColumn<UserDetails>> _columns = [];
@@ -84,6 +108,10 @@
     private DataList<UserDetails>? _list;
     private UserDetails? _roleUser;
     private IReadOnlyList<UserDetails> _selectedUsers = [];
+    private DotNetObjectReference<UsersSurface>? _reference;
+    private ElementReference _toolbar;
+    private IJSObjectReference? _toolbarObserver;
+    private bool _disposed;
 
     private IReadOnlyList<UserDetails> PageItems => _list is { Status: DataListStatus.Ready or DataListStatus.Empty } list ? list.Items : [];
 
@@ -134,6 +162,50 @@
         _bootstrap = bootstrap;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive) return;
+
+        try
+        {
+            await using var module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/toolbar-width.js");
+            _reference = DotNetObjectReference.Create(this);
+            var observer = await module.InvokeAsync<IJSObjectReference>("observeToolbarWidth", _toolbar, _reference, UsersFilterModel.InlineThresholdRem);
+            if (_disposed) await observer.DisposeAsync();
+            else _toolbarObserver = observer;
+        }
+        catch (JSDisconnectedException)
+        {
+            // The document is gone; the filters stay behind the button
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        try
+        {
+            if (_toolbarObserver is not null)
+            {
+                await _toolbarObserver.InvokeVoidAsync("dispose");
+                await _toolbarObserver.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The document is gone, and the observer with it
+        }
+
+        _reference?.Dispose();
+    }
+
+    [JSInvokable]
+    public Task OnToolbarWidthChanged(bool isWide)
+    {
+        if (_filterModel.WidthChanged(isWide, _filters)) StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     private static string KeyOf(UserDetails user)
     {
         return user.Id.Value;
@@ -172,6 +244,7 @@
     private async Task OnListStateChangedAsync(DataListState state)
     {
         _filters = state.Filters;
+        _filterModel.FiltersChanged(_filters);
         if (state.SelectedKey is null)
         {
             _profile.Close();
@@ -186,6 +259,28 @@
     private Task OnSearchChangedAsync(string? search)
     {
         return _list?.SetFiltersAsync(new Dictionary<string, string?> { [UsersListSource.SearchParameter] = search }) ?? Task.CompletedTask;
+    }
+
+    private Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return _list?.SetFiltersAsync(changes) ?? Task.CompletedTask;
+    }
+
+    // Expanded filters clear on a click; otherwise they show inline on a wide toolbar or in the dialog on a narrow one
+    private Task OnFilterButtonClickedAsync()
+    {
+        return _filterModel.ButtonClicked() == UsersFilterButtonAction.ClearFilters ? SetFiltersAsync(UsersFilterModel.ClearChanges()) : Task.CompletedTask;
+    }
+
+    private void OnFilterDialogOpenChanged(bool isOpen)
+    {
+        _filterModel.IsDialogOpen = isOpen;
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        _filterModel.Cleared();
+        return SetFiltersAsync(UsersFilterModel.ClearChanges());
     }
 
     private Task OpenProfileAsync(UserDetails user)
@@ -309,6 +404,7 @@
             : string.Format(CultureInfo.CurrentCulture, UsersStrings.UsersDeleted, users.Count);
         Toasts.Show(ToastKind.Success, message, null, UsersDeletedToastTestId);
         if (users.Any(user => user.Id.Value == _profile.UserId)) await CloseProfileAsync();
+        PageCache.Invalidate(DeletedUsersListSource.ListId);
         if (_list is not null) await _list.InvalidateAsync();
     }
 

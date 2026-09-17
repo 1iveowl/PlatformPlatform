@@ -34,3 +34,21 @@ public sealed record CurrentUserResponse(
     string? Title,
     string? AvatarUrl
 );
+
+[PublicAPI]
+public sealed record DeletedUsersResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, DeletedUserDetails[] Users);
+
+[PublicAPI]
+public sealed record DeletedUserDetails(
+    UserId Id,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ModifiedAt,
+    DateTimeOffset? DeletedAt,
+    string Email,
+    UserRole Role,
+    string? FirstName,
+    string? LastName,
+    string? Title,
+    bool EmailConfirmed,
+    string? AvatarUrl
+);

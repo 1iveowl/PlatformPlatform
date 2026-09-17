@@ -62,6 +62,36 @@ public sealed class DataListControllerTests
     }
 
     [Fact]
+    public async Task SetFilters_WhenADateRangeIsSetAndCleared_ShouldWriteBothBoundsFetchThemAndRemoveThemTogether()
+    {
+        // Arrange
+        var browser = new FakeBrowser { Uri = $"{Page}?userRole=Admin&pageOffset=1" };
+        var requests = new List<DataListRequest>();
+        var options = new DataListUrlOptions("Name", ["Name"], ["search", "userRole", "startDate", "endDate"], "userId");
+        var controller = new DataListController<string>(new DataListPageCache(), options, DataListSelectionMode.Multiple, row => row, () => browser.Uri, browser.Navigate)
+        {
+            ListId = "rows", CacheScope = "tnt_1/usr_1", Fetch = (request, _) =>
+            {
+                requests.Add(request);
+                return Task.FromResult(DataListFetchResult<string>.Success(["row-000", "row-001"], 30));
+            }
+        };
+        await controller.LoadAsync();
+
+        // Act
+        await controller.SetFiltersAsync(new Dictionary<string, string?> { ["startDate"] = "2026-01-01", ["endDate"] = "2026-01-31" });
+        var rangeUri = browser.Uri;
+        await controller.SetFiltersAsync(new Dictionary<string, string?> { ["startDate"] = null, ["endDate"] = null });
+
+        // Assert
+        rangeUri.Should().Be($"{Page}?userRole=Admin&startDate=2026-01-01&endDate=2026-01-31");
+        requests[1].Filters.Should().BeEquivalentTo(new Dictionary<string, string> { ["userRole"] = "Admin", ["startDate"] = "2026-01-01", ["endDate"] = "2026-01-31" });
+        requests[1].PageOffset.Should().Be(0);
+        browser.Uri.Should().Be($"{Page}?userRole=Admin");
+        browser.History.Should().OnlyContain(entry => entry.Replace);
+    }
+
+    [Fact]
     public async Task LocationChanged_WhenBackRestoresAnEarlierState_ShouldLoadItFromTheCacheAndIgnoreOwnNavigations()
     {
         // Arrange

@@ -1,0 +1,237 @@
+@using Account.Client
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Components
+@using Blazor.Client.Session
+@* The users recycle bin, the React edition's recycle-bin page: the deleted users on their own DataList, newest deletion
+   first, restore and permanent delete for a selection, and Empty recycle bin. Owners and admins see the page; a member gets
+   the access-denied state inside the shell. RecycleBinPermissions decides which actions show, and the API's refusals are
+   shown as returned. A restore or purge invalidates both the recycle bin and the users list. The host prerenders the frame;
+   the list loads its data only once the component runs in the browser. *@
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject ToastService Toasts
+@inject DataListPageCache PageCache
+
+<AppShell>
+    @if (_bootstrap is not null && !RecycleBinPermissions.CanView(_bootstrap.User))
+    {
+        <section class="status-page" data-testid="access-denied">
+            <h1>@CommonStrings.AccessDenied</h1>
+            <p>@CommonStrings.NoPermissionToAccessPage</p>
+            <div class="status-page-actions">
+                <a href="@AppUrls.AuthenticatedHome" class="button-primary" data-testid="access-denied-home">@CommonStrings.GoToHome</a>
+            </div>
+        </section>
+    }
+    else
+    {
+        <h1>@UsersStrings.UserRecycleBin</h1>
+        <p>@UsersStrings.ManageUsers</p>
+
+        <UsersTabs IsRecycleBin="true"/>
+
+        <div class="users-toolbar">
+            <div class="users-actions" data-testid="recycle-bin-actions">
+                @if (Actions.ShowsRestore)
+                {
+                    <button type="button" class="button-secondary" disabled="@_isRestoring" data-testid="restore-users" @onclick="RestoreAsync">
+                        @(_isRestoring
+                            ? UsersStrings.Restoring
+                            : _selectedUsers.Count == 1
+                                ? UsersStrings.Restore
+                                : string.Format(CultureInfo.CurrentCulture, UsersStrings.RestoreCountUsers, _selectedUsers.Count)
+                        )
+                    </button>
+                }
+                @if (Actions.ShowsPermanentDelete)
+                {
+                    <button type="button" class="button-destructive" disabled="@_isRestoring" data-testid="permanently-delete-users" @onclick="OpenPermanentDeleteDialog">
+                        @(_selectedUsers.Count == 1 ? UsersStrings.Delete : string.Format(CultureInfo.CurrentCulture, UsersStrings.DeleteCountUsers, _selectedUsers.Count))
+                    </button>
+                }
+                @if (Actions.ShowsEmptyRecycleBin)
+                {
+                    <button type="button" class="button-destructive" data-testid="empty-recycle-bin" @onclick="OpenEmptyDialog">@UsersStrings.EmptyRecycleBin</button>
+                }
+            </div>
+        </div>
+
+        @if (_bootstrap is not null)
+        {
+            <DataList @ref="_list" TItem="DeletedUserDetails" data-testid="deleted-users-grid" ListId="@DeletedUsersListSource.ListId"
+                      CacheScope="@DeletedUsersListSource.CacheScope(_bootstrap)" Label="@UsersStrings.DeletedUsers" Columns="_columns" FetchPage="FetchPageAsync"
+                      KeySelector="KeyOf" DefaultOrderBy="@DeletedUsersListSource.DefaultOrderBy" SelectionMode="DataListSelectionMode.Multiple" RowLabel="RowLabel"
+                      SelectAllLabel="@UsersStrings.SelectAllUsers" OnSelectionChanged="OnSelectionChangedAsync" OnStateChanged="OnListStateChangedAsync">
+                <EmptyContent>
+                    <div data-testid="recycle-bin-empty">
+                        <p>@UsersStrings.RecycleBinIsEmpty</p>
+                        <p>@UsersStrings.DeletedUsersAppearHere</p>
+                    </div>
+                </EmptyContent>
+            </DataList>
+        }
+
+        <PermanentlyDeleteDialog Open="_isDeleteDialogOpen" OpenChanged="OnDeleteDialogOpenChanged" Users="_deleteUsers" IsEmptyRecycleBin="_isEmptyRecycleBin"
+                                 TotalCount="_list?.TotalCount ?? 0" OnDeleted="OnPermanentlyDeletedAsync"/>
+    }
+</AppShell>
+
+@code {
+
+    public const string UsersRestoredToastTestId = "users-restored-toast";
+    public const string UsersPermanentlyDeletedToastTestId = "users-permanently-deleted-toast";
+
+    private BootstrapResponse? _bootstrap;
+    private IReadOnlyList<DataListColumn<DeletedUserDetails>> _columns = [];
+    private IReadOnlyList<DeletedUserDetails> _deleteUsers = [];
+    private bool _isDeleteDialogOpen;
+    private bool _isEmptyRecycleBin;
+    private bool _isRestoring;
+    private DataList<DeletedUserDetails>? _list;
+    private IReadOnlyList<DeletedUserDetails> _selectedUsers = [];
+
+    private int TotalCount => _list is { Status: DataListStatus.Ready } list ? list.TotalCount : 0;
+
+    private RecycleBinActions Actions => RecycleBinPermissions.Actions(_bootstrap?.User, _selectedUsers.Count, TotalCount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _columns =
+        [
+            new DataListColumn<DeletedUserDetails>(UsersStrings.Name, user => @<span class="user-name-cell" data-user-row data-email="@user.Email">
+                                                                                  <UserAvatar AvatarUrl="@user.AvatarUrl" Initials="@user.Initials"/>
+                                                                                  <span class="user-name" data-testid="user-name">@user.DisplayNameOrEmail</span>
+                                                                              </span>
+            ),
+            new DataListColumn<DeletedUserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>
+            ),
+            new DataListColumn<DeletedUserDetails>(UsersStrings.Deleted, user => @<text>@RelativeTime.Format(user.DeletedAt, TimeProvider.System.GetUtcNow())</text>
+            ),
+            new DataListColumn<DeletedUserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>
+            )
+        ];
+
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null) return;
+
+        if (RendererInfo.IsInteractive && !bootstrap.IsAuthenticated)
+        {
+            Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();
+            return;
+        }
+
+        _bootstrap = bootstrap;
+    }
+
+    private static string KeyOf(DeletedUserDetails user)
+    {
+        return user.Id.Value;
+    }
+
+    private static string RowLabel(DeletedUserDetails user)
+    {
+        return user.Email;
+    }
+
+    private Task<DataListFetchResult<DeletedUserDetails>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return DeletedUsersListSource.FetchAsync(Services.GetRequiredService<UsersClient>(), request, cancellationToken);
+    }
+
+    // The toolbar follows the loaded page: Empty recycle bin shows only while the bin has users
+    private Task OnListStateChangedAsync(DataListState state)
+    {
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // The selection holds rows of the loaded page only; the list clears it on a page change
+    private Task OnSelectionChangedAsync(IReadOnlySet<string> keys)
+    {
+        _selectedUsers = (_list?.Items ?? []).Where(user => keys.Contains(user.Id.Value)).ToArray();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // Restores the selection one user at a time; the first refusal is shown as the API returned it, and every list is
+    // invalidated when at least one user came back
+    private async Task RestoreAsync()
+    {
+        if (_isRestoring || _selectedUsers.Count == 0) return;
+
+        _isRestoring = true;
+        var users = _selectedUsers.ToArray();
+        var usersClient = Services.GetRequiredService<UsersClient>();
+        var restored = 0;
+        foreach (var user in users)
+        {
+            var result = await usersClient.RestoreUserAsync(user.Id, CancellationToken.None);
+            if (!result.IsSuccess)
+            {
+                Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+                break;
+            }
+
+            restored++;
+        }
+
+        _isRestoring = false;
+        if (restored == users.Length)
+        {
+            var message = users.Length == 1
+                ? string.Format(CultureInfo.CurrentCulture, UsersStrings.UserRestored, users[0].DisplayNameOrEmail)
+                : string.Format(CultureInfo.CurrentCulture, UsersStrings.UsersRestored, users.Length);
+            Toasts.Show(ToastKind.Success, message, null, UsersRestoredToastTestId);
+        }
+
+        if (restored > 0) await InvalidateListsAsync();
+        else StateHasChanged();
+    }
+
+    private void OpenPermanentDeleteDialog()
+    {
+        _deleteUsers = _selectedUsers;
+        _isEmptyRecycleBin = false;
+        _isDeleteDialogOpen = true;
+    }
+
+    private void OpenEmptyDialog()
+    {
+        _deleteUsers = [];
+        _isEmptyRecycleBin = true;
+        _isDeleteDialogOpen = true;
+    }
+
+    private void OnDeleteDialogOpenChanged(bool isOpen)
+    {
+        _isDeleteDialogOpen = isOpen;
+        if (isOpen) return;
+        _deleteUsers = [];
+        _isEmptyRecycleBin = false;
+    }
+
+    private async Task OnPermanentlyDeletedAsync((IReadOnlyList<DeletedUserDetails> Users, int Count) deleted)
+    {
+        _isDeleteDialogOpen = false;
+        _isEmptyRecycleBin = false;
+        _deleteUsers = [];
+        var message = deleted.Users.Count == 1
+            ? string.Format(CultureInfo.CurrentCulture, UsersStrings.UserPermanentlyDeleted, deleted.Users[0].DisplayNameOrEmail)
+            : deleted.Count == 1
+                ? UsersStrings.OneUserPermanentlyDeleted
+                : string.Format(CultureInfo.CurrentCulture, UsersStrings.UsersPermanentlyDeleted, deleted.Count);
+        Toasts.Show(ToastKind.Success, message, null, UsersPermanentlyDeletedToastTestId);
+        await InvalidateListsAsync();
+    }
+
+    // The users list is not on this page; its cached pages are dropped so it loads the restored users when opened
+    private async Task InvalidateListsAsync()
+    {
+        _selectedUsers = [];
+        PageCache.Invalidate(UsersListSource.ListId);
+        if (_list is not null) await _list.InvalidateAsync();
+        StateHasChanged();
+    }
+
+}
