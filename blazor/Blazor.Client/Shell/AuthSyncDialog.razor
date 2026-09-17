@@ -1,0 +1,50 @@
+@using Blazor.Client.Session
+@* The non-dismissable dialog the shell shows once another tab of this browser has ended the identity this runtime showed,
+   the React edition's AuthSyncModal: the account was switched, a different user logged in, or the user logged out. By the
+   time it renders, AuthSyncCoordinator has already ended the session of this runtime, so the page behind it holds no
+   identity and sends nothing. Escape and the backdrop do nothing; Reload loads the page as a new document. *@
+
+<ModalDialog Open="true" Role="alertdialog" TitleId="auth-sync-title" DescriptionId="auth-sync-description" OnDismissRequested="IgnoreDismiss" TestId="auth-sync-dialog">
+    <div class="modal-dialog-header">
+        <h2 id="auth-sync-title" class="modal-dialog-title" data-outcome="@Decision.Outcome.ToString()">@Title</h2>
+    </div>
+    <div id="auth-sync-description" class="modal-dialog-description">
+        <p data-testid="auth-sync-message">@Message</p>
+        <p>@Hint</p>
+    </div>
+    <div class="modal-dialog-actions">
+        <button type="button" class="button-primary" data-testid="auth-sync-reload" @onclick="OnReload">@CommonStrings.Reload</button>
+    </div>
+</ModalDialog>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public AuthSyncDecision Decision { get; set; } = AuthSyncDecision.None;
+
+    [Parameter]
+    public EventCallback OnReload { get; set; }
+
+    private string Title => Decision.Outcome switch
+    {
+        AuthSyncOutcome.DifferentUser => CommonStrings.DifferentUserLoggedIn,
+        AuthSyncOutcome.LoggedOut => CommonStrings.LoggedOutTitle,
+        _ => CommonStrings.AccountSwitched
+    };
+
+    private string Message => Decision.Outcome switch
+    {
+        AuthSyncOutcome.DifferentUser => CommonStrings.DifferentUserLoggedInInAnotherTab,
+        AuthSyncOutcome.LoggedOut => CommonStrings.LoggedOutInAnotherTab,
+        _ when string.IsNullOrWhiteSpace(Decision.TenantName) => CommonStrings.AccountSwitchedInAnotherTab,
+        _ => string.Format(CultureInfo.CurrentCulture, CommonStrings.AccountSwitchedToInAnotherTab, Decision.TenantName)
+    };
+
+    private string Hint => Decision.Outcome == AuthSyncOutcome.LoggedOut ? CommonStrings.AuthenticationSharedAcrossTabs : CommonStrings.AuthenticationSharedUseDifferentBrowsers;
+
+    private static void IgnoreDismiss()
+    {
+    }
+
+}

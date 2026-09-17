@@ -347,4 +347,70 @@
     <data name="ZoomLevelUpdated" xml:space="preserve">
         <value>Zoom level updated</value>
     </data>
+    <data name="UserSessions" xml:space="preserve">
+        <value>User sessions</value>
+    </data>
+    <data name="UserSessionsDescription" xml:space="preserve">
+        <value>Devices that have logged into your account. Revoke any sessions you do not recognize.</value>
+    </data>
+    <data name="SessionRevokeDelayNotice" xml:space="preserve">
+        <value>It may take up to 5 minutes before the device is logged out.</value>
+    </data>
+    <data name="NoActiveSessionsFound" xml:space="preserve">
+        <value>No active sessions found.</value>
+    </data>
+    <data name="ThisDevice" xml:space="preserve">
+        <value>This device</value>
+    </data>
+    <data name="RevokeSession" xml:space="preserve">
+        <value>Revoke session</value>
+    </data>
+    <data name="RevokeSessionConfirmation" xml:space="preserve">
+        <value>Are you sure you want to revoke this session? The device will be logged out and will need to log in again.</value>
+    </data>
+    <data name="Revoke" xml:space="preserve">
+        <value>Revoke</value>
+    </data>
+    <data name="Revoking" xml:space="preserve">
+        <value>Revoking...</value>
+    </data>
+    <data name="SessionRevokedSuccessfully" xml:space="preserve">
+        <value>Session revoked successfully</value>
+    </data>
+    <data name="LoginMethod" xml:space="preserve">
+        <value>Login method</value>
+    </data>
+    <data name="IpAddress" xml:space="preserve">
+        <value>IP address</value>
+    </data>
+    <data name="LastActive" xml:space="preserve">
+        <value>Last active</value>
+    </data>
+    <data name="SessionCreated" xml:space="preserve">
+        <value>Created</value>
+    </data>
+    <data name="Unknown" xml:space="preserve">
+        <value>Unknown</value>
+    </data>
+    <data name="DeviceTypeDesktop" xml:space="preserve">
+        <value>Desktop</value>
+    </data>
+    <data name="DeviceTypeMobile" xml:space="preserve">
+        <value>Mobile</value>
+    </data>
+    <data name="DeviceTypeTablet" xml:space="preserve">
+        <value>Tablet</value>
+    </data>
+    <data name="LoginMethodOneTimePassword" xml:space="preserve">
+        <value>One-time password</value>
+    </data>
+    <data name="LoginMethodGoogle" xml:space="preserve">
+        <value>Google</value>
+    </data>
+    <data name="LoginMethodMicrosoft" xml:space="preserve">
+        <value>Microsoft</value>
+    </data>
+    <data name="LoginMethodMitId" xml:space="preserve">
+        <value>MitID</value>
+    </data>
 </root>

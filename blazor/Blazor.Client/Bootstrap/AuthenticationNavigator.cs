@@ -65,6 +65,12 @@ public sealed class AuthenticationNavigator(NavigationManager navigationManager)
         Leave(AppUrls.ToAbsolute("login"));
     }
 
+    // The page this runtime shows, loaded as a new document whose bootstrap establishes the identity the browser now holds
+    public void LeaveForReload()
+    {
+        Leave(AppUrls.SanitizeReturnPath(new Uri(navigationManager.Uri).PathAndQuery));
+    }
+
     public void LeaveForAuthenticatedHome()
     {
         Leave(AppUrls.AuthenticatedHome);

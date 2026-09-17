@@ -27,6 +27,9 @@ builder.Services.AddScoped<SessionState>();
 
 // Logout and tenant switch, one at a time, for whichever component offers them
 builder.Services.AddScoped<SessionTransition>();
+
+// Ends this runtime's identity when another tab of the browser logs out, logs in or switches tenant
+builder.Services.AddScoped<AuthSyncCoordinator>();
 builder.Services.AddScoped<DevicePreferences>();
 
 var host = builder.Build();

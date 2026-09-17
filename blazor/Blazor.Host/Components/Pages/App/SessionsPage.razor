@@ -1,0 +1,12 @@
+@* The user's sessions page. The page is server-rendered and prerenders the WebAssembly component it hosts, which reads the
+   sessions once it runs in the browser. *@
+@page "/user/sessions"
+@using Blazor.Client.Sessions
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+
+<PageTitle>@AccountStrings.UserSessions</PageTitle>
+
+<SessionsSurface @rendermode="InteractiveWebAssembly"/>

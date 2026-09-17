@@ -1,0 +1,85 @@
+@using Account.Features.Authentication.Domain
+@using Account.Features.Authentication.Queries
+@* One session on the sessions page, the React edition's SessionCard: the device, the browser and operating system parsed
+   from the user agent, "This device" for the current session and Revoke for the others, then the account (only for a
+   session in another tenant), the login method, the IP address, the relative last activity and the creation time. *@
+
+<article class="session-card" data-testid="session-card" data-session-id="@Model.Session.Id" data-current="@(Model.Session.IsCurrent ? "true" : "false")"
+         aria-labelledby="@_titleId">
+    <div class="session-card-header">
+        <span class="session-card-device" aria-hidden="true">
+            @switch (Model.Session.DeviceType)
+            {
+                case DeviceType.Mobile:
+                    <svg viewBox="0 0 24 24" class="session-card-icon" focusable="false">
+                        <rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>
+                    </svg>
+                    break;
+                case DeviceType.Tablet:
+                    <svg viewBox="0 0 24 24" class="session-card-icon" focusable="false">
+                        <rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>
+                    </svg>
+                    break;
+                default:
+                    <svg viewBox="0 0 24 24" class="session-card-icon" focusable="false">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+                    </svg>
+                    break;
+            }
+        </span>
+        <div class="session-card-title">
+            <h2 id="@_titleId" class="session-card-browser" data-testid="session-browser">@Model.Browser</h2>
+            <p class="session-card-subtitle" data-testid="session-device">@Model.OperatingSystem · @Model.DeviceTypeLabel</p>
+        </div>
+        @if (Model.Session.IsCurrent)
+        {
+            <span class="session-card-current" data-testid="session-this-device">@AccountStrings.ThisDevice</span>
+        }
+        else
+        {
+            <button type="button" class="button-secondary" aria-describedby="@_titleId" data-testid="session-revoke" @onclick="() => OnRevoke.InvokeAsync(Model.Session)">@AccountStrings.Revoke</button>
+        }
+    </div>
+
+    <dl class="session-card-details">
+        @if (Model.ShowAccountName)
+        {
+            <div>
+                <dt>@AccountStrings.Account</dt>
+                <dd data-testid="session-account">@Model.Session.TenantName</dd>
+            </div>
+        }
+        <div>
+            <dt>@AccountStrings.LoginMethod</dt>
+            <dd data-testid="session-login-method">@Model.LoginMethodLabel</dd>
+        </div>
+        <div>
+            <dt>@AccountStrings.IpAddress</dt>
+            <dd data-testid="session-ip-address">@Model.Session.IpAddress</dd>
+        </div>
+        <div>
+            <dt>@AccountStrings.LastActive</dt>
+            <dd data-testid="session-last-active">@RelativeTime.Format(Model.Session.LastActivityAt, Now)</dd>
+        </div>
+        <div>
+            <dt>@AccountStrings.SessionCreated</dt>
+            <dd data-testid="session-created">@Model.Session.CreatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)</dd>
+        </div>
+    </dl>
+</article>
+
+@code {
+
+    private readonly string _titleId = $"session-{Guid.NewGuid():N}-title";
+
+    [Parameter]
+    [EditorRequired]
+    public SessionCardModel Model { get; set; } = null!;
+
+    [Parameter]
+    public DateTimeOffset Now { get; set; }
+
+    [Parameter]
+    public EventCallback<UserSessionInfo> OnRevoke { get; set; }
+
+}

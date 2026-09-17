@@ -3,26 +3,6 @@ using SharedKernel.Authentication;
 
 namespace Account.Features.Authentication.Domain;
 
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum DeviceType
-{
-    Unknown,
-    Desktop,
-    Mobile,
-    Tablet
-}
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum LoginMethod
-{
-    OneTimePassword,
-    Google,
-    Entra,
-    MitId
-}
-
 /// <summary>
 ///     Represents why a session was revoked. This is a domain concept stored in the Session aggregate.
 ///     For HTTP header reasons (which include additional cases like SessionNotFound), see

@@ -4,7 +4,9 @@
    the bootstrap read. Logout and the tenant switch run through SessionTransition, which serializes them, reconciles
    uncertain outcomes and leaves the runtime with one full document navigation; the shell only renders its state. The
    collapsed state and Ctrl+B or Cmd+B come from shell.js; the state is a data attribute, never a style. A theme chosen in
-   the user menu goes through DevicePreferences, which the preferences page shares, so both show the same mode. *@
+   the user menu goes through DevicePreferences, which the preferences page shares, so both show the same mode. Once another
+   tab of this browser has ended the identity this runtime showed (AuthSyncCoordinator), the main content and the tenants
+   are dropped and only the non-dismissable reload dialog remains. *@
 @using Account.Client
 @using Blazor.Client.Session
 @implements IAsyncDisposable
@@ -69,15 +71,23 @@
                 break;
         }
 
-        <ToastRegion/>
+        @if (_authSync?.Invalidation is { } invalidation)
+        {
+            <AuthSyncDialog Decision="invalidation" OnReload="_authSync.Reload"/>
+        }
+        else
+        {
+            <ToastRegion/>
 
-        @ChildContent
+            @ChildContent
+        }
     </main>
 </div>
 
 @code {
 
     private bool _collapsed;
+    private AuthSyncCoordinator? _authSync;
     private DotNetObjectReference<AppShell>? _dotNet;
     private ShellInterop? _interop;
     private bool _isWide = true;
@@ -123,6 +133,7 @@
         Session.Changed -= OnSessionChanged;
         Preferences.Changed -= OnSessionChanged;
         if (_transition is not null) _transition.Changed -= OnSessionChanged;
+        if (_authSync is not null) _authSync.Changed -= OnAuthSyncChanged;
         if (_interop is not null) await _interop.DisposeAsync();
         _dotNet?.Dispose();
     }
@@ -135,14 +146,20 @@
         {
             _transition = Services.GetRequiredService<SessionTransition>();
             _transition.Changed += OnSessionChanged;
+            _authSync = Services.GetRequiredService<AuthSyncCoordinator>();
+            _authSync.Changed += OnAuthSyncChanged;
         }
 
         var bootstrap = await Session.GetUnlessLeavingAsync();
         if (bootstrap is null || !RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
 
+        await _authSync!.AttachAsync(bootstrap);
+
         // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
         var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetTenantsAsync);
         if (result is null || !result.IsSuccess) return;
+
+        if (_authSync.Invalidation is not null) return;
 
         _tenants = TenantSwitcherOptions.Create(result.Value.Tenants, Session.Current?.User?.TenantId);
         _tenantsLoaded = true;
@@ -166,12 +183,18 @@
         _ = InvokeAsync(StateHasChanged);
     }
 
+    private void OnAuthSyncChanged()
+    {
+        _tenants = [];
+        _ = InvokeAsync(StateHasChanged);
+    }
+
     private async Task OnMenuSelectAsync(UserMenuItem item)
     {
         switch (item.Kind)
         {
             case UserMenuItemKind.SwitchTenant when item.Tenant is { } tenant:
-                var result = await _transition!.SwitchTenantAsync(tenant.TenantId);
+                var result = await _transition!.SwitchTenantAsync(tenant.TenantId, tenant.Name);
                 if (result is { Outcome: TenantSwitchOutcome.Failed, Failure: { } failure }) Services.GetRequiredService<ApiFailurePresenter>().Present(failure);
                 break;
             case UserMenuItemKind.LogOut:

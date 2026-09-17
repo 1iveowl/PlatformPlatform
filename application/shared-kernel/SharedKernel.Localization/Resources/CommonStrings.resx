@@ -347,4 +347,31 @@
     <data name="LanguageDanish" xml:space="preserve">
         <value>Dansk</value>
     </data>
+    <data name="AccountSwitched" xml:space="preserve">
+        <value>Account switched</value>
+    </data>
+    <data name="AccountSwitchedToInAnotherTab" xml:space="preserve">
+        <value>Your account was switched to {0} in another browser tab.</value>
+    </data>
+    <data name="AccountSwitchedInAnotherTab" xml:space="preserve">
+        <value>Your account was switched in another browser tab.</value>
+    </data>
+    <data name="AuthenticationSharedUseDifferentBrowsers" xml:space="preserve">
+        <value>Authentication is shared across all tabs. To use multiple accounts simultaneously, please use different browsers.</value>
+    </data>
+    <data name="DifferentUserLoggedIn" xml:space="preserve">
+        <value>Different user logged in</value>
+    </data>
+    <data name="DifferentUserLoggedInInAnotherTab" xml:space="preserve">
+        <value>A different user logged in from another browser tab.</value>
+    </data>
+    <data name="LoggedOutTitle" xml:space="preserve">
+        <value>Logged out</value>
+    </data>
+    <data name="LoggedOutInAnotherTab" xml:space="preserve">
+        <value>You were logged out from another browser tab.</value>
+    </data>
+    <data name="AuthenticationSharedAcrossTabs" xml:space="preserve">
+        <value>Authentication is shared across all tabs.</value>
+    </data>
 </root>

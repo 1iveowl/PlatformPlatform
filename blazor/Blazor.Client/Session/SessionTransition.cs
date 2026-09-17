@@ -17,6 +17,7 @@
 // the authenticated home, a 401 is left to the handler, and anything else is presented as the failure it was.
 
 using Account.Client;
+using Account.Features.Authentication.Queries;
 using Account.Features.Authentication.Requests;
 using Blazor.Client.Bootstrap;
 using Microsoft.JSInterop;
@@ -64,6 +65,7 @@ public sealed class SessionTransition(
     AuthenticationNavigator authenticationNavigator,
     SessionTransitionGate gate,
     SessionState session,
+    AuthSyncCoordinator authSync,
     IJSRuntime jsRuntime
 )
 {
@@ -81,6 +83,7 @@ public sealed class SessionTransition(
 
     public async Task<LogoutOutcome> LogoutAsync()
     {
+        var user = session.Current?.User;
         if (!TryBegin(AccountApiRoutes.Logout, SessionTransitionStatus.LoggingOut)) return LogoutOutcome.Ignored;
 
         try
@@ -89,12 +92,12 @@ public sealed class SessionTransition(
             switch (result.Outcome)
             {
                 case ApiCallOutcome.Success:
-                    authenticationNavigator.LeaveForLoggedOut();
+                    await LeaveForLoggedOutAsync(user);
                     return LogoutOutcome.LoggedOut;
                 case ApiCallOutcome.Unauthorized:
                     return LogoutOutcome.SessionEnded;
                 case ApiCallOutcome.TransportFailure:
-                    return await ReconcileLogoutAsync();
+                    return await ReconcileLogoutAsync(user);
                 default:
                     _status = SessionTransitionStatus.LogoutFailed;
                     return LogoutOutcome.Failed;
@@ -106,9 +109,10 @@ public sealed class SessionTransition(
         }
     }
 
-    public async Task<TenantSwitchResult> SwitchTenantAsync(TenantId tenantId)
+    // The tenant name is only told to the other tabs of this browser, which show it in their reload dialog
+    public async Task<TenantSwitchResult> SwitchTenantAsync(TenantId tenantId, string? tenantName = null)
     {
-        var previousTenantId = session.Current?.User?.TenantId;
+        var previousUser = session.Current?.User;
         if (!TryBegin(AccountApiRoutes.SwitchTenant, SessionTransitionStatus.SwitchingTenant)) return new TenantSwitchResult(TenantSwitchOutcome.Ignored);
 
         try
@@ -117,12 +121,12 @@ public sealed class SessionTransition(
             switch (result.Outcome)
             {
                 case ApiCallOutcome.Success:
-                    await LeaveForSwitchedTenantAsync(tenantId);
+                    await LeaveForSwitchedTenantAsync(previousUser, tenantId, tenantName);
                     return new TenantSwitchResult(TenantSwitchOutcome.Switched);
                 case ApiCallOutcome.Unauthorized:
                     return new TenantSwitchResult(TenantSwitchOutcome.SessionEnded);
                 case ApiCallOutcome.TransportFailure:
-                    return await ReconcileSwitchAsync(previousTenantId, result);
+                    return await ReconcileSwitchAsync(previousUser, result);
                 default:
                     _status = SessionTransitionStatus.Idle;
                     return new TenantSwitchResult(TenantSwitchOutcome.Failed, result);
@@ -152,14 +156,14 @@ public sealed class SessionTransition(
 
     // A safe read, never a second logout: a 401 is handled by the unauthorized handler, an anonymous bootstrap proves the
     // browser holds no session, and an authenticated or failed read leaves the user signed in with the retry state
-    private async Task<LogoutOutcome> ReconcileLogoutAsync()
+    private async Task<LogoutOutcome> ReconcileLogoutAsync(BootstrapUser? user)
     {
         var bootstrap = await authenticationClient.GetBootstrapAsync(CancellationToken.None);
         if (bootstrap.Outcome == ApiCallOutcome.Unauthorized) return LogoutOutcome.SessionEnded;
 
         if (bootstrap.IsSuccess && !bootstrap.Value.IsAuthenticated)
         {
-            authenticationNavigator.LeaveForLoggedOut();
+            await LeaveForLoggedOutAsync(user);
             return LogoutOutcome.LoggedOut;
         }
 
@@ -167,7 +171,7 @@ public sealed class SessionTransition(
         return LogoutOutcome.Unconfirmed;
     }
 
-    private async Task<TenantSwitchResult> ReconcileSwitchAsync(TenantId? previousTenantId, ApiCallResult failure)
+    private async Task<TenantSwitchResult> ReconcileSwitchAsync(BootstrapUser? previousUser, ApiCallResult failure)
     {
         var bootstrap = await authenticationClient.GetBootstrapAsync(CancellationToken.None);
         if (bootstrap.Outcome == ApiCallOutcome.Unauthorized) return new TenantSwitchResult(TenantSwitchOutcome.SessionEnded);
@@ -178,9 +182,9 @@ public sealed class SessionTransition(
             return new TenantSwitchResult(TenantSwitchOutcome.SessionEnded);
         }
 
-        if (bootstrap.IsSuccess && bootstrap.Value.User?.TenantId is { } currentTenantId && currentTenantId != previousTenantId)
+        if (bootstrap.IsSuccess && bootstrap.Value.User?.TenantId is { } currentTenantId && currentTenantId != previousUser?.TenantId)
         {
-            await LeaveForSwitchedTenantAsync(currentTenantId);
+            await LeaveForSwitchedTenantAsync(previousUser, currentTenantId, bootstrap.Value.User.TenantName);
             return new TenantSwitchResult(TenantSwitchOutcome.Switched);
         }
 
@@ -188,12 +192,21 @@ public sealed class SessionTransition(
         return new TenantSwitchResult(TenantSwitchOutcome.Failed, failure);
     }
 
-    private async Task LeaveForSwitchedTenantAsync(TenantId tenantId)
+    // The other tabs are told after this runtime's session has ended, so none of its work outlives the switch
+    private async Task LeaveForSwitchedTenantAsync(BootstrapUser? previousUser, TenantId tenantId, string? tenantName)
     {
         authenticationNavigator.EndSession();
         Changed?.Invoke();
+        await authSync.AnnounceAsync(AuthSyncRules.TenantSwitched(previousUser, tenantId, tenantName));
         await TryRememberPreferredTenantAsync(tenantId);
         authenticationNavigator.LeaveForAuthenticatedHome();
+    }
+
+    private async Task LeaveForLoggedOutAsync(BootstrapUser? user)
+    {
+        authenticationNavigator.EndSession();
+        await authSync.AnnounceAsync(AuthSyncRules.LoggedOut(user));
+        authenticationNavigator.LeaveForLoggedOut();
     }
 
     // The account API validated the tenant by switching to it; the cookie is only a hint the next login re-validates

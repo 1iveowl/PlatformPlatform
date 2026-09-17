@@ -285,4 +285,70 @@
     <data name="ZoomLevelUpdated" xml:space="preserve">
         <value>Zoomniveau opdateret</value>
     </data>
+    <data name="UserSessions" xml:space="preserve">
+        <value>Brugersessioner</value>
+    </data>
+    <data name="UserSessionsDescription" xml:space="preserve">
+        <value>Enheder, der har logget ind på din konto. Tilbagekald alle sessioner, du ikke genkender.</value>
+    </data>
+    <data name="SessionRevokeDelayNotice" xml:space="preserve">
+        <value>Det kan tage op til 5 minutter, før enheden er logget ud.</value>
+    </data>
+    <data name="NoActiveSessionsFound" xml:space="preserve">
+        <value>Ingen aktive sessioner fundet.</value>
+    </data>
+    <data name="ThisDevice" xml:space="preserve">
+        <value>Denne enhed</value>
+    </data>
+    <data name="RevokeSession" xml:space="preserve">
+        <value>Tilbagekald session</value>
+    </data>
+    <data name="RevokeSessionConfirmation" xml:space="preserve">
+        <value>Er du sikker på, at du vil tilbagekalde denne session? Enheden vil blive logget ud og skal logge ind igen.</value>
+    </data>
+    <data name="Revoke" xml:space="preserve">
+        <value>Tilbagekald</value>
+    </data>
+    <data name="Revoking" xml:space="preserve">
+        <value>Tilbagekalder...</value>
+    </data>
+    <data name="SessionRevokedSuccessfully" xml:space="preserve">
+        <value>Session tilbagekaldt succesfuldt</value>
+    </data>
+    <data name="LoginMethod" xml:space="preserve">
+        <value>Login-metode</value>
+    </data>
+    <data name="IpAddress" xml:space="preserve">
+        <value>IP-adresse</value>
+    </data>
+    <data name="LastActive" xml:space="preserve">
+        <value>Sidst aktiv</value>
+    </data>
+    <data name="SessionCreated" xml:space="preserve">
+        <value>Oprettet</value>
+    </data>
+    <data name="Unknown" xml:space="preserve">
+        <value>Ukendt</value>
+    </data>
+    <data name="DeviceTypeDesktop" xml:space="preserve">
+        <value>Stationær</value>
+    </data>
+    <data name="DeviceTypeMobile" xml:space="preserve">
+        <value>Mobil</value>
+    </data>
+    <data name="DeviceTypeTablet" xml:space="preserve">
+        <value>Tablet</value>
+    </data>
+    <data name="LoginMethodOneTimePassword" xml:space="preserve">
+        <value>Engangskode</value>
+    </data>
+    <data name="LoginMethodGoogle" xml:space="preserve">
+        <value>Google</value>
+    </data>
+    <data name="LoginMethodMicrosoft" xml:space="preserve">
+        <value>Microsoft</value>
+    </data>
+    <data name="LoginMethodMitId" xml:space="preserve">
+        <value>MitID</value>
+    </data>
 </root>

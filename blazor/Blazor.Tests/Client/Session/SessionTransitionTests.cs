@@ -354,6 +354,7 @@ public sealed class SessionTransitionTests
         services.AddScoped<DataListPageCache>();
         services.AddScoped<ToastService>();
         services.AddScoped<SessionState>();
+        services.AddScoped<AuthSyncCoordinator>();
         services.AddScoped<SessionTransition>();
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = false });
 

@@ -2,6 +2,7 @@ using System.Globalization;
 using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.Users.Requests;
+using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
 
 namespace Account.Client;
@@ -15,6 +16,8 @@ public static class AccountApiRoutes
     public const string Logout = "/api/account/authentication/logout";
 
     public const string SwitchTenant = "/api/account/authentication/switch-tenant";
+
+    public const string Sessions = "/api/account/authentication/sessions";
 
     public const string StartEmailLogin = "/api/account/authentication/email/login/start";
 
@@ -52,6 +55,11 @@ public static class AccountApiRoutes
 
     // The external login and signup starts are document navigations, not typed client calls; the provider is the name of
     // the account API's ExternalProviderType value
+    public static string RevokeSession(SessionId sessionId)
+    {
+        return $"{Sessions}/{Uri.EscapeDataString(sessionId.Value)}";
+    }
+
     public static string StartExternalLogin(string provider)
     {
         return $"/api/account/authentication/{Uri.EscapeDataString(provider)}/login/start";

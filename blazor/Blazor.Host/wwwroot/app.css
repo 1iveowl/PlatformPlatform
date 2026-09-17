@@ -1476,3 +1476,126 @@ h1:focus {
     margin: 0;
     opacity: 0;
 }
+
+/* The sessions page: one card per session, the current one first */
+.sessions {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 64rem;
+    padding-block-start: 1rem;
+}
+
+.sessions-notice {
+    margin: 0;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--surface-hover);
+    font-size: 0.875rem;
+}
+
+.sessions-empty {
+    padding-block: 2rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.session-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--surface);
+}
+
+.session-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.session-card-device {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.5rem;
+    background: var(--surface-hover);
+    color: var(--text-muted);
+}
+
+.session-card-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.session-card-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.session-card-browser {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.session-card-subtitle {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.session-card-current {
+    flex-shrink: 0;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background: var(--surface-accent);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.session-card-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.session-card-details > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.session-card-details dt {
+    color: var(--text-muted);
+}
+
+.session-card-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (min-width: 40rem) {
+    .session-card-details {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .session-card-details > div {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}

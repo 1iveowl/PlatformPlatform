@@ -1,0 +1,98 @@
+@* The revoke session confirmation, the React edition's RevokeSessionDialog. The DELETE goes through the authentication
+   client and ends with the session of this runtime. A refusal (a session that is not the user's, unknown or already
+   revoked) is shown in the dialog as the account API returned it. Escape and Cancel close the dialog unless the revocation
+   is in flight. *@
+@using Account.Client
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Session
+@implements IDisposable
+@inject IServiceProvider Services
+
+<ModalDialog Open="Session is not null" Role="alertdialog" TitleId="revoke-session-title" DescriptionId="revoke-session-description" OnDismissRequested="CloseAsync"
+             TestId="revoke-session-dialog">
+    <EditForm EditContext="_editContext" OnSubmit="RevokeAsync" data-testid="revoke-session-form">
+        <div class="modal-dialog-header">
+            <h2 id="revoke-session-title" class="modal-dialog-title">@AccountStrings.RevokeSession</h2>
+        </div>
+        <p id="revoke-session-description" class="modal-dialog-description">@AccountStrings.RevokeSessionConfirmation</p>
+
+        <FormErrorAlert Errors="_formErrors"/>
+
+        <div class="modal-dialog-actions">
+            <button type="button" class="button-secondary" disabled="@_isRevoking" data-testid="revoke-session-cancel" @onclick="CloseAsync">@CommonStrings.Cancel</button>
+            <button type="submit" class="button-destructive" disabled="@_isRevoking" data-testid="revoke-session-confirm">@(_isRevoking ? AccountStrings.Revoking : AccountStrings.Revoke)</button>
+        </div>
+    </EditForm>
+</ModalDialog>
+
+@code {
+
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private bool _isRevoking;
+    private UserSessionInfo? _preparedSession;
+
+    // The session to revoke; null closes the dialog
+    [Parameter]
+    [EditorRequired]
+    public UserSessionInfo? Session { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    // Raised after the account API revoked the session; the owner closes the dialog
+    [Parameter]
+    public EventCallback<UserSessionInfo> OnRevoked { get; set; }
+
+    [Inject]
+    private SessionState SessionState { get; set; } = null!;
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(new RevokeSessionForm());
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    // Every opening starts with no messages
+    protected override void OnParametersSet()
+    {
+        if (Session == _preparedSession) return;
+
+        _preparedSession = Session;
+        _formErrors.Clear();
+    }
+
+    private Task CloseAsync()
+    {
+        return _isRevoking ? Task.CompletedTask : OnClose.InvokeAsync();
+    }
+
+    private async Task RevokeAsync()
+    {
+        if (_isRevoking || Session is not { } session) return;
+
+        _isRevoking = true;
+        _formErrors.Clear();
+        var client = Services.GetRequiredService<AuthenticationClient>();
+        var result = await SessionState.UnlessLeavingAsync(cancellationToken => client.RevokeSessionAsync(session.Id, cancellationToken));
+        _isRevoking = false;
+        if (result is null) return;
+
+        if (!result.IsSuccess)
+        {
+            _formErrors.ApplyFailure(result);
+            return;
+        }
+
+        await OnRevoked.InvokeAsync(session);
+    }
+
+    // The confirmation has no fields; the form only carries the server's messages
+    private sealed class RevokeSessionForm;
+
+}

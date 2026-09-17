@@ -2,7 +2,6 @@ using Account.Features.Authentication.Domain;
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
 using JetBrains.Annotations;
-using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Cqrs;
 using SharedKernel.ExecutionContext;
 
@@ -10,22 +9,6 @@ namespace Account.Features.Authentication.Queries;
 
 [PublicAPI]
 public sealed record GetUserSessionsQuery : IRequest<Result<UserSessionsResponse>>;
-
-[PublicAPI]
-public sealed record UserSessionsResponse(UserSessionInfo[] Sessions);
-
-[PublicAPI]
-public sealed record UserSessionInfo(
-    SessionId Id,
-    DateTimeOffset CreatedAt,
-    LoginMethod LoginMethod,
-    DeviceType DeviceType,
-    string UserAgent,
-    string IpAddress,
-    DateTimeOffset LastActivityAt,
-    bool IsCurrent,
-    string TenantName
-);
 
 public sealed class GetUserSessionsHandler(
     ISessionRepository sessionRepository,

@@ -303,4 +303,31 @@
     <data name="LanguageDanish" xml:space="preserve">
         <value>Dansk</value>
     </data>
+    <data name="AccountSwitched" xml:space="preserve">
+        <value>Konto skiftet</value>
+    </data>
+    <data name="AccountSwitchedToInAnotherTab" xml:space="preserve">
+        <value>Din konto blev skiftet til {0} i en anden browsertab.</value>
+    </data>
+    <data name="AccountSwitchedInAnotherTab" xml:space="preserve">
+        <value>Din konto blev skiftet i en anden browsertab.</value>
+    </data>
+    <data name="AuthenticationSharedUseDifferentBrowsers" xml:space="preserve">
+        <value>Autentificering deles på tværs af alle faner. For at bruge flere konti samtidigt, brug venligst forskellige browsere.</value>
+    </data>
+    <data name="DifferentUserLoggedIn" xml:space="preserve">
+        <value>En anden bruger loggede ind</value>
+    </data>
+    <data name="DifferentUserLoggedInInAnotherTab" xml:space="preserve">
+        <value>En anden bruger loggede ind fra en anden browsertab.</value>
+    </data>
+    <data name="LoggedOutTitle" xml:space="preserve">
+        <value>Logget ud</value>
+    </data>
+    <data name="LoggedOutInAnotherTab" xml:space="preserve">
+        <value>Du blev logget ud fra en anden browsertab.</value>
+    </data>
+    <data name="AuthenticationSharedAcrossTabs" xml:space="preserve">
+        <value>Autentificering deles på tværs af alle faner.</value>
+    </data>
 </root>

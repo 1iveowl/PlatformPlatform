@@ -1,0 +1,98 @@
+@using Account.Client
+@using Account.Features.Authentication.Queries
+@using Blazor.Client.Session
+@* The sessions page, the React edition's user sessions: the devices signed in to the user's account across the tenants of
+   their email, the current session first. Revoke opens a confirmation; after the account API revoked the session a toast
+   confirms it, a notice says the device may stay signed in for up to 5 minutes (the lifetime of its access token), and
+   the list is read again. During prerender the page renders its heading and the loading state; the sessions are read in
+   the browser. A failed read is presented as the account API returned it. *@
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject ToastService Toasts
+
+<AppShell>
+    <h1>@AccountStrings.UserSessions</h1>
+    <p>@AccountStrings.UserSessionsDescription</p>
+
+    <div class="sessions" data-testid="sessions" data-state="@(_model is null ? "loading" : "loaded")">
+        @if (_hasRevokedSession)
+        {
+            <p class="sessions-notice" role="status" data-testid="sessions-revoke-notice">@AccountStrings.SessionRevokeDelayNotice</p>
+        }
+
+        @if (_model is null)
+        {
+            <p role="status" data-testid="sessions-loading">@CommonStrings.Loading</p>
+        }
+        else if (_model.IsEmpty)
+        {
+            <p class="sessions-empty" data-testid="sessions-empty">@AccountStrings.NoActiveSessionsFound</p>
+        }
+        else
+        {
+            @if (_model.Current is { } current)
+            {
+                <SessionCard Model="current" Now="_now"/>
+            }
+
+            @foreach (var session in _model.Others)
+            {
+                <SessionCard @key="session.Session.Id" Model="session" Now="_now" OnRevoke="OpenRevoke"/>
+            }
+        }
+    </div>
+
+    <RevokeSessionDialog Session="_revokingSession" OnClose="CloseRevoke" OnRevoked="OnRevokedAsync"/>
+</AppShell>
+
+@code {
+
+    public const string SessionRevokedToastTestId = "session-revoked-toast";
+
+    private bool _hasRevokedSession;
+    private SessionsModel? _model;
+    private DateTimeOffset _now = DateTimeOffset.UtcNow;
+    private UserSessionInfo? _revokingSession;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive) return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<AuthenticationClient>().GetSessionsAsync);
+        if (result is null) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _now = DateTimeOffset.UtcNow;
+        _model = SessionsModel.Create(result.Value.Sessions);
+    }
+
+    private void OpenRevoke(UserSessionInfo session)
+    {
+        _revokingSession = session;
+    }
+
+    private void CloseRevoke()
+    {
+        _revokingSession = null;
+    }
+
+    private async Task OnRevokedAsync(UserSessionInfo session)
+    {
+        _revokingSession = null;
+        _hasRevokedSession = true;
+        Toasts.Show(ToastKind.Success, AccountStrings.SessionRevokedSuccessfully, null, SessionRevokedToastTestId);
+        await LoadAsync();
+    }
+
+}
