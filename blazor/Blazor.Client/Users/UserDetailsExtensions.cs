@@ -12,7 +12,7 @@ public static class UserDetailsExtensions
         public string DisplayNameOrEmail => user.DisplayName.Length > 0 ? user.DisplayName : user.Email;
 
         public string Initials => user.DisplayName.Length > 0
-            ? string.Concat(new[] { user.FirstName, user.LastName }.Where(name => !string.IsNullOrEmpty(name)).Select(name => char.ToUpperInvariant(name[0])))
+            ? string.Concat(new[] { user.FirstName, user.LastName }.Where(name => !string.IsNullOrEmpty(name)).Select(name => char.ToUpperInvariant(name![0])))
             : user.Email[..Math.Min(1, user.Email.Length)].ToUpperInvariant();
     }
 }

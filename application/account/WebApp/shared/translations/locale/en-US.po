@@ -1153,8 +1153,8 @@ msgstr "Search"
 msgid "Security, privacy, and compliance information"
 msgstr "Security, privacy, and compliance information"
 
-#. placeholder {0}: user.firstName
-#. placeholder {1}: user.lastName
+#. placeholder {0}: user.firstName ?? ""
+#. placeholder {1}: user.lastName ?? ""
 msgid "Select {0} {1}"
 msgstr "Select {0} {1}"
 

@@ -50,6 +50,42 @@ public sealed class GetUserByIdTests : EndpointBaseTest<AccountDbContext>, IClas
     }
 
     [Fact]
+    public async Task GetUserById_WhenUserIsInvited_ShouldReturnUserWithNullNames()
+    {
+        // Arrange
+        var invitedUserId = UserId.NewId();
+        Connection.Insert("users", [
+                ("tenant_id", DatabaseSeeder.Tenant1.Id.ToString()),
+                ("id", invitedUserId.ToString()),
+                ("created_at", TimeProvider.GetUtcNow().AddMinutes(-10)),
+                ("modified_at", null),
+                ("email", Faker.Internet.UniqueEmail()),
+                ("first_name", null),
+                ("last_name", null),
+                ("title", null),
+                ("role", nameof(UserRole.Member)),
+                ("email_confirmed", false),
+                ("avatar", JsonSerializer.Serialize(new Avatar())),
+                ("locale", "en-US"),
+                ("external_identities", "[]"),
+                ("rollout_bucket", 42)
+            ]
+        );
+
+        // Act
+        var response = await AuthenticatedOwnerHttpClient.GetAsync($"/api/account/users/{invitedUserId}");
+
+        // Assert
+        response.ShouldBeSuccessfulGetRequest();
+        var userDetails = await response.DeserializeResponse<UserDetails>();
+        userDetails.Should().NotBeNull();
+        userDetails.Id.Should().Be(invitedUserId);
+        userDetails.FirstName.Should().BeNull();
+        userDetails.LastName.Should().BeNull();
+        userDetails.Title.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetUserById_WhenUserDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange

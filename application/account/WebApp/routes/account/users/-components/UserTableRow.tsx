@@ -39,7 +39,9 @@ export function UserTableRow({
       <div className="flex min-w-0 flex-1 items-center gap-2 text-left font-normal">
         <Avatar size="lg">
           <AvatarImage src={user.avatarUrl ?? undefined} />
-          <AvatarFallback>{getInitials(user.firstName, user.lastName, user.email)}</AvatarFallback>
+          <AvatarFallback>
+            {getInitials(user.firstName ?? undefined, user.lastName ?? undefined, user.email)}
+          </AvatarFallback>
         </Avatar>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2 truncate text-foreground">

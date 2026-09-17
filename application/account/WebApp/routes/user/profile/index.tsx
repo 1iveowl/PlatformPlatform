@@ -56,7 +56,12 @@ function ProfilePage() {
 
       const { data: updatedUser } = await refetch();
       if (updatedUser) {
-        updateUserInfo(updatedUser);
+        updateUserInfo({
+          ...updatedUser,
+          firstName: updatedUser.firstName ?? undefined,
+          lastName: updatedUser.lastName ?? undefined,
+          title: updatedUser.title ?? undefined
+        });
       }
     },
     onSuccess: () => {

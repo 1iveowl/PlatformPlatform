@@ -34,7 +34,9 @@ export function UserProfileContent({
       <div className="mb-6 text-center">
         <Avatar className="mx-auto mb-3 size-16">
           <AvatarImage src={user.avatarUrl ?? undefined} />
-          <AvatarFallback>{getInitials(user.firstName, user.lastName, user.email)}</AvatarFallback>
+          <AvatarFallback>
+            {getInitials(user.firstName ?? undefined, user.lastName ?? undefined, user.email)}
+          </AvatarFallback>
         </Avatar>
         <h4>
           {user.firstName} {user.lastName}

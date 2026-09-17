@@ -15,9 +15,9 @@ public sealed record UserDetails(
     DateTimeOffset? LastSeenAt,
     string Email,
     UserRole Role,
-    string FirstName,
-    string LastName,
-    string Title,
+    string? FirstName,
+    string? LastName,
+    string? Title,
     bool EmailConfirmed,
     string? AvatarUrl
 );
@@ -29,8 +29,8 @@ public sealed record CurrentUserResponse(
     DateTimeOffset? ModifiedAt,
     string Email,
     UserRole Role,
-    string FirstName,
-    string LastName,
-    string Title,
+    string? FirstName,
+    string? LastName,
+    string? Title,
     string? AvatarUrl
 );

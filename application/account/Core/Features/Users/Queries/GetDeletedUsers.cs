@@ -22,9 +22,9 @@ public sealed record DeletedUserDetails(
     DateTimeOffset? DeletedAt,
     string Email,
     UserRole Role,
-    string FirstName,
-    string LastName,
-    string Title,
+    string? FirstName,
+    string? LastName,
+    string? Title,
     bool EmailConfirmed,
     string? AvatarUrl
 );

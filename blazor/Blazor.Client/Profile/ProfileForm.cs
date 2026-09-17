@@ -22,7 +22,7 @@ public sealed class ProfileForm
 
     public static ProfileForm From(CurrentUserResponse user)
     {
-        return new ProfileForm { FirstName = user.FirstName, LastName = user.LastName, Title = user.Title };
+        return new ProfileForm { FirstName = user.FirstName ?? "", LastName = user.LastName ?? "", Title = user.Title };
     }
 
     public UpdateCurrentUserCommand ToCommand()

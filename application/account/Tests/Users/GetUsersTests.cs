@@ -122,6 +122,44 @@ public sealed class GetUsersTests : EndpointBaseTest<AccountDbContext>, IClassFi
     }
 
     [Fact]
+    public async Task GetUsers_WhenUserIsInvited_ShouldReturnUserWithNullNames()
+    {
+        // Arrange
+        const string invitedEmail = "invited@example.com";
+        Connection.Insert("users", [
+                ("tenant_id", DatabaseSeeder.Tenant1.Id.ToString()),
+                ("id", UserId.NewId().ToString()),
+                ("created_at", TimeProvider.GetUtcNow().AddMinutes(-10)),
+                ("modified_at", null),
+                ("email", invitedEmail),
+                ("first_name", null),
+                ("last_name", null),
+                ("title", null),
+                ("role", nameof(UserRole.Member)),
+                ("email_confirmed", false),
+                ("avatar", JsonSerializer.Serialize(new Avatar())),
+                ("locale", "en-US"),
+                ("external_identities", "[]"),
+                ("rollout_bucket", 42)
+            ]
+        );
+
+        // Act
+        var response = await AuthenticatedOwnerHttpClient.GetAsync($"/api/account/users?search={invitedEmail}");
+
+        // Assert
+        response.ShouldBeSuccessfulGetRequest();
+        var userResponse = await response.DeserializeResponse<UsersResponse>();
+        userResponse.Should().NotBeNull();
+        userResponse.TotalCount.Should().Be(1);
+        var invitedUser = userResponse.Users.Single();
+        invitedUser.Email.Should().Be(invitedEmail);
+        invitedUser.FirstName.Should().BeNull();
+        invitedUser.LastName.Should().BeNull();
+        invitedUser.Title.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetUsers_WhenSearchingWithSpecificOrdering_ShouldReturnOrderedUsers()
     {
         // Act
