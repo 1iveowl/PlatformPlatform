@@ -8,6 +8,7 @@
 @using Account.Client
 @using Account.Features.Users.Requests
 @using Blazor.Client.Bootstrap
+@using Blazor.Client.Components.Images
 @using Blazor.Client.Session
 @using Blazor.Client.Users
 @implements IDisposable
@@ -23,8 +24,13 @@
     {
         <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" data-testid="profile-form">
             <DataAnnotationsValidator/>
-            <AvatarPicker @ref="_avatarPicker" AvatarUrl="@_avatar.DisplayUrl(user.AvatarUrl)" Initials="@user.Initials" Disabled="_isSaving"
-                          OnFileSelected="OnAvatarSelected" OnRemove="OnAvatarRemovedAsync"/>
+            <ImagePicker @ref="_avatarPicker" TestIdPrefix="avatar" Rules="AvatarFileRules.Rules" ImageUrl="@_avatar.DisplayUrl(user.AvatarUrl)"
+                         TriggerLabel="@AccountStrings.ChangeProfilePicture" UploadLabel="@AccountStrings.UploadProfilePicture" RemoveLabel="@AccountStrings.RemoveProfilePicture"
+                         UploadTestId="upload-avatar" RemoveTestId="remove-avatar" Disabled="_isSaving" OnFileSelected="OnAvatarSelected" OnRemove="OnAvatarRemovedAsync">
+                <ImageContent>
+                    <UserAvatar AvatarUrl="@_avatar.DisplayUrl(user.AvatarUrl)" Initials="@user.Initials"/>
+                </ImageContent>
+            </ImagePicker>
             <dl>
                 <dt>@CommonStrings.Email</dt>
                 <dd data-testid="profile-email">@user.Email</dd>
@@ -74,9 +80,9 @@
 
     public const string ProfileUpdatedToastTestId = "profile-updated-toast";
 
-    private readonly AvatarDraft _avatar = new();
+    private readonly ImageDraft _avatar = new();
     private readonly CancellationTokenSource _disposed = new();
-    private AvatarPicker? _avatarPicker;
+    private ImagePicker? _avatarPicker;
     private EditContext _editContext = null!;
     private ProfileForm _form = new();
     private FormErrorMapper? _formErrors;
@@ -155,10 +161,10 @@
         await ApplyConfirmedStateAsync(outcome, intended);
         if (outcome.Failure is { } failure && _formErrors is not null)
         {
-            if (intent == AvatarIntent.Upload && !outcome.AvatarSaved && AvatarFileRules.IsTooLargeResponse(failure)) _formErrors.AddFormMessage(AccountStrings.AvatarTooLarge);
+            if (intent == ImageIntent.Upload && !outcome.AvatarSaved && ImageFileRules.IsTooLargeResponse(failure)) _formErrors.AddFormMessage(AccountStrings.AvatarTooLarge);
             else _formErrors.ApplyFailure(failure);
 
-            if (intent != AvatarIntent.Keep && outcome is { AvatarSaved: true, ProfileSaved: false }) _formErrors.AddFormMessage(AccountStrings.ProfilePartiallySaved);
+            if (intent != ImageIntent.Keep && outcome is { AvatarSaved: true, ProfileSaved: false }) _formErrors.AddFormMessage(AccountStrings.ProfilePartiallySaved);
         }
     }
 
@@ -170,7 +176,7 @@
             abandoned => Session.UnlessLeavingAsync(async cancellationToken =>
                 {
                     using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, abandoned);
-                    var stream = await _avatarPicker!.ReadSelectedFileAsync(UpdateAvatarCommand.MaximumFileSizeInBytes, linked.Token)
+                    var stream = await _avatarPicker!.ReadSelectedFileAsync(linked.Token)
                                  ?? throw new InvalidOperationException("The avatar picker holds no selected file to upload.");
                     return await client.UpdateAvatarAsync(new UpdateAvatarCommand(stream, contentType!), linked.Token);
                 }
@@ -189,11 +195,11 @@
 
     // The account API asks the gateway to refresh the session's claims on the profile PUT's response, so the bootstrap read
     // after it carries the new name and avatar for the header
-    private async Task CompleteSaveAsync(AvatarIntent intent, ProfileForm intended)
+    private async Task CompleteSaveAsync(ImageIntent intent, ProfileForm intended)
     {
         SetSavedProfile(intended);
         Toasts.Show(ToastKind.Success, AccountStrings.ProfileUpdated, null, ProfileUpdatedToastTestId);
-        if (intent != AvatarIntent.Keep)
+        if (intent != ImageIntent.Keep)
         {
             // The avatar endpoints return no URL, so the stored one is read back
             var current = await Session.UnlessLeavingAsync(Services.GetRequiredService<UsersClient>().GetCurrentUserAsync);

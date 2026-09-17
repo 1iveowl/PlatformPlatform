@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazor.Client.Profile;
+namespace Blazor.Client.Components.Images;
 
 // A file offered by file-picker.js: its size and declared type, and the blob: preview the module keeps only if it is accepted
 public sealed record ChosenFile(long Size, string? ContentType, string PreviewUrl);
 
-// The typed access to wwwroot/js/file-picker.js for AvatarPicker. The handle is disposed with the wrapper, which revokes the
+// The typed access to wwwroot/js/file-picker.js for ImagePicker. The handle is disposed with the wrapper, which revokes the
 // preview URL, forgets the selection and removes the listeners. Every call tolerates a document that is already gone (a full
 // document navigation leaving the authenticated surface).
 public sealed class FilePickerInterop(IJSRuntime javaScriptRuntime) : IAsyncDisposable

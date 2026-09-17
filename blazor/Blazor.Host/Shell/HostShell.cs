@@ -23,7 +23,9 @@ public sealed record BrandTokens(
     string PrimaryColorLight,
     string PrimaryColorLightForeground,
     string PrimaryColorDark,
-    string PrimaryColorDarkForeground
+    string PrimaryColorDarkForeground,
+    // The address the delete-account notice tells a signed-in user to write to; empty when the brand names none
+    string SupportEmail
 );
 
 public sealed record PreloadLink(
@@ -308,7 +310,8 @@ public sealed class HostShell
             primaryColor.GetProperty("light").GetString()!,
             primaryColor.GetProperty("lightForeground").GetString()!,
             primaryColor.GetProperty("dark").GetString()!,
-            primaryColor.GetProperty("darkForeground").GetString()!
+            primaryColor.GetProperty("darkForeground").GetString()!,
+            branding.GetProperty("supportEmail").GetString() ?? ""
         );
     }
 

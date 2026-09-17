@@ -1,0 +1,15 @@
+@* The account settings page. The page is server-rendered and prerenders the WebAssembly component it hosts, which loads
+   the account only once it runs in the browser. The support address of the delete-account notice is brand configuration
+   from platform-settings.jsonc, the same file the React edition reads it from at build time; the host passes it to the
+   component because the bootstrap contract carries only per-deployment runtime configuration. *@
+@page "/account/settings"
+@using Blazor.Client.Settings
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@attribute [InteractiveSurface]
+@inject HostShell Shell
+
+<PageTitle>@CommonStrings.AccountSettings</PageTitle>
+
+<AccountSettingsSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>

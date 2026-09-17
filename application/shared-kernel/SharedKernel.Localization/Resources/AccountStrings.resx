@@ -235,10 +235,6 @@
         <value>Image must be smaller than 1 MB.</value>
         <comment>React: Image must be smaller than 1 MB.</comment>
     </data>
-    <data name="AvatarTypeInvalid" xml:space="preserve">
-        <value>Please select a JPEG, PNG, GIF, or WebP image.</value>
-        <comment>React: Please select a JPEG, PNG, GIF, or WebP image.</comment>
-    </data>
     <data name="ProfilePartiallySaved" xml:space="preserve">
         <value>Your profile picture was saved, but your other changes were not. Try again.</value>
         <comment>Blazor only: the avatar step of a profile save committed and the profile update failed</comment>
@@ -412,5 +408,65 @@
     </data>
     <data name="LoginMethodMitId" xml:space="preserve">
         <value>MitID</value>
+    </data>
+    <data name="AccountSettingsDescription" xml:space="preserve">
+        <value>Manage your account here.</value>
+        <comment>React: Manage your account here.</comment>
+    </data>
+    <data name="AccountLogo" xml:space="preserve">
+        <value>Account logo</value>
+        <comment>React: Account logo</comment>
+    </data>
+    <data name="OnlyOwnersCanModifyAccountName" xml:space="preserve">
+        <value>Only account owners can modify the account name</value>
+        <comment>React: Only account owners can modify the account name</comment>
+    </data>
+    <data name="ChangeLogo" xml:space="preserve">
+        <value>Change logo</value>
+        <comment>React: Change logo</comment>
+    </data>
+    <data name="UploadLogo" xml:space="preserve">
+        <value>Upload logo</value>
+        <comment>React: Upload logo</comment>
+    </data>
+    <data name="RemoveLogo" xml:space="preserve">
+        <value>Remove logo</value>
+        <comment>React: Remove logo</comment>
+    </data>
+    <data name="LogoTooLarge" xml:space="preserve">
+        <value>Image must be smaller than 2 MB.</value>
+        <comment>The update-logo endpoint's limit, where the React picker stops at 1 MB</comment>
+    </data>
+    <data name="AccountSettingsUpdated" xml:space="preserve">
+        <value>Account settings updated successfully</value>
+        <comment>React: Account settings updated successfully</comment>
+    </data>
+    <data name="AccountPartiallySaved" xml:space="preserve">
+        <value>Your account logo was saved, but your other changes were not. Try again.</value>
+        <comment>Blazor only: the logo step of an account settings save committed and the name update failed</comment>
+    </data>
+    <data name="UnableToLoadAccountSettings" xml:space="preserve">
+        <value>Unable to load account settings</value>
+        <comment>Blazor only: the account could not be read</comment>
+    </data>
+    <data name="DangerZone" xml:space="preserve">
+        <value>Danger zone</value>
+        <comment>React: Danger zone</comment>
+    </data>
+    <data name="DangerZoneDescription" xml:space="preserve">
+        <value>Delete your account and all data. This action is irreversible, so proceed with caution.</value>
+        <comment>React: Delete your account and all data. This action is irreversible, proceed with caution.</comment>
+    </data>
+    <data name="DeleteAccount" xml:space="preserve">
+        <value>Delete account</value>
+        <comment>React: Delete account</comment>
+    </data>
+    <data name="DeleteAccountNotice" xml:space="preserve">
+        <value>To delete your account, please contact our support team.</value>
+        <comment>React: To delete your account, please contact our support team.</comment>
+    </data>
+    <data name="DeleteAccountSupportNote" xml:space="preserve">
+        <value>Our support team will assist you with the account deletion process and ensure all your data is properly removed.</value>
+        <comment>React: Our support team will assist you with the account deletion process and ensure all your data is properly removed.</comment>
     </data>
 </root>

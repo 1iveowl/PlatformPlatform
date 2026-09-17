@@ -504,7 +504,7 @@ h1:focus {
     font-size: 1.25rem;
 }
 
-.avatar-picker {
+.image-picker {
     position: relative;
     display: inline-block;
     padding: 0.25rem;
@@ -512,12 +512,12 @@ h1:focus {
     border-radius: 50%;
 }
 
-.avatar-picker.avatar-picker-dragging {
+.image-picker.image-picker-dragging {
     border-color: var(--border);
     background: var(--surface-accent);
 }
 
-.avatar-picker-trigger {
+.image-picker-trigger {
     padding: 0;
     border: 0;
     border-radius: 50%;
@@ -525,17 +525,42 @@ h1:focus {
     cursor: pointer;
 }
 
-.avatar-picker-trigger:disabled {
+.image-picker-trigger:disabled {
     cursor: default;
 }
 
-.avatar-picker .user-avatar {
+.image-picker .user-avatar {
     width: 5rem;
     height: 5rem;
     font-size: 1.5rem;
 }
 
-.avatar-picker-menu {
+.image-picker-logo,
+.image-picker-logo .image-picker-trigger,
+.image-picker-logo .tenant-logo {
+    border-radius: 0.5rem;
+}
+
+.tenant-logo {
+    display: inline-flex;
+    width: 7rem;
+    height: 7rem;
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--surface-accent);
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.tenant-logo-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.image-picker-menu {
     position: absolute;
     inset-block-start: 100%;
     inset-inline-start: 0;
@@ -1598,4 +1623,20 @@ h1:focus {
         flex-direction: column;
         gap: 0.25rem;
     }
+}
+
+.field-label {
+    font-weight: 500;
+}
+
+.field-description {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.danger-zone {
+    margin-block-start: 3rem;
+    padding-block-start: 1rem;
+    border-block-start: 1px solid var(--border);
 }

@@ -6,6 +6,7 @@
 // reported only when the PUT itself succeeded.
 
 using Account.Client;
+using Blazor.Client.Components.Images;
 
 namespace Blazor.Client.Profile;
 
@@ -35,13 +36,13 @@ public static class ProfileSave
 {
     // profile is the form as the API stores it (trimmed); savedAvatarUrl is the avatar the form was loaded with. Cancelling
     // abandoned (the form was disposed) stops the save and discards any result that arrives afterwards.
-    public static async Task<ProfileSaveOutcome> RunAsync(AvatarIntent avatarIntent, string? savedAvatarUrl, ProfileForm profile, ProfileSaveCalls calls, CancellationToken abandoned)
+    public static async Task<ProfileSaveOutcome> RunAsync(ImageIntent avatarIntent, string? savedAvatarUrl, ProfileForm profile, ProfileSaveCalls calls, CancellationToken abandoned)
     {
         try
         {
-            if (avatarIntent != AvatarIntent.Keep)
+            if (avatarIntent != ImageIntent.Keep)
             {
-                var avatarResult = await (avatarIntent == AvatarIntent.Upload ? calls.UploadAvatar(abandoned) : calls.RemoveAvatar(abandoned));
+                var avatarResult = await (avatarIntent == ImageIntent.Upload ? calls.UploadAvatar(abandoned) : calls.RemoveAvatar(abandoned));
                 if (avatarResult is null || abandoned.IsCancellationRequested) return Abandoned();
                 if (!avatarResult.IsSuccess) return await ReconcileAsync(avatarResult, false, avatarIntent, savedAvatarUrl, profile, calls, abandoned);
             }
@@ -62,14 +63,14 @@ public static class ProfileSave
     private static async Task<ProfileSaveOutcome> ReconcileAsync(
         ApiCallResult failure,
         bool avatarStepSucceeded,
-        AvatarIntent avatarIntent,
+        ImageIntent avatarIntent,
         string? savedAvatarUrl,
         ProfileForm profile,
         ProfileSaveCalls calls,
         CancellationToken abandoned
     )
     {
-        var avatarSaved = avatarIntent == AvatarIntent.Keep || avatarStepSucceeded;
+        var avatarSaved = avatarIntent == ImageIntent.Keep || avatarStepSucceeded;
         if (failure.Outcome == ApiCallOutcome.Unauthorized) return Abandoned();
 
         var current = await calls.ReadCurrentUser(abandoned);
@@ -82,12 +83,12 @@ public static class ProfileSave
     }
 
     // An upload is confirmed by a stored avatar other than the one the form was loaded with, a removal by no avatar
-    public static bool IsAvatarConfirmed(AvatarIntent avatarIntent, string? savedAvatarUrl, string? serverAvatarUrl)
+    public static bool IsAvatarConfirmed(ImageIntent avatarIntent, string? savedAvatarUrl, string? serverAvatarUrl)
     {
         return avatarIntent switch
         {
-            AvatarIntent.Upload => serverAvatarUrl is not null && serverAvatarUrl != savedAvatarUrl,
-            AvatarIntent.Remove => serverAvatarUrl is null,
+            ImageIntent.Upload => serverAvatarUrl is not null && serverAvatarUrl != savedAvatarUrl,
+            ImageIntent.Remove => serverAvatarUrl is null,
             _ => true
         };
     }

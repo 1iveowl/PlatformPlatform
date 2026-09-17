@@ -49,6 +49,10 @@ public static class AccountApiRoutes
 
     public const string CurrentTenant = "/api/account/tenants/current";
 
+    public const string UpdateTenantLogo = "/api/account/tenants/current/update-logo";
+
+    public const string RemoveTenantLogo = "/api/account/tenants/current/remove-logo";
+
     public const string VerificationStatus = "/api/account/authentication/verification";
 
     private const string DateFormat = "yyyy-MM-dd";

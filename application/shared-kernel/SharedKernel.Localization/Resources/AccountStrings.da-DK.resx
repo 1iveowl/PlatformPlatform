@@ -192,9 +192,6 @@
     <data name="AvatarTooLarge" xml:space="preserve">
         <value>Billedet skal være mindre end 1 MB.</value>
     </data>
-    <data name="AvatarTypeInvalid" xml:space="preserve">
-        <value>Vælg et JPEG-, PNG-, GIF- eller WebP-billede.</value>
-    </data>
     <data name="ProfilePartiallySaved" xml:space="preserve">
         <value>Dit profilbillede blev gemt, men dine øvrige ændringer blev ikke gemt. Prøv igen.</value>
     </data>
@@ -350,5 +347,50 @@
     </data>
     <data name="LoginMethodMitId" xml:space="preserve">
         <value>MitID</value>
+    </data>
+    <data name="AccountSettingsDescription" xml:space="preserve">
+        <value>Administrer din konto her.</value>
+    </data>
+    <data name="AccountLogo" xml:space="preserve">
+        <value>Kontologo</value>
+    </data>
+    <data name="OnlyOwnersCanModifyAccountName" xml:space="preserve">
+        <value>Kun kontoejere kan ændre kontonavnet</value>
+    </data>
+    <data name="ChangeLogo" xml:space="preserve">
+        <value>Skift logo</value>
+    </data>
+    <data name="UploadLogo" xml:space="preserve">
+        <value>Upload logo</value>
+    </data>
+    <data name="RemoveLogo" xml:space="preserve">
+        <value>Fjern logo</value>
+    </data>
+    <data name="LogoTooLarge" xml:space="preserve">
+        <value>Billedet skal være mindre end 2 MB.</value>
+    </data>
+    <data name="AccountSettingsUpdated" xml:space="preserve">
+        <value>Kontoindstillinger opdateret</value>
+    </data>
+    <data name="AccountPartiallySaved" xml:space="preserve">
+        <value>Dit kontologo blev gemt, men dine øvrige ændringer blev ikke gemt. Prøv igen.</value>
+    </data>
+    <data name="UnableToLoadAccountSettings" xml:space="preserve">
+        <value>Kunne ikke indlæse kontoindstillinger</value>
+    </data>
+    <data name="DangerZone" xml:space="preserve">
+        <value>Farezone</value>
+    </data>
+    <data name="DangerZoneDescription" xml:space="preserve">
+        <value>Slet din konto og alle data. Denne handling kan ikke fortrydes, så fortsæt med forsigtighed.</value>
+    </data>
+    <data name="DeleteAccount" xml:space="preserve">
+        <value>Slet konto</value>
+    </data>
+    <data name="DeleteAccountNotice" xml:space="preserve">
+        <value>For at slette din konto bedes du kontakte vores supportteam.</value>
+    </data>
+    <data name="DeleteAccountSupportNote" xml:space="preserve">
+        <value>Vores supportteam hjælper dig med at slette din konto og sikrer, at alle dine data bliver fjernet.</value>
     </data>
 </root>

@@ -1,0 +1,265 @@
+@* The account settings page, the React edition's account settings: the account name and the logo are edited by the owner
+   and read by everyone else, and the danger zone below them holds the delete-account notice. The host prerenders the
+   heading; the tenant loads once the component runs in the browser. Save runs AccountSettingsSave: the logo upload or
+   removal, then the name PUT, after which the bootstrap is read again so the shell shows the new name from the refreshed
+   session claims without a reload. A failure is shown in the form alert as the API returned it; after a partial save the
+   step the server confirms is kept as saved and the rest stays unsaved for a retry. Leaving the account (a tenant switch,
+   a logout or a lost session) drops the pending edits, so nothing carries into the next account. *@
+@using Account.Client
+@using Account.Features.Tenants.Queries
+@using Account.Features.Tenants.Requests
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Components.Images
+@using Blazor.Client.Session
+@implements IDisposable
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject ToastService Toasts
+
+<AppShell>
+    <h1>@CommonStrings.AccountSettings</h1>
+    <p>@AccountStrings.AccountSettingsDescription</p>
+
+    @if (_tenant is { } tenant)
+    {
+        <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" data-testid="account-settings-form">
+            <DataAnnotationsValidator/>
+            <p class="field-label" id="account-logo-label">@AccountStrings.AccountLogo</p>
+            @if (_canEdit)
+            {
+                <ImagePicker @ref="_logoPicker" TestIdPrefix="logo" ContainerClass="image-picker-logo" Rules="TenantLogoFileRules.Rules"
+                             ImageUrl="@_logo.DisplayUrl(tenant.LogoUrl)" TriggerLabel="@AccountStrings.ChangeLogo" UploadLabel="@AccountStrings.UploadLogo"
+                             RemoveLabel="@AccountStrings.RemoveLogo" UploadTestId="upload-logo" RemoveTestId="remove-logo" Disabled="_isSaving"
+                             OnFileSelected="OnLogoSelected" OnRemove="OnLogoRemovedAsync">
+                    <ImageContent>
+                        <TenantLogo LogoUrl="@_logo.DisplayUrl(tenant.LogoUrl)" TenantName="@tenant.Name"/>
+                    </ImageContent>
+                </ImagePicker>
+            }
+            else
+            {
+                <span data-testid="logo-readonly">
+                    <TenantLogo LogoUrl="@tenant.LogoUrl" TenantName="@tenant.Name"/>
+                </span>
+            }
+            <p>
+                <label>
+                    @CommonStrings.AccountName
+                    <InputText @bind-Value="_form.Name" autocomplete="organization" placeholder="@AuthenticationStrings.AccountNamePlaceholder"
+                               readonly="@(!_canEdit)" disabled="@_isSaving" data-testid="account-name"/>
+                </label>
+                <ValidationMessage For="() => _form.Name"/>
+                @if (AccountSettingsPermissions.ReadOnlyDescription(Session.Current?.User) is { } readOnlyDescription)
+                {
+                    <span class="field-description" data-testid="account-name-description">@readOnlyDescription</span>
+                }
+            </p>
+            <FormErrorAlert Errors="_formErrors"/>
+            @if (_canEdit)
+            {
+                <button type="submit" disabled="@_isSaving" data-testid="save-account-settings">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
+            }
+        </EditForm>
+
+        @if (_canEdit)
+        {
+            <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges"/>
+
+            <section class="danger-zone" aria-labelledby="danger-zone-title" data-testid="danger-zone">
+                <h2 id="danger-zone-title">@AccountStrings.DangerZone</h2>
+                <p>@AccountStrings.DangerZoneDescription</p>
+                <button type="button" class="button-destructive" data-testid="delete-account" @onclick="() => _isDeleteDialogOpen = true">@AccountStrings.DeleteAccount</button>
+            </section>
+
+            <DeleteAccountDialog Open="_isDeleteDialogOpen" SupportEmail="@SupportEmail" OnClose="() => _isDeleteDialogOpen = false"/>
+        }
+    }
+    else if (_loadFailed)
+    {
+        <p role="alert" data-testid="account-settings-load-failed">@AccountStrings.UnableToLoadAccountSettings</p>
+    }
+    else
+    {
+        <p data-testid="account-settings-loading">@CommonStrings.Loading</p>
+    }
+</AppShell>
+
+@code {
+
+    public const string AccountSettingsUpdatedToastTestId = "account-settings-updated-toast";
+
+    private readonly CancellationTokenSource _disposed = new();
+    private readonly ImageDraft _logo = new();
+    private bool _canEdit;
+    private EditContext _editContext = null!;
+    private AccountSettingsForm _form = new();
+    private FormErrorMapper? _formErrors;
+    private bool _isDeleteDialogOpen;
+    private bool _isSaving;
+    private bool _loadFailed;
+    private ImagePicker? _logoPicker;
+    private AuthenticationNavigator? _navigator;
+    private AccountSettingsForm _saved = new();
+    private TenantResponse? _tenant;
+
+    // The support address the host read from the brand configuration; the page itself has no source for it
+    [Parameter]
+    public string? SupportEmail { get; set; }
+
+    // Stays true while a save runs, so the guard holds until the server confirmed what was intended
+    private bool HasUnsavedChanges => _tenant is not null && _canEdit && (_isSaving || _logo.HasChanges || _form.HasChangesFrom(_saved));
+
+    public void Dispose()
+    {
+        if (_navigator is not null) _navigator.Leaving -= OnLeaving;
+        // Cancelled, not disposed: a save still running reads the token once more to discard its result
+        _disposed.Cancel();
+        _formErrors?.Dispose();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _editContext = new EditContext(_form);
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive) return;
+
+        if (!bootstrap.IsAuthenticated)
+        {
+            Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();
+            return;
+        }
+
+        _navigator = Services.GetRequiredService<AuthenticationNavigator>();
+        _navigator.Leaving += OnLeaving;
+        _canEdit = AccountSettingsPermissions.CanEditAccount(bootstrap.User);
+
+        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetCurrentTenantAsync);
+        if (result is null) return;
+
+        if (!result.IsSuccess)
+        {
+            _loadFailed = result.Outcome != ApiCallOutcome.Unauthorized;
+            return;
+        }
+
+        SetLoadedTenant(result.Value!);
+    }
+
+    private void OnLeaving()
+    {
+        // The account this form edits is being left, so nothing it holds may reach the next one
+        _logo.Reset();
+        _tenant = null;
+        _isDeleteDialogOpen = false;
+        _isSaving = false;
+    }
+
+    private void OnLogoSelected(ChosenFile file)
+    {
+        _logo.Select(file.ContentType!, file.PreviewUrl);
+    }
+
+    private async Task OnLogoRemovedAsync()
+    {
+        _logo.Remove(_tenant?.LogoUrl);
+        if (_logoPicker is not null) await _logoPicker.ResetAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving || _tenant is null || !_canEdit) return;
+
+        _isSaving = true;
+        var intent = _logo.Intent;
+        var intended = _form.Copy();
+        var outcome = await AccountSettingsSave.RunAsync(intent, _tenant.LogoUrl, intended, CreateSaveCalls(intended), _disposed.Token);
+        if (outcome.Status == AccountSettingsSaveStatus.Abandoned) return;
+
+        _isSaving = false;
+        if (outcome.Status == AccountSettingsSaveStatus.Saved)
+        {
+            await CompleteSaveAsync(intent, intended);
+            return;
+        }
+
+        await ApplyConfirmedStateAsync(outcome, intended);
+        if (outcome.Failure is { } failure && _formErrors is not null)
+        {
+            if (intent == ImageIntent.Upload && !outcome.LogoSaved && ImageFileRules.IsTooLargeResponse(failure)) _formErrors.AddFormMessage(AccountStrings.LogoTooLarge);
+            else _formErrors.ApplyFailure(failure);
+
+            if (intent != ImageIntent.Keep && outcome is { LogoSaved: true, NameSaved: false }) _formErrors.AddFormMessage(AccountStrings.AccountPartiallySaved);
+        }
+    }
+
+    private AccountSettingsSaveCalls CreateSaveCalls(AccountSettingsForm intended)
+    {
+        var client = Services.GetRequiredService<TenantsClient>();
+        var contentType = _logo.ContentType;
+        return new AccountSettingsSaveCalls(
+            abandoned => Session.UnlessLeavingAsync(async cancellationToken =>
+                {
+                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, abandoned);
+                    var stream = await _logoPicker!.ReadSelectedFileAsync(linked.Token)
+                                 ?? throw new InvalidOperationException("The logo picker holds no selected file to upload.");
+                    return await client.UpdateLogoAsync(new UpdateTenantLogoCommand(stream, contentType!), linked.Token);
+                }
+            ),
+            abandoned => Session.UnlessLeavingAsync(cancellationToken => WithAbandonedAsync(cancellationToken, abandoned, client.RemoveLogoAsync)),
+            abandoned => Session.UnlessLeavingAsync(cancellationToken => WithAbandonedAsync(cancellationToken, abandoned, token => client.UpdateCurrentTenantAsync(intended.ToCommand(), token))),
+            abandoned => Session.UnlessLeavingAsync(cancellationToken => WithAbandonedAsync(cancellationToken, abandoned, client.GetCurrentTenantAsync))
+        );
+    }
+
+    private static async Task<TResult> WithAbandonedAsync<TResult>(CancellationToken cancellationToken, CancellationToken abandoned, Func<CancellationToken, Task<TResult>> call)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, abandoned);
+        return await call(linked.Token);
+    }
+
+    // The account API asks the gateway to refresh the session's claims on the name PUT's response, so the bootstrap read
+    // after it carries the new account name for the shell
+    private async Task CompleteSaveAsync(ImageIntent intent, AccountSettingsForm intended)
+    {
+        _saved = intended;
+        _form.Name = intended.Name;
+        Toasts.Show(ToastKind.Success, AccountStrings.AccountSettingsUpdated, null, AccountSettingsUpdatedToastTestId);
+        if (intent != ImageIntent.Keep)
+        {
+            // The logo endpoints return no URL, so the stored one is read back
+            var current = await Session.UnlessLeavingAsync(Services.GetRequiredService<TenantsClient>().GetCurrentTenantAsync);
+            if (current is null) return;
+
+            if (current.IsSuccess) _tenant = current.Value;
+        }
+
+        await ResetLogoAsync();
+        await Session.RefreshUnlessLeavingAsync();
+    }
+
+    // Keeps what the server confirmed after a failed step: a confirmed logo change is no longer unsaved, a confirmed name
+    // becomes the saved name, and the field keeps what the user typed
+    private async Task ApplyConfirmedStateAsync(AccountSettingsSaveOutcome outcome, AccountSettingsForm intended)
+    {
+        if (outcome.ConfirmedTenant is { } confirmedTenant) _tenant = confirmedTenant;
+        if (outcome.NameSaved) _saved = intended;
+        if (outcome.LogoSaved && _logo.HasChanges) await ResetLogoAsync();
+    }
+
+    private async Task ResetLogoAsync()
+    {
+        _logo.Reset();
+        if (_logoPicker is not null) await _logoPicker.ResetAsync();
+    }
+
+    private void SetLoadedTenant(TenantResponse tenant)
+    {
+        _tenant = tenant;
+        _saved = AccountSettingsForm.From(tenant);
+        _form = AccountSettingsForm.From(tenant);
+        _editContext = new EditContext(_form);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+}

@@ -1,0 +1,37 @@
+@* The delete-account notice, the React edition's DeleteAccountConfirmation: the edition deletes no account by itself, so
+   the dialog only names the support address to write to. The address is brand configuration the host reads from
+   platform-settings.jsonc and passes down; it is shown read-only and the dialog closes without doing anything. *@
+
+<ModalDialog Open="Open" TitleId="delete-account-title" DescriptionId="delete-account-description" ClosesOnBackdrop OnDismissRequested="OnClose"
+             TestId="delete-account-dialog">
+    <div class="modal-dialog-header">
+        <h2 id="delete-account-title" class="modal-dialog-title">@AccountStrings.DeleteAccount</h2>
+    </div>
+    <p id="delete-account-description" class="modal-dialog-description">@AccountStrings.DeleteAccountNotice</p>
+
+    <p>
+        <label>
+            @CommonStrings.Email
+            <input type="email" value="@SupportEmail" readonly data-testid="delete-account-support-email"/>
+        </label>
+    </p>
+    <p class="field-description">@AccountStrings.DeleteAccountSupportNote</p>
+
+    <div class="modal-dialog-actions">
+        <button type="button" class="button-secondary" data-testid="delete-account-close" @onclick="OnClose">@CommonStrings.Close</button>
+    </div>
+</ModalDialog>
+
+@code {
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    // The support address from the host's brand configuration; empty when the brand names none
+    [Parameter]
+    public string? SupportEmail { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+}

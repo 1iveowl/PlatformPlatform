@@ -1,6 +1,7 @@
 using Account.Client;
 using Account.Features.Users.Domain;
 using Account.Features.Users.Queries;
+using Blazor.Client.Components.Images;
 using Blazor.Client.Profile;
 using FluentAssertions;
 using SharedKernel.Domain;
@@ -22,7 +23,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer();
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Saved);
@@ -36,7 +37,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer();
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Remove, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Remove, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Saved);
@@ -50,7 +51,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer();
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Keep, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Keep, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Saved);
@@ -67,7 +68,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { Put = putFailure, CurrentUser = User("Grace", "Hopper", "", NewAvatarUrl) };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Failed);
@@ -86,7 +87,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { Upload = lost, CurrentUser = User("Grace", "Hopper", "", NewAvatarUrl) };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Failed);
@@ -103,7 +104,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { Upload = rejected, CurrentUser = User("Grace", "Hopper", "", SavedAvatarUrl) };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Failed);
@@ -121,7 +122,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { Put = lost, CurrentUser = User("Ada", "Lovelace", "Engineer", null) };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Remove, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Remove, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Failed);
@@ -137,7 +138,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { Put = Failure(500), CurrentUserResult = ApiCallResult<CurrentUserResponse>.Failed(ApiCallOutcome.Failure, new ApiCallProblem(500, "Internal Server Error", null, NoErrors, null)) };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Failed);
@@ -153,7 +154,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { LeaveOnUpload = true };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Abandoned);
@@ -168,7 +169,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { OnUpload = abandoned.Cancel };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, abandoned.Token);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, abandoned.Token);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Abandoned);
@@ -183,7 +184,7 @@ public sealed class ProfileSaveTests
         var server = new FakeServer { Upload = ApiCallResult.Failed(ApiCallOutcome.Unauthorized, new ApiCallProblem(401, "Unauthorized", null, NoErrors, null)) };
 
         // Act
-        var outcome = await ProfileSave.RunAsync(AvatarIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
+        var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
         outcome.Status.Should().Be(ProfileSaveStatus.Abandoned);
@@ -191,13 +192,13 @@ public sealed class ProfileSaveTests
     }
 
     [Theory]
-    [InlineData(AvatarIntent.Upload, SavedAvatarUrl, NewAvatarUrl, true)]
-    [InlineData(AvatarIntent.Upload, SavedAvatarUrl, SavedAvatarUrl, false)]
-    [InlineData(AvatarIntent.Upload, null, null, false)]
-    [InlineData(AvatarIntent.Upload, null, NewAvatarUrl, true)]
-    [InlineData(AvatarIntent.Remove, SavedAvatarUrl, null, true)]
-    [InlineData(AvatarIntent.Remove, SavedAvatarUrl, SavedAvatarUrl, false)]
-    public void IsAvatarConfirmed_ShouldCompareTheServerAvatarWithTheIntent(AvatarIntent intent, string? savedAvatarUrl, string? serverAvatarUrl, bool expected)
+    [InlineData(ImageIntent.Upload, SavedAvatarUrl, NewAvatarUrl, true)]
+    [InlineData(ImageIntent.Upload, SavedAvatarUrl, SavedAvatarUrl, false)]
+    [InlineData(ImageIntent.Upload, null, null, false)]
+    [InlineData(ImageIntent.Upload, null, NewAvatarUrl, true)]
+    [InlineData(ImageIntent.Remove, SavedAvatarUrl, null, true)]
+    [InlineData(ImageIntent.Remove, SavedAvatarUrl, SavedAvatarUrl, false)]
+    public void IsAvatarConfirmed_ShouldCompareTheServerAvatarWithTheIntent(ImageIntent intent, string? savedAvatarUrl, string? serverAvatarUrl, bool expected)
     {
         // Act and Assert
         ProfileSave.IsAvatarConfirmed(intent, savedAvatarUrl, serverAvatarUrl).Should().Be(expected);

@@ -1,4 +1,4 @@
-// A drop zone and a hidden file input for one image, for the profile's avatar picker (AvatarPicker). Loaded as a same-origin
+// A drop zone and a hidden file input for one image, for the shared picker (ImagePicker). Loaded as a same-origin
 // module through the import map. A picked or dropped file is offered to .NET with its size, type and a blob: preview; only
 // an accepted file replaces the selection, so a rejected file, or a file dialog closed without a choice, keeps the earlier
 // selection readable. The selection is read back as a stream (IJSStreamReference), which .NET opens with a size bound. One
@@ -6,7 +6,7 @@
 // Dragging over the zone toggles a class; nothing here writes a style attribute.
 
 const ON_FILE_CHOSEN = "OnFileChosen";
-const draggingClass = "avatar-picker-dragging";
+const draggingClass = "image-picker-dragging";
 
 export function attach(dropZone, input, dotNet) {
   let selectedFile = null;

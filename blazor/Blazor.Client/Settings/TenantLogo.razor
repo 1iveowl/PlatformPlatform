@@ -1,0 +1,23 @@
+@* An account's logo: the image when the account has one, otherwise the initials of its name. Decorative, because the
+   account name is shown beside it or names the control it sits in. *@
+
+<span class="tenant-logo" aria-hidden="true">
+    @if (!string.IsNullOrEmpty(LogoUrl))
+    {
+        <img class="tenant-logo-image" src="@LogoUrl" alt=""/>
+    }
+    else
+    {
+        @TenantInitials.Of(TenantName)
+    }
+</span>
+
+@code {
+
+    [Parameter]
+    public string? LogoUrl { get; set; }
+
+    [Parameter]
+    public string? TenantName { get; set; }
+
+}

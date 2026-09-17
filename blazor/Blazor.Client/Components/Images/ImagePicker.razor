@@ -1,24 +1,23 @@
-@* The profile's avatar picker, the React edition's UserAvatarPicker: the current avatar, the selected file's preview or the
-   initials on a button that opens the "Change profile picture" menu with "Upload profile picture" and, while an image is
-   shown, "Remove profile picture". The whole picker is a drop zone for one file. A picked or dropped file is checked
-   against the update-avatar endpoint's limits (AvatarFileRules) before it is accepted; a refused file shows its message
-   under the picker and keeps the earlier selection. The file and its blob: preview are held by js/file-picker.js, which
-   revokes the preview when it is replaced, reset or disposed with this component. The menu is in-house, as the shell's
-   user menu, because the component library's menu writes style attributes; its keyboard model is MenuNavigation's. *@
+@* One image on a button that opens its own menu, the React edition's UserAvatarPicker and TenantLogoPicker: the current
+   image, the selected file's preview or the fallback the caller renders, with "Upload ..." and, while an image is shown,
+   "Remove ...". The whole picker is a drop zone for one file. A picked or dropped file is checked against the receiving
+   endpoint's limits (Rules) before it is accepted; a refused file shows its message under the picker and keeps the earlier
+   selection. The file and its blob: preview are held by js/file-picker.js, which revokes the preview when it is replaced,
+   reset or disposed with this component. The menu is in-house, as the shell's user menu, because the component library's
+   menu writes style attributes; its keyboard model is MenuNavigation's. *@
 @using Blazor.Client.Components.Menus
-@using Blazor.Client.Users
 @implements IAsyncDisposable
 @inject IJSRuntime JavaScriptRuntime
 
-<div @ref="_dropZone" class="avatar-picker" data-testid="avatar-drop-zone">
-    <button @ref="_trigger" type="button" id="@TriggerId" class="avatar-picker-trigger" aria-label="@AccountStrings.ChangeProfilePicture" aria-haspopup="menu"
-            aria-expanded="@(_isOpen ? "true" : "false")" aria-controls="@(_isOpen ? MenuId : null)" disabled="@Disabled" data-testid="avatar-menu-trigger" @onclick="Toggle">
-        <UserAvatar AvatarUrl="@AvatarUrl" Initials="@Initials"/>
+<div @ref="_dropZone" class="image-picker @ContainerClass" data-testid="@($"{TestIdPrefix}-drop-zone")">
+    <button @ref="_trigger" type="button" id="@TriggerId" class="image-picker-trigger" aria-label="@TriggerLabel" aria-haspopup="menu"
+            aria-expanded="@(_isOpen ? "true" : "false")" aria-controls="@(_isOpen ? MenuId : null)" disabled="@Disabled" data-testid="@($"{TestIdPrefix}-menu-trigger")" @onclick="Toggle">
+        @ImageContent
     </button>
     @if (_isOpen)
     {
         <div class="menu-backdrop" @onclick="() => Close(false)"></div>
-        <div id="@MenuId" role="menu" class="avatar-picker-menu" aria-labelledby="@TriggerId" @onkeydown="OnKeyDown">
+        <div id="@MenuId" role="menu" class="image-picker-menu" aria-labelledby="@TriggerId" @onkeydown="OnKeyDown">
             @for (var index = 0; index < Items.Count; index++)
             {
                 var item = Items[index];
@@ -30,22 +29,19 @@
             }
         </div>
     }
-    <input @ref="_input" type="file" class="visually-hidden" accept="@AvatarFileRules.Accept" tabindex="-1" aria-hidden="true" disabled="@Disabled"
-           data-testid="avatar-file-input"/>
+    <input @ref="_input" type="file" class="visually-hidden" accept="@Rules.Accept" tabindex="-1" aria-hidden="true" disabled="@Disabled"
+           data-testid="@($"{TestIdPrefix}-file-input")"/>
 </div>
 @if (_error is not null)
 {
-    <p class="validation-message" role="alert" data-testid="avatar-error">@_error</p>
+    <p class="validation-message" role="alert" data-testid="@($"{TestIdPrefix}-error")">@_error</p>
 }
 
 @code {
 
-    private const string MenuId = "avatar-picker-menu";
-    private const string TriggerId = "avatar-picker-trigger";
-
     private readonly ElementReference[] _itemElements = new ElementReference[2];
     private int _activeIndex = -1;
-    private DotNetObjectReference<AvatarPicker>? _dotNet;
+    private DotNetObjectReference<ImagePicker>? _dotNet;
     private ElementReference _dropZone;
     private string? _error;
     private ElementReference _input;
@@ -54,13 +50,48 @@
     private bool _moveFocus;
     private ElementReference _trigger;
 
-    // The image shown: the saved avatar, the selection's preview, or null for the initials
+    // Distinguishes this picker's elements and test ids from another on the same page, for example "avatar" or "logo"
     [Parameter]
-    public string? AvatarUrl { get; set; }
+    [EditorRequired]
+    public string TestIdPrefix { get; set; } = null!;
+
+    // The limits of the endpoint the selected file will be sent to
+    [Parameter]
+    [EditorRequired]
+    public ImageFileRules Rules { get; set; } = null!;
+
+    // What the trigger shows: the saved image, the selection's preview or the caller's fallback
+    [Parameter]
+    [EditorRequired]
+    public RenderFragment ImageContent { get; set; } = null!;
+
+    // The image currently shown, which decides whether the menu offers to remove it; null means nothing is shown
+    [Parameter]
+    public string? ImageUrl { get; set; }
 
     [Parameter]
     [EditorRequired]
-    public string Initials { get; set; } = "";
+    public string TriggerLabel { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string UploadLabel { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string RemoveLabel { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string UploadTestId { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public string RemoveTestId { get; set; } = null!;
+
+    // An extra class on the drop zone, for the shape the surface gives this picker
+    [Parameter]
+    public string? ContainerClass { get; set; }
 
     [Parameter]
     public bool Disabled { get; set; }
@@ -71,10 +102,14 @@
     [Parameter]
     public EventCallback OnRemove { get; set; }
 
+    private string MenuId => $"{TestIdPrefix}-picker-menu";
+
+    private string TriggerId => $"{TestIdPrefix}-picker-trigger";
+
     private IReadOnlyList<PickerMenuItem> Items =>
-        AvatarUrl is null
-            ? [new PickerMenuItem(AccountStrings.UploadProfilePicture, "upload-avatar", OpenFileDialogAsync)]
-            : [new PickerMenuItem(AccountStrings.UploadProfilePicture, "upload-avatar", OpenFileDialogAsync), new PickerMenuItem(AccountStrings.RemoveProfilePicture, "remove-avatar", RemoveAsync)];
+        ImageUrl is null
+            ? [new PickerMenuItem(UploadLabel, UploadTestId, OpenFileDialogAsync)]
+            : [new PickerMenuItem(UploadLabel, UploadTestId, OpenFileDialogAsync), new PickerMenuItem(RemoveLabel, RemoveTestId, RemoveAsync)];
 
     public async ValueTask DisposeAsync()
     {
@@ -88,7 +123,7 @@
     {
         if (Disabled) return false;
 
-        var error = AvatarFileRules.Validate(file.Size, file.ContentType);
+        var error = Rules.Validate(file.Size, file.ContentType);
         await InvokeAsync(async () =>
             {
                 _error = error;
@@ -99,13 +134,13 @@
         return error is null;
     }
 
-    // The selected file's content, bounded to maximumSize, or null when nothing is selected
-    public ValueTask<Stream?> ReadSelectedFileAsync(long maximumSize, CancellationToken cancellationToken)
+    // The selected file's content, bounded to the endpoint's limit, or null when nothing is selected
+    public ValueTask<Stream?> ReadSelectedFileAsync(CancellationToken cancellationToken)
     {
-        return _interop?.ReadSelectedAsync(maximumSize, cancellationToken) ?? ValueTask.FromResult<Stream?>(null);
+        return _interop?.ReadSelectedAsync(Rules.MaximumFileSizeInBytes, cancellationToken) ?? ValueTask.FromResult<Stream?>(null);
     }
 
-    // Forgets the selection and releases its preview, after a save or when the form returns to the saved avatar
+    // Forgets the selection and releases its preview, after a save or when the form returns to the saved image
     public async Task ResetAsync()
     {
         _error = null;
