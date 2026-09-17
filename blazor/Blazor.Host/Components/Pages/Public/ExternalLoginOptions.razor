@@ -1,4 +1,5 @@
 @using Blazor.Client.Bootstrap
+@using SharedKernel.Domain
 @* The external providers below the email form on the static login and signup pages, the React edition's ExternalLoginOptions.
    Renders nothing when no provider is offered, so the divider never appears on its own. Each button submits a GET form,
    which is the document navigation to the account API's start endpoint and needs no runtime. The MitID button follows
@@ -48,10 +49,13 @@
     [Parameter]
     public string? ReturnPath { get; set; }
 
+    [Parameter]
+    public TenantId? PreferredTenantId { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         var bootstrap = await BootstrapSource.GetAsync();
-        _forms = ExternalLoginStart.Create(bootstrap.SystemFeatureFlags, Flow, CultureInfo.CurrentUICulture.Name, ReturnPath);
+        _forms = ExternalLoginStart.Create(bootstrap.SystemFeatureFlags, Flow, CultureInfo.CurrentUICulture.Name, ReturnPath, PreferredTenantId);
     }
 
     private static string IconPath(ExternalLoginProvider provider)

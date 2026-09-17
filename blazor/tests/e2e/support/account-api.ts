@@ -87,6 +87,7 @@ export function changeUserRoleThroughAccountApi(page: Page, userId: string, user
 export interface AccountApiSession {
   id: string;
   isCurrent: boolean;
+  loginMethod: string;
 }
 
 /**

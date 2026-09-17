@@ -1,5 +1,4 @@
 import { expect, type Page } from "@playwright/test";
-import { sendAccountApiRequest } from "@blazor/e2e/account-api";
 import {
   logOutThroughBlazor,
   signUpThroughBlazor,
@@ -7,114 +6,23 @@ import {
   test,
   userMenuButton
 } from "@blazor/e2e/authentication";
+import {
+  expectBlazorErrorPage,
+  expectRedirectsInsideBlazor,
+  providerButtonName,
+  setMockProviderCookie,
+  startExternalFlow,
+  startExternalFlowByUrl,
+  trackRedirects,
+  uniqueIdentifier,
+  verifyWithMitIdForBlazor
+} from "@blazor/e2e/external-login";
 import { submitOneTimePassword } from "@blazor/e2e/one-time-password";
 import { blazorPath, blazorUrl, expectBlazorUrl } from "@blazor/e2e/routes";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
 import { blazorTexts } from "@blazor/e2e/texts";
-import { getBaseUrl } from "@shared/e2e/utils/constants";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
-
-const mockProviderCookie = "__Test_Use_Mock_Provider";
-const providerErrorDescription = "The user denied access";
-
-/**
- * A random identifier for a mock provider identity or email prefix, unique per call
- */
-function uniqueIdentifier(): string {
-  return crypto.randomUUID().replaceAll("-", "").slice(0, 16);
-}
-
-async function setMockProviderCookie(page: Page, value: string): Promise<void> {
-  await page.context().addCookies([{ name: mockProviderCookie, value, url: getBaseUrl() }]);
-}
-
-/**
- * Record the Location of every redirect a document navigation follows from now on
- * @param page Playwright page instance
- * @returns The live list of absolute redirect destinations
- */
-function trackRedirects(page: Page): string[] {
-  const locations: string[] = [];
-  page.on("response", (response) => {
-    const location = response.headers().location;
-    if (response.request().isNavigationRequest() && response.status() >= 300 && response.status() < 400 && location) {
-      locations.push(new URL(location, response.url()).toString());
-    }
-  });
-  return locations;
-}
-
-/**
- * Expect every recorded redirect to lead either to an external authentication endpoint or into the Blazor path base,
- * never to a React page, and at least one to lead into the Blazor path base. The provider's own redirect to the callback may carry an
- * error description; a redirect into the Blazor path base never does
- * @param locations The redirects recorded by trackRedirects
- */
-function expectRedirectsInsideBlazor(locations: string[]): void {
-  expect(locations.length).toBeGreaterThan(0);
-  for (const location of locations) {
-    const url = new URL(location);
-    expect(url.pathname.startsWith("/api/account/authentication/") || url.pathname.startsWith(blazorPath()), location).toBe(true);
-  }
-  const blazorRedirects = locations.filter((location) => new URL(location).pathname.startsWith(blazorPath()));
-  expect(blazorRedirects.length).toBeGreaterThan(0);
-  expect(blazorRedirects.filter((location) => location.includes("error_description"))).toEqual([]);
-}
-
-type Provider = "Google" | "Entra" | "MitId";
-
-/**
- * The accessible name of a provider's button on the Blazor login or signup page in the running project's culture
- */
-function providerButtonName(provider: Provider, flow: "login" | "signup"): string {
-  const texts = blazorTexts();
-  if (provider === "MitId") return texts.logOnWithMitId;
-  if (flow === "login") return provider === "Google" ? texts.logInWithGoogle : texts.logInWithMicrosoft;
-  return provider === "Google" ? texts.signUpWithGoogle : texts.signUpWithMicrosoft;
-}
-
-/**
- * Start an external authentication flow from the provider's button on the Blazor login or signup page, opened with the
- * return path the page passes on to the start endpoint
- */
-async function startExternalFlow(page: Page, provider: Provider, flow: "login" | "signup", returnPath?: string): Promise<void> {
-  const query = returnPath === undefined ? "" : `?returnPath=${encodeURIComponent(returnPath)}`;
-  await page.goto(`${blazorPath(flow)}${query}`);
-
-  await page.getByRole("button", { name: providerButtonName(provider, flow), exact: true }).click();
-}
-
-/**
- * Start an external authentication flow for the Blazor edition by navigating to the start endpoint directly, the way a
- * crafted link would, so the account API's own return path rule is exercised without the page's sanitising
- */
-async function startExternalFlowByUrl(page: Page, provider: Provider, flow: "login" | "signup", returnPath: string): Promise<void> {
-  const query = new URLSearchParams({ Edition: "Blazor", Locale: blazorTexts().locale, ReturnPath: returnPath });
-
-  await page.goto(`${getBaseUrl()}/api/account/authentication/${provider}/${flow}/start?${query}`);
-}
-
-/**
- * Expect the Blazor error page for a refused external authentication, localized, with the reference id of the attempt and
- * no provider error description
- */
-async function expectBlazorErrorPage(page: Page, errorCode: string, heading: string): Promise<void> {
-  await expectBlazorUrl(page, "error");
-  const url = new URL(page.url());
-  expect(url.searchParams.get("error")).toBe(errorCode);
-  const referenceId = url.searchParams.get("id");
-  expect(referenceId).not.toBeNull();
-  expect(url.searchParams.has("error_description")).toBe(false);
-
-  await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-  await expect(page.getByTestId("error-reference-id")).toHaveText(`${blazorTexts().referenceId}${referenceId}`);
-  const html = await page.content();
-  expect(html).not.toContain(providerErrorDescription);
-  expect(html).not.toContain("error_description");
-  expect(html).not.toContain("mock-authorization-code");
-}
-
 
 /**
  * Sign up and log in with a provider for the Blazor edition, then prove hostile return paths are dropped for the Blazor
@@ -264,19 +172,6 @@ async function runRefusalsForBlazor(page: Page): Promise<void> {
     await expectActions(["login"]);
     expectRedirectsInsideBlazor(redirects);
   })();
-}
-
-/**
- * Start a MitID verification for the Blazor edition as the signed-in user through the account API, the request a Blazor
- * profile button will send, and follow the returned authorization URL
- */
-async function verifyWithMitIdForBlazor(page: Page): Promise<void> {
-  const response = await sendAccountApiRequest(page, "POST", "/api/account/authentication/MitId/verification/start?Edition=Blazor", {
-    returnPath: blazorPath("user/profile")
-  });
-  expect(response.status, response.body).toBe(200);
-
-  await page.goto((JSON.parse(response.body) as { authorizationUrl: string }).authorizationUrl);
 }
 
 test.describe("@smoke", () => {

@@ -1,5 +1,6 @@
 using Blazor.Host.Components.Pages.Public;
 using FluentAssertions;
+using SharedKernel.Domain;
 using SharedKernel.FeatureFlags;
 
 namespace Blazor.Tests.Public;
@@ -89,6 +90,40 @@ public sealed class ExternalLoginStartTests
         // Assert
         forms.Select(form => form.Provider).Should().Equal(ExternalLoginProvider.Google, ExternalLoginProvider.Entra, ExternalLoginProvider.MitId);
         forms.Should().OnlyContain(form => form.Url.EndsWith("?Edition=Blazor&Locale=en-US&ReturnPath=%2Fblazor%2Fapp", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(ExternalLoginProvider.Google)]
+    [InlineData(ExternalLoginProvider.Entra)]
+    [InlineData(ExternalLoginProvider.MitId)]
+    public void CreateForm_WhenLoginHasAPreferredTenant_ShouldCarryItToTheStartEndpoint(ExternalLoginProvider provider)
+    {
+        // Act
+        var form = ExternalLoginStart.CreateForm(provider, ExternalLoginFlow.Login, "en-US", null, new TenantId(42));
+
+        // Assert
+        form.Fields.Should().ContainSingle(field => field.Key == "PreferredTenantId").Which.Value.Should().Be("42");
+        form.Url.Should().EndWith("&ReturnPath=%2Fblazor%2Fapp&PreferredTenantId=42");
+    }
+
+    [Fact]
+    public void CreateForm_WhenSignupHasAPreferredTenant_ShouldNotCarryIt()
+    {
+        // Act
+        var form = ExternalLoginStart.CreateForm(ExternalLoginProvider.Google, ExternalLoginFlow.Signup, "en-US", null, new TenantId(42));
+
+        // Assert
+        form.Fields.Should().NotContain(field => field.Key == "PreferredTenantId");
+    }
+
+    [Fact]
+    public void Create_WhenNoPreferredTenant_ShouldNotCarryThePreferredTenantParameter()
+    {
+        // Act
+        var forms = ExternalLoginStart.Create(CreateFlags(true, true, true), ExternalLoginFlow.Login, "en-US", null);
+
+        // Assert
+        forms.Should().OnlyContain(form => form.Fields.All(field => field.Key != "PreferredTenantId"));
     }
 
     private static Dictionary<string, bool> CreateFlags(bool google, bool entra, bool mitIdLogin)

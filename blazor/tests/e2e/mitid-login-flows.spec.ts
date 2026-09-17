@@ -1,0 +1,197 @@
+import { expect } from "@playwright/test";
+import { getSessionsThroughAccountApi } from "@blazor/e2e/account-api";
+import { logOutThroughBlazor, signUpThroughBlazor, test, userMenuButton } from "@blazor/e2e/authentication";
+import {
+  expectBlazorErrorPage,
+  expectRedirectsInsideBlazor,
+  readBootstrapUser,
+  readStartUrl,
+  requireProviderOrExpectUnavailable,
+  setMockProviderCookie,
+  startExternalFlow,
+  trackRedirects,
+  uniqueIdentifier,
+  verifyWithMitIdForBlazor
+} from "@blazor/e2e/external-login";
+import { blazorPath, expectBlazorUrl } from "@blazor/e2e/routes";
+import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
+import { blazorTexts } from "@blazor/e2e/texts";
+import { getBackOfficeBaseUrl } from "@shared/e2e/utils/constants";
+import { createTestContext } from "@shared/e2e/utils/test-assertions";
+import { logInAsAdmin } from "@shared/e2e/utils/test-data";
+import { step } from "@shared/e2e/utils/test-step-wrapper";
+
+// Runs only when this deployment enables both MitID login and MitID verification, read from the bootstrap's system feature
+// flags through the page: signing in with MitID is only reachable after verifying with it. Otherwise the unavailable
+// behaviour is asserted and the test is skipped into the provider-disabled lane. Every flow uses the account API's mock
+// provider, so this is mock provider evidence, never a real MitID integration result.
+test.beforeEach(async ({ page }) => {
+  await requireProviderOrExpectUnavailable(page, "MitId");
+});
+
+test.describe("@smoke", () => {
+  /**
+   * MitID login for a verified identity, in the culture of the running project:
+   * - An account is created with email, because MitID can never be used to sign up
+   * - The identity is verified through the account API until the Blazor profile has its verification section (T017); the identity verification and profile specifications (T018) will replace this step with the profile
+   * - After logout the login page offers MitID under the approved phrase "Log on with MitID" with the wordmark and the brand geometry, never "Log in with MitID"
+   * - Logging in with the same MitID identity returns to the same account
+   * - The session is recorded as MitID, read through the account API until the Blazor sessions page exists (T020); the session specifications (T021) will replace this step with the sessions page
+   */
+  test("should log in with a verified MitID identity and record the session as MitID", async ({ page }) => {
+    createTestContext(page);
+    const texts = blazorTexts();
+    const identity = `identity:${uniqueIdentifier()}`;
+    const redirects = trackRedirects(page);
+    let account = { id: "", tenantId: "" };
+
+    // === SIGNUP AND VERIFICATION ===
+
+    await step("Sign up with email & verify with MitID through the account API & verify return to the Blazor profile")(async () => {
+      await signUpThroughBlazor(page, uniqueBlazorEmail());
+      account = (await readBootstrapUser(page))!;
+      await setMockProviderCookie(page, identity);
+      redirects.length = 0;
+
+      await verifyWithMitIdForBlazor(page);
+
+      await expectBlazorUrl(page, "user/profile");
+      await expect(userMenuButton(page)).toBeVisible();
+      expectRedirectsInsideBlazor(redirects);
+    })();
+
+    // === LOGIN ===
+
+    await step("Log out & read the MitID button & verify the approved phrase, the wordmark and the brand geometry")(async () => {
+      await page.goto(blazorPath("app"));
+      await logOutThroughBlazor(page);
+
+      await page.goto(blazorPath("login"));
+
+      const mitIdButton = page.getByRole("button", { name: texts.logOnWithMitId, exact: true });
+      await expect(mitIdButton).toBeVisible();
+      await expect(mitIdButton.getByRole("img", { name: "MitID" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Log in with MitID" })).toHaveCount(0);
+      await expect(page.getByText(texts.or, { exact: true })).toBeVisible();
+      await expect(mitIdButton).toHaveCSS("height", "48px");
+      await expect(mitIdButton).toHaveCSS("border-radius", "4px");
+      await expect(mitIdButton).toHaveCSS("background-color", "rgb(0, 96, 230)");
+    })();
+
+    await step("Log in with the verified MitID identity & verify the same account in the workspace")(async () => {
+      await setMockProviderCookie(page, identity);
+      redirects.length = 0;
+
+      await page.getByRole("button", { name: texts.logOnWithMitId, exact: true }).click();
+
+      await expectBlazorUrl(page, "app");
+      await expect(userMenuButton(page)).toBeVisible();
+      expect(await readBootstrapUser(page)).toMatchObject(account);
+      expectRedirectsInsideBlazor(redirects);
+    })();
+
+    await step("List the sessions through the account API & verify the current session is recorded as MitID")(async () => {
+      const sessions = await getSessionsThroughAccountApi(page);
+
+      expect(sessions.filter((session) => session.isCurrent).map((session) => session.loginMethod)).toEqual(["MitId"]);
+    })();
+  });
+});
+
+test.describe("@comprehensive", () => {
+  /**
+   * The refusal and withdrawal paths of MitID login:
+   * - An identity that was never verified is refused with the localized identity not verified page, its hint and reference id, rather than told no account exists
+   * - The login start carries the return path of the login page
+   * - Revoking the verification in the back office ends MitID login for that identity; the back office stays the React edition, and the Blazor profile's verification (T017) will replace the API verification step
+   * - The identity not verified page renders its title, message, hint and reference id when opened directly
+   */
+  test("should refuse an unverified identity, carry the return path, and stop working once revoked", async ({ page, browser }) => {
+    createTestContext(page);
+    const texts = blazorTexts();
+    const redirects = trackRedirects(page);
+    const identity = `identity:${uniqueIdentifier()}`;
+    let userId = "";
+
+    // === REFUSAL ===
+
+    await step("Log in with a MitID identity that was never verified & verify the identity not verified page")(async () => {
+      await setMockProviderCookie(page, `identity:${uniqueIdentifier()}`);
+      redirects.length = 0;
+
+      await startExternalFlow(page, "MitId", "login");
+
+      await expectBlazorErrorPage(page, "identity_not_verified", texts.identityNotVerified);
+      await expect(page.getByText(texts.identityNotVerifiedMessage)).toBeVisible();
+      await expect(page.getByText(texts.identityNotVerifiedHint)).toBeVisible();
+      expectRedirectsInsideBlazor(redirects);
+    })();
+
+    await step("Open login with a return path & verify the MitID start carries it")(async () => {
+      await page.goto(`${blazorPath("login")}?returnPath=${encodeURIComponent(blazorPath("app/details"))}`);
+
+      const startUrl = new URL(await readStartUrl(page, "MitId", "login"));
+
+      expect(startUrl.pathname).toBe("/api/account/authentication/MitId/login/start");
+      expect(startUrl.searchParams.get("ReturnPath")).toBe(blazorPath("app/details"));
+    })();
+
+    // === WITHDRAWAL ===
+
+    await step("Sign up with email & verify with MitID through the account API & verify return to the Blazor profile")(async () => {
+      await page.context().clearCookies();
+      await signUpThroughBlazor(page, uniqueBlazorEmail());
+      userId = (await readBootstrapUser(page))!.id;
+      await setMockProviderCookie(page, identity);
+
+      await verifyWithMitIdForBlazor(page);
+
+      await expectBlazorUrl(page, "user/profile");
+    })();
+
+    await step("Revoke the verification in the back office & verify the identity is no longer verified")(async () => {
+      const backOfficeBaseUrl = getBackOfficeBaseUrl();
+      const backOfficeContext = await browser.newContext({ baseURL: backOfficeBaseUrl, ignoreHTTPSErrors: true, locale: "en-US" });
+      const backOfficePage = await backOfficeContext.newPage();
+      await backOfficePage.goto(`${backOfficeBaseUrl}/`);
+      await logInAsAdmin(backOfficePage, `${backOfficeBaseUrl}/`);
+      await backOfficePage.goto(`${backOfficeBaseUrl}/users/${userId}`);
+      await backOfficePage.getByRole("tab", { name: "Identity" }).click();
+      await backOfficePage.getByRole("button", { name: "Revoke verification" }).click();
+      const revokeDialog = backOfficePage.getByRole("alertdialog", { name: "Revoke identity verification" });
+      await expect(revokeDialog).toBeVisible();
+      const revokeResponse = backOfficePage.waitForResponse(
+        (response) => response.request().method() === "DELETE" && new URL(response.url()).pathname === `/api/back-office/users/${userId}/identity-verification`
+      );
+
+      await revokeDialog.getByRole("button", { name: "Revoke verification" }).click();
+
+      expect((await revokeResponse).status()).toBe(200);
+      await expect(backOfficePage.getByText("Not verified")).toBeVisible();
+      await backOfficeContext.close();
+    })();
+
+    await step("Log out & log in with the revoked MitID identity & verify the identity not verified page")(async () => {
+      await page.goto(blazorPath("app"));
+      await logOutThroughBlazor(page);
+      await setMockProviderCookie(page, identity);
+      redirects.length = 0;
+
+      await page.getByRole("button", { name: texts.logOnWithMitId, exact: true }).click();
+
+      await expectBlazorErrorPage(page, "identity_not_verified", texts.identityNotVerified);
+      expectRedirectsInsideBlazor(redirects);
+    })();
+
+    // === DIRECT ERROR PAGE RENDERING ===
+
+    await step("Open the identity not verified error page directly & verify its title, message, hint and reference id")(async () => {
+      await page.goto(`${blazorPath("error")}?error=identity_not_verified&id=test-ref-101`);
+
+      await expect(page.getByRole("heading", { name: texts.identityNotVerified })).toBeVisible();
+      await expect(page.getByText(texts.identityNotVerifiedMessage)).toBeVisible();
+      await expect(page.getByText(texts.identityNotVerifiedHint)).toBeVisible();
+      await expect(page.getByText(`${texts.referenceId}test-ref-101`)).toBeVisible();
+    })();
+  });
+});

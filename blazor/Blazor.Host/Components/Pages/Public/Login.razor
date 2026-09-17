@@ -3,6 +3,7 @@
 @page "/login"
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Requests
+@using SharedKernel.Domain
 @implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
@@ -30,7 +31,7 @@
     <button type="submit" data-testid="submit">@AuthenticationStrings.LogInWithEmail</button>
 </EditForm>
 
-<ExternalLoginOptions Flow="ExternalLoginFlow.Login" ReturnPath="@ReturnPath"/>
+<ExternalLoginOptions Flow="ExternalLoginFlow.Login" ReturnPath="@ReturnPath" PreferredTenantId="@_preferredTenantId"/>
 
 <FormErrorAlert Errors="_formErrors"/>
 
@@ -38,6 +39,7 @@
 
     private EditContext _editContext = null!;
     private FormErrorMapper _formErrors = null!;
+    private TenantId? _preferredTenantId;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -60,6 +62,7 @@
     {
         _editContext = new EditContext(Input);
         _formErrors = new FormErrorMapper(_editContext);
+        _preferredTenantId = PreferredTenant.Parse(HttpContext.Request.Cookies[PreferredTenant.CookieName]);
     }
 
     public void Dispose()

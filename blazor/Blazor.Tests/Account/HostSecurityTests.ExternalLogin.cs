@@ -92,6 +92,33 @@ public sealed partial class HostSecurityTests
     }
 
     [Theory]
+    [InlineData("42", "42")]
+    [InlineData("0", null)]
+    [InlineData("-7", null)]
+    [InlineData("not-a-tenant", null)]
+    public async Task LoginPage_WhenPreferredTenantCookieGiven_ShouldCarryOnlyAValidTenantToEveryLoginStartAndNeverToSignup(string cookieValue, string? expectedTenantId)
+    {
+        // Arrange
+        using var flags = new ProviderFlags(true, true, true, true);
+
+        // Act
+        var loginHtml = await GetPageWithCookieAsync("blazor/login", $"preferred-tenant={cookieValue}");
+        var signupHtml = await GetPageWithCookieAsync("blazor/signup", $"preferred-tenant={cookieValue}");
+
+        // Assert
+        foreach (var provider in new[] { "Google", "Entra", "MitId" })
+        {
+            var preferredTenantFields = FindStartFields(loginHtml, provider).Where(field => field.Name == "PreferredTenantId").Select(field => field.Value).ToArray();
+            preferredTenantFields.Should().Equal(expectedTenantId is null ? [] : [expectedTenantId]);
+        }
+
+        foreach (var provider in new[] { "Google", "Entra" })
+        {
+            FindStartFields(signupHtml, provider).Should().NotContain(field => field.Name == "PreferredTenantId");
+        }
+    }
+
+    [Theory]
     [InlineData("user_not_found", "en-US", "Account not found", "No account found for this email address. Please sign up to create an account.", "signup,login")]
     [InlineData("user_not_found", "da-DK", "Konto ikke fundet", "Ingen konto fundet for denne e-mailadresse. Tilmeld dig venligst for at oprette en konto.", "signup,login")]
     [InlineData("account_already_exists", "en-US", "Account already exists", "An account with this email already exists. Please log in instead.", "login,signup")]
@@ -158,6 +185,16 @@ public sealed partial class HostSecurityTests
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue(culture));
+        using var response = await fixture.Client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    private async Task<string> GetPageWithCookieAsync(string path, string cookie)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue("en-US"));
+        request.Headers.Add("Cookie", cookie);
         using var response = await fixture.Client.SendAsync(request);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         return await response.Content.ReadAsStringAsync();

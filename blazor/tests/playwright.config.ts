@@ -20,13 +20,17 @@ const cultureProjects = baseConfig.projects!.flatMap((project) =>
   }))
 );
 
+const baseReporters = typeof baseConfig.reporter === "string" ? [[baseConfig.reporter] as [string]] : (baseConfig.reporter ?? []);
+
 /**
  * The shared configuration (retries, timeouts, reporters) with the Blazor host's path base as the base URL and the culture
- * projects. The shared output and report folders are relative, so they resolve under blazor/tests/test-results. See
+ * projects. The shared output and report folders are relative, so they resolve under blazor/tests/test-results. The
+ * external login reporter adds the provider-enabled and provider-disabled result files the strict verdict reads. See
  * https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   ...baseConfig,
+  reporter: [...baseReporters, ["./e2e/support/external-login-reporter.ts"]],
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
   use: {
