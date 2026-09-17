@@ -33,6 +33,18 @@ public static class AccountApiRoutes
 
     private const string DateFormat = "yyyy-MM-dd";
 
+    // The external login and signup starts are document navigations, not typed client calls; the provider is the name of
+    // the account API's ExternalProviderType value
+    public static string StartExternalLogin(string provider)
+    {
+        return $"/api/account/authentication/{Uri.EscapeDataString(provider)}/login/start";
+    }
+
+    public static string StartExternalSignup(string provider)
+    {
+        return $"/api/account/authentication/{Uri.EscapeDataString(provider)}/signup/start";
+    }
+
     public static string CompleteEmailLogin(EmailLoginId emailLoginId)
     {
         return $"/api/account/authentication/email/login/{Uri.EscapeDataString(emailLoginId.Value)}/complete";

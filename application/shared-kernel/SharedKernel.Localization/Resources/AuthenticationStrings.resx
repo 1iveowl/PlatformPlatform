@@ -207,4 +207,72 @@
         <value>A new verification code has been sent to your email.</value>
         <comment>React: A new verification code has been sent to your email.</comment>
     </data>
+    <data name="AccountNotFoundTitle" xml:space="preserve">
+        <value>Account not found</value>
+        <comment>React: Account not found</comment>
+    </data>
+    <data name="AccountNotFoundMessage" xml:space="preserve">
+        <value>No account found for this email address. Please sign up to create an account.</value>
+        <comment>React: No account found for this email address. Please sign up to create an account.</comment>
+    </data>
+    <data name="AccountAlreadyExistsTitle" xml:space="preserve">
+        <value>Account already exists</value>
+        <comment>React: Account already exists</comment>
+    </data>
+    <data name="AccountAlreadyExistsMessage" xml:space="preserve">
+        <value>An account with this email already exists. Please log in instead.</value>
+        <comment>React: An account with this email already exists. Please log in instead.</comment>
+    </data>
+    <data name="EmailNotProvidedTitle" xml:space="preserve">
+        <value>Email address required</value>
+        <comment>React: Email address required</comment>
+    </data>
+    <data name="EmailNotProvidedMessage" xml:space="preserve">
+        <value>The identity provider did not share a verified email address, which is needed to create an account. Sign up with your email instead.</value>
+        <comment>React: The identity provider did not share a verified email address, which is needed to create an account. Sign up with your email instead.</comment>
+    </data>
+    <data name="AuthenticationFailedTitle" xml:space="preserve">
+        <value>Authentication failed</value>
+        <comment>React: Authentication failed</comment>
+    </data>
+    <data name="AuthenticationFailedMessage" xml:space="preserve">
+        <value>We detected a security issue with your login attempt. Please try again.</value>
+        <comment>React: We detected a security issue with your login attempt. Please try again.</comment>
+    </data>
+    <data name="InvalidRequestTitle" xml:space="preserve">
+        <value>Invalid request</value>
+        <comment>React: Invalid request</comment>
+    </data>
+    <data name="InvalidRequestMessage" xml:space="preserve">
+        <value>The authentication request was invalid. Please try again.</value>
+        <comment>React: The authentication request was invalid. Please try again.</comment>
+    </data>
+    <data name="AccessDeniedTitle" xml:space="preserve">
+        <value>Access denied</value>
+        <comment>React: Access denied</comment>
+    </data>
+    <data name="AccessDeniedMessage" xml:space="preserve">
+        <value>Authentication was cancelled or denied. Please try again if you want to continue.</value>
+        <comment>React: Authentication was cancelled or denied. Please try again if you want to continue.</comment>
+    </data>
+    <data name="IdentityNotVerifiedTitle" xml:space="preserve">
+        <value>Identity not verified</value>
+        <comment>React: Identity not verified</comment>
+    </data>
+    <data name="IdentityNotVerifiedMessage" xml:space="preserve">
+        <value>This MitID has not been used to verify an account.</value>
+        <comment>React: This MitID has not been used to verify an account.</comment>
+    </data>
+    <data name="IdentityNotVerifiedHint" xml:space="preserve">
+        <value>Log in another way, then verify your identity from your profile to sign in with MitID.</value>
+        <comment>React: Log in another way, then verify your identity from your profile to sign in with MitID.</comment>
+    </data>
+    <data name="UnexpectedErrorMessage" xml:space="preserve">
+        <value>An unexpected error occurred. Please try again or contact support if the problem persists.</value>
+        <comment>React: An unexpected error occurred. Please try again or contact support if the problem persists.</comment>
+    </data>
+    <data name="ReferenceId" xml:space="preserve">
+        <value>Reference ID: {0}</value>
+        <comment>React: Reference ID: {id}</comment>
+    </data>
 </root>

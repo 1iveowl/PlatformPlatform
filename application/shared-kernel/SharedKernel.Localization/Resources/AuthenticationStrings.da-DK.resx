@@ -165,4 +165,55 @@
     <data name="NewCodeSent" xml:space="preserve">
         <value>En ny bekræftelseskode er blevet sendt til din e-mail.</value>
     </data>
+    <data name="AccountNotFoundTitle" xml:space="preserve">
+        <value>Konto ikke fundet</value>
+    </data>
+    <data name="AccountNotFoundMessage" xml:space="preserve">
+        <value>Ingen konto fundet for denne e-mailadresse. Tilmeld dig venligst for at oprette en konto.</value>
+    </data>
+    <data name="AccountAlreadyExistsTitle" xml:space="preserve">
+        <value>Konto findes allerede</value>
+    </data>
+    <data name="AccountAlreadyExistsMessage" xml:space="preserve">
+        <value>Der findes allerede en konto med denne e-mailadresse. Log ind i stedet.</value>
+    </data>
+    <data name="EmailNotProvidedTitle" xml:space="preserve">
+        <value>E-mailadresse påkrævet</value>
+    </data>
+    <data name="EmailNotProvidedMessage" xml:space="preserve">
+        <value>Identitetsudbyderen delte ikke en bekræftet e-mailadresse, som er nødvendig for at oprette en konto. Tilmeld dig i stedet med din e-mail.</value>
+    </data>
+    <data name="AuthenticationFailedTitle" xml:space="preserve">
+        <value>Godkendelse mislykkedes</value>
+    </data>
+    <data name="AuthenticationFailedMessage" xml:space="preserve">
+        <value>Vi opdagede et sikkerhedsproblem med dit loginforsøg. Prøv venligst igen.</value>
+    </data>
+    <data name="InvalidRequestTitle" xml:space="preserve">
+        <value>Ugyldig anmodning</value>
+    </data>
+    <data name="InvalidRequestMessage" xml:space="preserve">
+        <value>Godkendelsesanmodningen var ugyldig. Prøv venligst igen.</value>
+    </data>
+    <data name="AccessDeniedTitle" xml:space="preserve">
+        <value>Adgang nægtet</value>
+    </data>
+    <data name="AccessDeniedMessage" xml:space="preserve">
+        <value>Godkendelse blev annulleret eller afvist. Prøv venligst igen, hvis du vil fortsætte.</value>
+    </data>
+    <data name="IdentityNotVerifiedTitle" xml:space="preserve">
+        <value>Identitet ikke bekræftet</value>
+    </data>
+    <data name="IdentityNotVerifiedMessage" xml:space="preserve">
+        <value>Dette MitID er ikke blevet brugt til at bekræfte en konto.</value>
+    </data>
+    <data name="IdentityNotVerifiedHint" xml:space="preserve">
+        <value>Log ind på en anden måde, og bekræft derefter din identitet fra din profil for at kunne logge ind med MitID.</value>
+    </data>
+    <data name="UnexpectedErrorMessage" xml:space="preserve">
+        <value>Der opstod en uventet fejl. Prøv igen eller kontakt support, hvis problemet fortsætter.</value>
+    </data>
+    <data name="ReferenceId" xml:space="preserve">
+        <value>Reference-ID: {0}</value>
+    </data>
 </root>

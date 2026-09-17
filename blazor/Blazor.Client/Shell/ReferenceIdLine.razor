@@ -1,0 +1,14 @@
+@* The reference id of a refused external login, the React edition's "Reference ID: {id}", rendered only when the error page
+   was given one of a valid shape *@
+
+@if (!string.IsNullOrEmpty(ReferenceId))
+{
+    <p class="status-page-reference" data-testid="error-reference-id">@string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.ReferenceId, ReferenceId)</p>
+}
+
+@code {
+
+    [Parameter]
+    public string? ReferenceId { get; set; }
+
+}

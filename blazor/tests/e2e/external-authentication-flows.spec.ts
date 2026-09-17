@@ -62,28 +62,53 @@ function expectRedirectsInsideBlazor(locations: string[]): void {
   expect(blazorRedirects.filter((location) => location.includes("error_description"))).toEqual([]);
 }
 
+type Provider = "Google" | "Entra" | "MitId";
+
 /**
- * Start an external authentication flow for the Blazor edition the way a Blazor button will: a full navigation to the
- * start endpoint with the edition, the project's culture and a return path
+ * The accessible name of a provider's button on the Blazor login or signup page in the running project's culture
  */
-async function startExternalFlow(page: Page, provider: string, flow: "login" | "signup", returnPath?: string): Promise<void> {
-  const query = new URLSearchParams({ Edition: "Blazor", Locale: blazorTexts().locale });
-  if (returnPath !== undefined) query.set("ReturnPath", returnPath);
+function providerButtonName(provider: Provider, flow: "login" | "signup"): string {
+  const texts = blazorTexts();
+  if (provider === "MitId") return texts.logOnWithMitId;
+  if (flow === "login") return provider === "Google" ? texts.logInWithGoogle : texts.logInWithMicrosoft;
+  return provider === "Google" ? texts.signUpWithGoogle : texts.signUpWithMicrosoft;
+}
+
+/**
+ * Start an external authentication flow from the provider's button on the Blazor login or signup page, opened with the
+ * return path the page passes on to the start endpoint
+ */
+async function startExternalFlow(page: Page, provider: Provider, flow: "login" | "signup", returnPath?: string): Promise<void> {
+  const query = returnPath === undefined ? "" : `?returnPath=${encodeURIComponent(returnPath)}`;
+  await page.goto(`${blazorPath(flow)}${query}`);
+
+  await page.getByRole("button", { name: providerButtonName(provider, flow), exact: true }).click();
+}
+
+/**
+ * Start an external authentication flow for the Blazor edition by navigating to the start endpoint directly, the way a
+ * crafted link would, so the account API's own return path rule is exercised without the page's sanitising
+ */
+async function startExternalFlowByUrl(page: Page, provider: Provider, flow: "login" | "signup", returnPath: string): Promise<void> {
+  const query = new URLSearchParams({ Edition: "Blazor", Locale: blazorTexts().locale, ReturnPath: returnPath });
 
   await page.goto(`${getBaseUrl()}/api/account/authentication/${provider}/${flow}/start?${query}`);
 }
 
 /**
- * Expect the Blazor error page for a refused external authentication, localized, with no provider error description
+ * Expect the Blazor error page for a refused external authentication, localized, with the reference id of the attempt and
+ * no provider error description
  */
-async function expectBlazorErrorPage(page: Page, errorCode: string): Promise<void> {
+async function expectBlazorErrorPage(page: Page, errorCode: string, heading: string): Promise<void> {
   await expectBlazorUrl(page, "error");
   const url = new URL(page.url());
   expect(url.searchParams.get("error")).toBe(errorCode);
-  expect(url.searchParams.get("id")).not.toBeNull();
+  const referenceId = url.searchParams.get("id");
+  expect(referenceId).not.toBeNull();
   expect(url.searchParams.has("error_description")).toBe(false);
 
-  await expect(page.getByRole("heading", { name: blazorTexts().somethingWentWrong })).toBeVisible();
+  await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+  await expect(page.getByTestId("error-reference-id")).toHaveText(`${blazorTexts().referenceId}${referenceId}`);
   const html = await page.content();
   expect(html).not.toContain(providerErrorDescription);
   expect(html).not.toContain("error_description");
@@ -95,7 +120,7 @@ async function expectBlazorErrorPage(page: Page, errorCode: string): Promise<voi
  * Sign up and log in with a provider for the Blazor edition, then prove hostile return paths are dropped for the Blazor
  * home and a provider denial lands on the localized Blazor error page; every redirect is recorded and asserted
  */
-async function runProviderFlowsForBlazor(page: Page, provider: string): Promise<void> {
+async function runProviderFlowsForBlazor(page: Page, provider: "Google" | "Entra"): Promise<void> {
   const texts = blazorTexts();
   const emailPrefix = uniqueIdentifier();
   const redirects = trackRedirects(page);
@@ -125,12 +150,23 @@ async function runProviderFlowsForBlazor(page: Page, provider: string): Promise<
     expectRedirectsInsideBlazor(redirects);
   })();
 
-  await step(`Log in with ${provider} and hostile return paths & verify the Blazor home each time`)(async () => {
+  await step(`Open login with a hostile return path & verify the ${provider} start carries the Blazor home`)(async () => {
+    await logOutThroughBlazor(page);
+    redirects.length = 0;
+
+    await startExternalFlow(page, provider, "login", "/blazor/../dashboard");
+
+    await expect(page).toHaveURL(blazorUrl("app"));
+    await expect(userMenuButton(page)).toBeVisible();
+    expectRedirectsInsideBlazor(redirects);
+  })();
+
+  await step(`Log in with ${provider} and hostile return paths at the start endpoint & verify the Blazor home each time`)(async () => {
     for (const hostile of ["/blazor/../dashboard", "/blazor/%2e%2e/dashboard", "//evil.example/blazor/app", "/blazor\\..\\dashboard", "/blazorx/app"]) {
       await logOutThroughBlazor(page);
       redirects.length = 0;
 
-      await startExternalFlow(page, provider, "login", hostile);
+      await startExternalFlowByUrl(page, provider, "login", hostile);
 
       await expect(page).toHaveURL(blazorUrl("app"));
       await expect(userMenuButton(page)).toBeVisible();
@@ -145,7 +181,87 @@ async function runProviderFlowsForBlazor(page: Page, provider: string): Promise<
 
     await startExternalFlow(page, provider, "login", blazorPath("app/details"));
 
-    await expectBlazorErrorPage(page, "access_denied");
+    await expectBlazorErrorPage(page, "access_denied", texts.accessDenied);
+    expectRedirectsInsideBlazor(redirects);
+  })();
+
+  await step(`Retry from the ${provider} denial & verify the localized login page`)(async () => {
+    await page.getByTestId("error-login").click();
+
+    await expectBlazorUrl(page, "login");
+    await expect(page.getByRole("heading", { name: texts.hiWelcomeBack })).toBeVisible();
+    await expect(page.getByRole("button", { name: providerButtonName(provider, "login"), exact: true })).toBeVisible();
+  })();
+}
+
+/**
+ * Drive every login and signup refusal the mock provider can produce through the Blazor buttons and expect its localized
+ * page, reference id and actions: an unknown identity, an existing account, a provider without an email and a failed token
+ * exchange. The actions lead to the Blazor login and signup pages.
+ */
+async function runRefusalsForBlazor(page: Page): Promise<void> {
+  const texts = blazorTexts();
+  const emailPrefix = uniqueIdentifier();
+  const redirects = trackRedirects(page);
+  const expectActions = async (actions: ("login" | "signup")[]) => {
+    for (const action of ["login", "signup"] as const) {
+      const link = page.getByTestId(`error-${action}`);
+      if (actions.includes(action)) {
+        await expect(link).toHaveAttribute("href", blazorPath(action));
+      } else {
+        await expect(link).toHaveCount(0);
+      }
+    }
+  };
+
+  await step("Log in with Google as an unknown identity & verify the account not found page leads to signup")(async () => {
+    await page.context().clearCookies();
+    await setMockProviderCookie(page, emailPrefix);
+    redirects.length = 0;
+
+    await startExternalFlow(page, "Google", "login");
+
+    await expectBlazorErrorPage(page, "user_not_found", texts.accountNotFound);
+    await expectActions(["signup", "login"]);
+    expectRedirectsInsideBlazor(redirects);
+    await page.getByTestId("error-signup").click();
+    await expectBlazorUrl(page, "signup");
+    await expect(page.getByRole("heading", { name: texts.createYourAccount })).toBeVisible();
+  })();
+
+  await step("Sign up with Google twice for one identity & verify the account already exists page")(async () => {
+    await page.getByRole("button", { name: texts.signUpWithGoogle, exact: true }).click();
+    await expectBlazorUrl(page, "welcome");
+    await page.context().clearCookies();
+    await setMockProviderCookie(page, emailPrefix);
+    redirects.length = 0;
+
+    await startExternalFlow(page, "Google", "signup");
+
+    await expectBlazorErrorPage(page, "account_already_exists", texts.accountAlreadyExists);
+    await expectActions(["login", "signup"]);
+    expectRedirectsInsideBlazor(redirects);
+  })();
+
+  await step("Sign up with Google without an email & verify the email address required page")(async () => {
+    await setMockProviderCookie(page, "noemail");
+    redirects.length = 0;
+
+    await startExternalFlow(page, "Google", "signup");
+
+    await expectBlazorErrorPage(page, "email_not_provided", texts.emailNotProvided);
+    await expectActions(["signup", "login"]);
+    expectRedirectsInsideBlazor(redirects);
+  })();
+
+  await step("Log in with Google when the token exchange fails & verify the authentication failed page")(async () => {
+    await setMockProviderCookie(page, "fail:token_exchange");
+    redirects.length = 0;
+
+    await startExternalFlow(page, "Google", "login");
+
+    await expectBlazorErrorPage(page, "authentication_failed", texts.authenticationFailed);
+    await expectActions(["login"]);
     expectRedirectsInsideBlazor(redirects);
   })();
 }
@@ -167,6 +283,7 @@ test.describe("@smoke", () => {
   /**
    * Google and MitID flows started for the Blazor edition in the culture of the running project:
    * - Google signup lands on the Blazor welcome setup, whose profile step the provider names skip, and the workspace renders in the carried culture
+   * - Flows start from the buttons on the Blazor login and signup pages; the MitID button carries the approved phrase, the wordmark and the brand geometry
    * - Google login returns to a deep link; hostile return paths are dropped for the Blazor home
    * - A Google denial lands on the localized Blazor error page without the provider's error description
    * - MitID verification returns to the Blazor profile; a low assurance verification lands on the Blazor error page
@@ -208,9 +325,26 @@ test.describe("@smoke", () => {
       expectRedirectsInsideBlazor(redirects);
     })();
 
-    await step("Log in with the verified MitID identity and a deep link & verify return to the deep link")(async () => {
+    await step("Read the MitID button & confirm the approved phrase, the wordmark and the brand geometry")(async () => {
       await page.goto(blazorPath("app"));
       await logOutThroughBlazor(page);
+      await page.goto(blazorPath("login"));
+
+      const mitIdButton = page.getByRole("button", { name: blazorTexts().logOnWithMitId, exact: true });
+      await expect(mitIdButton).toBeVisible();
+      await expect(mitIdButton.getByRole("img", { name: "MitID" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Log in with MitID" })).not.toBeVisible();
+      await expect(page.getByText(blazorTexts().or, { exact: true })).toBeVisible();
+      await expect(mitIdButton).toHaveCSS("height", "48px");
+      await expect(mitIdButton).toHaveCSS("border-radius", "4px");
+      await expect(mitIdButton).toHaveCSS("background-color", "rgb(0, 96, 230)");
+
+      await page.goto(blazorPath("signup"));
+      await expect(page.getByRole("button", { name: blazorTexts().signUpWithGoogle, exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: blazorTexts().logOnWithMitId })).toHaveCount(0);
+    })();
+
+    await step("Log in with the verified MitID identity and a deep link & verify return to the deep link")(async () => {
       await setMockProviderCookie(page, identity);
       redirects.length = 0;
 
@@ -229,8 +363,7 @@ test.describe("@smoke", () => {
 
       await startExternalFlow(page, "MitId", "login");
 
-      await expectBlazorUrl(page, "error");
-      await expect(page.getByRole("heading", { name: blazorTexts().somethingWentWrong })).toBeVisible();
+      await expectBlazorErrorPage(page, "identity_not_verified", blazorTexts().identityNotVerified);
       expectRedirectsInsideBlazor(redirects);
     })();
   });
@@ -240,14 +373,18 @@ test.describe("@comprehensive", () => {
   /**
    * Entra flows for the Blazor edition and hostile return paths through the Blazor callers of AppUrls:
    * - Entra signup, deep link login, hostile return paths and denial, as for Google
+   * - Google refusals render their localized pages with their actions: account not found, account already exists, email address required and authentication failed
    * - Email login and the welcome gate drop hostile return paths for the Blazor home and still honour a valid deep link
    */
-  test("should keep Entra flows inside the Blazor edition and drop hostile return paths on email login and welcome", async ({ page }) => {
+  test("should keep Entra flows and Google refusals inside the Blazor edition and drop hostile return paths on email login and welcome", async ({ page }) => {
     createTestContext(page);
     const email = uniqueBlazorEmail();
 
     // === ENTRA ===
     await runProviderFlowsForBlazor(page, "Entra");
+
+    // === REFUSALS ===
+    await runRefusalsForBlazor(page);
 
     // === EMAIL LOGIN AND WELCOME ===
     await step("Sign up with email & log out")(async () => {

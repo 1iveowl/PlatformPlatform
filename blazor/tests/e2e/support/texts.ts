@@ -102,7 +102,20 @@ export const blazorCultures = [
     goToHome: "Go to home",
     showDetails: "Show details",
     hideDetails: "Hide details",
-    tryAgain: "Try again"
+    tryAgain: "Try again",
+    or: "or",
+    logInWithGoogle: "Log in with Google",
+    logInWithMicrosoft: "Log in with Microsoft",
+    signUpWithGoogle: "Sign up with Google",
+    signUpWithMicrosoft: "Sign up with Microsoft",
+    logOnWithMitId: "Log on with MitID",
+    accessDenied: "Access denied",
+    identityNotVerified: "Identity not verified",
+    accountNotFound: "Account not found",
+    accountAlreadyExists: "Account already exists",
+    emailNotProvided: "Email address required",
+    authenticationFailed: "Authentication failed",
+    referenceId: "Reference ID: "
   },
   {
     locale: "da-DK",
@@ -200,7 +213,20 @@ export const blazorCultures = [
     goToHome: "Gå til forsiden",
     showDetails: "Vis detaljer",
     hideDetails: "Skjul detaljer",
-    tryAgain: "Prøv igen"
+    tryAgain: "Prøv igen",
+    or: "eller",
+    logInWithGoogle: "Log ind med Google",
+    logInWithMicrosoft: "Log ind med Microsoft",
+    signUpWithGoogle: "Tilmeld dig med Google",
+    signUpWithMicrosoft: "Tilmeld dig med Microsoft",
+    logOnWithMitId: "Log ind med MitID",
+    accessDenied: "Adgang nægtet",
+    identityNotVerified: "Identitet ikke bekræftet",
+    accountNotFound: "Konto ikke fundet",
+    accountAlreadyExists: "Konto findes allerede",
+    emailNotProvided: "E-mailadresse påkrævet",
+    authenticationFailed: "Godkendelse mislykkedes",
+    referenceId: "Reference-ID: "
   }
 ] as const;
 

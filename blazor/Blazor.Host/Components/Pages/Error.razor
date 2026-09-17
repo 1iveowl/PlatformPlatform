@@ -1,6 +1,7 @@
 @* Two destinations on one server-rendered page: the exception handler's re-executed request, and /error?error=<code>, where
-   the WebAssembly client lands with a full document navigation when the account API reports that a session ended. The
-   codes and their meaning match the React edition's ErrorCode values. StatusPageModel decides the layout (the shell for a
+   the WebAssembly client lands with a full document navigation when the account API reports that a session ended, and
+   where the account API sends a refused external login or signup with the reference id of the attempt (&id=). The codes
+   and their meaning match the React edition's ErrorCode values. StatusPageModel decides the layout (the shell for a
    signed-in user, the public layout otherwise and for every session error), where Try again leads, and that the exception
    message and stack are shown in Development only. For a handled exception the framework renders the page without
    interactivity, so the shell there is its static render. *@
@@ -20,7 +21,7 @@ else
 {
     <PublicNav/>
     <main id="main-content">
-        <ErrorContent View="_view" ErrorCode="@ErrorCode"/>
+        <ErrorContent View="_view"/>
     </main>
 }
 
@@ -34,11 +35,15 @@ else
     [SupplyParameterFromQuery(Name = "error")]
     public string? ErrorCode { get; set; }
 
+    [SupplyParameterFromQuery(Name = "id")]
+    public string? ErrorId { get; set; }
+
     protected override void OnInitialized()
     {
         var failure = HttpContext?.Features.Get<IExceptionHandlerPathFeature>();
         _view = StatusPageModel.CreateError(
             ErrorCode,
+            ErrorId,
             HttpContext?.User.Identity?.IsAuthenticated == true,
             Environment.IsDevelopment(),
             failure?.Path,

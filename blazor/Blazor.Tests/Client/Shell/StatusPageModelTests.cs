@@ -25,7 +25,7 @@ public sealed class StatusPageModelTests
     public void CreateError_WhenDevelopmentWithException_ShouldRevealMessageAndStackWithoutReferenceId()
     {
         // Act
-        var view = StatusPageModel.CreateError(null, true, true, "/blazor/users", "?search=ada", Failure, "trace-1");
+        var view = StatusPageModel.CreateError(null, null, true, true, "/blazor/users", "?search=ada", Failure, "trace-1");
 
         // Assert
         view.Layout.Should().Be(StatusPageLayout.Shell);
@@ -43,7 +43,7 @@ public sealed class StatusPageModelTests
     public void CreateError_WhenNotDevelopmentOrNoException_ShouldRevealOnlyTheReferenceId(bool isDevelopment, bool hasException)
     {
         // Act
-        var view = StatusPageModel.CreateError(null, false, isDevelopment, "/blazor/login", null, hasException ? Failure : null, "trace-1");
+        var view = StatusPageModel.CreateError(null, null, false, isDevelopment, "/blazor/login", null, hasException ? Failure : null, "trace-1");
 
         // Assert
         view.Layout.Should().Be(StatusPageLayout.Public);
@@ -61,7 +61,7 @@ public sealed class StatusPageModelTests
     public void CreateError_WhenSessionErrorCodeGiven_ShouldKeepThePublicLayoutEvenWithASession(string errorCode, SessionErrorKind expected)
     {
         // Act
-        var view = StatusPageModel.CreateError(errorCode, true, true, null, null, null, "trace-1");
+        var view = StatusPageModel.CreateError(errorCode, null, true, true, null, null, null, "trace-1");
 
         // Assert
         view.Session.Should().Be(expected);
@@ -76,10 +76,92 @@ public sealed class StatusPageModelTests
     public void CreateError_WhenErrorCodeIsUnknown_ShouldShowTheFailure(string? errorCode)
     {
         // Act
-        var view = StatusPageModel.CreateError(errorCode, false, false, null, null, null, "trace-1");
+        var view = StatusPageModel.CreateError(errorCode, null, false, false, null, null, null, "trace-1");
 
         // Assert
         view.Session.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("user_not_found", AuthenticationErrorKind.UserNotFound, "SignUp,LogIn")]
+    [InlineData("account_already_exists", AuthenticationErrorKind.AccountAlreadyExists, "LogIn,SignUp")]
+    [InlineData("email_not_provided", AuthenticationErrorKind.EmailNotProvided, "SignUp,LogIn")]
+    [InlineData("authentication_failed", AuthenticationErrorKind.AuthenticationFailed, "LogIn")]
+    [InlineData("invalid_request", AuthenticationErrorKind.InvalidRequest, "LogIn")]
+    [InlineData("access_denied", AuthenticationErrorKind.AccessDenied, "LogIn")]
+    [InlineData("identity_not_verified", AuthenticationErrorKind.IdentityNotVerified, "LogIn")]
+    [InlineData("server_error", AuthenticationErrorKind.ServerError, "LogIn")]
+    public void CreateError_WhenAuthenticationErrorCodeGiven_ShouldPickItsActionsAndThePublicLayout(string errorCode, AuthenticationErrorKind expected, string actions)
+    {
+        // Act
+        var view = StatusPageModel.CreateError(errorCode, "exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ", true, false, null, null, null, "trace-1");
+
+        // Assert
+        view.Authentication.Should().Be(expected);
+        view.Session.Should().BeNull();
+        view.ErrorCode.Should().Be(errorCode);
+        string.Join(',', view.Actions).Should().Be(actions);
+        view.Layout.Should().Be(StatusPageLayout.Public);
+        view.ReferenceId.Should().Be("exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ");
+    }
+
+    [Theory]
+    [InlineData("identity_already_linked")]
+    [InlineData("assurance_level_insufficient")]
+    [InlineData("ACCESS_DENIED")]
+    [InlineData("<script>alert(1)</script>")]
+    public void CreateError_WhenCodeIsNotALoginOrSignupCode_ShouldShowTheGenericFailureWithoutEchoingTheCode(string errorCode)
+    {
+        // Act
+        var view = StatusPageModel.CreateError(errorCode, "exlog_1", false, false, null, null, null, "trace-1");
+
+        // Assert
+        view.Authentication.Should().BeNull();
+        view.Session.Should().BeNull();
+        view.ErrorCode.Should().BeNull();
+        view.Actions.Should().BeEmpty();
+        view.ReferenceId.Should().Be("trace-1");
+    }
+
+    [Theory]
+    [InlineData("exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ", "exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ")]
+    [InlineData("abc-DEF_123", "abc-DEF_123")]
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("exlog 1", null)]
+    [InlineData("<b>id</b>", null)]
+    [InlineData("exlog_1\"onmouseover=\"x", null)]
+    [InlineData("exælog", null)]
+    [InlineData("exlog_1%0Aline", null)]
+    public void GetReferenceId_WhenIdGiven_ShouldKeepOnlyTheShapeOfAnExternalLoginId(string? id, string? expected)
+    {
+        // Act
+        var referenceId = StatusPageModel.GetReferenceId(id);
+
+        // Assert
+        referenceId.Should().Be(expected);
+    }
+
+    [Fact]
+    public void GetReferenceId_WhenIdIsLongerThanAnExternalLoginId_ShouldDropIt()
+    {
+        // Act
+        var referenceId = StatusPageModel.GetReferenceId(new string('a', 65));
+
+        // Assert
+        referenceId.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(ErrorPageAction.LogIn, "/blazor/login")]
+    [InlineData(ErrorPageAction.SignUp, "/blazor/signup")]
+    public void GetActionUrl_WhenActionGiven_ShouldLeadBelowThePathBase(ErrorPageAction action, string expected)
+    {
+        // Act
+        var url = StatusPageModel.GetActionUrl(action);
+
+        // Assert
+        url.Should().Be(expected);
     }
 
     [Theory]

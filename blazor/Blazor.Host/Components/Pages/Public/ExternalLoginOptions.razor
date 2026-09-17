@@ -1,0 +1,73 @@
+@using Blazor.Client.Bootstrap
+@* The external providers below the email form on the static login and signup pages, the React edition's ExternalLoginOptions.
+   Renders nothing when no provider is offered, so the divider never appears on its own. Each button submits a GET form,
+   which is the document navigation to the account API's start endpoint and needs no runtime. The MitID button follows
+   the MitID brand rules (colour, height, corner radius, typeface and the wordmark in place of the word MitID, whose alt
+   text completes the approved phrase "Log on with MitID"); its styles are classes in app.css. *@
+@inject IBootstrapSource BootstrapSource
+
+@if (_forms.Count > 0)
+{
+    <div class="external-login" data-testid="external-login-options">
+        <p class="external-login-divider">
+            <span>@AuthenticationStrings.Or</span>
+        </p>
+        @foreach (var form in _forms)
+        {
+            <form method="get" action="@form.Action" class="external-login-form" data-testid="external-login-@form.Provider.ToString().ToLowerInvariant()">
+                @foreach (var parameter in form.Fields)
+                {
+                    <input type="hidden" name="@parameter.Key" value="@parameter.Value"/>
+                }
+                @if (form.Provider == ExternalLoginProvider.MitId)
+                {
+                    <button type="submit" class="mitid-button">
+                        @AuthenticationStrings.LogOnWith <img src="@AppUrls.ToAbsolute(Assets["images/mitid-logo-white.svg"])" alt="MitID" class="mitid-wordmark"/>
+                    </button>
+                }
+                else
+                {
+                    <button type="submit" class="button-secondary external-login-button">
+                        <img src="@AppUrls.ToAbsolute(Assets[IconPath(form.Provider)])" alt="" aria-hidden="true" class="external-login-icon"/>
+                        @Label(form.Provider)
+                    </button>
+                }
+            </form>
+        }
+    </div>
+}
+
+@code {
+
+    private IReadOnlyList<ExternalLoginStartForm> _forms = [];
+
+    [Parameter]
+    [EditorRequired]
+    public ExternalLoginFlow Flow { get; set; }
+
+    [Parameter]
+    public string? ReturnPath { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var bootstrap = await BootstrapSource.GetAsync();
+        _forms = ExternalLoginStart.Create(bootstrap.SystemFeatureFlags, Flow, CultureInfo.CurrentUICulture.Name, ReturnPath);
+    }
+
+    private static string IconPath(ExternalLoginProvider provider)
+    {
+        return provider == ExternalLoginProvider.Google ? "images/google-icon.svg" : "images/microsoft-icon.svg";
+    }
+
+    private string Label(ExternalLoginProvider provider)
+    {
+        return (Flow, provider) switch
+        {
+            (ExternalLoginFlow.Login, ExternalLoginProvider.Google) => AuthenticationStrings.LogInWithGoogle,
+            (ExternalLoginFlow.Login, _) => AuthenticationStrings.LogInWithMicrosoft,
+            (_, ExternalLoginProvider.Google) => AuthenticationStrings.SignUpWithGoogle,
+            _ => AuthenticationStrings.SignUpWithMicrosoft
+        };
+    }
+
+}

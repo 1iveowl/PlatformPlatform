@@ -30,6 +30,8 @@
     <button type="submit" data-testid="submit">@AuthenticationStrings.LogInWithEmail</button>
 </EditForm>
 
+<ExternalLoginOptions Flow="ExternalLoginFlow.Login" ReturnPath="@ReturnPath"/>
+
 <FormErrorAlert Errors="_formErrors"/>
 
 @code {

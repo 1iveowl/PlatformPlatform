@@ -61,6 +61,7 @@ try {
     result.cases.manifest = await runManifest();
     // Last, because it logs the account out
     result.cases.theme = await runTheme(account);
+    result.cases.externalLogin = await runExternalLogin();
   }
 } finally {
   await browser.close();
@@ -70,7 +71,7 @@ result.finishedAt = new Date().toISOString();
 // The Development run drives the Development-only fixture pages and signs up with the development verification code, so it
 // is a fixture check and never Production evidence; the Production run checks that those pages are not reachable
 result.hostConfiguration = options.environment === "production" ? "Production host, expected to be the trimmed publish served by blazor-serve" : "Development host run by the AppHost (fixture check)";
-const expectedCaseCount = options.environment === "production" ? 1 : 8;
+const expectedCaseCount = options.environment === "production" ? 1 : 9;
 const verdict = writeResult(`shell-policy-${options.browser}-${options.environment}.json`, result, expectedCaseCount);
 console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: redact(value.failures.join(" ; ")) })));
 console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
@@ -466,6 +467,98 @@ async function runTheme(account) {
   expectTheme("after logout", await readTheme(appPage), "dark");
   await signedIn.close();
 
+  return outcome(details, failures);
+}
+
+// The external login buttons on the static login and signup pages in the light and the dark theme: the MitID wordmark and
+// the IBM Plex Sans SemiBold face load from the host origin, the MitID button keeps the brand geometry and colour with the
+// approved label, MitID is absent on signup, nothing in <body> has a style attribute and no document reports a violation.
+// Submitting the MitID button with the mock provider reaches the login callback. Needs the Google, Entra and MitID login
+// flags on in the AppHost.
+async function runExternalLogin() {
+  const failures = [];
+  const details = {};
+  for (const theme of ["light", "dark"]) {
+    const context = await newContext();
+    await context.addInitScript((mode) => localStorage.setItem("theme", mode), theme);
+    await context.addCookies([{ name: mockProviderCookie, value: "true", url: baseUrl }]);
+    const page = await context.newPage();
+    const observations = observe(page);
+    const assetResponses = [];
+    page.on("response", (response) => {
+      if (/\/(fonts|images)\//.test(new URL(response.url()).pathname)) assetResponses.push({ url: response.url(), status: response.status() });
+    });
+
+    await page.goto(`${baseUrl}${pathBase}/login?returnPath=${encodeURIComponent(`${pathBase}/app/details`)}`, { waitUntil: "load" });
+    const mitIdButton = page.getByRole("button", { name: "Log on with MitID", exact: true });
+    const present = await mitIdButton.waitFor({ timeout: 10_000 }).then(() => true, () => false);
+    const login = await page.evaluate(async () => {
+      await document.fonts.load('600 16px "IBM Plex Sans"');
+      await document.fonts.ready;
+      const button = document.querySelector(".mitid-button");
+      const wordmark = button?.querySelector("img");
+      if (wordmark && !wordmark.complete) await new Promise((resolve) => wordmark.addEventListener("load", resolve, { once: true }));
+      const style = button ? getComputedStyle(button) : null;
+      return {
+        theme: document.documentElement.dataset.theme ?? null,
+        buttons: [...document.querySelectorAll(".external-login-form button")].map((element) => element.textContent.replace(/\s+/g, " ").trim()),
+        height: style?.height ?? null,
+        borderRadius: style?.borderTopLeftRadius ?? null,
+        backgroundColor: style?.backgroundColor ?? null,
+        fontFamily: style?.fontFamily ?? null,
+        fontWeight: style?.fontWeight ?? null,
+        fontLoaded: [...document.fonts].some((face) => face.family.replaceAll('"', "") === "IBM Plex Sans" && face.weight === "600" && face.status === "loaded"),
+        wordmarkWidth: wordmark?.naturalWidth ?? 0,
+        wordmarkAlt: wordmark?.getAttribute("alt") ?? null,
+        returnPaths: [...document.querySelectorAll('.external-login-form input[name="ReturnPath"]')].map((input) => input.value),
+        editions: [...document.querySelectorAll('.external-login-form input[name="Edition"]')].map((input) => input.value),
+        styledBodyElements: document.body.querySelectorAll("[style]").length
+      };
+    });
+    await settle(page);
+    const loginViolations = await readViolations(page);
+
+    await page.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
+    await settle(page);
+    const signup = await page.evaluate(() => ({
+      buttons: [...document.querySelectorAll(".external-login-form button")].map((element) => element.textContent.replace(/\s+/g, " ").trim()),
+      mitIdForms: document.querySelectorAll('form[action*="/MitId/"]').length,
+      styledBodyElements: document.body.querySelectorAll("[style]").length
+    }));
+    const signupViolations = await readViolations(page);
+
+    let callbackReached = false;
+    if (present) {
+      await page.goto(`${baseUrl}${pathBase}/login`, { waitUntil: "load" });
+      const callback = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/MitId/login/callback"), { timeout: 15_000 }).then(() => true, () => false);
+      await page.getByRole("button", { name: "Log on with MitID", exact: true }).click();
+      callbackReached = await callback;
+    }
+    await context.close();
+
+    details[theme] = { present, login, loginViolations, signup, signupViolations, assetResponses, callbackReached };
+    const label = `external login (${theme})`;
+    if (!present) failures.push(`${label}: no "Log on with MitID" button; enable the MitID login flag in the AppHost`);
+    if (login.theme !== theme) failures.push(`${label}: data-theme ${login.theme}`);
+    if (!["Log in with Google", "Log in with Microsoft", "Log on with"].every((label, index) => login.buttons[index] === label)) failures.push(`${label}: login buttons ${login.buttons.join(" | ")}`);
+    if (login.buttons.some((text) => text.includes("Log in with MitID"))) failures.push(`${label}: the unapproved MitID phrase is shown`);
+    if (login.height !== "48px") failures.push(`${label}: MitID height ${login.height}`);
+    if (login.borderRadius !== "4px") failures.push(`${label}: MitID radius ${login.borderRadius}`);
+    if (login.backgroundColor !== "rgb(0, 96, 230)") failures.push(`${label}: MitID colour ${login.backgroundColor}`);
+    if (!login.fontFamily?.replaceAll('"', "").startsWith("IBM Plex Sans,") || login.fontWeight !== "600") failures.push(`${label}: MitID font ${login.fontFamily} ${login.fontWeight}`);
+    if (!login.fontLoaded) failures.push(`${label}: IBM Plex Sans SemiBold did not load`);
+    if (login.wordmarkWidth === 0 || login.wordmarkAlt !== "MitID") failures.push(`${label}: the MitID wordmark did not load`);
+    if (!login.returnPaths.every((value) => value === `${pathBase}/app/details`) || login.returnPaths.length !== 3) failures.push(`${label}: return paths ${login.returnPaths.join(", ")}`);
+    if (!login.editions.every((value) => value === "Blazor")) failures.push(`${label}: editions ${login.editions.join(", ")}`);
+    if (signup.mitIdForms !== 0 || signup.buttons.join(" | ") !== "Sign up with Google | Sign up with Microsoft") failures.push(`${label}: signup buttons ${signup.buttons.join(" | ")}`);
+    if (login.styledBodyElements + signup.styledBodyElements > 0) failures.push(`${label}: elements with a style attribute`);
+    for (const response of assetResponses) {
+      if (response.status >= 400 || new URL(response.url).origin !== baseUrl) failures.push(`${label}: ${response.status} ${response.url}`);
+    }
+    if (!assetResponses.some((response) => response.url.includes("/fonts/ibm-plex-sans-latin-600-normal"))) failures.push(`${label}: the font was not requested from the host`);
+    failures.push(...cleanPageFailures(`${label} pages`, [...loginViolations, ...signupViolations], observations));
+    if (present && !callbackReached) failures.push(`${label}: the MitID start did not reach the login callback`);
+  }
   return outcome(details, failures);
 }
 
