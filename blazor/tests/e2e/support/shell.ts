@@ -37,14 +37,23 @@ export function userMenu(page: Page): Locator {
 }
 
 /**
+ * The localized name of a theme mode, the label the user menu and the mobile menu both give it
+ * @param mode The theme mode
+ */
+export function themeLabel(mode: ThemeMode): string {
+  const texts = blazorTexts();
+  return { system: texts.themeSystem, light: texts.themeLight, dark: texts.themeDark }[mode];
+}
+
+/**
  * The item of a theme mode in the Change theme group of the open user menu
  * @param page Playwright page instance with the user menu open
  * @param mode The theme mode
  */
 export function themeMenuItem(page: Page, mode: ThemeMode): Locator {
-  const texts = blazorTexts();
-  const name = { system: texts.themeSystem, light: texts.themeLight, dark: texts.themeDark }[mode];
-  return userMenu(page).getByRole("group", { name: texts.changeTheme, exact: true }).getByRole("menuitemradio", { name, exact: true });
+  return userMenu(page)
+    .getByRole("group", { name: blazorTexts().changeTheme, exact: true })
+    .getByRole("menuitemradio", { name: themeLabel(mode), exact: true });
 }
 
 /**
