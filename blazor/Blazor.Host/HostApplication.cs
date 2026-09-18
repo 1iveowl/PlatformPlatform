@@ -60,6 +60,7 @@ public static class HostApplication
         builder.Services.AddScoped<ViewportState>();
         builder.Services.AddScoped<SessionState>();
         builder.Services.AddScoped<DevicePreferences>();
+        builder.Services.AddScoped<LocaleSwitch>();
 
         // The static server-rendered form handlers call the account API directly through the typed clients, the way the gateway
         // reaches it; HostAccountApiHandler relays the current request's credentials by hand. The feature flag state is

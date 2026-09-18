@@ -3,13 +3,15 @@
    component like every authenticated page; a visitor without a session sees it in the public layout. *@
 @page "/not-found"
 @using Blazor.Client.Shell
+@using Blazor.Host.Shell
 @layout MainLayout
+@inject HostShell Shell
 
 <PageTitle>@CommonStrings.PageNotFound</PageTitle>
 
 @if (StatusPageModel.GetLayout(HttpContext?.User.Identity?.IsAuthenticated == true) == StatusPageLayout.Shell)
 {
-    <StatusPageSurface @rendermode="InteractiveWebAssembly"/>
+    <StatusPageSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>
 }
 else
 {

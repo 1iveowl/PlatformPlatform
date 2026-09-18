@@ -1,13 +1,11 @@
 @* The preferences page, the React edition's user preferences: theme, language and zoom, each applied as soon as it is
    chosen. Theme and zoom level are device preferences: DevicePreferences applies and stores them through the host's
    theme.js, which the shell's user menu shares, reports them as telemetry and a short toast confirms the change. The
-   language is saved on the user: LocaleChange allows one change at a time, and only after the account API confirmed it
-   is the choice remembered in the preferred-locale cookie and the page loaded again, so the host renders the new culture
-   from the refreshed locale claim. A refused change keeps the current language selected and shows the failure as the
-   API returned it; choosing again retries. During prerender the groups render disabled, because the device's theme and
-   zoom level are only known in the browser. *@
-@using Account.Client
-@using Account.Features.Users.Requests
+   language is saved on the user: LocaleSwitch, which the shell's mobile menu shares, allows one change at a time, and only
+   after the account API confirmed it is the choice remembered in the preferred-locale cookie and the page loaded again, so
+   the host renders the new culture from the refreshed locale claim. A refused change keeps the current language selected
+   and shows the failure as the API returned it; choosing again retries. During prerender the groups render disabled,
+   because the device's theme and zoom level are only known in the browser. *@
 @using Blazor.Client.Bootstrap
 @using Blazor.Client.FeatureFlags
 @using Blazor.Client.Session
@@ -16,9 +14,9 @@
 @inject DevicePreferences Preferences
 @inject IServiceProvider Services
 @inject ToastService Toasts
-@inject NavigationManager Navigation
+@inject LocaleSwitch Locale
 
-<AppShell>
+<AppShell SupportEmail="@SupportEmail">
     <h1>@AccountStrings.UserPreferences</h1>
     <p>@AccountStrings.UserPreferencesDescription</p>
 
@@ -33,9 +31,9 @@
     <section class="preferences-section" data-testid="preferences-language">
         <h2 id="preferences-language-label">@AccountStrings.Language</h2>
         <p id="preferences-language-description" class="preferences-description">@AccountStrings.LanguageDescription</p>
-        <ToggleGroup Name="language" Items="LanguageItems" Value="@_locale.CurrentLocale" Revision="_locale.Revision"
-                     Disabled="!_isInteractive || _locale.IsPending" LabelId="preferences-language-label" DescriptionId="preferences-language-description"
-                     TestId="language-group" OnChange="OnLocaleChangedAsync"/>
+        <ToggleGroup Name="language" Items="LanguageItems" Value="@Locale.CurrentLocale" Revision="Locale.Revision"
+                     Disabled="!_isInteractive || Locale.IsPending" LabelId="preferences-language-label" DescriptionId="preferences-language-description"
+                     TestId="language-group" OnChange="locale => Locale.ChangeAsync(locale)"/>
     </section>
 
     <section class="preferences-section" data-testid="preferences-zoom">
@@ -64,18 +62,23 @@
         .Select(level => new ToggleGroupItem(level, ZoomPreference.Label(level), $"zoom-level-{level}"))
         .ToArray();
 
-    private readonly LocaleChange _locale = new(CultureInfo.CurrentUICulture.Name);
     private bool _isInteractive;
     private long? _toastId;
+
+    // The brand's support address, passed on to the shell, whose mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     public void Dispose()
     {
         Preferences.Changed -= OnPreferencesChanged;
+        Locale.Changed -= OnPreferencesChanged;
     }
 
     protected override async Task OnInitializedAsync()
     {
         Preferences.Changed += OnPreferencesChanged;
+        Locale.Changed += OnPreferencesChanged;
         var bootstrap = await Session.GetUnlessLeavingAsync();
         if (bootstrap is null || !RendererInfo.IsInteractive) return;
 
@@ -106,25 +109,6 @@
     private async Task OnZoomLevelChangedAsync(string zoomLevel)
     {
         if (await Preferences.ChangeZoomLevelAsync(zoomLevel)) ShowToast(AccountStrings.ZoomLevelUpdated, ZoomLevelUpdatedToastTestId);
-    }
-
-    private async Task OnLocaleChangedAsync(string locale)
-    {
-        if (!_locale.TryBegin(locale)) return;
-
-        // A 401 is handled by the HttpClient's unauthorized handler, which leaves the runtime
-        var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<UsersClient>().ChangeLocaleAsync(new ChangeLocaleCommand(_locale.PendingLocale!), cancellationToken));
-        if (result is null) return;
-
-        if (!result.IsSuccess)
-        {
-            _locale.Fail();
-            if (result.Outcome != ApiCallOutcome.Unauthorized) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        await Preferences.RememberLocaleAsync(_locale.PendingLocale!);
-        Navigation.NavigateTo(Navigation.Uri, true);
     }
 
     // One confirmation at a time, so repeated changes replace the toast instead of stacking

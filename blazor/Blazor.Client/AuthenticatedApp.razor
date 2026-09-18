@@ -6,13 +6,17 @@
 @inject SessionState Session
 @inject IServiceProvider Services
 
-<AppShell>
+<AppShell SupportEmail="@SupportEmail">
     <h1>@AccountStrings.AccountDetails</h1>
 
     <SurfaceDiagnostics/>
 </AppShell>
 
 @code {
+
+    // The brand's support address, passed on to the shell, whose mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     protected override async Task OnInitializedAsync()
     {

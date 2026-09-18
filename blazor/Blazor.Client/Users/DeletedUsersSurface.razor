@@ -12,7 +12,7 @@
 @inject ToastService Toasts
 @inject DataListPageCache PageCache
 
-<AppShell>
+<AppShell SupportEmail="@SupportEmail">
     @if (_bootstrap is not null && !RecycleBinPermissions.CanView(_bootstrap.User))
     {
         <section class="status-page" data-testid="access-denied">
@@ -77,6 +77,10 @@
 </AppShell>
 
 @code {
+
+    // The brand's support address, passed on to the shell, whose mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     public const string UsersRestoredToastTestId = "users-restored-toast";
     public const string UsersPermanentlyDeletedToastTestId = "users-permanently-deleted-toast";

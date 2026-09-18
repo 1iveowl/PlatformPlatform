@@ -1,0 +1,9 @@
+@* The framework's error element, which blazor.web.js reveals when a circuit or an enhanced navigation fails. Every layout
+   renders it, so it is a component of its own: its styles are scoped, and a layout that rendered the markup without the
+   matching scoped stylesheet would show the banner on every page. *@
+
+<div id="blazor-error-ui" data-nosnippet>
+    @CommonStrings.UnhandledError
+    <a href="@AppUrls.ToAbsolute("")" class="reload">@CommonStrings.Reload</a>
+    <span class="dismiss" role="button" aria-label="@CommonStrings.Close">🗙</span>
+</div>

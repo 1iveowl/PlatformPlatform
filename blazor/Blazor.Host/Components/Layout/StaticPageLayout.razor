@@ -1,0 +1,10 @@
+@* The layout of the server-rendered pages that carry their own chrome instead of the authenticated shell: the public
+   surface and the welcome setup. It gives them the main landmark the React edition's public routes have, so a keyboard or
+   screen reader user can reach the content past the navigation, and it carries the framework's error element the way
+   MainLayout does. The navigation and the footer are inside the landmark, as they are in the React edition's public routes,
+   and the landmark carries the same id the authenticated shell's main does. *@
+@inherits LayoutComponentBase
+
+<main id="main-content">@Body</main>
+
+<FrameworkErrorUi/>

@@ -8,14 +8,16 @@
 @page "/Error"
 @using System.Diagnostics
 @using Blazor.Client.Shell
+@using Blazor.Host.Shell
 @using Microsoft.AspNetCore.Diagnostics
 @inject IHostEnvironment Environment
+@inject HostShell Shell
 
 <PageTitle>@ErrorContent.Title(_view)</PageTitle>
 
 @if (_view.Layout == StatusPageLayout.Shell)
 {
-    <StatusPageSurface Error="_view" @rendermode="InteractiveWebAssembly"/>
+    <StatusPageSurface SupportEmail="@Shell.Brand.SupportEmail" Error="_view" @rendermode="InteractiveWebAssembly"/>
 }
 else
 {

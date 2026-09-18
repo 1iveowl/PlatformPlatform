@@ -7,7 +7,8 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @attribute [InteractiveSurface]
+@inject HostShell Shell
 
 <PageTitle>@UsersStrings.UserRecycleBin</PageTitle>
 
-<DeletedUsersSurface @rendermode="InteractiveWebAssembly"/>
+<DeletedUsersSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>

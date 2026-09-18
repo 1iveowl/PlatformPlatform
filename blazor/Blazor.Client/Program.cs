@@ -36,6 +36,9 @@ builder.Services.AddScoped<SessionTransition>();
 builder.Services.AddScoped<AuthSyncCoordinator>();
 builder.Services.AddScoped<DevicePreferences>();
 
+// The language of the signed-in user, one change at a time, shared by the preferences page and the shell's mobile menu
+builder.Services.AddScoped<LocaleSwitch>();
+
 var host = builder.Build();
 
 // Before RunAsync, which loads the satellite resources of the current culture and renders the root components

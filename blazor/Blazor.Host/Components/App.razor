@@ -16,7 +16,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     @* theme.js switches the content to the applied theme's color *@
     <meta name="theme-color" content="@Shell.Brand.ThemeColorLight" data-light="@Shell.Brand.ThemeColorLight" data-dark="@Shell.Brand.ThemeColorDark"/>
-    <title>@Shell.Brand.ProductName</title>
+    @* No title element here: every page renders its own <PageTitle>, which <HeadOutlet/> below turns into the document's
+       title. A title here would be the first one in the document and the browser would use it for every page, so a route
+       change would announce nothing new. *@
     <link rel="manifest" href="@AppUrls.ToAbsolute(HostShell.ManifestPath)"/>
     @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce.
        data-permanent keyed by the href: enhanced navigation otherwise treats any two <link> elements as the same node and

@@ -1,18 +1,21 @@
-@* The shell's navigation below the small breakpoint, the React edition's MobileMenu: a floating button opens a full-screen
-   modal dialog with the navigation links, the user block with Log out and the tenant block whose Switch account button
-   shows the tenants. The dialog is the in-house ModalDialog on the native <dialog>, which traps focus without a
-   dependency; Close menu and Escape close it and focus returns to the button. *@
+@* The shell's navigation below the small breakpoint, where the sidebar and the user menu are hidden: a floating button
+   opens a full-screen modal dialog with the navigation links, the user block with Log out, the tenant block whose Switch
+   account button shows the tenants, the theme modes, the languages and the way to write to support. The dialog is the
+   in-house ModalDialog on the native <dialog>, which traps focus without a dependency; Close menu and Escape close it and
+   focus returns to the button. A theme change keeps the menu open, so the chosen mode shows as pressed; a language change
+   loads the document again, which replaces the menu with it. *@
 @using Account.Features.Authentication.Queries
 @using Blazor.Client.Session
 @implements IAsyncDisposable
 @inject IJSRuntime JavaScriptRuntime
+@inject LocaleSwitch Locale
 
 <button type="button" id="@OpenButtonId" class="mobile-menu-button" aria-label="@CommonStrings.OpenNavigationMenu" aria-haspopup="dialog" aria-expanded="@(_isOpen ? "true" : "false")"
         @onclick="Open">
     <span aria-hidden="true">☰</span>
 </button>
 
-<ModalDialog Open="_isOpen" AriaLabel="@CommonStrings.MobileNavigationMenu" OnDismissRequested="Close">
+<ModalDialog Open="_isOpen" AriaLabel="@CommonStrings.MobileNavigationMenu" OnDismissRequested="Close" TestId="mobile-menu-dialog">
     <div class="mobile-menu">
         <button type="button" class="mobile-menu-close" @onclick="Close">@CommonStrings.CloseMenu</button>
 
@@ -63,12 +66,41 @@
                 }
             </div>
         }
+
+        <div class="mobile-menu-group" role="group" aria-labelledby="@ThemeLabelId">
+            <p class="mobile-menu-group-label" id="@ThemeLabelId">@CommonStrings.ChangeTheme</p>
+            @foreach (var item in Themes)
+            {
+                <button type="button" class="mobile-menu-action" aria-pressed="@(item.Checked ? "true" : "false")"
+                        data-testid="@($"mobile-menu-theme-{ThemePreference.Format(item.Theme!.Value)}")" @onclick="() => OnSelect.InvokeAsync(item)">
+                    @ThemeMenu.Label(item.Theme.Value)
+                </button>
+            }
+        </div>
+
+        <div class="mobile-menu-group" role="group" aria-labelledby="@LanguageLabelId">
+            <p class="mobile-menu-group-label" id="@LanguageLabelId">@CommonStrings.ChangeLanguage</p>
+            @foreach (var locale in LocalePreference.Locales)
+            {
+                <button type="button" class="mobile-menu-action" lang="@locale" aria-pressed="@(locale == Locale.CurrentLocale ? "true" : "false")"
+                        disabled="@Locale.IsPending" data-testid="@($"mobile-menu-language-{locale}")" @onclick="() => Locale.ChangeAsync(locale)">
+                    @LocalePreference.Label(locale)
+                </button>
+            }
+        </div>
+
+        @if (MobileMenuModel.SupportHref(SupportEmail) is { } supportHref)
+        {
+            <a class="mobile-menu-action" href="@supportHref" data-testid="mobile-menu-support">@AccountStrings.ContactSupport</a>
+        }
     </div>
 </ModalDialog>
 
 @code {
 
     private const string OpenButtonId = "mobile-menu-button";
+    private const string ThemeLabelId = "mobile-menu-change-theme";
+    private const string LanguageLabelId = "mobile-menu-change-language";
     private static readonly UserMenuItem LogOutItem = new(UserMenuItemKind.LogOut);
 
     private ShellInterop? _interop;
@@ -88,6 +120,14 @@
     [Parameter]
     public IReadOnlyList<UserMenuItem> Tenants { get; set; } = [];
 
+    // The theme items of the user menu model, so both choosers show the same mode
+    [Parameter]
+    public IReadOnlyList<UserMenuItem> Themes { get; set; } = [];
+
+    // The brand's support address; the support entry is left out when the brand names none
+    [Parameter]
+    public string? SupportEmail { get; set; }
+
     [Parameter]
     public bool IsTransitionBusy { get; set; }
 
@@ -96,7 +136,13 @@
 
     public async ValueTask DisposeAsync()
     {
+        Locale.Changed -= OnLocaleChanged;
         if (_interop is not null) await _interop.DisposeAsync();
+    }
+
+    protected override void OnInitialized()
+    {
+        Locale.Changed += OnLocaleChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -106,6 +152,11 @@
         _returnFocus = false;
         _interop ??= new ShellInterop(JavaScriptRuntime);
         await _interop.FocusAsync(OpenButtonId);
+    }
+
+    private void OnLocaleChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private void Open()

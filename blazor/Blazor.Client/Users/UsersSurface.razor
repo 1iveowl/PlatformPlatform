@@ -18,7 +18,7 @@
 @inject DataListPageCache PageCache
 @inject IJSRuntime JavaScriptRuntime
 
-<AppShell>
+<AppShell SupportEmail="@SupportEmail">
     <h1>@CommonStrings.Users</h1>
     <p>@UsersStrings.ManageUsers</p>
 
@@ -88,6 +88,10 @@
 </AppShell>
 
 @code {
+
+    // The brand's support address, passed on to the shell, whose mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     public const string RoleUpdatedToastTestId = "role-updated-toast";
     public const string UserInvitedToastTestId = "user-invited-toast";

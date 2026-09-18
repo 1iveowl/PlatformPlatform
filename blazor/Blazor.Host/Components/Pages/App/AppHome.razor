@@ -8,10 +8,11 @@
 @attribute [Authorize]
 @attribute [InteractiveSurface]
 @inject NavigationManager Navigation
+@inject HostShell Shell
 
 <PageTitle>@AccountStrings.Workspace</PageTitle>
 
-<HomeSurface @rendermode="InteractiveWebAssembly"/>
+<HomeSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>
 
 @code {
 

@@ -4,7 +4,7 @@
    handler re-executes, the framework ignores interactive render modes, so the shell renders statically there: the sidebar,
    navigation and the error page's own actions, without the user menu. *@
 
-<AppShell>
+<AppShell SupportEmail="@SupportEmail">
     @if (Error is { } error)
     {
         <ErrorContent View="error"/>
@@ -16,6 +16,10 @@
 </AppShell>
 
 @code {
+
+    // The brand's support address, passed on to the shell, whose mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     [Parameter]
     public ErrorPageView? Error { get; set; }

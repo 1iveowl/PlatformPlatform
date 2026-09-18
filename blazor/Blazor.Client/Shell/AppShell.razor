@@ -56,7 +56,7 @@
     {
         <div class="app-mobile-header">
             <MobileMenu User="Session.Current?.User" Items="NavigationItems" Tenants="MenuItems.Where(item => item.Kind == UserMenuItemKind.SwitchTenant).ToArray()"
-                        IsTransitionBusy="IsTransitionBusy" OnSelect="OnMenuSelectAsync"/>
+                        Themes="MobileMenuModel.ThemeItems(MenuItems)" SupportEmail="@SupportEmail" IsTransitionBusy="IsTransitionBusy" OnSelect="OnMenuSelectAsync"/>
         </div>
     }
 
@@ -97,6 +97,10 @@
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    // The brand's support address, from the host page that renders the surface; the mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     private bool IsTransitionBusy => _transition?.IsBusy != false;
 

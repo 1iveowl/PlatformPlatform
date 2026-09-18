@@ -6,7 +6,8 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @attribute [InteractiveSurface]
+@inject HostShell Shell
 
 <PageTitle>@AccountStrings.UserPreferences</PageTitle>
 
-<PreferencesSurface @rendermode="InteractiveWebAssembly"/>
+<PreferencesSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>

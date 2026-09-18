@@ -73,6 +73,15 @@ body {
     color: var(--text);
 }
 
+/* Where focus is, on every control and in every browser. The user agent's own ring differs between the three and WebKit
+   draws none on a button with no border or background, so the edition states it once here. A component that shows focus
+   another way turns it off again in its own rule, which comes later in this sheet. */
+:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+}
+
+/* The heading the framework focuses on every navigation is a destination, not a control, and shows no ring */
 h1:focus {
     outline: none;
 }
@@ -990,6 +999,17 @@ h1:focus {
     align-items: center;
 }
 
+/* Below the small breakpoint the toast region clears the floating mobile menu button, which is fixed in the same corner:
+   the button is 2.75rem tall at 1rem from the edge, so the region ends 1rem above it and spans the width instead of the
+   24rem column it has beside a pointer. A toast may cover content, never the way to the navigation. */
+@media (max-width: 39.99rem) {
+    .toast-region {
+        inset-block-end: 4.75rem;
+        inset-inline: 1rem;
+        max-width: none;
+    }
+}
+
 .toast-dismiss,
 .modal-dialog-close {
     background: none;
@@ -1135,21 +1155,6 @@ h1:focus {
     cursor: pointer;
 }
 
-/* Touch targets on phone widths. A finger needs about 44 pixels, which is 2.75rem at the default root font size, so under
-   the small breakpoint the controls a touch user aims at grow to it: the row menu trigger and its items, the buttons of a
-   full-screen dialog and the mobile navigation button. This is the one rule that has no mobile-first form, because every
-   one of these controls is smaller by design with a pointer. */
-@media (max-width: 39.99rem) {
-    .data-list-row-menu-trigger,
-    .data-list-row-menu-item,
-    .mobile-menu-button,
-    .modal-dialog button,
-    .side-pane[open] button {
-        min-inline-size: 2.75rem;
-        min-block-size: 2.75rem;
-    }
-}
-
 .app-sidebar {
     display: none;
 }
@@ -1218,6 +1223,53 @@ h1:focus {
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+/* The rows of the mobile menu: the navigation links are shell-nav-link, every other entry is an action, whether it is a
+   button (a theme mode, a language, Log out, Switch account) or the mail link to support. A single-choice group marks the
+   entry in force with aria-pressed, which is what the border and the weight follow. */
+.mobile-menu-action {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.mobile-menu-action:hover {
+    background: var(--surface-hover);
+}
+
+.mobile-menu-action[aria-pressed="true"] {
+    border-color: var(--border);
+    font-weight: 600;
+}
+
+.mobile-menu-action:disabled {
+    color: var(--text-disabled);
+    cursor: default;
+}
+
+.mobile-menu-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-block-start: 1rem;
+    border-block-start: 1px solid var(--border-subtle);
+}
+
+.mobile-menu-group-label {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
 }
 
 .shell-nav-group {
@@ -1545,8 +1597,11 @@ h1:focus {
     padding-block: 1rem 3rem;
 }
 
+/* Fixed layout with cells that wrap anywhere: the columns then share the width the document has instead of taking the
+   width their longest word wants, which on a phone pushed the whole document wider than the viewport in Danish */
 .legal-document table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     margin-block: 1rem;
 }
@@ -1557,6 +1612,7 @@ h1:focus {
     padding: 0.5rem 0.75rem;
     text-align: start;
     vertical-align: top;
+    overflow-wrap: anywhere;
 }
 
 .legal-document th {
@@ -1581,6 +1637,12 @@ h1:focus {
     border: 0;
     border-top: 1px solid var(--border-faint);
     margin-block: 2rem;
+}
+
+/* The probe list of Blazor.Client/Shell/SurfaceDiagnostics. Its values are identifiers and addresses with no spaces to
+   break at, which at 320 pixels, the reflow width, pushed the page wider than the viewport. */
+.surface-diagnostics dd {
+    overflow-wrap: anywhere;
 }
 
 /* The authenticated home page (Blazor.Client/Home/HomeSurface) */
@@ -2111,4 +2173,51 @@ h1:focus {
 
 .switch:disabled .switch-thumb {
     background: var(--text-disabled);
+}
+
+/* Touch targets on phone widths, the last rule in this sheet on purpose. A finger needs about 44 pixels, which is 2.75rem
+   at the default root font size, so under the small breakpoint every control a touch user aims at grows to it: every button,
+   the elements that act as one, the menu and row menu items, the navigation links of the sidebar, the mobile menu and the
+   footer, the tabs, the filter controls, and the labels that wrap a checkbox or a radio, which is the area that activates
+   it. A link that renders inline in a sentence is left out,
+   as WCAG 2.5.8 does; it is not a control. Several of these controls set their own smaller minimum with a class selector, so
+   this block has to come after them to win: a media query adds no specificity. The rule has no mobile-first form either,
+   because every one of these controls is smaller by design with a pointer. */
+@media (max-width: 39.99rem) {
+    button:not(.visually-hidden),
+    [role="button"],
+    input[type="checkbox"],
+    label:has(> input[type="checkbox"]),
+    label:has(> input[type="radio"]),
+    select,
+    summary,
+    .button-destructive,
+    .button-primary,
+    .button-secondary,
+    .data-list-row-menu-trigger,
+    .data-list-row-menu-item,
+    .menu-item,
+    .mobile-menu-action,
+    .public-footer-links a,
+    .public-nav-action,
+    .public-nav-brand,
+    .shell-nav-link,
+    .theme-menu-trigger,
+    .toggle-group-item,
+    .users-filter-control,
+    .users-tab {
+        min-inline-size: 2.75rem;
+        min-block-size: 2.75rem;
+    }
+
+    /* A button centres its own content, a link does not, so the links that grew keep their text on the middle line */
+    .mobile-menu-action,
+    .public-footer-links a,
+    .public-nav-action,
+    .public-nav-brand,
+    .shell-nav-link,
+    .users-tab {
+        display: flex;
+        align-items: center;
+    }
 }

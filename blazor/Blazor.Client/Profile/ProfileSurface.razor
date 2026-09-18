@@ -16,7 +16,7 @@
 @inject IServiceProvider Services
 @inject ToastService Toasts
 
-<AppShell>
+<AppShell SupportEmail="@SupportEmail">
     <h1>@AccountStrings.Profile</h1>
     <p>@AccountStrings.ProfileDescription</p>
 
@@ -77,6 +77,10 @@
 </AppShell>
 
 @code {
+
+    // The brand's support address, passed on to the shell, whose mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     public const string ProfileUpdatedToastTestId = "profile-updated-toast";
 

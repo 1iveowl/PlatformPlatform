@@ -7,7 +7,7 @@
 @inject SessionState Session
 @inject IServiceProvider Services
 
-<AppShell>
+<AppShell SupportEmail="@SupportEmail">
     <h1>@AccountStrings.YourWorkspace</h1>
 
     <p class="home-greeting">@HomeGreeting.GetText(DateTime.Now.Hour, Session.Current?.User?.FirstName)</p>
@@ -24,6 +24,10 @@
 </AppShell>
 
 @code {
+
+    // The brand's support address, passed on to the shell, whose mobile menu offers it as a mail link
+    [Parameter]
+    public string? SupportEmail { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
