@@ -23,7 +23,8 @@
 // 11. Phone, on the users page at 390 by 844 with touch: one visible data column with the email and pending badge in the
 //     name cell; a long-press opens the row menu without activating the row (a touch long-press through the DevTools
 //     protocol in Chromium only, because page.touchscreen can only tap; a right-click in every browser); a tap opens the
-//     pane; arrows move focus without activating and Enter activates.
+//     pane, which is a full-screen modal dialog at this width, so Escape closes it and gives focus back to the row before
+//     arrows move focus without activating and Enter activates. The pane's own modes are covered by side-pane.mjs.
 // 12. Phone loading: no paginator; scrolling the sentinel into view appends the next page and replaces pageOffset; the
 //     load more button works from the keyboard with one request however the sentinel and the button race; the status
 //     announces that every row is loaded; Back restores the loaded range from the page cache and a reload restores it.
@@ -497,10 +498,16 @@ await check("phone: one column, long-press and right-click open the row menu, ta
     await page.locator(`${testId("profile-pane")}:not([hidden])`).waitFor();
     const tapped = new URL(page.url()).searchParams.get("userId");
 
+    // The pane is a modal dialog at this width, so the rows behind it are inert until Escape closes it and returns focus
+    await page.keyboard.press("Escape");
+    await page.waitForURL((url) => !url.searchParams.has("userId"));
+    await page.waitForTimeout(settleMs);
+    assert((await focusedRowIndex(page, usersGrid)) === 3, `Closing the pane left focus on row ${await focusedRowIndex(page, usersGrid)}.`);
+
     await page.keyboard.press("ArrowDown");
     await page.waitForTimeout(settleMs);
     assert((await focusedRowIndex(page, usersGrid)) === 4, `ArrowDown moved focus to ${await focusedRowIndex(page, usersGrid)}.`);
-    assert(new URL(page.url()).searchParams.get("userId") === tapped, "ArrowDown activated the row.");
+    assert(!new URL(page.url()).searchParams.has("userId"), "ArrowDown activated the row.");
     await page.keyboard.press("Enter");
     await page.waitForURL((url) => url.searchParams.has("userId") && url.searchParams.get("userId") !== tapped);
     await page.keyboard.press("Escape");

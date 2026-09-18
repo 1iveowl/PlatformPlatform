@@ -290,6 +290,10 @@
     <data name="CloseMenu" xml:space="preserve">
         <value>Close menu</value>
     </data>
+    <data name="CloseSidePanel" xml:space="preserve">
+        <value>Close side panel</value>
+        <comment>React: Close side panel</comment>
+    </data>
     <data name="InstallTheApp" xml:space="preserve">
         <value>Install the app</value>
     </data>

@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Account.Client;
 using Blazor.Client;
 using Blazor.Client.Bootstrap;
+using Blazor.Client.Components;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 using Blazor.Client.Localization;
@@ -56,6 +57,7 @@ public static class HostApplication
         builder.Services.AddScoped<ToastService>();
         builder.Services.AddScoped<ApiFailurePresenter>();
         builder.Services.AddScoped<DataListPageCache>();
+        builder.Services.AddScoped<ViewportState>();
         builder.Services.AddScoped<SessionState>();
         builder.Services.AddScoped<DevicePreferences>();
 

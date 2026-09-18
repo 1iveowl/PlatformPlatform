@@ -70,11 +70,13 @@ export function sortButton(page: Page, columnTitle: string): Locator {
 }
 
 /**
- * The side pane showing a user's profile, named by its title while it is open
+ * The side pane showing a user's profile. It is a labelled region beside the list from the medium breakpoint up and a
+ * labelled modal dialog filling the screen below it, so both roles are matched by the pane's name.
  * @param page Playwright page instance on the users page
  */
 export function profilePane(page: Page): Locator {
-  return page.getByRole("complementary", { name: blazorTexts().userProfile, exact: true });
+  const name = { name: blazorTexts().userProfile, exact: true };
+  return page.getByRole("region", name).or(page.getByRole("dialog", name));
 }
 
 /**

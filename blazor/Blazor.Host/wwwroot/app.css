@@ -50,6 +50,24 @@
     --zoom-level: 1.25;
 }
 
+/* The viewport widths the edition responds to, the same values Blazor.Client/Components/Breakpoints.cs holds and the React
+   edition's ui/utils/responsive.ts uses. They are declared here as the reference anyone reading this file needs, never as
+   the source of a media query condition: a media query cannot substitute a custom property, so every query below repeats
+   the literal and BreakpointsTests fails when the two drift. */
+:root {
+    --breakpoint-sm: 40rem;
+    --breakpoint-md: 48rem;
+    --breakpoint-lg: 64rem;
+    --breakpoint-xl: 80rem;
+    --breakpoint-2xl: 96rem;
+}
+
+/* While a full-screen side pane or dialog is open the page behind it does not scroll. A class, never a style property, so
+   the policy's missing style-src-attr stays missing. */
+:root.scroll-locked {
+    overflow: hidden;
+}
+
 body {
     background: var(--surface);
     color: var(--text);
@@ -372,10 +390,50 @@ h1:focus {
     padding-block: 1rem;
 }
 
-/* Below the small breakpoint a column with this class is hidden and phone-only content in the remaining cell shows; the
-   minimum-width query below reverses both. A list in the infinite load mode, which only phones use, has no select column */
-.data-list-hide-below-sm {
+/* A column whose DataListColumn declares HideBelow carries one of these classes on its header and on every cell, so the
+   column is dropped under that breakpoint; the minimum-width queries below bring each back, together with the phone-only
+   content that replaces the small ones. A list in the infinite load mode, which only phones use, has no select column */
+.data-list-hide-below-sm,
+.data-list-hide-below-md,
+.data-list-hide-below-lg,
+.data-list-hide-below-xl,
+.data-list-hide-below-2xl {
     display: none;
+}
+
+@media (min-width: 40rem) {
+    .data-list-table th.data-list-hide-below-sm,
+    .data-list-table td.data-list-hide-below-sm {
+        display: table-cell;
+    }
+}
+
+@media (min-width: 48rem) {
+    .data-list-table th.data-list-hide-below-md,
+    .data-list-table td.data-list-hide-below-md {
+        display: table-cell;
+    }
+}
+
+@media (min-width: 64rem) {
+    .data-list-table th.data-list-hide-below-lg,
+    .data-list-table td.data-list-hide-below-lg {
+        display: table-cell;
+    }
+}
+
+@media (min-width: 80rem) {
+    .data-list-table th.data-list-hide-below-xl,
+    .data-list-table td.data-list-hide-below-xl {
+        display: table-cell;
+    }
+}
+
+@media (min-width: 96rem) {
+    .data-list-table th.data-list-hide-below-2xl,
+    .data-list-table td.data-list-hide-below-2xl {
+        display: table-cell;
+    }
 }
 
 .data-list[data-list-load-mode="infinite"] .data-list-select {
@@ -394,6 +452,68 @@ h1:focus {
 
 .data-list-load-more {
     align-self: center;
+}
+
+/* The shared SidePane (Blazor.Client/Components/SidePane.razor), one <dialog> in two modes. Docked, from the medium
+   breakpoint up, the element stays closed and these rules show it as a flex item beside the content; the browser's
+   dialog:not([open]) display rule is an author-overridable user agent rule, so the pane needs no open attribute to be
+   visible and therefore steals no focus. Full-screen, below that breakpoint, the pane is opened with showModal and fills
+   the viewport over an inert background; the backdrop button behind its surface is what a pointer reaches wherever the
+   surface does not cover, as in the React edition. */
+.side-pane {
+    display: block;
+    position: static;
+    flex: 0 0 22rem;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-inline-start: 1px solid var(--border-subtle);
+    max-inline-size: none;
+    max-block-size: none;
+    overflow: auto;
+}
+
+.side-pane-surface {
+    padding-inline: 1rem;
+}
+
+.side-pane[open] {
+    position: absolute;
+    inline-size: 100vw;
+    max-inline-size: 100vw;
+    block-size: 100dvh;
+    max-block-size: 100dvh;
+    border-inline-start: 0;
+    overflow: hidden;
+}
+
+.side-pane[open]::backdrop {
+    background: rgb(0 0 0 / 40%);
+}
+
+.side-pane[open] .side-pane-surface {
+    position: relative;
+    box-sizing: border-box;
+    block-size: 100%;
+    padding: 1rem;
+    overflow-y: auto;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.side-pane-backdrop {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+.side-pane[hidden] {
+    display: none;
 }
 
 .profile-pane {
@@ -884,6 +1004,8 @@ h1:focus {
     border: 1px solid var(--border);
     border-radius: 0.5rem;
     max-width: min(32rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow: auto;
 }
 
 .modal-dialog::backdrop {
@@ -893,6 +1015,7 @@ h1:focus {
 .modal-dialog-surface {
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
     gap: 0.75rem;
     padding: 1.25rem;
 }
@@ -918,6 +1041,30 @@ h1:focus {
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
+}
+
+/* Under the small breakpoint a dialog fills the screen, with its header, body and actions stacked and the actions at the
+   end of the column. This is a maximum-width query rather than the mobile-first form the rest of the sheet uses, because
+   the centred dialog above the breakpoint is the user agent's own absolutely positioned box with automatic margins, and
+   restoring that from a full-screen base takes more declarations than it saves. */
+@media (max-width: 39.99rem) {
+    .modal-dialog {
+        inline-size: 100vw;
+        max-inline-size: 100vw;
+        block-size: 100dvh;
+        max-block-size: 100dvh;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .modal-dialog-surface {
+        min-block-size: 100%;
+    }
+
+    .modal-dialog-actions {
+        margin-block-start: auto;
+    }
 }
 
 .button-destructive {
@@ -986,6 +1133,21 @@ h1:focus {
     background: transparent;
     font-size: 1.25rem;
     cursor: pointer;
+}
+
+/* Touch targets on phone widths. A finger needs about 44 pixels, which is 2.75rem at the default root font size, so under
+   the small breakpoint the controls a touch user aims at grow to it: the row menu trigger and its items, the buttons of a
+   full-screen dialog and the mobile navigation button. This is the one rule that has no mobile-first form, because every
+   one of these controls is smaller by design with a pointer. */
+@media (max-width: 39.99rem) {
+    .data-list-row-menu-trigger,
+    .data-list-row-menu-item,
+    .mobile-menu-button,
+    .modal-dialog button,
+    .side-pane[open] button {
+        min-inline-size: 2.75rem;
+        min-block-size: 2.75rem;
+    }
 }
 
 .app-sidebar {
@@ -1499,11 +1661,6 @@ h1:focus {
 }
 
 @media (min-width: 40rem) {
-    .data-list-table th.data-list-hide-below-sm,
-    .data-list-table td.data-list-hide-below-sm {
-        display: table-cell;
-    }
-
     .data-list-phone-only {
         display: none;
     }

@@ -10,7 +10,7 @@
 //
 // Touch: a press of LongPressMilliseconds on a row without moving more than LongPressTolerance pixels opens the row's menu
 // through its menu button, and so does a right-click; the click that ends a long-press does not activate the row. A list
-// that loads differently on phones gets the small breakpoint (40rem, the value ShellBreakpoints.Small holds) reported on
+// that loads differently on phones gets the small breakpoint (40rem, the value Breakpoints.Small holds) reported on
 // attach and on every crossing, and an IntersectionObserver asks for the next page when the sentinel after the last row
 // scrolls into view; the list ignores a request while one is in flight.
 

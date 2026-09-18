@@ -1,0 +1,161 @@
+@* The shared side pane, the React edition's SidePane. One <dialog> element in two modes, chosen by ViewportState:
+
+   - Docked, from the Medium breakpoint up: a labelled region beside the content. The element stays closed and the stylesheet
+     shows it, so it takes no focus from the row that opened it and traps none; Escape belongs to the surface that owns the
+     pane (a list names it through EscapeScopeId, so data-list.js closes it and puts focus back on the row).
+   - Full-screen, below it: opened with showModal, so the browser gives it the top layer, modal semantics with aria-modal,
+     an inert background and focus containment, Escape raises cancel and a click on the backdrop asks the owner to close.
+     The scroll lock is a class on <html>, never a style property, and the element that had focus is stored and focused
+     again when the pane closes, falling back to the control the page names when its row is gone.
+
+   Crossing the breakpoint while the pane is open reconciles the mode in place: the same element and the same content stay,
+   so nothing is re-created and focus is not lost. Navigating to another path or fragment closes the pane; the query string
+   does not, because that is where a list keeps the activated row's key. *@
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+@inject NavigationManager Navigation
+@inject ViewportState Viewport
+
+<dialog @ref="_element" class="side-pane" id="@Id" hidden="@(!Open)" tabindex="-1" data-side-pane-mode="@Mode.ToString().ToLowerInvariant()"
+        role="@(Mode == SidePaneMode.FullScreen ? null : "region")" aria-modal="@(Mode == SidePaneMode.FullScreen ? "true" : null)"
+        aria-labelledby="@LabelledBy" aria-label="@Label" @attributes="AdditionalAttributes">
+    @if (Open)
+    {
+        @if (Mode == SidePaneMode.FullScreen)
+        {
+            <button type="button" class="side-pane-backdrop" tabindex="-1" aria-label="@CommonStrings.CloseSidePanel" data-side-pane-backdrop
+                    @onclick="() => OnClose.InvokeAsync()">
+            </button>
+        }
+
+        <div class="side-pane-surface">
+            @ChildContent
+        </div>
+    }
+</dialog>
+
+@code {
+
+    private ElementReference _element;
+    private IJSObjectReference? _handle;
+    private bool _isDisposed;
+    private IJSObjectReference? _module;
+    private string? _openedAtLocation;
+    private DotNetObjectReference<SidePane>? _reference;
+    private (bool Open, SidePaneMode Mode)? _shown;
+
+    [Parameter]
+    [EditorRequired]
+    public string Id { get; set; } = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    // The heading that names the pane; a pane without a visible heading names itself with Label instead
+    [Parameter]
+    public string? LabelledBy { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    // The control that takes focus when the pane closes and the element that opened it is gone, such as a deleted row
+    [Parameter]
+    public string? FocusFallbackId { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private SidePaneMode Mode => SidePaneRules.ModeFor(Viewport.Matches);
+
+    [JSInvokable]
+    public Task RequestDismiss()
+    {
+        return InvokeAsync(() => OnClose.InvokeAsync());
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _isDisposed = true;
+        Viewport.Changed -= OnViewportChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+        try
+        {
+            if (_handle is not null)
+            {
+                await _handle.InvokeVoidAsync("dispose");
+                await _handle.DisposeAsync();
+            }
+
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The document is already gone, and the pane with it
+        }
+
+        _reference?.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        Viewport.Changed += OnViewportChanged;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Open) _openedAtLocation ??= SidePaneRules.LocationKey(Navigation.Uri);
+        else _openedAtLocation = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        if (firstRender)
+        {
+            _reference = DotNetObjectReference.Create(this);
+            _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/unsaved-changes.js");
+            if (_isDisposed) return;
+
+            _handle = await _module.InvokeAsync<IJSObjectReference>("attachSidePane", _element, _reference, FocusFallbackId);
+            await Viewport.AttachAsync();
+        }
+
+        await ReconcileAsync();
+    }
+
+    // Applies the mode the viewport asks for to the element, once per change: docked leaves the element closed, full-screen
+    // opens it as a modal dialog, and a pane that is no longer open closes and gives focus back
+    private async Task ReconcileAsync()
+    {
+        if (_handle is null || _isDisposed) return;
+
+        var wanted = (Open, Mode);
+        if (_shown == wanted) return;
+
+        _shown = wanted;
+        await _handle.InvokeVoidAsync(!Open ? "close" : Mode == SidePaneMode.FullScreen ? "showFullScreen" : "showDocked");
+    }
+
+    private void OnViewportChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        if (_openedAtLocation is null || !SidePaneRules.ClosesOnNavigation(_openedAtLocation, args.Location)) return;
+
+        _openedAtLocation = null;
+        _ = InvokeAsync(() => OnClose.InvokeAsync());
+    }
+
+}

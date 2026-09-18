@@ -371,10 +371,7 @@
 
     private string ColumnClass(DataListColumn<TItem> column)
     {
-        var sorted = column.SortKey is not null && column.SortKey == _controller.State.OrderBy
-            ? _controller.State.SortOrder == SortOrder.Ascending ? " data-list-sorted-ascending" : " data-list-sorted-descending"
-            : "";
-        return $"{column.Class}{sorted}".Trim();
+        return DataListColumnClass.For(column, _controller.State.OrderBy, _controller.State.SortOrder);
     }
 
     private RenderFragment<ColumnBase<TItem>> SortHeader(DataListColumn<TItem> column)

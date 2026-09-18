@@ -106,6 +106,27 @@ export function attachNavigationGuard(dotNet) {
   };
 }
 
+// A modal dialog keeps Tab inside itself: past the last focusable element focus wraps to the first and back, instead of
+// leaving for the browser's own controls. Only a dialog the browser opened with showModal is trapped, so when a destructive
+// dialog opens over the side pane the topmost one owns the trap and the pane below is inert.
+const focusableSelector =
+  "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+
+function trapTab(dialog, event) {
+  if (event.key !== "Tab" || !dialog.open) return;
+  const focusable = [...dialog.querySelectorAll(focusableSelector)];
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 // A native modal dialog: showModal gives the top layer, the backdrop, inert content behind it and focus containment.
 // Escape raises cancel and a click on the backdrop targets the dialog element itself; both ask .NET instead of closing.
 export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
@@ -116,22 +137,7 @@ export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
   const onClick = (event) => {
     if (closesOnBackdrop && event.target === dialog) dotNet.invokeMethodAsync("RequestDismiss");
   };
-  // A modal dialog keeps Tab inside itself: past the last focusable element focus wraps to the first and back, instead of
-  // leaving for the browser's own controls
-  const onKeyDown = (event) => {
-    if (event.key !== "Tab") return;
-    const focusable = [...dialog.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])")];
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
+  const onKeyDown = (event) => trapTab(dialog, event);
   dialog.addEventListener("cancel", onCancel);
   dialog.addEventListener("click", onClick);
   dialog.addEventListener("keydown", onKeyDown);
@@ -148,6 +154,92 @@ export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
       dialog.removeEventListener("click", onClick);
       dialog.removeEventListener("keydown", onKeyDown);
       if (dialog.open) dialog.close();
+    }
+  };
+}
+
+// The side pane, one <dialog> element in two modes. Docked it is a labelled region beside the content, closed as far as the
+// element is concerned and shown by the stylesheet, so it neither traps focus nor takes it from the row that opened it.
+// Full-screen it is opened with showModal, which gives it the top layer, modal semantics, an inert background and the
+// browser's own focus containment, and the scroll lock is a class on <html> rather than a style property. The element that
+// had focus when the pane went full-screen is stored and focused again when it closes; a row that was removed meanwhile
+// leaves focus to the fallback the page names.
+const scrollLockClass = "scroll-locked";
+
+export function attachSidePane(dialog, dotNet, focusFallbackId) {
+  let previouslyFocused = null;
+
+  const onCancel = (event) => {
+    event.preventDefault();
+    dotNet.invokeMethodAsync("RequestDismiss");
+  };
+  // The backdrop of a modal dialog is the dialog element itself; the pane's surface covers it, so this is the strip a
+  // banner leaves visible and any area the surface does not reach
+  const onClick = (event) => {
+    if (dialog.open && event.target === dialog) dotNet.invokeMethodAsync("RequestDismiss");
+  };
+  const onKeyDown = (event) => trapTab(dialog, event);
+
+  dialog.addEventListener("cancel", onCancel);
+  dialog.addEventListener("click", onClick);
+  dialog.addEventListener("keydown", onKeyDown);
+
+  // Enhanced navigation synchronizes the document element's attributes with the new document, which carries no scroll lock,
+  // so the class is re-applied from a mutation callback while the pane is full-screen, as js/theme.js does for the theme
+  let isLocked = false;
+  const applyScrollLock = () => document.documentElement.classList.toggle(scrollLockClass, isLocked);
+  const rootObserver = new MutationObserver(() => {
+    if (isLocked !== document.documentElement.classList.contains(scrollLockClass)) applyScrollLock();
+  });
+  rootObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+  const lockScroll = (locked) => {
+    isLocked = locked;
+    applyScrollLock();
+  };
+
+  const restoreFocus = () => {
+    const stored = previouslyFocused;
+    previouslyFocused = null;
+    if (stored !== null && stored.isConnected) {
+      stored.focus();
+      return;
+    }
+    const fallback = focusFallbackId ? document.getElementById(focusFallbackId) : null;
+    fallback?.focus();
+  };
+
+  const leaveModal = () => {
+    if (!dialog.open) return;
+    dialog.close();
+    lockScroll(false);
+  };
+
+  return {
+    // Open beside the content: no modality, no focus move, no scroll lock
+    showDocked: () => {
+      leaveModal();
+      previouslyFocused = null;
+    },
+    showFullScreen: () => {
+      if (dialog.open) return;
+      const active = document.activeElement;
+      previouslyFocused = active instanceof HTMLElement && active !== document.body ? active : null;
+      dialog.showModal();
+      lockScroll(true);
+    },
+    close: () => {
+      const wasModal = dialog.open;
+      leaveModal();
+      if (wasModal) restoreFocus();
+    },
+    dispose: () => {
+      dialog.removeEventListener("cancel", onCancel);
+      dialog.removeEventListener("click", onClick);
+      dialog.removeEventListener("keydown", onKeyDown);
+      leaveModal();
+      lockScroll(false);
+      rootObserver.disconnect();
     }
   };
 }

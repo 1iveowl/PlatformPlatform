@@ -5,7 +5,7 @@
 // Storage can be denied (private modes, blocked site data); every read and write falls back instead of throwing, and the
 // decisions about the values read live in ShellSidebarState and InstallPromptPolicy.
 
-// The literals ShellBreakpoints holds; ShellBreakpointsTests fails when they drift from it or from app.css
+// The literals Breakpoints holds; BreakpointsTests fails when they drift from it or from app.css
 const extraLargeQuery = "(min-width: 80rem)";
 const smallQuery = "(min-width: 40rem)";
 

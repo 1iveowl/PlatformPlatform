@@ -1,4 +1,5 @@
 using Blazor.Client.Bootstrap;
+using Blazor.Client.Components;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 using Blazor.Client.Localization;
@@ -17,6 +18,9 @@ builder.Services.AddAccountApiClients(new Uri(builder.HostEnvironment.BaseAddres
 
 // The server-page cache of every DataList, one per application
 builder.Services.AddScoped<DataListPageCache>();
+
+// The viewport width for the components that change the DOM with it, such as a side pane; one set of media listeners per runtime
+builder.Services.AddScoped<ViewportState>();
 
 // The in-house toast region and the presentation of failed API calls on interactive surfaces
 builder.Services.AddScoped<ToastService>();

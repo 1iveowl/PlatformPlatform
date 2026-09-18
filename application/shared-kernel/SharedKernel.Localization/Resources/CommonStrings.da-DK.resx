@@ -246,6 +246,9 @@
     <data name="CloseMenu" xml:space="preserve">
         <value>Luk menu</value>
     </data>
+    <data name="CloseSidePanel" xml:space="preserve">
+        <value>Luk sidepanel</value>
+    </data>
     <data name="InstallTheApp" xml:space="preserve">
         <value>Installér appen</value>
     </data>

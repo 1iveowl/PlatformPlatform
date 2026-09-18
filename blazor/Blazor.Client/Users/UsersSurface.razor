@@ -75,7 +75,7 @@
         </div>
 
         <UserProfilePane Id="@PaneId" State="_profile" Permission="ProfilePermission" IsNotInCurrentView="IsProfileNotInCurrentView" IsDataUpdated="IsProfileDataUpdated"
-                         OnClose="CloseProfileAsync" OnChangeRole="OpenRoleDialog"/>
+                         FocusFallbackId="@SearchId" OnClose="CloseProfileAsync" OnChangeRole="OpenRoleDialog"/>
     </div>
 
     <ChangeUserRoleDialog Open="_isRoleDialogOpen" OpenChanged="OnRoleDialogOpenChanged" User="_roleUser" OnSaved="OnRoleSavedAsync"/>
@@ -96,8 +96,8 @@
 
     private const string PaneId = "users-profile-pane";
 
-    // The columns after the name, whose cell shows the email and the pending badge on phones instead
-    private const string HideBelowSmall = "data-list-hide-below-sm";
+    // The columns after the name, dropped on phones, whose cell shows the email and the pending badge instead
+    private const Breakpoint HideBelowSmall = Breakpoint.Small;
 
     private readonly UsersFilterModel _filterModel = new();
     private readonly UserProfileState _profile = new();
@@ -146,15 +146,15 @@
                                                                            </span>
                                                                        </span>, nameof(SortableUserProperties.Name)
             ),
-            new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email), HideBelowSmall
+            new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email), HideBelow: HideBelowSmall
             ),
             new DataListColumn<UserDetails>(UsersStrings.Created, user => @<text>@RelativeTime.Format(user.CreatedAt, TimeProvider.System.GetUtcNow())</text>,
-                nameof(SortableUserProperties.CreatedAt), HideBelowSmall
+                nameof(SortableUserProperties.CreatedAt), HideBelow: HideBelowSmall
             ),
             new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<text>@RelativeTime.Format(user.LastSeenAt, TimeProvider.System.GetUtcNow())</text>,
-                nameof(SortableUserProperties.LastSeenAt), HideBelowSmall
+                nameof(SortableUserProperties.LastSeenAt), HideBelow: HideBelowSmall
             ),
-            new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role), HideBelowSmall
+            new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role), HideBelow: HideBelowSmall
             )
         ];
 
