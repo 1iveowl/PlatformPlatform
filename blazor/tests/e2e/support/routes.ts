@@ -1,6 +1,12 @@
 import { expect, type Page } from "@playwright/test";
 import { getBaseUrl } from "@shared/e2e/utils/constants";
 
+declare global {
+  interface Window {
+    __blazorDocument?: boolean;
+  }
+}
+
 /**
  * The path base the gateway serves the Blazor host under. Every Blazor URL in the tests is built from this one value,
  * so a root-absolute React route such as "/signup" can never be mistaken for a Blazor page.
@@ -43,4 +49,23 @@ export async function expectBlazorUrl(page: Page, route = ""): Promise<void> {
   const expectedUrl = blazorUrl(route);
 
   await expect(page).toHaveURL((url) => `${url.origin}${url.pathname}` === expectedUrl);
+}
+
+/**
+ * Mark the current document, so a later check can tell whether a full document navigation replaced it
+ * @param page Playwright page instance on a loaded Blazor document
+ */
+export async function markDocument(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__blazorDocument = true;
+  });
+}
+
+/**
+ * Expect the page to have left the document marked by markDocument, which a full document navigation does and the
+ * framework's enhanced navigation, patching the document it already has, does not
+ * @param page Playwright page instance after the navigation
+ */
+export async function expectNewDocument(page: Page): Promise<void> {
+  expect(await page.evaluate(() => window.__blazorDocument)).toBeUndefined();
 }

@@ -1,0 +1,48 @@
+@* Development-only page for the end-to-end specifications in blazor/tests/e2e. It renders one Markdown fixture of the
+   markup and destinations a document must never be able to smuggle into a browser, through the same renderer the legal
+   pages use, so the renderer's policy is checked where the unit tests cannot reach: on the emitted document, in a real
+   browser, under the unchanged content security policy. The fixture is a constant of this page, so no production page ever
+   renders Markdown a request supplied. Outside Development the request returns 404. *@
+@page "/development/markdown-probe"
+@using Blazor.Host.Shell
+@attribute [DevelopmentOnly]
+
+<PageTitle>Markdown probe</PageTitle>
+
+<h1>Markdown probe</h1>
+
+<article class="legal-document" lang="@LegalDocuments.DocumentLanguage">@_html</article>
+
+@code {
+
+    // The markup and destinations MarkdownRendererTests covers, gathered into one document: raw script, style, svg, img,
+    // iframe, form and event markup, an executable, encoded, data, protocol-relative and empty destination, and an image.
+    // Every script in it sets the same marker on the window, so a browser can tell that none of them ran.
+    private const string Fixture = """
+                                   # Probe document
+
+                                   <script>window.__markdownProbe = "ran";</script>
+
+                                   <style>body { display: none }</style>
+
+                                   <svg onload="window.__markdownProbe = 'ran'"><use href="#x"/></svg>
+
+                                   <img src=x onerror="window.__markdownProbe = 'ran'">
+
+                                   <iframe src="https://evil.example.com"></iframe>
+
+                                   <form action="https://evil.example.com"><input name="a"></form>
+
+                                   <p onclick="window.__markdownProbe = 'ran'">Text</p>
+
+                                   - [Script destination](javascript:alert(1))
+                                   - [Encoded destination](&#106;avascript:alert(1))
+                                   - [Data destination](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)
+                                   - [Protocol relative destination](//evil.example.com/legal)
+                                   - [Empty destination]()
+                                   - ![An image](/images/logo.png)
+                                   """;
+
+    private readonly MarkupString _html = new(MarkdownRenderer.Render(Fixture));
+
+}
