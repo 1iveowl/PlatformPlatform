@@ -15,7 +15,7 @@ public sealed partial class LocalizationResourceTests
 
     public static TheoryData<string> ResourceClasses =>
     [
-        nameof(CommonStrings), nameof(AuthenticationStrings), nameof(UsersStrings), nameof(AccountStrings), nameof(FluentComponentStrings)
+        nameof(CommonStrings), nameof(AuthenticationStrings), nameof(UsersStrings), nameof(AccountStrings), nameof(FluentComponentStrings), nameof(LegalStrings)
     ];
 
     [Theory]

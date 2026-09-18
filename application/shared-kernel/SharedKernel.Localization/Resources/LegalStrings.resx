@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="LegalAndCompliance" xml:space="preserve">
+        <value>Legal and Compliance</value>
+        <comment>React: Legal and Compliance</comment>
+    </data>
+    <data name="LegalAndComplianceIntro" xml:space="preserve">
+        <value>Transparency, security, and privacy are at the core of how we operate. Review our policies and learn how we protect your data.</value>
+        <comment>React: Transparency, security, and privacy are at the core of how we operate. Review our policies and learn how we protect your data.</comment>
+    </data>
+    <data name="TermsOfService" xml:space="preserve">
+        <value>Terms of Service</value>
+        <comment>React: Terms of Service</comment>
+    </data>
+    <data name="TermsOfServiceDescription" xml:space="preserve">
+        <value>The agreement governing your use of our Service, including acceptable use and liability.</value>
+        <comment>React: The agreement governing your use of our Service, including acceptable use and liability.</comment>
+    </data>
+    <data name="PrivacyPolicy" xml:space="preserve">
+        <value>Privacy Policy</value>
+        <comment>React: Privacy Policy</comment>
+    </data>
+    <data name="PrivacyPolicyDescription" xml:space="preserve">
+        <value>How we collect, use, and protect your personal data in compliance with GDPR.</value>
+        <comment>React: How we collect, use, and protect your personal data in compliance with GDPR.</comment>
+    </data>
+    <data name="DataProcessingAgreement" xml:space="preserve">
+        <value>Data Processing Agreement</value>
+        <comment>React: Data Processing Agreement</comment>
+    </data>
+    <data name="DataProcessingAgreementDescription" xml:space="preserve">
+        <value>GDPR Article 28 compliant agreement for processing data on your behalf.</value>
+        <comment>React: GDPR Article 28 compliant agreement for processing data on your behalf.</comment>
+    </data>
+    <data name="AzureInfrastructure" xml:space="preserve">
+        <value>Enterprise-grade Azure infrastructure</value>
+        <comment>React: Enterprise-grade Azure infrastructure</comment>
+    </data>
+    <data name="AzureInfrastructureIntro" xml:space="preserve">
+        <value>Microsoft Azure Platform-as-a-Service (PaaS) with enterprise-grade reliability.</value>
+        <comment>React: Microsoft Azure Platform-as-a-Service (PaaS) with enterprise-grade reliability.</comment>
+    </data>
+    <data name="GdprCompliant" xml:space="preserve">
+        <value>GDPR Compliant</value>
+        <comment>React: GDPR Compliant</comment>
+    </data>
+    <data name="MicrosoftAzure" xml:space="preserve">
+        <value>Microsoft Azure</value>
+        <comment>React: Microsoft Azure</comment>
+    </data>
+    <data name="ManagedInfrastructure" xml:space="preserve">
+        <value>Fully managed infrastructure</value>
+        <comment>React: Fully managed infrastructure</comment>
+    </data>
+    <data name="ManagedInfrastructureDescription" xml:space="preserve">
+        <value>Microsoft patches and secures all PaaS infrastructure automatically</value>
+        <comment>React: Microsoft patches and secures all PaaS infrastructure automatically</comment>
+    </data>
+    <data name="ManagedIdentities" xml:space="preserve">
+        <value>Managed identities</value>
+        <comment>React: Managed identities</comment>
+    </data>
+    <data name="ManagedIdentitiesDescription" xml:space="preserve">
+        <value>Only trusted personnel access data through Azure AD authentication</value>
+        <comment>React: Only trusted personnel access data through Azure AD authentication</comment>
+    </data>
+    <data name="EnvironmentIsolation" xml:space="preserve">
+        <value>Environment isolation</value>
+        <comment>React: Environment isolation</comment>
+    </data>
+    <data name="EnvironmentIsolationDescription" xml:space="preserve">
+        <value>Strict separation prevents production data from leaking to other environments</value>
+        <comment>React: Strict separation prevents production data from leaking to other environments</comment>
+    </data>
+    <data name="PasswordlessDeployments" xml:space="preserve">
+        <value>Passwordless deployments</value>
+        <comment>React: Passwordless deployments</comment>
+    </data>
+    <data name="PasswordlessDeploymentsDescription" xml:space="preserve">
+        <value>GitHub deploys directly to Azure without passwords or API keys</value>
+        <comment>React: GitHub deploys directly to Azure without passwords or API keys</comment>
+    </data>
+    <data name="DataResidency" xml:space="preserve">
+        <value>Data residency</value>
+        <comment>React: Data residency</comment>
+    </data>
+    <data name="DataResidencyDescription" xml:space="preserve">
+        <value>Your data stays in the Azure region you select at signup</value>
+        <comment>React: Your data stays in the Azure region you select at signup</comment>
+    </data>
+    <data name="SecurityScore" xml:space="preserve">
+        <value>100% Security Score</value>
+        <comment>React: 100% Security Score</comment>
+    </data>
+    <data name="SecurityScoreDescription" xml:space="preserve">
+        <value>Achieved in Microsoft Defender for Cloud following Azure best practices</value>
+        <comment>React: Achieved in Microsoft Defender for Cloud following Azure best practices</comment>
+    </data>
+    <data name="ComplianceResources" xml:space="preserve">
+        <value>Microsoft compliance resources</value>
+        <comment>React: Microsoft compliance resources</comment>
+    </data>
+    <data name="ComplianceResourcesIntro" xml:space="preserve">
+        <value>For detailed compliance certifications and audit reports, visit Microsoft's official resources.</value>
+        <comment>React: For detailed compliance certifications and audit reports, visit Microsoft's official resources.</comment>
+    </data>
+    <data name="TrustCenter" xml:space="preserve">
+        <value>Trust Center</value>
+        <comment>React: Trust Center</comment>
+    </data>
+    <data name="TrustCenterDescription" xml:space="preserve">
+        <value>Security, privacy, and compliance information</value>
+        <comment>React: Security, privacy, and compliance information</comment>
+    </data>
+    <data name="AzureCompliance" xml:space="preserve">
+        <value>Azure Compliance</value>
+        <comment>React: Azure Compliance</comment>
+    </data>
+    <data name="AzureComplianceDescription" xml:space="preserve">
+        <value>Regulatory standards and certifications</value>
+        <comment>React: Regulatory standards and certifications</comment>
+    </data>
+    <data name="SocAndIsoReports" xml:space="preserve">
+        <value>SOC and ISO Reports</value>
+        <comment>React: SOC and ISO Reports</comment>
+    </data>
+    <data name="SocAndIsoReportsDescription" xml:space="preserve">
+        <value>Audit reports and assessments</value>
+        <comment>React: Audit reports and assessments</comment>
+    </data>
+    <data name="MicrosoftDpa" xml:space="preserve">
+        <value>Microsoft DPA</value>
+        <comment>React: Microsoft DPA</comment>
+    </data>
+    <data name="MicrosoftDpaDescription" xml:space="preserve">
+        <value>Data protection addendum</value>
+        <comment>React: Data protection addendum</comment>
+    </data>
+    <data name="OpensInNewWindow" xml:space="preserve">
+        <value>{0} (opens in new window)</value>
+        <comment>React: {0} (opens in new window)</comment>
+    </data>
+</root>

@@ -1214,11 +1214,232 @@ h1:focus {
     visibility: visible;
 }
 
+/* The public chrome (Blazor.Host/Components/Layout/PublicNav and PublicFooter) */
 .public-nav {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
     align-items: center;
+    justify-content: space-between;
+    padding-block: 1rem;
+}
+
+.public-nav-brand {
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.public-nav-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.public-nav-action {
+    padding: 0.375rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.public-nav-action-primary {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+    color: var(--brand-primary-foreground);
+}
+
+.public-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin-block-start: 3rem;
+    border-top: 1px solid var(--border-subtle);
+    padding-block: 2rem;
+    color: var(--text-muted);
+}
+
+.public-footer-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.public-footer-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.public-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+/* The landing page (Blazor.Host/Components/Pages/Public/Landing) */
+.landing {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    padding-block: 3rem;
+    text-align: center;
+}
+
+.landing-lead {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+}
+
+.landing-note {
+    color: var(--text-muted);
+}
+
+.landing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-block-start: 1rem;
+}
+
+.landing-action {
+    padding: 0.75rem 2rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.landing-action-primary {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+    color: var(--brand-primary-foreground);
+}
+
+/* The legal index (Blazor.Host/Components/Pages/Public/Legal) */
+.legal-section {
+    padding-block: 2rem;
+}
+
+.legal-section-accent {
+    background: var(--surface-accent);
+}
+
+.legal-section-intro {
+    max-width: 48rem;
+    color: var(--text-muted);
+}
+
+.legal-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-block: 1rem;
+    padding: 0;
+    list-style: none;
+    font-weight: 600;
+}
+
+.legal-cards {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    margin-block-start: 1.5rem;
+}
+
+.legal-card {
+    display: block;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.legal-card:hover {
+    background: var(--surface-hover);
+}
+
+.legal-card h3 {
+    margin-block: 0 0.5rem;
+}
+
+.legal-card p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+/* The rendered legal documents (Blazor.Host/Shell/MarkdownRenderer): the classes the React converter applies inline */
+.legal-document {
+    display: block;
+    max-width: 52rem;
+    padding-block: 1rem 3rem;
+}
+
+.legal-document table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-block: 1rem;
+}
+
+.legal-document th,
+.legal-document td {
+    border: 1px solid var(--border-subtle);
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+    vertical-align: top;
+}
+
+.legal-document th {
+    background: var(--surface-accent);
+}
+
+.legal-document blockquote {
+    margin-inline: 0;
+    border: 2px solid var(--border-strong);
+    border-radius: 0.375rem;
+    padding: 1rem 1.25rem;
+}
+
+.legal-document pre {
+    overflow-x: auto;
+    border-radius: 0.375rem;
+    background: var(--surface-accent);
+    padding: 1rem;
+}
+
+.legal-document hr {
+    border: 0;
+    border-top: 1px solid var(--border-faint);
+    margin-block: 2rem;
+}
+
+/* The authenticated home page (Blazor.Client/Home/HomeSurface) */
+.home-greeting {
+    font-size: 1.125rem;
+}
+
+.home-overview,
+.home-empty p {
+    color: var(--text-muted);
+}
+
+.home-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.5rem;
+    padding: 2rem 1rem;
+    text-align: center;
 }
 
 /* The not-found and error pages (Blazor.Client/Shell/NotFoundContent and ErrorContent) */

@@ -122,4 +122,20 @@ public sealed class AppUrlsTests
         // Assert
         sanitized.Should().Be("/blazor/app");
     }
+
+    [Theory]
+    [InlineData("localhost", true)]
+    [InlineData("app.dev.localhost", true)]
+    [InlineData("APP.DEV.LOCALHOST", true)]
+    [InlineData("localhost.example.com", false)]
+    [InlineData("platformplatform.net", false)]
+    [InlineData(null, false)]
+    public void IsLocalhost_WhenRequestHost_ShouldOnlyAcceptLocalhostAndItsSubdomains(string? host, bool expected)
+    {
+        // Act
+        var isLocalhost = AppUrls.IsLocalhost(host);
+
+        // Assert
+        isLocalhost.Should().Be(expected);
+    }
 }

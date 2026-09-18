@@ -330,4 +330,49 @@
     <data name="AuthenticationSharedAcrossTabs" xml:space="preserve">
         <value>Autentificering deles på tværs af alle faner.</value>
     </data>
+    <data name="Compliance" xml:space="preserve">
+        <value>Compliance</value>
+    </data>
+    <data name="Privacy" xml:space="preserve">
+        <value>Privatliv</value>
+    </data>
+    <data name="Dpa" xml:space="preserve">
+        <value>DPA</value>
+    </data>
+    <data name="AllRightsReserved" xml:space="preserve">
+        <value>© {0} {1} - Alle rettigheder forbeholdes</value>
+    </data>
+    <data name="GreetingNight" xml:space="preserve">
+        <value>Sidder du stadig oppe?</value>
+    </data>
+    <data name="GreetingNightNamed" xml:space="preserve">
+        <value>Sidder du stadig oppe, {0}?</value>
+    </data>
+    <data name="GreetingMorning" xml:space="preserve">
+        <value>God morgen</value>
+    </data>
+    <data name="GreetingMorningNamed" xml:space="preserve">
+        <value>God morgen, {0}</value>
+    </data>
+    <data name="GreetingAfternoon" xml:space="preserve">
+        <value>God eftermiddag</value>
+    </data>
+    <data name="GreetingAfternoonNamed" xml:space="preserve">
+        <value>God eftermiddag, {0}</value>
+    </data>
+    <data name="GreetingEvening" xml:space="preserve">
+        <value>God aften</value>
+    </data>
+    <data name="GreetingEveningNamed" xml:space="preserve">
+        <value>God aften, {0}</value>
+    </data>
+    <data name="HereIsYourOverview" xml:space="preserve">
+        <value>Her er dit overblik over hvad der sker.</value>
+    </data>
+    <data name="DashboardEmpty" xml:space="preserve">
+        <value>Dit dashboard er tomt</value>
+    </data>
+    <data name="DashboardEmptyDescription" xml:space="preserve">
+        <value>Her vil dit personlige dashboard-indhold blive vist. Hold dig opdateret.</value>
+    </data>
 </root>

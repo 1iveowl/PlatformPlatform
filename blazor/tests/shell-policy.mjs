@@ -21,6 +21,8 @@ const pathBase = "/blazor";
 const verificationCode = "UNLOCK";
 const interactiveTimeoutMs = 60_000;
 const mockProviderCookie = "__Test_Use_Mock_Provider";
+// The same pattern blazor/tests/support/stack.mjs uses to spot a WebAssembly runtime request
+const runtimeRequestPattern = /\/_framework\/(dotnet[^/]*\.js|[^/]*\.wasm|[^/]*\.dat|blazor\.boot\.json)(\?|$)/;
 // MitID is not a signup provider, so it has a login start and a verification start only
 const externalStarts = [
   { provider: "Google", flow: "login" },
@@ -58,6 +60,7 @@ try {
     result.cases.enhancedNavigation = await runEnhancedNavigation();
     result.cases.workerSource = await runWorkerSource(account);
     result.cases.formAction = await runFormAction(account);
+    result.cases.legalPages = await runLegalPages();
     result.cases.manifest = await runManifest();
     result.cases.identityVerification = await runIdentityVerification();
     // Last, because it logs the account out
@@ -72,7 +75,7 @@ result.finishedAt = new Date().toISOString();
 // The Development run drives the Development-only fixture pages and signs up with the development verification code, so it
 // is a fixture check and never Production evidence; the Production run checks that those pages are not reachable
 result.hostConfiguration = options.environment === "production" ? "Production host, expected to be the trimmed publish served by blazor-serve" : "Development host run by the AppHost (fixture check)";
-const expectedCaseCount = options.environment === "production" ? 1 : 10;
+const expectedCaseCount = options.environment === "production" ? 1 : 11;
 const verdict = writeResult(`shell-policy-${options.browser}-${options.environment}.json`, result, expectedCaseCount);
 console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: redact(value.failures.join(" ; ")) })));
 console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
@@ -256,8 +259,8 @@ async function runEnhancedNavigation() {
   await page.waitForFunction(() => window.Blazor !== undefined);
   // A full document load would drop this marker, so its survival proves the navigation was enhanced
   await page.evaluate(() => (window.__sameDocument = true));
-  await page.locator('[data-testid="nav-terms"]').click();
-  await page.locator('[data-testid="terms-text"]').waitFor();
+  await page.getByRole("link", { name: "Terms", exact: true }).click();
+  await page.getByRole("heading", { name: "Terms of Service" }).waitFor();
   await settle(page);
   const sameDocument = await page.evaluate(() => window.__sameDocument === true);
   const violations = await readViolations(page);
@@ -428,7 +431,7 @@ async function runTheme(account) {
   await checkClean("public", publicPage, publicObservations);
   await publicPage.reload({ waitUntil: "load" });
   expectTheme("public reload", await readTheme(publicPage), "dark");
-  await publicPage.getByTestId("nav-login").click();
+  await publicPage.getByTestId("public-nav").getByRole("link", { name: "Log in", exact: true }).click();
   await publicPage.waitForURL(`${baseUrl}${pathBase}/login`);
   await settle(publicPage);
   expectTheme("public enhanced navigation", await readTheme(publicPage), "dark", { atBody: false });
@@ -664,6 +667,47 @@ function checkVerifiedSection(label, section, wordmarkColour) {
   const wordmark = section.visibleWordmarks[0];
   if (section.visibleWordmarks.length !== 1 || !wordmark.source.endsWith(`/images/mitid-logo-${wordmarkColour}.svg`) || wordmark.width === 0 || wordmark.alt !== "MitID") failures.push(`${label}: verified wordmark ${JSON.stringify(section.visibleWordmarks)}`);
   return failures;
+}
+
+// The legal index and the three documents, in both cultures: the chrome follows the culture, the document text stays English
+// and says so, no policy violation is reported and no WebAssembly runtime is requested
+async function runLegalPages() {
+  const failures = [];
+  const pages = {};
+  for (const locale of ["en-US", "da-DK"]) {
+    const context = await newContext();
+    await context.addCookies([{ name: "preferred-locale", value: locale, url: baseUrl, secure: true, sameSite: "Lax" }]);
+    for (const route of ["legal", "legal/terms", "legal/privacy", "legal/dpa"]) {
+      const page = await context.newPage();
+      const observations = observe(page);
+      const runtimeRequests = [];
+      page.on("request", (request) => {
+        if (runtimeRequestPattern.test(request.url())) runtimeRequests.push(request.url());
+      });
+      const response = await page.goto(`${baseUrl}${pathBase}/${route}`, { waitUntil: "load" });
+      await settle(page);
+      const document_ = await page.evaluate(() => ({
+        language: document.documentElement.lang,
+        articleLanguage: document.querySelector("article.legal-document")?.getAttribute("lang") ?? null,
+        headings: document.querySelectorAll("h1").length,
+        styleAttributes: document.querySelectorAll("[style]").length
+      }));
+      const violations = await readViolations(page);
+      const label = `${route} (${locale})`;
+      pages[label] = { status: response.status(), ...document_, runtimeRequests, violations };
+      failures.push(...cleanPageFailures(label, violations, observations));
+      if (response.status() !== 200) failures.push(`${label}: status ${response.status()}`);
+      if (document_.language !== locale) failures.push(`${label}: the document language is ${document_.language}`);
+      if (document_.headings !== 1) failures.push(`${label}: ${document_.headings} level one headings`);
+      if (document_.styleAttributes !== 0) failures.push(`${label}: ${document_.styleAttributes} style attributes`);
+      if (runtimeRequests.length > 0) failures.push(`${label}: ${runtimeRequests.length} WebAssembly runtime requests`);
+      if (route !== "legal" && document_.articleLanguage !== "en-US") failures.push(`${label}: the document text is marked ${document_.articleLanguage}`);
+      await page.close();
+    }
+    await context.close();
+  }
+
+  return outcome({ pages }, failures);
 }
 
 async function runManifest() {

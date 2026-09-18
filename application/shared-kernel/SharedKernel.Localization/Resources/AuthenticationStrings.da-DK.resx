@@ -69,12 +69,6 @@
     <data name="Home" xml:space="preserve">
         <value>Forside</value>
     </data>
-    <data name="LandingComponentText" xml:space="preserve">
-        <value>Renderet af værten med en FluentUI-komponent</value>
-    </data>
-    <data name="LandingText" xml:space="preserve">
-        <value>En serverrenderet offentlig side. Her hentes ingen WebAssembly-runtime.</value>
-    </data>
     <data name="LogInWithEmail" xml:space="preserve">
         <value>Log ind med e-mail</value>
     </data>
@@ -95,9 +89,6 @@
     </data>
     <data name="LoginVerificationCode" xml:space="preserve">
         <value>Login-bekræftelseskode</value>
-    </data>
-    <data name="OpenTheApp" xml:space="preserve">
-        <value>Åbn appen</value>
     </data>
     <data name="Or" xml:space="preserve">
         <value>eller</value>
@@ -140,9 +131,6 @@
     </data>
     <data name="TellUsAboutYourself" xml:space="preserve">
         <value>Fortæl os lidt om dig selv for at komme i gang.</value>
-    </data>
-    <data name="TermsPlaceholder" xml:space="preserve">
-        <value>Midlertidige brugsvilkår.</value>
     </data>
     <data name="UploadLogo" xml:space="preserve">
         <value>Upload logo</value>
@@ -224,5 +212,20 @@
     </data>
     <data name="VerificationStateLocked" xml:space="preserve">
         <value>For mange forsøg</value>
+    </data>
+    <data name="WelcomeToProduct" xml:space="preserve">
+        <value>Velkommen til {0}</value>
+    </data>
+    <data name="ProductInstalled" xml:space="preserve">
+        <value>Du har installeret {0} med succes! 🎉</value>
+    </data>
+    <data name="ProductDeployed" xml:space="preserve">
+        <value>Du har installeret {0} med succes! 🎉</value>
+    </data>
+    <data name="ReplaceSamplePage" xml:space="preserve">
+        <value>Erstat denne eksempelside med dine egne produktinformationer og branding.</value>
+    </data>
+    <data name="GetStarted" xml:space="preserve">
+        <value>Kom i gang</value>
     </data>
 </root>

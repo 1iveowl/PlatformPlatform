@@ -87,12 +87,6 @@
     <data name="Home" xml:space="preserve">
         <value>Home</value>
     </data>
-    <data name="LandingComponentText" xml:space="preserve">
-        <value>Rendered by the host with a FluentUI component</value>
-    </data>
-    <data name="LandingText" xml:space="preserve">
-        <value>A server-rendered public page. No WebAssembly runtime is downloaded here.</value>
-    </data>
     <data name="LogInWithEmail" xml:space="preserve">
         <value>Log in with email</value>
         <comment>React: Log in with email</comment>
@@ -118,9 +112,6 @@
     <data name="LoginVerificationCode" xml:space="preserve">
         <value>Login verification code</value>
         <comment>React: Login verification code</comment>
-    </data>
-    <data name="OpenTheApp" xml:space="preserve">
-        <value>Open the app</value>
     </data>
     <data name="Or" xml:space="preserve">
         <value>or</value>
@@ -176,9 +167,6 @@
     <data name="TellUsAboutYourself" xml:space="preserve">
         <value>Tell us a bit about yourself to get started.</value>
         <comment>React: Tell us a bit about yourself to get started.</comment>
-    </data>
-    <data name="TermsPlaceholder" xml:space="preserve">
-        <value>Placeholder terms of service.</value>
     </data>
     <data name="UploadLogo" xml:space="preserve">
         <value>Upload logo</value>
@@ -283,5 +271,25 @@
     </data>
     <data name="VerificationStateLocked" xml:space="preserve">
         <value>Too many attempts</value>
+    </data>
+    <data name="WelcomeToProduct" xml:space="preserve">
+        <value>Welcome to {0}</value>
+        <comment>React: Welcome to {0}</comment>
+    </data>
+    <data name="ProductInstalled" xml:space="preserve">
+        <value>You successfully installed {0}! 🎉</value>
+        <comment>React: You successfully installed {0}! 🎉</comment>
+    </data>
+    <data name="ProductDeployed" xml:space="preserve">
+        <value>You successfully deployed {0}! 🎉</value>
+        <comment>React: You successfully deployed {0}! 🎉</comment>
+    </data>
+    <data name="ReplaceSamplePage" xml:space="preserve">
+        <value>Replace this sample page with your own product information and branding.</value>
+        <comment>React: Replace this sample page with your own product information and branding.</comment>
+    </data>
+    <data name="GetStarted" xml:space="preserve">
+        <value>Get started</value>
+        <comment>React: Get started</comment>
     </data>
 </root>

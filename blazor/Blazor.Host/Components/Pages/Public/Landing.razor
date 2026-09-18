@@ -1,14 +1,47 @@
-@* The public landing page, static server-side rendering. The FluentUI component resolves its services from the host
-   container, which is why Blazor.Host registers AddFluentUIComponents. *@
+@* The public landing page, static server-side rendering, the React edition's landing route: the welcome heading with the
+   product name, the installed or deployed line depending on whether the page is served from localhost, the sample-page note
+   and the two calls to action. An authenticated visitor is sent to the authenticated home on the server, so the marketing
+   content never flashes and there is no "Go to app" state to render. *@
 @page "/"
-@using Microsoft.FluentUI.AspNetCore.Components
+@using Blazor.Host.Shell
+@inject HostShell Shell
+@inject NavigationManager Navigation
 
-<PageTitle>@AuthenticationStrings.Welcome</PageTitle>
+<PageTitle>@Heading</PageTitle>
 
 <PublicNav/>
 
-<h1>@AuthenticationStrings.Welcome</h1>
+<div class="landing">
+    <h1>@Heading</h1>
 
-<p data-testid="landing-text">@AuthenticationStrings.LandingText</p>
+    <p class="landing-lead">@Installation</p>
 
-<FluentLabel data-testid="fluent-label">@AuthenticationStrings.LandingComponentText</FluentLabel>
+    <p class="landing-note">@AuthenticationStrings.ReplaceSamplePage</p>
+
+    <div class="landing-actions">
+        <a class="landing-action landing-action-primary" href="@AppUrls.ToAbsolute("signup")">@AuthenticationStrings.GetStarted</a>
+        <a class="landing-action" href="@AppUrls.ToAbsolute("login")">@CommonStrings.LogIn</a>
+    </div>
+</div>
+
+<PublicFooter/>
+
+@code {
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    private string Heading => string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.WelcomeToProduct, Shell.Brand.ProductName);
+
+    private string Installation => string.Format(
+        CultureInfo.CurrentCulture,
+        AppUrls.IsLocalhost(HttpContext.Request.Host.Host) ? AuthenticationStrings.ProductInstalled : AuthenticationStrings.ProductDeployed,
+        Shell.Brand.ProductName
+    );
+
+    protected override void OnInitialized()
+    {
+        if (HttpContext.User.Identity?.IsAuthenticated == true) Navigation.NavigateTo(AppUrls.AuthenticatedHome, true);
+    }
+
+}

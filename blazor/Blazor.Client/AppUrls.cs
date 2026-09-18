@@ -23,6 +23,13 @@ public static class AppUrls
         return $"{PathBase}/{relative}";
     }
 
+    // Whether the request was served from a development machine, which the landing page's copy distinguishes the way the
+    // React edition does. The gateway serves the local stack from a subdomain of localhost
+    public static bool IsLocalhost(string? host)
+    {
+        return host is not null && (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase));
+    }
+
     public static bool IsUnderPathBase(string url)
     {
         return url == PathBase || url.StartsWith($"{PathBase}/", StringComparison.Ordinal) || url.StartsWith($"{PathBase}?", StringComparison.Ordinal);

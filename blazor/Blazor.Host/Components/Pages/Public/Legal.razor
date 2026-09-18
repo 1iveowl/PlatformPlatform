@@ -1,0 +1,93 @@
+@* The legal and compliance index, static server-side rendering, the React edition's legal route: the three documents, the
+   Azure infrastructure section and the Microsoft compliance resources. The outbound resource links open in a new tab and
+   name that in their accessible name, as the React edition's do. The React edition's badges, icons and the credit line are
+   left out, recorded as a divergence. *@
+@page "/legal"
+
+<PageTitle>@LegalStrings.LegalAndCompliance</PageTitle>
+
+<PublicNav/>
+
+<section class="legal-section">
+    <h1>@LegalStrings.LegalAndCompliance</h1>
+
+    <p class="legal-section-intro">@LegalStrings.LegalAndComplianceIntro</p>
+
+    <div class="legal-cards">
+        <a class="legal-card" href="@AppUrls.ToAbsolute("legal/terms")">
+            <h3>@LegalStrings.TermsOfService</h3>
+            <p>@LegalStrings.TermsOfServiceDescription</p>
+        </a>
+        <a class="legal-card" href="@AppUrls.ToAbsolute("legal/privacy")">
+            <h3>@LegalStrings.PrivacyPolicy</h3>
+            <p>@LegalStrings.PrivacyPolicyDescription</p>
+        </a>
+        <a class="legal-card" href="@AppUrls.ToAbsolute("legal/dpa")">
+            <h3>@LegalStrings.DataProcessingAgreement</h3>
+            <p>@LegalStrings.DataProcessingAgreementDescription</p>
+        </a>
+    </div>
+</section>
+
+<section class="legal-section legal-section-accent">
+    <h2>@LegalStrings.AzureInfrastructure</h2>
+
+    <p class="legal-section-intro">@LegalStrings.AzureInfrastructureIntro</p>
+
+    <ul class="legal-badges">
+        <li>@LegalStrings.GdprCompliant</li>
+        <li>@LegalStrings.MicrosoftAzure</li>
+    </ul>
+
+    <div class="legal-cards">
+        @foreach (var feature in _infrastructureFeatures)
+        {
+            <div class="legal-card">
+                <h3>@feature.Title</h3>
+                <p>@feature.Description</p>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="legal-section">
+    <h2>@LegalStrings.ComplianceResources</h2>
+
+    <p class="legal-section-intro">@LegalStrings.ComplianceResourcesIntro</p>
+
+    <div class="legal-cards">
+        @foreach (var resource in _complianceResources)
+        {
+            <a class="legal-card" href="@resource.Url" target="_blank" rel="noopener noreferrer"
+               aria-label="@string.Format(CultureInfo.CurrentCulture, LegalStrings.OpensInNewWindow, resource.Title)">
+                <h3>@resource.Title</h3>
+                <p>@resource.Description</p>
+            </a>
+        }
+    </div>
+</section>
+
+<PublicFooter/>
+
+@code {
+
+    private readonly (string Title, string Description)[] _infrastructureFeatures =
+    [
+        (LegalStrings.ManagedInfrastructure, LegalStrings.ManagedInfrastructureDescription),
+        (LegalStrings.ManagedIdentities, LegalStrings.ManagedIdentitiesDescription),
+        (LegalStrings.EnvironmentIsolation, LegalStrings.EnvironmentIsolationDescription),
+        (LegalStrings.PasswordlessDeployments, LegalStrings.PasswordlessDeploymentsDescription),
+        (LegalStrings.DataResidency, LegalStrings.DataResidencyDescription),
+        (LegalStrings.SecurityScore, LegalStrings.SecurityScoreDescription)
+    ];
+
+    private readonly (string Title, string Description, string Url)[] _complianceResources =
+    [
+        (LegalStrings.TrustCenter, LegalStrings.TrustCenterDescription, "https://www.microsoft.com/en-us/trust-center"),
+        (LegalStrings.AzureCompliance, LegalStrings.AzureComplianceDescription, "https://learn.microsoft.com/en-us/azure/compliance/"),
+        (LegalStrings.SocAndIsoReports, LegalStrings.SocAndIsoReportsDescription, "https://servicetrust.microsoft.com/"),
+        (LegalStrings.MicrosoftDpa, LegalStrings.MicrosoftDpaDescription,
+            "https://www.microsoft.com/licensing/docs/view/Microsoft-Products-and-Services-Data-Protection-Addendum-DPA")
+    ];
+
+}

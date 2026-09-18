@@ -45,6 +45,8 @@ public static class HostApplication
         builder.Services.AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer());
 
         builder.Services.AddSingleton<HostShell>();
+        // Reads and renders the three legal documents once, so a document outside the renderer's policy stops the host here
+        builder.Services.AddSingleton<LegalDocuments>();
         builder.Services.AddHttpContextAccessor();
 
         // Prerendering an interactive component reads the bootstrap contract through the host's adapter; the components'

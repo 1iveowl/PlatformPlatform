@@ -43,7 +43,8 @@ const cultures = {
     logOut: "Log out",
     preferencesHeading: "User preferences",
     pagePattern: /^Page 1 of \d+$/,
-    nextPage: "Next page"
+    nextPage: "Next page",
+    signUp: "Sign up"
   },
   "da-DK": {
     loginHeading: "Hej! Velkommen tilbage",
@@ -54,7 +55,8 @@ const cultures = {
     logOut: "Log ud",
     preferencesHeading: "Brugerpræferencer",
     pagePattern: /^Side 1 af \d+$/,
-    nextPage: "Næste side"
+    nextPage: "Næste side",
+    signUp: "Tilmeld dig"
   }
 };
 
@@ -244,7 +246,7 @@ await check("public language menu writes the preferred-locale cookie and renders
 
     await page.reload({ waitUntil: "load" });
     await assertCleanPage(page, observations, "da-DK");
-    await page.locator(testId("nav-signup")).click();
+    await page.getByRole("link", { name: cultures["da-DK"].signUp, exact: true }).click();
     await page.waitForURL(/\/blazor\/signup$/);
     await assertCleanPage(page, observations, "da-DK");
 
@@ -276,7 +278,7 @@ await check("malformed preferred-locale cookie, unknown stored preferences and a
     await page.reload({ waitUntil: "load" });
     const blocked = await page.evaluate(() => ({ theme: document.documentElement.dataset.themeMode, zoom: document.documentElement.getAttribute("data-zoom-level") }));
     assertEqual(blocked, { theme: "system", zoom: null }, "Blocked storage");
-    await page.locator(testId("nav-signup")).click();
+    await page.getByRole("link", { name: cultures["da-DK"].signUp, exact: true }).click();
     await page.waitForURL(/\/blazor\/signup$/);
     assertEqual((await page.locator("h1").count()) > 0, true, "Signup page rendered");
     await assertCleanPage(page, observations, "da-DK");

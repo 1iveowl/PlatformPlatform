@@ -374,4 +374,64 @@
     <data name="AuthenticationSharedAcrossTabs" xml:space="preserve">
         <value>Authentication is shared across all tabs.</value>
     </data>
+    <data name="Compliance" xml:space="preserve">
+        <value>Compliance</value>
+        <comment>React: Compliance</comment>
+    </data>
+    <data name="Privacy" xml:space="preserve">
+        <value>Privacy</value>
+        <comment>React: Privacy</comment>
+    </data>
+    <data name="Dpa" xml:space="preserve">
+        <value>DPA</value>
+        <comment>React: DPA</comment>
+    </data>
+    <data name="AllRightsReserved" xml:space="preserve">
+        <value>© {0} {1} - All rights reserved</value>
+        <comment>React: © {0} {1} - All rights reserved</comment>
+    </data>
+    <data name="GreetingNight" xml:space="preserve">
+        <value>Burning the midnight oil?</value>
+        <comment>React: Burning the midnight oil?</comment>
+    </data>
+    <data name="GreetingNightNamed" xml:space="preserve">
+        <value>Burning the midnight oil, {0}?</value>
+        <comment>React: Burning the midnight oil, {0}?</comment>
+    </data>
+    <data name="GreetingMorning" xml:space="preserve">
+        <value>Good morning</value>
+        <comment>React: Good morning</comment>
+    </data>
+    <data name="GreetingMorningNamed" xml:space="preserve">
+        <value>Good morning, {0}</value>
+        <comment>React: Good morning, {0}</comment>
+    </data>
+    <data name="GreetingAfternoon" xml:space="preserve">
+        <value>Good afternoon</value>
+        <comment>React: Good afternoon</comment>
+    </data>
+    <data name="GreetingAfternoonNamed" xml:space="preserve">
+        <value>Good afternoon, {0}</value>
+        <comment>React: Good afternoon, {0}</comment>
+    </data>
+    <data name="GreetingEvening" xml:space="preserve">
+        <value>Good evening</value>
+        <comment>React: Good evening</comment>
+    </data>
+    <data name="GreetingEveningNamed" xml:space="preserve">
+        <value>Good evening, {0}</value>
+        <comment>React: Good evening, {0}</comment>
+    </data>
+    <data name="HereIsYourOverview" xml:space="preserve">
+        <value>Here's your overview of what's happening.</value>
+        <comment>React: Here's your overview of what's happening.</comment>
+    </data>
+    <data name="DashboardEmpty" xml:space="preserve">
+        <value>Your dashboard is empty</value>
+        <comment>React: Your dashboard is empty</comment>
+    </data>
+    <data name="DashboardEmptyDescription" xml:space="preserve">
+        <value>This is where your personalized dashboard content will appear. Stay tuned for updates.</value>
+        <comment>React: This is where your personalized dashboard content will appear. Stay tuned for updates.</comment>
+    </data>
 </root>

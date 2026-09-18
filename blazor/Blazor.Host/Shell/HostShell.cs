@@ -25,8 +25,19 @@ public sealed record BrandTokens(
     string PrimaryColorDark,
     string PrimaryColorDarkForeground,
     // The address the delete-account notice tells a signed-in user to write to; empty when the brand names none
-    string SupportEmail
-);
+    string SupportEmail,
+    // The address the public footer offers to write to; empty when the brand names none
+    string ContactEmail,
+    // The one-line product description the public footer shows, by culture, from the brand's web tagline map
+    IReadOnlyDictionary<string, string> WebTaglines
+)
+{
+    // The tagline of the culture the page renders in, the en-US one when the brand names no tagline for it, or empty
+    public string GetTagline(string locale)
+    {
+        return WebTaglines.GetValueOrDefault(locale) ?? WebTaglines.GetValueOrDefault(SupportedCultures.DefaultLocale) ?? "";
+    }
+}
 
 public sealed record PreloadLink(
     string Href,
@@ -311,7 +322,9 @@ public sealed class HostShell
             primaryColor.GetProperty("lightForeground").GetString()!,
             primaryColor.GetProperty("dark").GetString()!,
             primaryColor.GetProperty("darkForeground").GetString()!,
-            branding.GetProperty("supportEmail").GetString() ?? ""
+            branding.GetProperty("supportEmail").GetString() ?? "",
+            branding.GetProperty("contactEmail").GetString() ?? "",
+            branding.GetProperty("tagline").GetProperty("web").EnumerateObject().ToDictionary(tagline => tagline.Name, tagline => tagline.Value.GetString() ?? "")
         );
     }
 

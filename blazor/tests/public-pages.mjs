@@ -1,4 +1,4 @@
-// Measures the six static server-rendered public pages on the trimmed Release publish through the gateway, and checks them
+// Measures the nine static server-rendered public pages on the trimmed Release publish through the gateway, and checks them
 // against the public-page budget.
 //
 // Prerequisites are the same as for trimmed-smoke.mjs: the stack started with start-stack --without-blazor-host,
@@ -19,6 +19,9 @@
 // responses), Brotli bytes on disk of the static files fetched with a 200, uncompressed bytes (decoded bodies of every 200
 // response the page used, from the network or the cache), cached responses, WebAssembly runtime requests (must be zero),
 // first contentful paint and the load event, both in milliseconds from navigation start.
+//
+// Two budgets: the public-page budget for the landing, login, signup and verification pages and the legal index, and a higher
+// one for the three legal documents, whose payload is the legal text itself. Both are frozen from medians; see the constants.
 //
 // Verdict: a case per profile and page (status 200 in Production on every sample, landed on the page itself rather than a
 // redirect, no WebAssembly runtime request and no page error on either load, at least one static asset served from this
@@ -60,6 +63,19 @@ import {
 // variance, since the emulated latency dominates the paint time on this profile.
 const publicPageBudget = { transferBytes: 200_000, firstContentfulPaintMs: 300 };
 
+// The legal documents carry their own budget, because the page is the legal text: the rendered document alone is 28,338
+// (terms), 30,902 (privacy) and 33,742 (dpa) transfer bytes, which is 10 to 16 KB more than any other public page's document
+// and does not fit the number above. The threshold of the six pages the budget above was frozen on is unchanged (owner
+// decision 2026-09-18, which also asked for the shared public-page payload to be cut in its own task).
+// Baseline on the publish of f57db76da, 2026-09-18, under the same conditions as the budget above: terms 207,246 bytes,
+// privacy 209,710 and dpa 212,600, each varying by under 100 bytes between samples, and the slowest first contentful paint
+// median was 260 ms (privacy). 215,000 bytes leaves about 2.4 KB for the documents to grow, and 300 ms covers the 248 to
+// 268 ms sample range plus runner variance. A regression is fixed or the budget is re-decided in review; never raise these
+// numbers to make a run pass.
+const legalDocumentBudget = { transferBytes: 215_000, firstContentfulPaintMs: 300 };
+const legalDocumentPages = new Set(["terms", "privacy", "dpa"]);
+const budgetOf = (pageName) => (legalDocumentPages.has(pageName) ? legalDocumentBudget : publicPageBudget);
+
 const numericFields = ["requestCount", "cachedCount", "transferBytes", "bodyBytes", "brotliDiskBytes", "uncompressedBytes", "firstContentfulPaintMs", "loadMs", "lastRequestStartAfterLoadMs", "violations"];
 
 const throttledProfile = { latency: 60, downloadKilobitsPerSecond: 9_000, uploadKilobitsPerSecond: 1_500 };
@@ -93,7 +109,7 @@ const result = {
 };
 const failures = [];
 const cases = [];
-const pageNames = ["landing", "login", "login-verify", "signup", "signup-verify", "terms"];
+const pageNames = ["landing", "login", "login-verify", "signup", "signup-verify", "legal", "terms", "privacy", "dpa"];
 const availableProfileCount = profiles.filter((profile) => profile.available).length;
 const expectedCaseCount = availableProfileCount * (pageNames.length + 1) + (checkBudgetRequested ? pageNames.length * 2 : 0);
 
@@ -107,7 +123,10 @@ try {
     { name: "login-verify", url: loginVerifyUrl },
     { name: "signup", url: `${baseUrl}${pathBase}/signup` },
     { name: "signup-verify", url: signupVerifyUrl },
-    { name: "terms", url: `${baseUrl}${pathBase}/legal/terms` }
+    { name: "legal", url: `${baseUrl}${pathBase}/legal` },
+    { name: "terms", url: `${baseUrl}${pathBase}/legal/terms` },
+    { name: "privacy", url: `${baseUrl}${pathBase}/legal/privacy` },
+    { name: "dpa", url: `${baseUrl}${pathBase}/legal/dpa` }
   ];
 
   for (const profile of profiles) {
@@ -331,8 +350,8 @@ async function measureEnhancedNavigation(profileName) {
   });
   const log = recordRequests(page);
   const startedAt = Date.now();
-  await page.locator('[data-testid="nav-terms"]').click();
-  await page.locator('[data-testid="terms-text"]').waitFor();
+  await page.getByRole("link", { name: "Terms", exact: true }).click();
+  await page.getByRole("heading", { name: "Terms of Service" }).waitFor();
   const navigationMs = Date.now() - startedAt;
   await page.waitForTimeout(observeMs);
   const timeline = await readTimeline(page);
@@ -415,22 +434,23 @@ function checkBudget() {
     failures.push("the budget is defined on Chromium with the throttled profile; run with --browser chromium and --profile throttled or all");
     return;
   }
-  result.budget = { ...publicPageBudget, basis: "median of the cold loads, Chromium, throttled profile", pages: {} };
+  result.budget = { ...publicPageBudget, legalDocuments: legalDocumentBudget, basis: "median of the cold loads, Chromium, throttled profile", pages: {} };
   for (const pageName of pageNames) {
+    const budget = budgetOf(pageName);
     const summary = throttled.pages[pageName];
     const transferBytes = summary?.cold.transferBytes?.median ?? null;
     const firstContentfulPaintMs = summary?.cold.firstContentfulPaintMs?.median ?? null;
-    result.budget.pages[pageName] = { transferBytes, firstContentfulPaintMs };
+    result.budget.pages[pageName] = { transferBytes, firstContentfulPaintMs, transferBytesBudget: budget.transferBytes, firstContentfulPaintMsBudget: budget.firstContentfulPaintMs };
     recordCase(
       `budget transfer ${pageName}`,
-      transferBytes === null ? ["no transfer measurement"] : transferBytes > publicPageBudget.transferBytes ? [`median ${transferBytes} > ${publicPageBudget.transferBytes} bytes`] : []
+      transferBytes === null ? ["no transfer measurement"] : transferBytes > budget.transferBytes ? [`median ${transferBytes} > ${budget.transferBytes} bytes`] : []
     );
     recordCase(
       `budget first contentful paint ${pageName}`,
       firstContentfulPaintMs === null
         ? ["no first contentful paint measurement"]
-        : firstContentfulPaintMs > publicPageBudget.firstContentfulPaintMs
-          ? [`median ${firstContentfulPaintMs} > ${publicPageBudget.firstContentfulPaintMs} ms`]
+        : firstContentfulPaintMs > budget.firstContentfulPaintMs
+          ? [`median ${firstContentfulPaintMs} > ${budget.firstContentfulPaintMs} ms`]
           : []
     );
   }
@@ -446,7 +466,10 @@ function writeJobSummary(verdict) {
     ""
   ];
   if (result.budget) {
-    lines.push(`Budget: ${publicPageBudget.transferBytes} transfer bytes and ${publicPageBudget.firstContentfulPaintMs} ms first contentful paint, ${result.budget.basis}.`, "");
+    lines.push(
+      `Budget: ${publicPageBudget.transferBytes} transfer bytes and ${publicPageBudget.firstContentfulPaintMs} ms first contentful paint, ${legalDocumentBudget.transferBytes} bytes and ${legalDocumentBudget.firstContentfulPaintMs} ms for the legal documents, ${result.budget.basis}.`,
+      ""
+    );
   }
   lines.push("| Profile | Page | Cold transfer | Cold FCP | Warm transfer | Runtime requests |", "| --- | --- | --- | --- | --- | --- |");
   for (const [profileName, profile] of Object.entries(result.profiles)) {

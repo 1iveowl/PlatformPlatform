@@ -1,13 +1,17 @@
 @using Blazor.Client.Shell
-@* Navigation for the static server-rendered public surface. Links inside the public surface use enhanced navigation; the
-   link into the authenticated surface opts out, so crossing the authentication boundary is a full document load. The theme
-   and language menus are static; the host's theme.js drives them. *@
+@using Blazor.Host.Shell
+@inject HostShell Shell
+@* The navigation of the static server-rendered public surface, the React edition's PublicNavigation: the brand back to the
+   landing page, the language and theme controls, and the calls to log in and sign up. Links inside the public surface use
+   enhanced navigation. The theme and language menus are static; the host's theme.js drives them. The legal links sit in the
+   footer, where the React edition keeps them. No test id on an element that has an accessible name; the one on the nav marks
+   the public chrome for the pages that assert it without naming a landmark. *@
 <nav class="public-nav" data-testid="public-nav">
-    <a href="@AppUrls.ToAbsolute("")" data-testid="nav-landing">@AuthenticationStrings.Home</a> |
-    <a href="@AppUrls.ToAbsolute("login")" data-testid="nav-login">@CommonStrings.LogIn</a> |
-    <a href="@AppUrls.ToAbsolute("signup")" data-testid="nav-signup">@CommonStrings.SignUp</a> |
-    <a href="@AppUrls.ToAbsolute("legal/terms")" data-testid="nav-terms">@CommonStrings.Terms</a> |
-    <a href="@AppUrls.AuthenticatedHome" data-enhance-nav="false" data-testid="nav-app">@AuthenticationStrings.OpenTheApp</a>
-    <LanguageMenu/>
-    <ThemeMenu/>
+    <a class="public-nav-brand" href="@AppUrls.ToAbsolute("")">@Shell.Brand.ProductName</a>
+    <div class="public-nav-controls">
+        <LanguageMenu/>
+        <ThemeMenu/>
+        <a class="public-nav-action" href="@AppUrls.ToAbsolute("login")">@CommonStrings.LogIn</a>
+        <a class="public-nav-action public-nav-action-primary" href="@AppUrls.ToAbsolute("signup")">@CommonStrings.SignUp</a>
+    </div>
 </nav>

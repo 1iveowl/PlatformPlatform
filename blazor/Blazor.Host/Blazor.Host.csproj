@@ -20,6 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Markdig" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
     </ItemGroup>
@@ -27,6 +28,13 @@
     <ItemGroup>
         <!-- The same brand source file the React shell reads through SharedKernel's Settings.Current -->
         <EmbeddedResource Include="..\..\application\platform-settings.jsonc" LogicalName="platform-settings.jsonc" />
+        <!-- The three published legal documents the React edition ships, linked rather than copied so both editions render the
+             same text. The two internal documents in that folder are deliberately left out: only these three are embedded,
+             and LegalDocuments serves nothing else. WithCulture="false" keeps them in this assembly: the file names carry a
+             culture, which would otherwise send each document to an en-US satellite assembly -->
+        <EmbeddedResource Include="..\..\application\account\WebApp\routes\legal\terms.en-US.md" LogicalName="legal/terms.en-US.md" WithCulture="false" />
+        <EmbeddedResource Include="..\..\application\account\WebApp\routes\legal\privacy.en-US.md" LogicalName="legal/privacy.en-US.md" WithCulture="false" />
+        <EmbeddedResource Include="..\..\application\account\WebApp\routes\legal\dpa.en-US.md" LogicalName="legal/dpa.en-US.md" WithCulture="false" />
     </ItemGroup>
 
 </Project>

@@ -7,6 +7,9 @@
     <ItemGroup>
         <!-- Do not upgrade FluentAssertions to version 8 or higher, as this requires a license for commercial projects -->
         <PackageVersion Include="FluentAssertions" Version="7.2.2" />
+        <!-- The Markdown parser behind the legal document pages, used by the host only: the portable projects stay free of it.
+             The pipeline is restricted in Blazor.Host/Shell/MarkdownRenderer.cs, with HTML parsing disabled -->
+        <PackageVersion Include="Markdig" Version="1.3.2" />
         <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0-rc.1.26425.128" />
         <PackageVersion Include="Microsoft.AspNetCore.Components.QuickGrid" Version="11.0.0-rc.1.26425.128" />
         <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="11.0.0-rc.1.26425.128" />

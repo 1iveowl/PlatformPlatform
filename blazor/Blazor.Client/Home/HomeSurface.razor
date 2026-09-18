@@ -1,0 +1,37 @@
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Session
+@* The authenticated home page's interactive WebAssembly surface, the React edition's dashboard route: the time-based greeting
+   with the user's first name, the overview line and the empty state, inside the shell. The greeting is decided by
+   HomeGreeting from the local hour, so a prerendered document greets by the server's hour and the started runtime by the
+   browser's. *@
+@inject SessionState Session
+@inject IServiceProvider Services
+
+<AppShell>
+    <h1>@AccountStrings.YourWorkspace</h1>
+
+    <p class="home-greeting">@HomeGreeting.GetText(DateTime.Now.Hour, Session.Current?.User?.FirstName)</p>
+
+    <p class="home-overview">@CommonStrings.HereIsYourOverview</p>
+
+    <section class="home-empty">
+        <h2>@CommonStrings.DashboardEmpty</h2>
+
+        <p>@CommonStrings.DashboardEmptyDescription</p>
+    </section>
+
+    <SurfaceDiagnostics/>
+</AppShell>
+
+@code {
+
+    protected override async Task OnInitializedAsync()
+    {
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive) return;
+
+        // Resolved lazily: the navigator is only used interactively, so prerendering never constructs it
+        if (!bootstrap.IsAuthenticated) Services.GetRequiredService<AuthenticationNavigator>().LeaveForLogin();
+    }
+
+}

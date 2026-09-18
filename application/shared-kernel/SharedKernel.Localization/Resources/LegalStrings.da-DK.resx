@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="LegalAndCompliance" xml:space="preserve">
+        <value>Juridisk og compliance</value>
+    </data>
+    <data name="LegalAndComplianceIntro" xml:space="preserve">
+        <value>Gennemsigtighed, sikkerhed og privatliv er kernen i hvordan vi opererer. Gennemgå vores politikker og lær hvordan vi beskytter dine data.</value>
+    </data>
+    <data name="TermsOfService" xml:space="preserve">
+        <value>Servicevilkår</value>
+    </data>
+    <data name="TermsOfServiceDescription" xml:space="preserve">
+        <value>Aftalen der styrer din brug af vores service, inklusive acceptabel brug og ansvar.</value>
+    </data>
+    <data name="PrivacyPolicy" xml:space="preserve">
+        <value>Privatlivspolitik</value>
+    </data>
+    <data name="PrivacyPolicyDescription" xml:space="preserve">
+        <value>Hvordan vi indsamler, bruger og beskytter dine personlige data i overensstemmelse med GDPR.</value>
+    </data>
+    <data name="DataProcessingAgreement" xml:space="preserve">
+        <value>Databehandleraftale</value>
+    </data>
+    <data name="DataProcessingAgreementDescription" xml:space="preserve">
+        <value>GDPR Artikel 28-kompatibel aftale for behandling af data på dine vegne.</value>
+    </data>
+    <data name="AzureInfrastructure" xml:space="preserve">
+        <value>Azure-infrastruktur i virksomhedsklasse</value>
+    </data>
+    <data name="AzureInfrastructureIntro" xml:space="preserve">
+        <value>Microsoft Azure Platform-as-a-Service (PaaS) med pålidelighed i virksomhedsklasse.</value>
+    </data>
+    <data name="GdprCompliant" xml:space="preserve">
+        <value>GDPR-kompatibel</value>
+    </data>
+    <data name="MicrosoftAzure" xml:space="preserve">
+        <value>Microsoft Azure</value>
+    </data>
+    <data name="ManagedInfrastructure" xml:space="preserve">
+        <value>Fuldt administreret infrastruktur</value>
+    </data>
+    <data name="ManagedInfrastructureDescription" xml:space="preserve">
+        <value>Microsoft opdaterer og sikrer automatisk al PaaS-infrastruktur</value>
+    </data>
+    <data name="ManagedIdentities" xml:space="preserve">
+        <value>Administrerede identiteter</value>
+    </data>
+    <data name="ManagedIdentitiesDescription" xml:space="preserve">
+        <value>Kun betroet personale får adgang til data gennem Azure AD autentificering</value>
+    </data>
+    <data name="EnvironmentIsolation" xml:space="preserve">
+        <value>Miljøisolering</value>
+    </data>
+    <data name="EnvironmentIsolationDescription" xml:space="preserve">
+        <value>Streng adskillelse forhindrer produktionsdata i at lække til andre miljøer</value>
+    </data>
+    <data name="PasswordlessDeployments" xml:space="preserve">
+        <value>Adgangskodeløse implementeringer</value>
+    </data>
+    <data name="PasswordlessDeploymentsDescription" xml:space="preserve">
+        <value>GitHub deployer direkte til Azure uden adgangskoder eller API-nøgler</value>
+    </data>
+    <data name="DataResidency" xml:space="preserve">
+        <value>Dataopbevaring</value>
+    </data>
+    <data name="DataResidencyDescription" xml:space="preserve">
+        <value>Dine data forbliver i den Azure-region, du vælger ved tilmelding</value>
+    </data>
+    <data name="SecurityScore" xml:space="preserve">
+        <value>100% sikkerhedsscore</value>
+    </data>
+    <data name="SecurityScoreDescription" xml:space="preserve">
+        <value>Opnået i Microsoft Defender for Cloud ved at følge Azures bedste praksis</value>
+    </data>
+    <data name="ComplianceResources" xml:space="preserve">
+        <value>Microsofts compliance-ressourcer</value>
+    </data>
+    <data name="ComplianceResourcesIntro" xml:space="preserve">
+        <value>For detaljerede certificeringer og revisionsrapporter, besøg Microsofts officielle ressourcer.</value>
+    </data>
+    <data name="TrustCenter" xml:space="preserve">
+        <value>Tillidscenter</value>
+    </data>
+    <data name="TrustCenterDescription" xml:space="preserve">
+        <value>Sikkerheds-, privatlivs- og compliance-oplysninger</value>
+    </data>
+    <data name="AzureCompliance" xml:space="preserve">
+        <value>Azure Compliance</value>
+    </data>
+    <data name="AzureComplianceDescription" xml:space="preserve">
+        <value>Lovgivningsmæssige standarder og certificeringer</value>
+    </data>
+    <data name="SocAndIsoReports" xml:space="preserve">
+        <value>SOC og ISO rapporter</value>
+    </data>
+    <data name="SocAndIsoReportsDescription" xml:space="preserve">
+        <value>Revisionsrapporter og vurderinger</value>
+    </data>
+    <data name="MicrosoftDpa" xml:space="preserve">
+        <value>Microsoft DPA</value>
+    </data>
+    <data name="MicrosoftDpaDescription" xml:space="preserve">
+        <value>Databeskyttelsestillæg</value>
+    </data>
+    <data name="OpensInNewWindow" xml:space="preserve">
+        <value>{0} (åbner i nyt vindue)</value>
+    </data>
+</root>

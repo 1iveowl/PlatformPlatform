@@ -1,0 +1,32 @@
+@* The three legal documents, static server-side rendering. Each route is declared literally, so no request value reaches the
+   document allowlist that is not one of the three keys and anything else is the not-found page. The document text is
+   published in en-US only and says so with its own lang attribute, inside chrome of the page's culture. The HTML comes from
+   LegalDocuments, which rendered it when the host started under the renderer's policy. *@
+@page "/legal/terms"
+@page "/legal/privacy"
+@page "/legal/dpa"
+@using Blazor.Host.Shell
+@inject LegalDocuments Documents
+@inject NavigationManager Navigation
+
+<PageTitle>@LegalDocuments.GetTitle(_key)</PageTitle>
+
+<PublicNav/>
+
+<article class="legal-document" lang="@LegalDocuments.DocumentLanguage">@_html</article>
+
+<PublicFooter/>
+
+@code {
+
+    private MarkupString _html;
+    private string _key = LegalDocuments.TermsKey;
+
+    protected override void OnInitialized()
+    {
+        _key = LegalDocuments.GetKey(Navigation.ToBaseRelativePath(Navigation.Uri))
+               ?? throw new InvalidOperationException($"No legal document is routed to '{Navigation.Uri}'.");
+        _html = new MarkupString(Documents.GetHtml(_key)!);
+    }
+
+}
