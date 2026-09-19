@@ -30,6 +30,9 @@
     <data name="AntiforgeryRecovery" xml:space="preserve">
         <value>This page has expired. Reload the page and try again.</value>
     </data>
+    <data name="ApplicationUpdated" xml:space="preserve">
+        <value>A new version of the application is available. Reload the page to continue.</value>
+    </data>
     <data name="Cancel" xml:space="preserve">
         <value>Cancel</value>
         <comment>React: Cancel</comment>

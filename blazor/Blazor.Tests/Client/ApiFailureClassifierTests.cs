@@ -1,4 +1,5 @@
 using Account.Client;
+using Blazor.Client.Bootstrap;
 using Blazor.Client.Forms;
 using FluentAssertions;
 using SharedKernel.Localization;
@@ -127,5 +128,34 @@ public sealed class ApiFailureClassifierTests
 
         // Assert
         classify.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Classify_WhenTheWriteGateRefusedTheCall_ShouldBeAVersionFailure()
+    {
+        // Arrange
+        var problem = new ApiCallProblem((int)StaleClientRequestHandler.RefusalStatusCode, StaleClientRequestHandler.RefusalTitle, null, NoErrors, null);
+
+        // Act
+        var failure = ApiFailureClassifier.Classify(ApiCallOutcome.Failure, problem);
+
+        // Assert
+        failure.Should().Be(new ApiFailure(ApiFailureKind.Version, CommonStrings.ApplicationUpdated));
+    }
+
+    [Theory]
+    // The account API's own precondition failures and its 404 mean what they say; only the gate's refusal asks for a reload
+    [InlineData(412, "The tenant was changed by someone else")]
+    [InlineData(404, "Not Found")]
+    public void Classify_WhenTheApiFailedForAnotherReason_ShouldNotBeAVersionFailure(int statusCode, string title)
+    {
+        // Arrange
+        var problem = new ApiCallProblem(statusCode, title, null, NoErrors, null);
+
+        // Act
+        var failure = ApiFailureClassifier.Classify(ApiCallOutcome.Failure, problem);
+
+        // Assert
+        failure.Should().Be(new ApiFailure(ApiFailureKind.Message, title));
     }
 }

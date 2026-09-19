@@ -1,15 +1,19 @@
 // The WebAssembly client reads identity, runtime configuration and system-scope feature flags from the account API's
 // bootstrap endpoint through the gateway, never from values injected into the host page. A read only returns the
-// response; the antiforgery token and the feature flag state of this user scope change when SessionState applies the
-// bootstrap it accepted.
+// response; the antiforgery token, the feature flag state and the version window of this user scope change when
+// SessionState applies the bootstrap it accepted.
 
 using Account.Client;
 using Account.Features.Authentication.Queries;
 
 namespace Blazor.Client.Bootstrap;
 
-public sealed class HttpBootstrapSource(AuthenticationClient authenticationClient, FeatureFlagState featureFlagState, BootstrapAntiforgeryTokenSource antiforgeryTokenSource)
-    : IBootstrapSource
+public sealed class HttpBootstrapSource(
+    AuthenticationClient authenticationClient,
+    FeatureFlagState featureFlagState,
+    BootstrapAntiforgeryTokenSource antiforgeryTokenSource,
+    ClientVersionState versionState
+) : IBootstrapSource
 {
     private static readonly BootstrapResponse Unauthenticated = new(false, null, "en-US", new Dictionary<string, string>(), new Dictionary<string, bool>(), string.Empty);
 
@@ -31,6 +35,10 @@ public sealed class HttpBootstrapSource(AuthenticationClient authenticationClien
 
     public Action Apply(BootstrapResponse? bootstrap)
     {
+        // The supported version window is read from the same accepted bootstrap as the identity, so the server version this
+        // client compares itself with always comes from the authenticated channel
+        versionState.Apply(bootstrap);
+
         if (bootstrap is null)
         {
             antiforgeryTokenSource.Clear();

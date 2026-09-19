@@ -7,15 +7,15 @@ description: Publish the Blazor host as a trimmed Release build, serve it in Pro
 
 ```bash
 dotnet run --project developer-cli -- start-stack --without-blazor-host [--fresh-database] [--timeout <seconds>]
-dotnet run --project developer-cli -- blazor-publish [--quiet]
-dotnet run --project developer-cli -- blazor-serve
+dotnet run --project developer-cli -- blazor-publish [--quiet] [--folder <name>] [--version <version>]
+dotnet run --project developer-cli -- blazor-serve [--folder <name>]
 dotnet run --project developer-cli -- blazor-harness <script> [--browser chromium|firefox|webkit|all] [script options]
 ```
 
 Use `developer-cli` exactly as written - do not expand to an absolute worktree path.
 
-- `blazor-publish` - publishes `blazor/Blazor.Host` from `blazor/` (its own SDK) in Release with `MetricsSupport=false`, `MetadataUpdaterSupport=false` and `WasmEnableHotReload=false`; trimming and Brotli are the SDK publish defaults. The output replaces `.workspace/blazor-publish/`.
-- `blazor-serve` - runs that publish with `ASPNETCORE_ENVIRONMENT=Production` on the Blazor host port (base port + 17), with the account API URL and the public and CDN URLs the AppHost would set. The `PUBLIC_*_ENABLED` feature variables are left unset. It keeps running until stopped, so start it in the background.
+- `blazor-publish` - publishes `blazor/Blazor.Host` from `blazor/` (its own SDK) in Release with `MetricsSupport=false`, `MetadataUpdaterSupport=false` and `WasmEnableHotReload=false`; trimming and Brotli are the SDK publish defaults. The output replaces `.workspace/blazor-publish/`. `--folder <name>` keeps the publish beside the default one as `.workspace/blazor-publish-<name>`, and `--version <version>` sets the assembly version the client compares with the server's; the release rehearsal needs both.
+- `blazor-serve` - runs that publish, or the one named by `--folder <name>`, with `ASPNETCORE_ENVIRONMENT=Production` on the Blazor host port (base port + 17), with the account API URL and the public and CDN URLs the AppHost would set. The `PUBLIC_*_ENABLED` feature variables are left unset. It keeps running until stopped, so start it in the background.
 - `blazor-harness <script>` - runs `node blazor/tests/<script>.mjs` one browser at a time; `all` runs the three browsers in turn and fails if any fails. Options it does not know are passed to the script.
 
 ## Order
@@ -36,5 +36,6 @@ The `published-security` job in `.github/workflows/blazor.yml` runs the same ord
 - `public-pages` - measures the nine public pages (the landing page, login, signup, the two verification pages, the legal index and the three legal documents): `--profile unthrottled|throttled|all`, `--samples 7`, `--observe-ms 3000`, `--label <name>`, `--check-budget` (Chromium with the throttled profile only). A case per profile and page fails on a status other than 200, a host not in Production, a landing on any other URL (a redirect never passes), a WebAssembly runtime request or a page error; a case per profile covers the enhanced navigation to terms; the budget adds a transfer and a first contentful paint case per page, against the public-page budget for six of them and the higher legal-document budget for the three documents. The result records the commit, the publish identity (client assembly fingerprint, endpoint manifest hash) and the runner.
 - `interactive-load` - cold and warm time to interactive of the authenticated WebAssembly page with the cache outcome of every runtime resource: `--samples 7`, `--label <name>`, `--firefox-preferences <name=value,...>`. Fails only when a load never becomes interactive, lands elsewhere or raises a page error, never on a time.
 - `shell-policy` - the content security policy cases; `--environment production` for the Production check.
+- `release-rehearsal` - the release-and-rollback rehearsal of the version policy: `--current <name>` and `--previous <name>` (default `b` and `a`). It needs two publishes (`blazor-publish --folder a --version 0.9.0` and `blazor-publish --folder b`) and no other `blazor-serve`, because it serves each publish in turn itself through `blazor-serve --folder`. It drives one tab across the switch and back: a supported client's write, the rollback's missing fingerprinted assets, the reload prompt on a write from a stale tab and from a client outside the version window, atomic asset sets, and recovery on the restored release. See `docs/blazor-recovery-runbook.md`.
 
 Each script writes a JSON result under `.workspace/blazor-tests/` and prints one line per browser.

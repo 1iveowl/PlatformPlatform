@@ -29,7 +29,8 @@ public sealed class FormErrorMapper : IDisposable
     // Messages that belong to no single field, in the order they were added
     public IReadOnlyList<string> FormMessages => _formMessages;
 
-    // True when the last failure was a rejected antiforgery token, which only a page reload recovers from
+    // True when the last failure was a rejected antiforgery token or a client outside the supported version window, which
+    // only a page reload recovers from
     public bool IsReloadRequired { get; private set; }
 
     public void Dispose()
@@ -62,8 +63,8 @@ public sealed class FormErrorMapper : IDisposable
     }
 
     // The form-level presentation for a surface without toasts, such as a static server-rendered form: field errors are
-    // mapped, a message becomes a form message, an antiforgery rejection becomes a form message that requires a reload,
-    // and a suppressed failure shows nothing
+    // mapped, a message becomes a form message, an antiforgery rejection and a client outside the supported version window
+    // become a form message that requires a reload, and a suppressed failure shows nothing
     public ApiFailure ApplyFailure(ApiCallOutcome outcome, ApiCallProblem problem)
     {
         var failure = ApiFailureClassifier.Classify(outcome, problem);
@@ -73,6 +74,7 @@ public sealed class FormErrorMapper : IDisposable
                 Apply(problem);
                 break;
             case ApiFailureKind.AntiforgeryRecovery:
+            case ApiFailureKind.Version:
                 IsReloadRequired = true;
                 AddFormMessage(failure.Message!);
                 break;

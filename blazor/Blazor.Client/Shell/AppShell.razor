@@ -8,6 +8,7 @@
    tab of this browser has ended the identity this runtime showed (AuthSyncCoordinator), the main content and the tenants
    are dropped and only the non-dismissable reload dialog remains. *@
 @using Account.Client
+@using Blazor.Client.Bootstrap
 @using Blazor.Client.Session
 @implements IAsyncDisposable
 @inject SessionState Session
@@ -90,6 +91,7 @@
     private AuthSyncCoordinator? _authSync;
     private DotNetObjectReference<AppShell>? _dotNet;
     private ShellInterop? _interop;
+    private StaleAssetProbe? _staleAssets;
     private bool _isWide = true;
     private ShellLocationWatcher? _locationWatcher;
     private TenantSwitcherOption[] _tenants = [];
@@ -151,7 +153,7 @@
 
         // Enhanced navigation changes the location without re-rendering a shell that stays alive across it, so the
         // sidebar and the mobile menu would keep marking the page the user came from
-        _locationWatcher = new ShellLocationWatcher(Navigation, OnStateChanged);
+        _locationWatcher = new ShellLocationWatcher(Navigation, OnNavigated);
         if (RendererInfo.IsInteractive)
         {
             _transition = Services.GetRequiredService<SessionTransition>();
@@ -186,11 +188,24 @@
         _collapsed = ShellSidebarState.IsCollapsed(state.StoredCollapsed, state.IsWide);
         StateHasChanged();
         await Preferences.LoadAsync();
+
+        // The fingerprinted asset set this document was built with, watched for the deployment that replaces it: an asset of
+        // this publish that is no longer served makes this runtime stale and its next write ask for a reload instead
+        _staleAssets = Services.GetRequiredService<StaleAssetProbe>();
+        await _staleAssets.StartAsync();
     }
 
     private void OnStateChanged()
     {
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    // A navigation inside the application is where a tab that has been open across a deployment is used again, so it is
+    // where the publish this runtime belongs to is checked for still being served
+    private void OnNavigated()
+    {
+        OnStateChanged();
+        if (_staleAssets is not null) _ = _staleAssets.CheckAsync();
     }
 
     private void OnAuthSyncChanged()

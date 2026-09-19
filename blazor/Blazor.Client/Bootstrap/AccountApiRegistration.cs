@@ -9,12 +9,15 @@ public static class AccountApiRegistration
 {
     extension(IServiceCollection services)
     {
-        // A 401 from an API path ends the session in this runtime; every response reports the evaluated feature flags;
-        // state-changing calls carry the bootstrap antiforgery token; every call names the UI culture as X-Locale; closest
-        // to the network, a logout or tenant switch holds back competing writes and discards what arrives after it ended
+        // A client outside the supported version window sends no mutation at all, which is why that gate is furthest from
+        // the network; a 401 from an API path ends the session in this runtime; every response reports the evaluated feature
+        // flags; state-changing calls carry the bootstrap antiforgery token; every call names the UI culture as X-Locale;
+        // closest to the network, a logout or tenant switch holds back competing writes and discards what arrives after it
+        // ended
         public IServiceCollection AddAccountApiClients(Uri baseAddress, Func<HttpMessageHandler> createPrimaryHandler)
         {
             services.AddScoped<AuthenticationNavigator>();
+            services.AddScoped(_ => new ClientVersionState(ClientVersionWindow.CurrentClientVersion));
             services.AddScoped<FeatureFlagState>();
             services.AddScoped<BootstrapAntiforgeryTokenSource>();
             services.AddScoped<SessionTransitionGate>();
@@ -37,7 +40,11 @@ public static class AccountApiRegistration
                             }
                         }
                     };
-                    return new HttpClient(unauthorizedResponseHandler) { BaseAddress = baseAddress };
+                    var staleClientRequestHandler = new StaleClientRequestHandler(serviceProvider.GetRequiredService<ClientVersionState>())
+                    {
+                        InnerHandler = unauthorizedResponseHandler
+                    };
+                    return new HttpClient(staleClientRequestHandler) { BaseAddress = baseAddress };
                 }
             );
             services.AddScoped<EmailAuthenticationClient>();

@@ -14,6 +14,7 @@ public sealed class ApiFailurePresenter(ToastService toastService, NavigationMan
 {
     public const string ErrorToastTestId = "api-failure-toast";
     public const string AntiforgeryToastTestId = "antiforgery-recovery-toast";
+    public const string VersionToastTestId = "version-recovery-toast";
 
     public ApiFailure Present(ApiCallResult result, FormErrorMapper? formErrors = null)
     {
@@ -44,6 +45,9 @@ public sealed class ApiFailurePresenter(ToastService toastService, NavigationMan
                 break;
             case ApiFailureKind.AntiforgeryRecovery:
                 toastService.Show(ToastKind.Warning, failure.Message!, null, AntiforgeryToastTestId, CommonStrings.ReloadPage, ReloadPage);
+                break;
+            case ApiFailureKind.Version:
+                toastService.Show(ToastKind.Warning, failure.Message!, null, VersionToastTestId, CommonStrings.ReloadPage, ReloadPage);
                 break;
             case ApiFailureKind.Suppressed:
                 break;

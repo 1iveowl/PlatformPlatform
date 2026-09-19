@@ -181,17 +181,23 @@ export function writeResult(fileName, result, expectedCaseCount) {
   return { resultFile, passed, failures };
 }
 
+// A publish kept beside the default one, which blazor-publish and blazor-serve address with --folder <name>; a release
+// rehearsal serves one in the other's place
+export function publishFolderFor(name) {
+  return `${publishFolder}-${name}`;
+}
+
 // Routes of the published static web assets, to prove the gateway serves this publish and to size the Brotli files on disk
-export function readPublishedEndpoints() {
-  const manifest = JSON.parse(readFileSync(path.join(publishFolder, "Blazor.Host.staticwebassets.endpoints.json"), "utf8"));
+export function readPublishedEndpoints(folder = publishFolder) {
+  const manifest = JSON.parse(readFileSync(path.join(folder, "Blazor.Host.staticwebassets.endpoints.json"), "utf8"));
   return manifest.Endpoints;
 }
 
 // Identifies the publish a measurement ran against: the content-fingerprinted Blazor.Client assembly route and a hash of the
 // endpoint manifest, which changes whenever any published static asset changes
-export function publishIdentity() {
-  const manifestFile = path.join(publishFolder, "Blazor.Host.staticwebassets.endpoints.json");
-  const clientRoutes = readPublishedEndpoints()
+export function publishIdentity(folder = publishFolder) {
+  const manifestFile = path.join(folder, "Blazor.Host.staticwebassets.endpoints.json");
+  const clientRoutes = readPublishedEndpoints(folder)
     .map((endpoint) => endpoint.Route)
     .filter((route) => /^_framework\/Blazor\.Client\.[a-z0-9]+\.wasm$/.test(route));
   return { clientAssembly: [...new Set(clientRoutes)].join(", ") || null, endpointManifestSha256: createHash("sha256").update(readFileSync(manifestFile)).digest("hex") };

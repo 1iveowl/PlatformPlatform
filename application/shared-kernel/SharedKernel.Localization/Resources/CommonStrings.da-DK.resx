@@ -27,6 +27,9 @@
     <data name="AntiforgeryRecovery" xml:space="preserve">
         <value>Siden er udløbet. Genindlæs siden, og prøv igen.</value>
     </data>
+    <data name="ApplicationUpdated" xml:space="preserve">
+        <value>En ny version af applikationen er tilgængelig. Genindlæs siden for at fortsætte.</value>
+    </data>
     <data name="Cancel" xml:space="preserve">
         <value>Annuller</value>
     </data>

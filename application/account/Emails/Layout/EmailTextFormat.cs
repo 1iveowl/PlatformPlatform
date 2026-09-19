@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Account.Emails.Layout;
 
 // A localized sentence that carries markup around one of its parts, such as the link in the invitation, cannot be
@@ -6,15 +8,10 @@ namespace Account.Emails.Layout;
 // positions so a component can render the literals as text and each placeholder as its own markup.
 public static class EmailTextFormat
 {
-    public sealed record Segment(string Literal, int ArgumentIndex)
-    {
-        public bool IsArgument => ArgumentIndex >= 0;
-    }
-
     public static Segment[] Split(string format)
     {
         var segments = new List<Segment>();
-        var literal = new System.Text.StringBuilder();
+        var literal = new StringBuilder();
 
         for (var position = 0; position < format.Length; position++)
         {
@@ -44,5 +41,10 @@ public static class EmailTextFormat
         if (literal.Length > 0) segments.Add(new Segment(literal.ToString(), -1));
 
         return segments.ToArray();
+    }
+
+    public sealed record Segment(string Literal, int ArgumentIndex)
+    {
+        public bool IsArgument => ArgumentIndex >= 0;
     }
 }

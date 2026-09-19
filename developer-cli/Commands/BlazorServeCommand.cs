@@ -13,14 +13,20 @@ public sealed class BlazorServeCommand : Command
 
     public BlazorServeCommand() : base("blazor-serve", "Runs the published Blazor host in Production on the Blazor host port, behind the running gateway")
     {
-        SetAction(_ => Execute());
+        var folderOption = new Option<string?>("--folder", "-f")
+            { Description = "Serves the named publish .workspace/blazor-publish-<name> instead of the default one, which is how a release rehearsal serves one publish in another's place" };
+
+        Options.Add(folderOption);
+
+        SetAction(parseResult => Execute(parseResult.GetValue(folderOption)));
     }
 
-    private static void Execute()
+    private static void Execute(string? folder)
     {
         Prerequisite.Ensure(Prerequisite.Dotnet);
 
-        var hostAssembly = Path.Combine(BlazorPublishCommand.PublishFolder, "Blazor.Host.dll");
+        var publishFolder = BlazorPublishCommand.ResolvePublishFolder(folder);
+        var hostAssembly = Path.Combine(publishFolder, "Blazor.Host.dll");
         if (!File.Exists(hostAssembly))
         {
             AnsiConsole.MarkupLine($"[red]No published host at {hostAssembly}. Run blazor-publish first.[/]");
@@ -41,13 +47,13 @@ public sealed class BlazorServeCommand : Command
         }
 
         var gatewayUrl = $"https://{AppHostname}:{ports.AppGateway}";
-        AnsiConsole.MarkupLine($"[blue]Serving the published host in Production at {gatewayUrl}{PathBase}/ (Ctrl+C to stop)[/]");
+        AnsiConsole.MarkupLine($"[blue]Serving {publishFolder} in Production at {gatewayUrl}{PathBase}/ (Ctrl+C to stop)[/]");
 
         // The same variables the AppHost sets on the blazor-host resource, except that the PUBLIC_*_ENABLED feature
         // variables are left unset. The token signing key comes from the user secrets store the AppHost writes on start.
         ProcessHelper.StartProcess(
             "dotnet Blazor.Host.dll",
-            BlazorPublishCommand.PublishFolder,
+            publishFolder,
             environmentVariables:
             [
                 ("ASPNETCORE_ENVIRONMENT", "Production"),

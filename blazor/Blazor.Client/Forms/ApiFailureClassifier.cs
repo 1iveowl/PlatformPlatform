@@ -5,6 +5,7 @@
 
 using System.Globalization;
 using Account.Client;
+using Blazor.Client.Bootstrap;
 
 namespace Blazor.Client.Forms;
 
@@ -20,7 +21,11 @@ public enum ApiFailureKind
     Suppressed,
 
     // The antiforgery token was rejected; the page must be reloaded to obtain a new one
-    AntiforgeryRecovery
+    AntiforgeryRecovery,
+
+    // This client belongs to a release the server no longer supports or no longer serves the assets of; the page must be
+    // reloaded to obtain the current release. The write gate refused the call, so nothing was sent.
+    Version
 }
 
 // Message is null for FieldValidation and Suppressed
@@ -52,6 +57,8 @@ public static class ApiFailureClassifier
 
         if (IsAntiforgeryFailure(problem)) return new ApiFailure(ApiFailureKind.AntiforgeryRecovery, CommonStrings.AntiforgeryRecovery);
 
+        if (IsStaleClientFailure(problem)) return new ApiFailure(ApiFailureKind.Version, CommonStrings.ApplicationUpdated);
+
         return outcome switch
         {
             ApiCallOutcome.TransportFailure => new ApiFailure(ApiFailureKind.Message, CommonStrings.TransportFailure),
@@ -59,6 +66,13 @@ public static class ApiFailureClassifier
             _ when problem.Errors.Count > 0 => new ApiFailure(ApiFailureKind.FieldValidation, null),
             _ => new ApiFailure(ApiFailureKind.Message, GetMessage(problem))
         };
+    }
+
+    // The write gate's own refusal, which never reached the network: the account API's own 404 means the thing is not
+    // there, not that this client is old, so only the gate's status and title are a version failure
+    public static bool IsStaleClientFailure(ApiCallProblem problem)
+    {
+        return problem is { StatusCode: (int)StaleClientRequestHandler.RefusalStatusCode, Title: StaleClientRequestHandler.RefusalTitle };
     }
 
     public static bool IsAntiforgeryFailure(ApiCallProblem problem)

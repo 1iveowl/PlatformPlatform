@@ -142,6 +142,31 @@ public sealed class ApiFailurePresenterTests
         return new ApiFailurePresenter(_toasts, _navigation, _authenticationNavigator);
     }
 
+    [Fact]
+    public void Present_WhenTheWriteGateRefusedTheCall_ShouldShowTheUpdateToastWhoseActionReloadsTheDocument()
+    {
+        // Arrange
+        var presenter = CreatePresenter();
+
+        // Act
+        var failure = presenter.Present(
+            ApiCallOutcome.Failure,
+            new ApiCallProblem((int)StaleClientRequestHandler.RefusalStatusCode, StaleClientRequestHandler.RefusalTitle, null, NoErrors, null)
+        );
+
+        // Assert
+        failure.Kind.Should().Be(ApiFailureKind.Version);
+        var toast = _toasts.Toasts.Should().ContainSingle().Subject;
+        toast.Kind.Should().Be(ToastKind.Warning);
+        toast.Title.Should().Be(CommonStrings.ApplicationUpdated);
+        toast.ActionLabel.Should().Be(CommonStrings.ReloadPage);
+        toast.TestId.Should().Be(ApiFailurePresenter.VersionToastTestId);
+        _navigation.Navigations.Should().BeEmpty();
+
+        toast.OnAction!.Invoke();
+        _navigation.Navigations.Should().Equal(new RecordedNavigation(TestNavigationManager.CurrentUri, true));
+    }
+
     private sealed class PresenterForm
     {
         [Required]

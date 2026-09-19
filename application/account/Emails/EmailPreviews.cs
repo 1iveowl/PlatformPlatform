@@ -40,6 +40,27 @@ public static class EmailPreviews
         };
     }
 
+    // A preview request is /emails/assets/<Template>.<culture>.preview.html, and nothing else on that path.
+    private static bool TryReadPreviewRequest(string? path, out string templateName, out string locale)
+    {
+        templateName = string.Empty;
+        locale = string.Empty;
+
+        if (path is null || !path.StartsWith($"{RequestPath}/", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!path.EndsWith(PreviewSuffix, StringComparison.OrdinalIgnoreCase)) return false;
+
+        var fileName = path[(RequestPath.Length + 1)..^PreviewSuffix.Length];
+        var separator = fileName.IndexOf('.');
+        if (separator <= 0 || separator == fileName.Length - 1) return false;
+
+        templateName = fileName[..separator];
+        locale = fileName[(separator + 1)..];
+        if (SupportedCultures.ToExactSupportedLocale(locale) is not { } supportedLocale) return false;
+
+        locale = supportedLocale;
+        return true;
+    }
+
     extension(IApplicationBuilder app)
     {
         public IApplicationBuilder UseEmailPreviews()
@@ -81,26 +102,5 @@ public static class EmailPreviews
                 }
             );
         }
-    }
-
-    // A preview request is /emails/assets/<Template>.<culture>.preview.html, and nothing else on that path.
-    private static bool TryReadPreviewRequest(string? path, out string templateName, out string locale)
-    {
-        templateName = string.Empty;
-        locale = string.Empty;
-
-        if (path is null || !path.StartsWith($"{RequestPath}/", StringComparison.OrdinalIgnoreCase)) return false;
-        if (!path.EndsWith(PreviewSuffix, StringComparison.OrdinalIgnoreCase)) return false;
-
-        var fileName = path[(RequestPath.Length + 1)..^PreviewSuffix.Length];
-        var separator = fileName.IndexOf('.');
-        if (separator <= 0 || separator == fileName.Length - 1) return false;
-
-        templateName = fileName[..separator];
-        locale = fileName[(separator + 1)..];
-        if (SupportedCultures.ToExactSupportedLocale(locale) is not { } supportedLocale) return false;
-
-        locale = supportedLocale;
-        return true;
     }
 }

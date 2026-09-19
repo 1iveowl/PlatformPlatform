@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using Account.Client;
+using Blazor.Client.Bootstrap;
 using Blazor.Client.Forms;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.DependencyInjection;
+using SharedKernel.Localization;
 
 namespace Blazor.Tests.Client;
 
@@ -162,6 +164,25 @@ public sealed class FormErrorMapperTests
 
         // Assert
         editContext.GetValidationMessages(editContext.Field(nameof(MapperForm.Email))).Should().Equal("Email is taken.");
+    }
+
+    [Fact]
+    public void ApplyFailure_WhenTheWriteGateRefusedTheCall_ShouldRequireAReloadWithTheUpdateMessage()
+    {
+        // Arrange
+        var (_, formErrors) = CreateForm(new MapperForm());
+        using var _ = formErrors;
+
+        // Act
+        var failure = formErrors.ApplyFailure(
+            ApiCallOutcome.Failure,
+            new ApiCallProblem((int)StaleClientRequestHandler.RefusalStatusCode, StaleClientRequestHandler.RefusalTitle, null, NoErrors, null)
+        );
+
+        // Assert
+        failure.Kind.Should().Be(ApiFailureKind.Version);
+        formErrors.IsReloadRequired.Should().BeTrue();
+        formErrors.FormMessages.Should().Equal(CommonStrings.ApplicationUpdated);
     }
 
     private static (EditContext EditContext, FormErrorMapper FormErrors) CreateForm(MapperForm model)

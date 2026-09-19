@@ -23,6 +23,9 @@ public sealed class WebAssemblyAccountApiTests
 {
     private const string AntiforgeryToken = "bootstrap-antiforgery-token";
 
+    // A major version this client can never be built at, so the window is unsupported whatever version the test host reports
+    private const string ServerVersionOutsideTheWindow = "9999.0.0";
+
     private static readonly UserId UserId = new("usr_01JZ8Q4N6V3K2M7P9R5T0W1XYZ");
 
     [Fact]
@@ -150,6 +153,62 @@ public sealed class WebAssemblyAccountApiTests
         network.Requests.Should().ContainSingle().Which.Should().Be(new RecordedRequest(HttpMethod.Get, AccountApiRoutes.User(UserId), null));
     }
 
+    [Fact]
+    public async Task StateChangingCall_WhenTheClientIsOutsideTheVersionWindow_ShouldNotBeSentAndShouldAskForAReload()
+    {
+        // Arrange
+        var network = new RecordingNetwork(_ => CreateBootstrapResponse(ServerVersionOutsideTheWindow));
+        await using var services = CreateServices(network);
+        await services.GetRequiredService<SessionState>().GetAsync();
+
+        // Act
+        var result = await services.GetRequiredService<UsersClient>().DeleteUserAsync(UserId, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.StatusCode.Should().Be((int)StaleClientRequestHandler.RefusalStatusCode);
+        ApiFailureClassifier.Classify(result).Kind.Should().Be(ApiFailureKind.Version);
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap);
+        services.GetRequiredService<ClientVersionState>().Support.Should().Be(ClientVersionSupport.Unsupported);
+    }
+
+    [Fact]
+    public async Task ReadCallAndLogout_WhenTheClientIsOutsideTheVersionWindow_ShouldStillBeSent()
+    {
+        // Arrange
+        var network = new RecordingNetwork(request =>
+            request.RequestUri!.AbsolutePath == AccountApiRoutes.Bootstrap
+                ? CreateBootstrapResponse(ServerVersionOutsideTheWindow)
+                : new HttpResponseMessage(HttpStatusCode.NoContent)
+        );
+        await using var services = CreateServices(network);
+        await services.GetRequiredService<SessionState>().GetAsync();
+
+        // Act
+        await services.GetRequiredService<UsersClient>().GetUserAsync(UserId, CancellationToken.None);
+        await services.GetRequiredService<AuthenticationClient>().LogoutAsync(CancellationToken.None);
+
+        // Assert
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap, AccountApiRoutes.User(UserId), AccountApiRoutes.Logout);
+    }
+
+    [Fact]
+    public async Task StateChangingCall_WhenAFingerprintedAssetIsNoLongerServed_ShouldNotBeSent()
+    {
+        // Arrange
+        var network = new RecordingNetwork(_ => CreateBootstrapResponse());
+        await using var services = CreateServices(network);
+        await services.GetRequiredService<SessionState>().GetAsync();
+        services.GetRequiredService<ClientVersionState>().ReportMissingAsset("/blazor/_framework/Blazor.Client.6kbltrhlw8.wasm");
+
+        // Act
+        var result = await services.GetRequiredService<UsersClient>().DeleteUserAsync(UserId, CancellationToken.None);
+
+        // Assert
+        ApiFailureClassifier.Classify(result).Kind.Should().Be(ApiFailureKind.Version);
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap);
+    }
+
     private static ServiceProvider CreateServices(RecordingNetwork network)
     {
         var services = new ServiceCollection();
@@ -162,10 +221,13 @@ public sealed class WebAssemblyAccountApiTests
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = false });
     }
 
-    private static HttpResponseMessage CreateBootstrapResponse()
+    private static HttpResponseMessage CreateBootstrapResponse(string? applicationVersion = null)
     {
+        var runtimeConfiguration = new Dictionary<string, string>();
+        if (applicationVersion is not null) runtimeConfiguration[BootstrapConfiguration.ApplicationVersionKey] = applicationVersion;
+
         var user = new BootstrapUser(UserId, new TenantId(1), "Owner", "owner@example.com", null, null, null, null, null, null, null, false, [FeatureFlagRegistry.BetaFeatures.Key]);
-        var bootstrap = new BootstrapResponse(true, user, "en-US", new Dictionary<string, string>(), new Dictionary<string, bool> { [FeatureFlagRegistry.GoogleOauth.Key] = true }, AntiforgeryToken);
+        var bootstrap = new BootstrapResponse(true, user, "en-US", runtimeConfiguration, new Dictionary<string, bool> { [FeatureFlagRegistry.GoogleOauth.Key] = true }, AntiforgeryToken);
         var json = JsonSerializer.Serialize(bootstrap, ApiJsonSerializerOptions.Create());
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
     }

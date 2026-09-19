@@ -29,6 +29,10 @@ builder.Services.AddScoped<ApiFailurePresenter>();
 // The signed-in user's bootstrap shared by the header and the page component, torn down when the surface is left
 builder.Services.AddScoped<SessionState>();
 
+// Watches whether the publish this runtime was loaded from is still served; one per application, so the asset route it
+// captured survives the enhanced navigations that replace the document
+builder.Services.AddScoped<StaleAssetProbe>();
+
 // Logout and tenant switch, one at a time, for whichever component offers them
 builder.Services.AddScoped<SessionTransition>();
 
