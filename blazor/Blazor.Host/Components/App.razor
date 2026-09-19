@@ -9,7 +9,9 @@
 <!DOCTYPE html>
 @* no-fuib-style: FluentUI's initializer otherwise fetches "./_content/.../css/default-fuib.css" with the native fetch, which
    resolves against the document URL and returns 404 below the path base; the host links the same file absolutely instead *@
-<html lang="@_locale" no-fuib-style>
+@* data-interactive-surface: wwwroot/js/Blazor.Host.lib.module.js imports the component library's browser bundle only on a
+   document that carries it, so a static public page never downloads it *@
+<html lang="@_locale" no-fuib-style data-interactive-surface="@(_isInteractiveSurface ? "" : null)">
 
 <head>
     <meta charset="utf-8"/>
@@ -56,6 +58,7 @@
     private string _locale = "";
     private string _nonce = "";
     private PreloadLink[] _preloadLinks = [];
+    private bool _isInteractiveSurface;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -70,8 +73,8 @@
         _importMap = Shell.GetAbsoluteImportMap(importMap);
         // The import map is on every page so enhanced navigation can still start the runtime, but only pages that host a
         // WebAssembly component preload it; a static server-rendered public page therefore downloads no runtime
-        var isInteractiveSurface = HttpContext.GetEndpoint()?.Metadata.GetMetadata<InteractiveSurfaceAttribute>() is not null;
-        _preloadLinks = isInteractiveSurface ? HostShell.GetPreloadLinks(Assets, _importMap).OrderBy(link => link.Order).ToArray() : [];
+        _isInteractiveSurface = HttpContext.GetEndpoint()?.Metadata.GetMetadata<InteractiveSurfaceAttribute>() is not null;
+        _preloadLinks = _isInteractiveSurface ? HostShell.GetPreloadLinks(Assets, _importMap).OrderBy(link => link.Order).ToArray() : [];
     }
 
 }

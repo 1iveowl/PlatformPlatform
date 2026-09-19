@@ -31,6 +31,10 @@ const mailTimeoutMs = 30_000;
 // Requests that belong to the WebAssembly runtime; a public page must issue none of them
 export const runtimeRequestPattern = /\/_framework\/(dotnet[^/]*\.js|[^/]*\.wasm|[^/]*\.dat|blazor\.boot\.json)(\?|$)/;
 
+// The component library's browser bundle, which is its JavaScript initializer. Blazor.Host.csproj keeps it out of the host's
+// JS module manifest, so it arrives only with the WebAssembly runtime; a static public page must issue none of these either
+export const componentLibraryRequestPattern = /\/_content\/Microsoft\.FluentUI\.AspNetCore\.Components\/[^/]*\.lib\.module\.js(\?|$)/;
+
 export function parseArguments(argumentList, defaults) {
   const parsed = { ...defaults };
   for (let index = 0; index < argumentList.length; index++) {

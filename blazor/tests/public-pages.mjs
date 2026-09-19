@@ -35,6 +35,7 @@ import { appendFileSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import {
   baseUrl,
+  componentLibraryRequestPattern,
   hostConfiguration,
   isProductionPolicy,
   launchBrowser,
@@ -57,22 +58,26 @@ import {
 
 // The public-page budget, frozen from the baseline medians: Chromium, throttled profile, cold load, applied to every public
 // page. A regression is fixed or the budget is re-decided in review; never raise these numbers to make a run pass.
-// Baseline on the publish of f0a777509, 2026-09-14: the heaviest page (login-verify) had a transfer median of 182,989 bytes
-// and the slowest first contentful paint median was 236 ms (signup-verify). Transfer varied by under 100 bytes between
-// samples, so 200,000 bytes leaves about 17 KB for content growth; 300 ms covers the 224 to 244 ms sample range plus runner
-// variance, since the emulated latency dominates the paint time on this profile.
-const publicPageBudget = { transferBytes: 200_000, firstContentfulPaintMs: 300 };
+// Baseline on the publish of 2ee942ab6 plus the change that takes the component library's browser bundle out of the host's
+// JS module manifest, 2026-09-19, Chromium 149.0.7827.0, Playwright 1.61.0, 7 samples after one warm-up, 3,000 ms
+// observation: the six pages this budget holds measured 112,514 (landing), 112,713 (signup), 112,745 (login), 114,543
+// (signup-verify), 114,580 (login-verify) and 115,478 (legal index) transfer bytes, each varying by under 100 bytes between
+// samples, and the slowest first contentful paint median was 260 ms (landing, legal index). That is about 84,000 bytes less
+// per page than the 196,710 to 199,674 of the same pages on 2026-09-18, which was the shared bundle. 125,000 bytes leaves
+// about 9.5 KB above the heaviest of the six for content and stylesheet growth; 300 ms covers the 244 to 268 ms sample
+// range plus runner variance, since the emulated latency dominates the paint time on this profile and did not move when the
+// transfer fell. One signup-verify sample paints at 3,816 ms, a runner stall that a median over 7 samples absorbs.
+const publicPageBudget = { transferBytes: 125_000, firstContentfulPaintMs: 300 };
 
-// The legal documents carry their own budget, because the page is the legal text: the rendered document alone is 28,338
-// (terms), 30,902 (privacy) and 33,742 (dpa) transfer bytes, which is 10 to 16 KB more than any other public page's document
-// and does not fit the number above. The threshold of the six pages the budget above was frozen on is unchanged (owner
-// decision 2026-09-18, which also asked for the shared public-page payload to be cut in its own task).
-// Baseline on the publish of f57db76da, 2026-09-18, under the same conditions as the budget above: terms 207,246 bytes,
-// privacy 209,710 and dpa 212,600, each varying by under 100 bytes between samples, and the slowest first contentful paint
-// median was 260 ms (privacy). 215,000 bytes leaves about 2.4 KB for the documents to grow, and 300 ms covers the 248 to
-// 268 ms sample range plus runner variance. A regression is fixed or the budget is re-decided in review; never raise these
-// numbers to make a run pass.
-const legalDocumentBudget = { transferBytes: 215_000, firstContentfulPaintMs: 300 };
+// The legal documents keep their own budget: the page is the legal text, and the rendered document alone is 28,516 (terms),
+// 31,030 (privacy) and 33,920 (dpa) transfer bytes, which is 10 to 16 KB more than any other public page's document. That
+// difference survived the cut above, so the three documents still do not fit the number the other six are held to, and the
+// owner's expectation of 2026-09-18 that this constant could be removed does not hold.
+// Baseline under the same conditions as the budget above: terms 123,000 bytes, privacy 125,564 and dpa 128,404, each
+// varying by under 100 bytes between samples, and the slowest first contentful paint median was 264 ms (terms, dpa).
+// 140,000 bytes leaves about 11.5 KB above the heaviest document for the text to grow. A regression is fixed or the budget
+// is re-decided in review; never raise these numbers to make a run pass.
+const legalDocumentBudget = { transferBytes: 140_000, firstContentfulPaintMs: 300 };
 const legalDocumentPages = new Set(["terms", "privacy", "dpa"]);
 const budgetOf = (pageName) => (legalDocumentPages.has(pageName) ? legalDocumentBudget : publicPageBudget);
 
@@ -283,6 +288,7 @@ async function collect(log, timeline, loadStartedAt) {
   for (const request of requests) (isCached(request, entriesByUrl.get(request.url)) ? cached : fresh).push(request);
   const runtimeFromTimeline = timeline.entries.map((entry) => entry.url).filter((url) => runtimeRequestPattern.test(new URL(url).pathname));
   const runtimeFromNetwork = requests.map((request) => request.url).filter((url) => runtimeRequestPattern.test(new URL(url).pathname));
+  const libraryUrls = [...timeline.entries.map((entry) => entry.url), ...requests.map((request) => request.url)];
   const lastStart = Math.max(...timeline.entries.map((entry) => entry.startTime));
   return {
     requestCount: fresh.length,
@@ -294,6 +300,7 @@ async function collect(log, timeline, loadStartedAt) {
     publishedAssetRequests: fresh.filter((request) => request.status === 200 && endpointsByRoute.has(new URL(request.url).pathname)).length,
     uncompressedBytes: sum(requests, (request) => request.decodedBytes ?? 0),
     runtimeRequests: [...new Set([...runtimeFromTimeline, ...runtimeFromNetwork])],
+    componentLibraryRequests: [...new Set(libraryUrls.filter((url) => componentLibraryRequestPattern.test(new URL(url).pathname)))],
     firstContentfulPaintMs: timeline.firstContentfulPaintMs,
     loadMs: timeline.loadMs,
     lastRequestStartAfterLoadMs: timeline.loadEventEnd === null ? null : Math.round(lastStart - timeline.loadEventEnd),
@@ -373,6 +380,7 @@ function summarizeLoad(samples) {
   const summary = {};
   for (const field of numericFields) summary[field] = statistics(samples.map((sample) => sample[field]));
   summary.runtimeRequests = [...new Set(samples.flatMap((sample) => sample.runtimeRequests))];
+  summary.componentLibraryRequests = [...new Set(samples.flatMap((sample) => sample.componentLibraryRequests))];
   summary.websockets = [...new Set(samples.flatMap((sample) => sample.websockets))];
   summary.pageErrors = samples.flatMap((sample) => sample.pageErrors);
   summary.freshWithoutBrotliFile = [...new Set(samples.flatMap((sample) => sample.freshWithoutBrotliFile))];
@@ -412,6 +420,7 @@ function checkPage(pageName, profileName, summary) {
   if (!(summary.minimumPublishedAssetRequests > 0)) problems.push("no static asset of this publish was fetched on a cold load");
   for (const load of ["cold", "warm"]) {
     if (summary[load].runtimeRequests.length > 0) problems.push(`${load}: WebAssembly runtime requests ${summary[load].runtimeRequests.join(", ")}`);
+    if (summary[load].componentLibraryRequests.length > 0) problems.push(`${load}: component library requests ${summary[load].componentLibraryRequests.join(", ")}`);
     if (summary[load].pageErrors.length > 0) problems.push(`${load}: ${summary[load].pageErrors.length} page errors`);
   }
   recordCase(`${profileName} ${pageName}`, problems);
@@ -421,6 +430,7 @@ function checkNavigation(profileName, navigation) {
   const problems = [];
   const expected = `${baseUrl}${pathBase}/legal/terms`;
   if (navigation.runtimeRequests.length > 0) problems.push(`WebAssembly runtime requests ${navigation.runtimeRequests.join(", ")}`);
+  if (navigation.componentLibraryRequests.length > 0) problems.push(`component library requests ${navigation.componentLibraryRequests.join(", ")}`);
   if (!navigation.allSameDocument) problems.push("a full document load");
   if (navigation.finalUrls.some((url) => url !== expected)) problems.push(`landed on ${navigation.finalUrls.join(", ")}`);
   if (navigation.pageErrors.length > 0) problems.push(`${navigation.pageErrors.length} page errors`);

@@ -25,6 +25,31 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
     </ItemGroup>
 
+    <!-- The component library ships its whole browser bundle as its JavaScript initializer (445 KB on disk, about 105 KB
+         compressed), and blazor.web.js imports every web initializer on every document, so each static public page paid for
+         it although no page outside the authenticated WebAssembly surface uses a library component. Removing it from this
+         project's JS module manifest hands the import to wwwroot/js/Blazor.Host.lib.module.js, this project's own initializer,
+         which loads the bundle only on a document marked data-interactive-surface and on a WebAssembly runtime start. Every
+         other initializer stays, the hot reload one of Development included. Do not instead rely on the WebAssembly boot
+         configuration, which lists the library under resources.libraryInitializers after a publish but leaves that list
+         empty in a Development build. The two targets are separate because MSBuild runs a target once per build while a
+         publish configures both manifests, and the item names are the SDK's own:
+         HostSecurityTests.StaticPublicPage_WhenRendered_ShouldNameNoComponentLibraryWebInitializer fails if a future SDK
+         renames them. -->
+    <Target Name="RemoveComponentLibraryFromBuildJsModuleManifest" AfterTargets="ResolveJSModuleManifestBuildConfiguration">
+        <ItemGroup>
+            <_ExistingBuildJSModules Remove="@(_ExistingBuildJSModules)"
+                                     Condition="'%(_ExistingBuildJSModules.SourceId)' == 'Microsoft.FluentUI.AspNetCore.Components'" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="RemoveComponentLibraryFromPublishJsModuleManifest" AfterTargets="ResolveJSModuleManifestPublishConfiguration">
+        <ItemGroup>
+            <_ExistingPublishJSModules Remove="@(_ExistingPublishJSModules)"
+                                       Condition="'%(_ExistingPublishJSModules.SourceId)' == 'Microsoft.FluentUI.AspNetCore.Components'" />
+        </ItemGroup>
+    </Target>
+
     <ItemGroup>
         <!-- The same brand source file the React shell reads through SharedKernel's Settings.Current -->
         <EmbeddedResource Include="..\..\application\platform-settings.jsonc" LogicalName="platform-settings.jsonc" />
