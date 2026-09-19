@@ -17,6 +17,14 @@ public sealed class TestNavigationManager : NavigationManager
 
     public List<RecordedNavigation> Navigations { get; } = [];
 
+    // Applies a navigation the browser has already made, the way enhanced navigation does: the location moves and
+    // subscribers to LocationChanged hear about it
+    public void CompleteNavigation(string uri)
+    {
+        Uri = ToAbsoluteUri(uri).ToString();
+        NotifyLocationChanged(false);
+    }
+
     protected override void NavigateToCore(string uri, NavigationOptions options)
     {
         Navigations.Add(new RecordedNavigation(uri, options.ForceLoad));

@@ -91,6 +91,7 @@
     private DotNetObjectReference<AppShell>? _dotNet;
     private ShellInterop? _interop;
     private bool _isWide = true;
+    private ShellLocationWatcher? _locationWatcher;
     private TenantSwitcherOption[] _tenants = [];
     private bool _tenantsLoaded;
     private SessionTransition? _transition;
@@ -134,9 +135,10 @@
 
     public async ValueTask DisposeAsync()
     {
-        Session.Changed -= OnSessionChanged;
-        Preferences.Changed -= OnSessionChanged;
-        if (_transition is not null) _transition.Changed -= OnSessionChanged;
+        Session.Changed -= OnStateChanged;
+        Preferences.Changed -= OnStateChanged;
+        _locationWatcher?.Dispose();
+        if (_transition is not null) _transition.Changed -= OnStateChanged;
         if (_authSync is not null) _authSync.Changed -= OnAuthSyncChanged;
         if (_interop is not null) await _interop.DisposeAsync();
         _dotNet?.Dispose();
@@ -144,12 +146,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Session.Changed += OnSessionChanged;
-        Preferences.Changed += OnSessionChanged;
+        Session.Changed += OnStateChanged;
+        Preferences.Changed += OnStateChanged;
+
+        // Enhanced navigation changes the location without re-rendering a shell that stays alive across it, so the
+        // sidebar and the mobile menu would keep marking the page the user came from
+        _locationWatcher = new ShellLocationWatcher(Navigation, OnStateChanged);
         if (RendererInfo.IsInteractive)
         {
             _transition = Services.GetRequiredService<SessionTransition>();
-            _transition.Changed += OnSessionChanged;
+            _transition.Changed += OnStateChanged;
             _authSync = Services.GetRequiredService<AuthSyncCoordinator>();
             _authSync.Changed += OnAuthSyncChanged;
         }
@@ -182,7 +188,7 @@
         await Preferences.LoadAsync();
     }
 
-    private void OnSessionChanged()
+    private void OnStateChanged()
     {
         _ = InvokeAsync(StateHasChanged);
     }

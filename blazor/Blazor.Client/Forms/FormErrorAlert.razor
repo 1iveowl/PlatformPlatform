@@ -37,7 +37,9 @@
     [Parameter]
     public string? Title { get; set; }
 
-    // The current path and query, which is already root-absolute under the path base
+    // The current path and query, which is already root-absolute under the path base. The link only renders after a
+    // rejected antiforgery token on the page being shown, and the mapper that reports it belongs to that page's form, so
+    // the location is read on the render that the failed submit caused and cannot outlive it
     private string GetReloadHref()
     {
         return new Uri(Navigation.Uri).PathAndQuery;

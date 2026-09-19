@@ -44,7 +44,7 @@ public static class ShellNavigation
     // currentUri is the absolute document URI from NavigationManager.Uri; the query and fragment do not change the current item
     public static IReadOnlyList<ShellNavigationItem> Create(string? role, string currentUri)
     {
-        var currentPath = GetPath(currentUri);
+        var currentPath = GetCurrentPath(currentUri);
         return Items
             .Where(item => item.Group != ShellNavigationGroup.Account || CanManageAccount(role))
             .Select(item =>
@@ -56,7 +56,8 @@ public static class ShellNavigation
             .ToArray();
     }
 
-    private static string GetPath(string uri)
+    // The part of a document URI that decides which item is current: the path without a trailing slash, query or fragment
+    public static string GetCurrentPath(string uri)
     {
         var path = Uri.TryCreate(uri, UriKind.Absolute, out var absolute) ? absolute.AbsolutePath : uri.Split('?', '#')[0];
         return path.Length > 1 ? path.TrimEnd('/') : path;
