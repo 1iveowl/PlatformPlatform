@@ -1,11 +1,11 @@
 using System.Security.Claims;
 using Account;
 using Account.Api;
+using Account.Emails;
 using Microsoft.Extensions.Options;
 using SharedKernel.Authentication;
 using SharedKernel.Authentication.BackOfficeIdentity;
 using SharedKernel.Configuration;
-using SharedKernel.Emails;
 using SharedKernel.ExecutionContext;
 using SharedKernel.OpenApi;
 using SharedKernel.SinglePageApp;
@@ -93,14 +93,11 @@ if (SharedInfrastructureConfiguration.IsRunningInAzure)
     // not depend on Request.Host being correctly rewritten from X-Forwarded-Host through the ACA mesh.
     var isBackOfficeContainer = app.Configuration.GetValue("BackOffice:IsBackOfficeContainer", false);
 
-    // Email *.preview.* artifacts are reachable only on the back-office container -- the email
-    // preview page that consumes them is back-office-only and Easy Auth gates the whole host.
-    // `appPublicUrl` resolves {{PublicUrl}} in served previews so their assets load from the
-    // public app host.
-    app.UseEmailStaticFiles("WebApp", isBackOfficeContainer, appPublicUrl);
-
+    // Email previews are reachable only on the back-office container -- the email preview page that renders them is
+    // back-office-only and Easy Auth gates the whole host.
     if (isBackOfficeContainer)
     {
+        app.UseEmailPreviews();
         app.UseSingleSpaFallback(
             new HostScopedSinglePageApp(
                 backOfficeHostname,
@@ -116,6 +113,8 @@ if (SharedInfrastructureConfiguration.IsRunningInAzure)
     }
     else
     {
+        app.UseEmailPreviewsNotFound();
+
         app.UseSingleSpaFallback(
             new HostScopedSinglePageApp(
                 appHostname,
@@ -132,15 +131,15 @@ else
 {
     // Local dev (Aspire): one process serves both SPAs via dual Kestrel listeners; host-scoped
     // fallback disambiguates because Aspire really delivers requests with the right Host header.
-    // Email static files are host-scoped the same way: the back-office host serves the *.preview.*
-    // artifacts (consumed by the back-office-only email preview page), the user-facing host does not.
+    // Email previews are host-scoped the same way: the back-office host renders them for the
+    // back-office-only email preview page, the user-facing host answers 404.
     app.UseWhen(
         context => context.Request.Host.Host.Equals(backOfficeHostname, StringComparison.OrdinalIgnoreCase),
-        branch => branch.UseEmailStaticFiles("WebApp", true, appPublicUrl)
+        branch => branch.UseEmailPreviews()
     );
     app.UseWhen(
         context => context.Request.Host.Host.Equals(appHostname, StringComparison.OrdinalIgnoreCase),
-        branch => branch.UseEmailStaticFiles("WebApp", false)
+        branch => branch.UseEmailPreviewsNotFound()
     );
 
     app.UseHostScopedSinglePageAppFallback(

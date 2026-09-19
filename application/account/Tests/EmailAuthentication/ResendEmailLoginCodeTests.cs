@@ -104,6 +104,46 @@ public sealed class ResendEmailLoginCodeTests(AccountWebApplicationFactory facto
     }
 
     [Fact]
+    public async Task ResendEmailLoginCode_WhenSignupStartedInDanish_ShouldSendDanishResendEmail()
+    {
+        // A signup has no User row to read a locale from, so the resend takes the locale of the request the way the
+        // signup itself did; before that it fell back to en-US and a Danish signup received an English resend.
+        // Arrange
+        var email = Faker.Internet.UniqueEmail().ToLowerInvariant();
+        AnonymousHttpClient.DefaultRequestHeaders.Remove("X-Locale");
+        AnonymousHttpClient.DefaultRequestHeaders.Add("X-Locale", "da-DK");
+        var startResponse = await AnonymousHttpClient.PostAsJsonAsync(
+            "/api/account/authentication/email/signup/start", new StartEmailSignupCommand(email)
+        );
+        startResponse.EnsureSuccessStatusCode();
+        var emailLoginId = (await startResponse.DeserializeResponse<StartEmailSignupResponse>())!.EmailLoginId;
+        EmailClient.ClearReceivedCalls();
+        TelemetryEventsCollectorSpy.Reset();
+
+        // Act
+        var response = await AnonymousHttpClient.PostAsJsonAsync(
+            $"/api/account/authentication/email/login/{emailLoginId}/resend-code", new { }
+        );
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+
+        await EmailClient.Received(1).SendAsync(
+            Arg.Is<EmailMessage>(m =>
+                m.Recipient == email &&
+                m.Subject == "Din bekræftelseskode (gensendt)" &&
+                m.HtmlBody.Contains("Her er din nye bekræftelseskode") &&
+                m.HtmlBody.Contains("Vi sender denne kode igen, som du anmodede om.") &&
+                m.PlainTextBody.Contains("Her er din nye bekræftelseskode") &&
+                m.PlainTextBody.Contains("Denne kode udløber om få minutter.")
+            ),
+            Arg.Any<CancellationToken>()
+        );
+
+        AnonymousHttpClient.DefaultRequestHeaders.Remove("X-Locale");
+    }
+
+    [Fact]
     public async Task ResendEmailLoginCode_WhenAlreadyResentOnce_ShouldReturnForbidden()
     {
         // Arrange

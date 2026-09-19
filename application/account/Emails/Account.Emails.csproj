@@ -1,0 +1,26 @@
+<!--
+    The transactional emails the account backend sends, as Razor components rendered by the .NET HtmlRenderer.
+    Each email is one component over the shared layout in Layout/, with a template record that carries its model and
+    builds the plain text twin. Every user-visible string comes from EmailStrings in SharedKernel.Localization, so the
+    same email exists in en-US and da-DK without a Node build step.
+-->
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>Account.Emails</AssemblyName>
+        <RootNamespace>Account.Emails</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\shared-kernel\SharedKernel\SharedKernel.csproj"/>
+        <ProjectReference Include="..\..\shared-kernel\SharedKernel.Localization\SharedKernel.Localization.csproj"/>
+    </ItemGroup>
+
+</Project>

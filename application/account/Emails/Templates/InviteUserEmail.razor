@@ -1,0 +1,25 @@
+@* The invitation an existing user sends to bring someone into their tenant. *@
+@inject EmailBrand Brand
+
+@{
+    RenderFragment[] gainAccessArguments =
+    [
+        @<a href="@Model.LoginUrl" class="email-link" style="color:#0f172a;text-decoration:underline" target="_blank">@EmailStrings.GoToThisPageInYourOpenBrowser</a>,
+        @<strong>@Model.Email</strong>
+    ];
+}
+<EmailLayout Subject="@EmailText.Format(EmailStrings.InviteSubject, Model.TenantName, Brand.ProductName)">
+    <EmailHeading>@EmailText.Format(EmailStrings.InvitedYouToJoinHeading, Model.InviterName, Brand.ProductName)</EmailHeading>
+    <EmailParagraph>
+        <FormattedEmailText Format="@EmailStrings.GainAccessInstruction" Arguments="gainAccessArguments"/>
+    </EmailParagraph>
+    <EmailMutedParagraph>@EmailStrings.IgnoreEmailIfSenderUnknown</EmailMutedParagraph>
+</EmailLayout>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required InviteUserEmailModel Model { get; set; }
+
+}

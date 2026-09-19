@@ -1,5 +1,5 @@
+using Account.Emails.Templates;
 using Account.Features.EmailAuthentication.Domain;
-using Account.Features.EmailAuthentication.EmailTemplates;
 using Account.Features.EmailAuthentication.Shared;
 using Account.Features.Users.Domain;
 using JetBrains.Annotations;
@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using SharedKernel.Authentication;
 using SharedKernel.Cqrs;
 using SharedKernel.Emails;
+using SharedKernel.ExecutionContext;
 using SharedKernel.Integrations.Email;
 using SharedKernel.Telemetry;
 
@@ -25,6 +26,7 @@ public sealed class ResendEmailLoginCodeHandler(
     IEmailRenderer emailRenderer,
     IEmailClient emailClient,
     IPasswordHasher<object> passwordHasher,
+    IExecutionContext executionContext,
     ITelemetryEventsCollector events,
     TimeProvider timeProvider,
     ILogger<ResendEmailLoginCodeHandler> logger
@@ -56,12 +58,13 @@ public sealed class ResendEmailLoginCodeHandler(
         events.CollectEvent(new EmailLoginCodeResend((int)secondsSinceStarted));
 
         var user = await userRepository.GetUserByEmailUnfilteredAsync(emailLogin.Email, cancellationToken);
-        var locale = user is { Locale.Length: > 0 } ? user.Locale : "en-US";
+        // A signup has no User row yet, so its resend takes the locale from the request the way the signup itself did
+        var locale = user is { Locale.Length: > 0 } ? user.Locale : executionContext.UserInfo.Locale ?? "en-US";
         var template = new ResendEmailLoginEmailTemplate(
             locale,
             new ResendEmailLoginEmailModel(oneTimePassword, EmailDomainHelper.GetPublicHost(), EmailLogin.ValidForSeconds / 60)
         );
-        var rendered = emailRenderer.RenderEmail(template);
+        var rendered = await emailRenderer.RenderEmailAsync(template);
         await emailClient.SendAsync(
             new EmailMessage(emailLogin.Email, rendered.Subject, rendered.HtmlBody, rendered.PlainTextBody),
             cancellationToken

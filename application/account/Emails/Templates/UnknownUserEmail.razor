@@ -1,0 +1,23 @@
+@* The notice sent when a login is started for an address that has no account, so the address owner learns of it. *@
+@inject EmailBrand Brand
+
+@{
+    RenderFragment[] noAccountTiedToEmailArguments = [@<text>@Brand.ProductName</text>, @<strong>@Model.Email</strong>];
+}
+<EmailLayout Subject="@EmailStrings.NoAccountFoundSubject">
+    <EmailHeading>@EmailStrings.RightEmailAddressHeading</EmailHeading>
+    <EmailParagraph>
+        <FormattedEmailText Format="@EmailStrings.NoAccountTiedToEmail" Arguments="noAccountTiedToEmailArguments"/>
+    </EmailParagraph>
+    <EmailParagraph>@EmailStrings.TryAnotherEmailOrSignUp</EmailParagraph>
+    <EmailButton Href="@Model.SignupUrl">@EmailStrings.SignUpForAnAccount</EmailButton>
+    <EmailMutedParagraph>@EmailStrings.NoAccountWasCreated</EmailMutedParagraph>
+</EmailLayout>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required UnknownUserEmailModel Model { get; set; }
+
+}

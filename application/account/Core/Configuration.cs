@@ -66,7 +66,7 @@ public static class Configuration
             services.AddKeyedScoped<IOAuthProvider>("mock-mitid", (serviceProvider, _) => ActivatorUtilities.CreateInstance<MockOAuthProvider>(serviceProvider, ExternalProviderType.MitId));
             services.AddScoped<OAuthProviderFactory>();
 
-            services.AddEmailRendering("WebApp");
+            services.AddEmailRendering();
 
             services.AddMemoryCache();
             services.AddSingleton<PlatformCurrencyProvider>();

@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Contracts\Account.Contracts.csproj"/>
+        <ProjectReference Include="..\Emails\Account.Emails.csproj"/>
         <ProjectReference Include="..\..\shared-kernel\SharedKernel\SharedKernel.csproj"/>
     </ItemGroup>
 

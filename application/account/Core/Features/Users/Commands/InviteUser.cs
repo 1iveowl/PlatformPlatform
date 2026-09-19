@@ -1,6 +1,6 @@
+using Account.Emails.Templates;
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
-using Account.Features.Users.EmailTemplates;
 using FluentValidation;
 using JetBrains.Annotations;
 using SharedKernel.Authentication;
@@ -86,7 +86,7 @@ public sealed class InviteUserHandler(
             inviterLocale,
             new InviteUserEmailModel(inviter, tenant.Name, command.Email.ToLower(), loginPath)
         );
-        var rendered = emailRenderer.RenderEmail(template);
+        var rendered = await emailRenderer.RenderEmailAsync(template);
         await emailClient.SendAsync(
             new EmailMessage(command.Email.ToLower(), rendered.Subject, rendered.HtmlBody, rendered.PlainTextBody),
             cancellationToken

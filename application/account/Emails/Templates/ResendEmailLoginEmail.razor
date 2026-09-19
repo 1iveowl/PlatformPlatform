@@ -1,0 +1,18 @@
+@* The code sent again after the recipient asked for a new one. *@
+<EmailLayout Subject="@EmailStrings.ResendVerificationCodeSubject"
+             OneTimePassword="@Model.OneTimePassword"
+             Domain="@Model.Domain">
+    <EmailHeading>@EmailStrings.NewVerificationCodeHeading</EmailHeading>
+    <EmailParagraph>@EmailStrings.SendingCodeAgainAsRequested</EmailParagraph>
+    <OneTimePasswordSection OneTimePassword="@Model.OneTimePassword"/>
+    <EmailMutedParagraph>@EmailStrings.CodeExpiresInAFewMinutes</EmailMutedParagraph>
+    <EmailMutedParagraph>@EmailStrings.IgnoreEmailIfNoNewCodeRequested</EmailMutedParagraph>
+</EmailLayout>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required ResendEmailLoginEmailModel Model { get; set; }
+
+}

@@ -1,0 +1,10 @@
+@* The single heading of an email, centred above its body text. *@
+<h1 class="email-heading" style="margin:0 0 16px 0;color:#0f172a;font-size:24px;line-height:32px;font-weight:600;text-align:center">@ChildContent</h1>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required RenderFragment ChildContent { get; set; }
+
+}

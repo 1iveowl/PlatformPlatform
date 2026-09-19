@@ -2,5 +2,5 @@ namespace SharedKernel.Emails;
 
 public interface IEmailRenderer
 {
-    EmailRenderResult RenderEmail(EmailTemplateBase template);
+    Task<EmailRenderResult> RenderEmailAsync(EmailTemplateBase template);
 }

@@ -1,0 +1,23 @@
+@* The band below the card: the product name, the mail tagline of the recipient's culture, and the legal links. *@
+@inject EmailBrand Brand
+
+<table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" class="email-footer" style="margin:0 auto 40px auto;width:100%;max-width:600px;text-align:center">
+    <tbody>
+    <tr>
+        <td>
+            <p style="font-size:14px;line-height:20px;margin:0;font-weight:600">@Brand.ProductName</p>
+            <p class="email-muted" style="font-size:13px;line-height:20px;margin:4px 0 0 0;color:#64748b">@Brand.GetMailTagline(CultureInfo.CurrentUICulture.Name)</p>
+            <hr class="email-separator" style="width:100%;border:none;border-top:1px solid #e2e8f0;margin:16px 0"/>
+            <p class="email-muted" style="font-size:13px;line-height:20px;margin:0;color:#64748b">
+                <a href="@Brand.PrivacyUrl" class="email-link" style="color:#64748b;text-decoration:underline" target="_blank">@EmailStrings.Privacy</a>
+                ·
+                <a href="@Brand.TermsUrl" class="email-link" style="color:#64748b;text-decoration:underline" target="_blank">@EmailStrings.Terms</a>
+                ·
+                <a href="@Brand.DataProcessingAgreementUrl" class="email-link" style="color:#64748b;text-decoration:underline" target="_blank">@EmailStrings.DataProcessingAgreement</a>
+                ·
+                <a href="@Brand.ComplianceUrl" class="email-link" style="color:#64748b;text-decoration:underline" target="_blank">@EmailStrings.Compliance</a>
+            </p>
+        </td>
+    </tr>
+    </tbody>
+</table>

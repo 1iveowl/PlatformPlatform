@@ -37,7 +37,7 @@ public sealed class StartEmailConfirmation(
         await emailLoginRepository.AddAsync(emailLogin, cancellationToken);
 
         var template = templateFactory(oneTimePassword);
-        var rendered = emailRenderer.RenderEmail(template);
+        var rendered = await emailRenderer.RenderEmailAsync(template);
         await emailClient.SendAsync(
             new EmailMessage(emailLogin.Email, rendered.Subject, rendered.HtmlBody, rendered.PlainTextBody),
             cancellationToken

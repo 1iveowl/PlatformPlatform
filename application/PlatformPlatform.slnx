@@ -5,6 +5,7 @@
         <Project Path="account\Client\Account.Client.csproj"/>
         <Project Path="account\Contracts\Account.Contracts.csproj"/>
         <Project Path="account\Core\Account.csproj"/>
+        <Project Path="account\Emails\Account.Emails.csproj"/>
         <Project Path="account\Tests\Account.Tests.csproj"/>
         <Project Path="account\WebApp\Account.WebApp.esproj"/>
         <Project Path="account\Workers\Account.Workers.csproj"/>

@@ -1,5 +1,5 @@
+using Account.Emails.Templates;
 using Account.Features.EmailAuthentication.Domain;
-using Account.Features.EmailAuthentication.EmailTemplates;
 using Account.Features.EmailAuthentication.Shared;
 using Account.Features.Users.Domain;
 using FluentValidation;
@@ -50,7 +50,7 @@ public sealed class StartEmailLoginHandler(
                 anonymousLocale,
                 new UnknownUserEmailModel(command.Email, signupUrl)
             );
-            var unknownRendered = emailRenderer.RenderEmail(unknownTemplate);
+            var unknownRendered = await emailRenderer.RenderEmailAsync(unknownTemplate);
             await emailClient.SendAsync(
                 new EmailMessage(command.Email.ToLower(), unknownRendered.Subject, unknownRendered.HtmlBody, unknownRendered.PlainTextBody),
                 cancellationToken

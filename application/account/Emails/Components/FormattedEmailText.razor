@@ -1,0 +1,25 @@
+@* A localized sentence whose placeholders are filled with markup rather than text, so a link or an emphasis can sit
+   inside a sentence whose word order differs between languages. *@
+@foreach (var segment in EmailTextFormat.Split(Format))
+{
+    if (segment.IsArgument)
+    {
+        @Arguments[segment.ArgumentIndex]
+    }
+    else
+    {
+        @segment.Literal
+    }
+}
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required string Format { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public required RenderFragment[] Arguments { get; set; }
+
+}

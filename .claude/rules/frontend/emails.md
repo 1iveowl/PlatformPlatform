@@ -5,7 +5,15 @@ description: Authoring localized transactional email templates with React Email 
 
 # Emails
 
-Guidelines for authoring transactional email templates that ship as Scriban-substituted HTML and plaintext for the .NET backend's email renderer.
+Guidelines for authoring transactional email templates with React Email.
+
+The backend no longer reads what this pipeline builds. The five transactional emails the account backend sends are
+Razor components in `application/account/Emails/`, rendered by the .NET `HtmlRenderer`, with their strings in
+`EmailStrings.resx` and `EmailStrings.da-DK.resx` under `application/shared-kernel/SharedKernel.Localization/Resources/`.
+The Scriban renderer, the `dist` template loader and the `UseEmailStaticFiles()` middleware this rule described are
+gone; the back-office email preview at `/emails/assets/<Template>.<culture>.preview.html` renders those components live.
+The React Email sources, their catalogs and the `@repo/emails` turbo task stay in the tree until they are removed, and
+what follows describes them as they are, not as a path a backend email takes.
 
 ## Implementation
 

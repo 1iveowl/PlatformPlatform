@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="LoginVerificationCodeSubject" xml:space="preserve">
+        <value>{0} login verification code</value>
+        <comment>React: {0} login verification code</comment>
+    </data>
+    <data name="ConfirmYourEmailAddressSubject" xml:space="preserve">
+        <value>Confirm your email address</value>
+        <comment>React: Confirm your email address</comment>
+    </data>
+    <data name="ResendVerificationCodeSubject" xml:space="preserve">
+        <value>Your verification code (resend)</value>
+        <comment>React: Your verification code (resend)</comment>
+    </data>
+    <data name="NoAccountFoundSubject" xml:space="preserve">
+        <value>No account found</value>
+        <comment>React: No account found</comment>
+    </data>
+    <data name="InviteSubject" xml:space="preserve">
+        <value>You have been invited to join {0} on {1}</value>
+        <comment>React: You have been invited to join {0} on {1}</comment>
+    </data>
+    <data name="ConfirmationCodeBelowHeading" xml:space="preserve">
+        <value>Your confirmation code is below</value>
+        <comment>React: Your confirmation code is below</comment>
+    </data>
+    <data name="NewVerificationCodeHeading" xml:space="preserve">
+        <value>Here's your new verification code</value>
+        <comment>React: Here's your new verification code</comment>
+    </data>
+    <data name="RightEmailAddressHeading" xml:space="preserve">
+        <value>Is this the right email address?</value>
+        <comment>React: Is this the right email address?</comment>
+    </data>
+    <data name="InvitedYouToJoinHeading" xml:space="preserve">
+        <value>{0} invited you to join {1}.</value>
+        <comment>React: {0} invited you to join {1}.</comment>
+    </data>
+    <data name="EnterCodeInOpenBrowserWindow" xml:space="preserve">
+        <value>Enter it in your open browser window. It is only valid for a few minutes.</value>
+        <comment>React: Enter it in your open browser window. It is only valid for a few minutes.</comment>
+    </data>
+    <data name="SendingCodeAgainAsRequested" xml:space="preserve">
+        <value>We're sending this code again as you requested.</value>
+        <comment>React: We're sending this code again as you requested.</comment>
+    </data>
+    <data name="CodeExpiresInAFewMinutes" xml:space="preserve">
+        <value>This code will expire in a few minutes.</value>
+        <comment>React: This code will expire in a few minutes.</comment>
+    </data>
+    <data name="IgnoreEmailIfNoLoginAttempt" xml:space="preserve">
+        <value>If you didn't try to log in, you can safely ignore this email — your account is secure.</value>
+        <comment>React: If you didn't try to log in, you can safely ignore this email — your account is secure.</comment>
+    </data>
+    <data name="IgnoreEmailIfNoSignupRequested" xml:space="preserve">
+        <value>If you didn't request to sign up, you can safely ignore this email.</value>
+        <comment>React: If you didn't request to sign up, you can safely ignore this email.</comment>
+    </data>
+    <data name="IgnoreEmailIfNoNewCodeRequested" xml:space="preserve">
+        <value>If you didn't request a new code, you can safely ignore this email.</value>
+        <comment>React: If you didn't request a new code, you can safely ignore this email.</comment>
+    </data>
+    <data name="IgnoreEmailIfSenderUnknown" xml:space="preserve">
+        <value>If you don't recognize the sender, you can safely ignore this email.</value>
+        <comment>React: If you don't recognize the sender, you can safely ignore this email.</comment>
+    </data>
+    <data name="NoAccountWasCreated" xml:space="preserve">
+        <value>If this wasn't you, no action is needed — no account was created.</value>
+        <comment>React: If this wasn't you, no action is needed — no account was created.</comment>
+    </data>
+    <data name="NoAccountTiedToEmail" xml:space="preserve">
+        <value>It looks like there isn't a {0} account tied to {1}.</value>
+        <comment>React: It looks like there isn't a {0} account tied to {1}.</comment>
+    </data>
+    <data name="TryAnotherEmailOrSignUp" xml:space="preserve">
+        <value>You can try again with a different email, or sign up for a new account.</value>
+        <comment>React: You can try again with a different email, or sign up for a new account.</comment>
+    </data>
+    <data name="SignUpForAnAccount" xml:space="preserve">
+        <value>Sign up for an account</value>
+        <comment>React: Sign up for an account</comment>
+    </data>
+    <data name="GainAccessInstruction" xml:space="preserve">
+        <value>To gain access, {0} and login using {1}.</value>
+        <comment>React: To gain access, {0} and login using {1}.</comment>
+    </data>
+    <data name="GoToThisPageInYourOpenBrowser" xml:space="preserve">
+        <value>go to this page in your open browser</value>
+        <comment>React: go to this page in your open browser</comment>
+    </data>
+    <data name="Privacy" xml:space="preserve">
+        <value>Privacy</value>
+        <comment>React: Privacy</comment>
+    </data>
+    <data name="Terms" xml:space="preserve">
+        <value>Terms</value>
+        <comment>React: Terms</comment>
+    </data>
+    <data name="DataProcessingAgreement" xml:space="preserve">
+        <value>DPA</value>
+        <comment>React: DPA</comment>
+    </data>
+    <data name="Compliance" xml:space="preserve">
+        <value>Compliance</value>
+        <comment>React: Compliance</comment>
+    </data>
+</root>

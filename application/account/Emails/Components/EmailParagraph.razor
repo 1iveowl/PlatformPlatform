@@ -1,0 +1,10 @@
+@* A body paragraph of an email. *@
+<p style="font-size:14px;line-height:24px;margin:0 0 16px 0;text-align:center">@ChildContent</p>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required RenderFragment ChildContent { get; set; }
+
+}

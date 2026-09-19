@@ -13,15 +13,4 @@
         <ProjectReference Include="..\Core\Account.csproj"/>
     </ItemGroup>
 
-    <!-- Workers shares Account.Configuration.AddEmailRendering with the Api, so the rendered templates
-         must be present in the Workers publish output. The Condition guards against early-stage builds
-         (e.g. test phase) where the frontend email build has not run yet. -->
-    <ItemGroup Condition="Exists('..\WebApp\emails\dist')">
-        <Content Include="..\WebApp\emails\dist\**\*">
-            <Link>WebApp\emails\dist\%(RecursiveDir)%(Filename)%(Extension)</Link>
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        </Content>
-    </ItemGroup>
-
 </Project>

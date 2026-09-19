@@ -1,0 +1,17 @@
+@* The code that confirms the email address a signup started with. *@
+<EmailLayout Subject="@EmailStrings.ConfirmYourEmailAddressSubject"
+             OneTimePassword="@Model.OneTimePassword"
+             Domain="@Model.Domain">
+    <EmailHeading>@EmailStrings.ConfirmationCodeBelowHeading</EmailHeading>
+    <EmailParagraph>@EmailStrings.EnterCodeInOpenBrowserWindow</EmailParagraph>
+    <OneTimePasswordSection OneTimePassword="@Model.OneTimePassword"/>
+    <EmailMutedParagraph>@EmailStrings.IgnoreEmailIfNoSignupRequested</EmailMutedParagraph>
+</EmailLayout>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required StartSignupEmailModel Model { get; set; }
+
+}

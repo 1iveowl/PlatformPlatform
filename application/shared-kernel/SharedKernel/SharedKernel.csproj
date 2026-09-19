@@ -23,7 +23,6 @@
         <PackageReference Include="Azure.Security.KeyVault.Keys"/>
         <PackageReference Include="Azure.Security.KeyVault.Secrets"/>
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions"/>
-        <PackageReference Include="Scriban"/>
         <PackageReference Include="Humanizer.Core"/>
         <PackageReference Include="IdGen"/>
         <PackageReference Include="JetBrains.Annotations"/>

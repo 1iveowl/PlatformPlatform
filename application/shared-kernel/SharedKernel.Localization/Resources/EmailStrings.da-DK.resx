@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="LoginVerificationCodeSubject" xml:space="preserve">
+        <value>{0}-bekræftelseskode til login</value>
+    </data>
+    <data name="ConfirmYourEmailAddressSubject" xml:space="preserve">
+        <value>Bekræft din e-mailadresse</value>
+    </data>
+    <data name="ResendVerificationCodeSubject" xml:space="preserve">
+        <value>Din bekræftelseskode (gensendt)</value>
+    </data>
+    <data name="NoAccountFoundSubject" xml:space="preserve">
+        <value>Ingen konto fundet</value>
+    </data>
+    <data name="InviteSubject" xml:space="preserve">
+        <value>Du er inviteret til at deltage i {0} på {1}</value>
+    </data>
+    <data name="ConfirmationCodeBelowHeading" xml:space="preserve">
+        <value>Din bekræftelseskode står herunder</value>
+    </data>
+    <data name="NewVerificationCodeHeading" xml:space="preserve">
+        <value>Her er din nye bekræftelseskode</value>
+    </data>
+    <data name="RightEmailAddressHeading" xml:space="preserve">
+        <value>Er det den rigtige e-mailadresse?</value>
+    </data>
+    <data name="InvitedYouToJoinHeading" xml:space="preserve">
+        <value>{0} har inviteret dig til at deltage i {1}.</value>
+    </data>
+    <data name="EnterCodeInOpenBrowserWindow" xml:space="preserve">
+        <value>Indtast den i dit åbne browservindue. Den er kun gyldig i få minutter.</value>
+    </data>
+    <data name="SendingCodeAgainAsRequested" xml:space="preserve">
+        <value>Vi sender denne kode igen, som du anmodede om.</value>
+    </data>
+    <data name="CodeExpiresInAFewMinutes" xml:space="preserve">
+        <value>Denne kode udløber om få minutter.</value>
+    </data>
+    <data name="IgnoreEmailIfNoLoginAttempt" xml:space="preserve">
+        <value>Hvis du ikke har forsøgt at logge ind, kan du roligt ignorere denne e-mail — din konto er sikker.</value>
+    </data>
+    <data name="IgnoreEmailIfNoSignupRequested" xml:space="preserve">
+        <value>Hvis du ikke har anmodet om at oprette en konto, kan du roligt ignorere denne e-mail.</value>
+    </data>
+    <data name="IgnoreEmailIfNoNewCodeRequested" xml:space="preserve">
+        <value>Hvis du ikke har anmodet om en ny kode, kan du roligt ignorere denne e-mail.</value>
+    </data>
+    <data name="IgnoreEmailIfSenderUnknown" xml:space="preserve">
+        <value>Hvis du ikke kender afsenderen, kan du roligt ignorere denne e-mail.</value>
+    </data>
+    <data name="NoAccountWasCreated" xml:space="preserve">
+        <value>Hvis det ikke var dig, behøver du ikke gøre noget — der blev ikke oprettet en konto.</value>
+    </data>
+    <data name="NoAccountTiedToEmail" xml:space="preserve">
+        <value>Det ser ud til, at der ikke er en {0}-konto knyttet til {1}.</value>
+    </data>
+    <data name="TryAnotherEmailOrSignUp" xml:space="preserve">
+        <value>Du kan prøve igen med en anden e-mailadresse eller oprette en ny konto.</value>
+    </data>
+    <data name="SignUpForAnAccount" xml:space="preserve">
+        <value>Opret en konto</value>
+    </data>
+    <data name="GainAccessInstruction" xml:space="preserve">
+        <value>For at få adgang skal du {0} og logge ind med {1}.</value>
+    </data>
+    <data name="GoToThisPageInYourOpenBrowser" xml:space="preserve">
+        <value>gå til denne side i din åbne browser</value>
+    </data>
+    <data name="Privacy" xml:space="preserve">
+        <value>Privatliv</value>
+    </data>
+    <data name="Terms" xml:space="preserve">
+        <value>Vilkår</value>
+    </data>
+    <data name="DataProcessingAgreement" xml:space="preserve">
+        <value>DPA</value>
+    </data>
+    <data name="Compliance" xml:space="preserve">
+        <value>Compliance</value>
+    </data>
+</root>

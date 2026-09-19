@@ -344,7 +344,8 @@ test.describe("@comprehensive", () => {
 
 test.describe("@slow", () => {
   const requestNewCodeTimeout = 31_000; // 31 seconds to ensure button appears
-  const sessionTimeout = requestNewCodeTimeout + 30_000;
+  // The test waits out the resend delay twice, once per culture, and runs a signup flow around each wait
+  const sessionTimeout = requestNewCodeTimeout * 2 + 60_000;
 
   /**
    * Localized resend OTP email tests.
@@ -378,8 +379,9 @@ test.describe("@slow", () => {
       const mail = await fetchLatestMailByRecipient(enResendUser.email);
 
       expect(mail.subject).toBe("Your verification code (resend)");
-      expect(mail.html).toContain("Here's your new verification code");
-      expect(mail.html).toContain("We're sending this code again as you requested.");
+      // The HTML body escapes the apostrophe, as every HTML encoder does; the plain text body below carries it verbatim
+      expect(mail.html).toContain("Here&#x27;s your new verification code");
+      expect(mail.html).toContain("We&#x27;re sending this code again as you requested.");
       expect(mail.html).toContain("This code will expire in a few minutes.");
       expect(mail.text).toContain("Here's your new verification code");
       expect(mail.text).toContain("We're sending this code again as you requested.");

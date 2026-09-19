@@ -1,0 +1,10 @@
+@* A closing note of an email, smaller and dimmer than its body text. *@
+<p class="email-muted" style="font-size:13px;line-height:20px;margin:16px 0 0 0;text-align:center;color:#64748b">@ChildContent</p>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public required RenderFragment ChildContent { get; set; }
+
+}

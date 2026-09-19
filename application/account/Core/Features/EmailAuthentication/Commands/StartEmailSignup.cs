@@ -1,5 +1,5 @@
+using Account.Emails.Templates;
 using Account.Features.EmailAuthentication.Domain;
-using Account.Features.EmailAuthentication.EmailTemplates;
 using Account.Features.EmailAuthentication.Shared;
 using FluentValidation;
 using JetBrains.Annotations;

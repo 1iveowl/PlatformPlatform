@@ -47,4 +47,12 @@
         </EmbeddedResource>
     </ItemGroup>
 
+    <!-- The resx target adds each generated class to the compilation while it runs, which a static evaluation of this
+         project never sees. Code analysis does exactly that evaluation, so without this item every use of a generated
+         class from a project in the same solution is reported as an unresolved symbol. Listing the same files here is
+         what makes them visible; the compiler is given no duplicate, because the target adds them by the same path. -->
+    <ItemGroup>
+        <Compile Include="$(IntermediateOutputPath)*Strings.Designer.cs" Visible="false"/>
+    </ItemGroup>
+
 </Project>
