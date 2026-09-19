@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Net.Sockets;
 using DeveloperCli.Installation;
 using DeveloperCli.Utilities;
 using SharedKernel.Configuration;
@@ -29,13 +28,13 @@ public sealed class BlazorServeCommand : Command
         }
 
         var ports = PortAllocation.LoadFrom(Configuration.SourceCodeFolder);
-        if (IsListening(ports.BlazorHost))
+        if (StackProcesses.IsListening(ports.BlazorHost))
         {
             AnsiConsole.MarkupLine($"[red]Port {ports.BlazorHost} is in use; the gateway routes /blazor to this port. Start the stack with 'start-stack --without-blazor-host' instead of the full stack.[/]");
             Environment.Exit(1);
         }
 
-        if (!IsListening(ports.AppGateway) || !IsListening(ports.AccountApi))
+        if (!StackProcesses.IsListening(ports.AppGateway) || !StackProcesses.IsListening(ports.AccountApi))
         {
             AnsiConsole.MarkupLine("[red]The gateway or the account API is not running. Start the stack with 'start-stack --without-blazor-host' first.[/]");
             Environment.Exit(1);
@@ -58,19 +57,5 @@ public sealed class BlazorServeCommand : Command
                 ("CDN_URL", gatewayUrl + PathBase)
             ]
         );
-    }
-
-    private static bool IsListening(int port)
-    {
-        try
-        {
-            using var client = new TcpClient();
-            client.Connect("localhost", port);
-            return true;
-        }
-        catch (SocketException)
-        {
-            return false;
-        }
     }
 }

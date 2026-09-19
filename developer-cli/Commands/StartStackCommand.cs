@@ -54,7 +54,7 @@ public sealed class StartStackCommand : Command
         }
 
         var ports = RunCommand.Ports;
-        var busyPorts = ports.AllPorts.Where(IsListening).ToArray();
+        var busyPorts = ports.AllPorts.Where(StackProcesses.IsListening).ToArray();
         if (RunCommand.IsAspireRunning() || busyPorts.Length > 0)
         {
             var portList = busyPorts.Length > 0 ? $" (ports in use: {string.Join(", ", busyPorts)})" : "";
@@ -161,20 +161,6 @@ public sealed class StartStackCommand : Command
         }
     }
 
-    internal static bool IsListening(int port)
-    {
-        try
-        {
-            using var client = new TcpClient();
-            client.Connect("localhost", port);
-            return true;
-        }
-        catch (SocketException)
-        {
-            return false;
-        }
-    }
-
     private static async ValueTask<Stream> ConnectToLoopbackAsync(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
     {
         var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
@@ -229,7 +215,7 @@ internal sealed class StackProbes(PortAllocation ports, bool withoutBlazorHost)
 
     private static ResourceObservation ObserveWorker(string resource, int port, ProcessWatch processWatch, string projectRelativePath, bool dependentApiAnswering)
     {
-        var listening = StartStackCommand.IsListening(port);
+        var listening = StackProcesses.IsListening(port);
         var processExited = processWatch.HasExited(IsProjectProcessRunning(projectRelativePath), dependentApiAnswering);
         return StackReadiness.ObserveWorker(resource, port, listening, processExited);
     }

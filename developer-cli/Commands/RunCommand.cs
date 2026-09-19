@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Diagnostics;
 using DeveloperCli.Installation;
 using DeveloperCli.Utilities;
 using SharedKernel.Configuration;
@@ -11,6 +12,12 @@ namespace DeveloperCli.Commands;
 /// </summary>
 public class RunCommand : Command
 {
+    // Killed processes release their ports in well under a second; the generous deadline covers a loaded machine, and the
+    // short poll keeps the common stop as fast as it was.
+    private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(20);
+
+    private static readonly TimeSpan StopPollInterval = TimeSpan.FromMilliseconds(250);
+
     public RunCommand() : base("run", "Runs Aspire AppHost (use --watch for hot reload)")
     {
         var watchOption = new Option<bool>("--watch", "-w") { Description = "Enable watch mode for hot reload" };
@@ -79,12 +86,16 @@ public class RunCommand : Command
         }
         else
         {
-            // macOS/Linux: Original logic - only check main port
-            var portCheckCommand = $"lsof -i :{AspirePort} -sTCP:LISTEN -t";
-            var result = ProcessHelper.StartProcess(portCheckCommand, redirectOutput: true, exitOnError: false);
-            if (!string.IsNullOrWhiteSpace(result))
+            // macOS/Linux: check the same three ports as Windows. The dashboard port and the resource service port matter on
+            // their own: an orphaned AppHost holds the resource service port while the Aspire port is already free, and a stack
+            // that is invisible here is a stack the caller is told is not running.
+            foreach (var port in new[] { AspirePort, DashboardPort, ResourceServicePort })
             {
-                return true;
+                var result = ProcessHelper.StartProcess($"lsof -i :{port} -sTCP:LISTEN -t", redirectOutput: true, exitOnError: false);
+                if (!string.IsNullOrWhiteSpace(result))
+                {
+                    return true;
+                }
             }
         }
 
@@ -113,7 +124,6 @@ public class RunCommand : Command
 
     internal static void CheckForPortConflicts()
     {
-        // Check if any Aspire port is held by a process from a different project
         var ports = new[] { AspirePort, DashboardPort, ResourceServicePort };
         var conflictSource = ports
             .SelectMany(GetListeningProcessCommandLines)
@@ -121,6 +131,15 @@ public class RunCommand : Command
             .FirstOrDefault(root => root is not null);
 
         if (conflictSource is null) return;
+
+        // A holder from this repository is our own stack that did not shut down, not another project. Saying "another project"
+        // there sends the reader looking for a second checkout that does not exist.
+        if (string.Equals(conflictSource.TrimEnd('/', '\\'), Configuration.SourceCodeFolder.TrimEnd('/', '\\'), StringComparison.OrdinalIgnoreCase))
+        {
+            AnsiConsole.MarkupLine($"[red]This repository's own stack is still holding the Aspire ports of base port {Ports.BasePort}.[/]");
+            AnsiConsole.MarkupLine($"[red]Run '{Configuration.AliasName} stop', which reports what it cannot kill, then try again.[/]");
+            Environment.Exit(1);
+        }
 
         AnsiConsole.MarkupLine($"[red]Aspire ports are in use by another project: {conflictSource}[/]");
         AnsiConsole.MarkupLine("[red]Stop that instance first, then try again.[/]");
@@ -208,37 +227,68 @@ public class RunCommand : Command
             {
                 ProcessHelper.StartProcess($"taskkill /F /IM {processName}.exe", redirectOutput: true, exitOnError: false);
             }
-        }
-        else
-        {
-            // Find AppHost processes for this worktree, then kill each one and all its children
-            // (children include Aspire infrastructure: dcp, dcpproc, Aspire.Dashboard, etc.)
-            foreach (var processId in FindAppHostProcesses(sourceCodeFolder))
-            {
-                KillProcessTree(processId);
-            }
+
+            // Wait a moment for processes to terminate
+            Thread.Sleep(TimeSpan.FromSeconds(2));
+
+            AnsiConsole.MarkupLine("[green]Aspire AppHost stopped.[/]");
+            return;
         }
 
-        // Wait a moment for processes to terminate
-        Thread.Sleep(TimeSpan.FromSeconds(2));
-
-        AnsiConsole.MarkupLine("[green]Aspire AppHost stopped.[/]");
+        StopStackProcesses(sourceCodeFolder, portAllocation);
     }
 
-    private static string[] FindAppHostProcesses(string sourceCodeFolder)
+    // Kills every process of this worktree's stack, resolved from the ports its allocation owns, then confirms the ports are
+    // free before reporting success. A stop that reports success while the stack is still up turns into a failing restart
+    // later, which is much harder to read than a stop that names what it could not kill.
+    private static void StopStackProcesses(string sourceCodeFolder, PortAllocation portAllocation)
     {
-        var output = ProcessHelper.StartProcess("pgrep -f dotnet.*AppHost", redirectOutput: true, exitOnError: false);
-        if (string.IsNullOrWhiteSpace(output)) return [];
+        var processes = StackProcesses.TakeProcessSnapshot();
+        var ownership = StackProcesses.ResolveOwnership(
+            StackProcesses.TakeListeners(portAllocation.AllPorts, processes),
+            processes,
+            sourceCodeFolder,
+            StackProcesses.SelfAndAncestors(Environment.ProcessId, processes)
+        );
 
-        return output
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(processId =>
-                {
-                    var commandLine = ProcessHelper.StartProcess($"ps -p {processId} -o args=", redirectOutput: true, exitOnError: false).Trim();
-                    return commandLine.Contains(sourceCodeFolder, StringComparison.OrdinalIgnoreCase);
-                }
-            )
-            .ToArray();
+        foreach (var process in ownership.Owned)
+        {
+            KillProcessTree(process.ProcessId.ToString());
+        }
+
+        foreach (var listener in ownership.Foreign)
+        {
+            AnsiConsole.MarkupLine($"[yellow]Port {listener.Port} is held by a process outside this stack and is left alone: process {listener.ProcessId} {listener.CommandLine.EscapeMarkup()}[/]");
+        }
+
+        var startTime = Stopwatch.GetTimestamp();
+        var release = StackProcesses.WaitUntilReleased(
+            () => StackProcesses.TakeListeners(portAllocation.AllPorts, StackProcesses.TakeProcessSnapshot()),
+            StopTimeout,
+            StopPollInterval,
+            () => Stopwatch.GetElapsedTime(startTime),
+            Thread.Sleep
+        );
+
+        if (!release.Released)
+        {
+            AnsiConsole.MarkupLine($"[red]The ports of base port {portAllocation.BasePort} were not released within {StopTimeout.Format()}. Still listening:[/]");
+            foreach (var listener in release.StillHeld)
+            {
+                AnsiConsole.MarkupLine($"[red]  port {listener.Port}: process {listener.ProcessId} {listener.CommandLine.EscapeMarkup()}[/]");
+            }
+
+            AnsiConsole.MarkupLine("[red]Terminate those processes, then try again.[/]");
+            Environment.Exit(1);
+        }
+
+        if (ownership.Owned.Length == 0)
+        {
+            AnsiConsole.MarkupLine($"[green]No Aspire AppHost was running on base port {portAllocation.BasePort}; every port is free.[/]");
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Aspire AppHost stopped: {ownership.Owned.Length} processes killed, every port free after {release.Elapsed.Format()}.[/]");
     }
 
     internal static void KillProcessTree(string processId)
