@@ -1,0 +1,16 @@
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+ENABLE_TOOL_SEARCH = "true"
+CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS = "1"
+
+[mcp_servers.aspire]
+command = "aspire"
+args = [
+    "agent",
+    "mcp",
+]
+
+[mcp_servers.linear-server]
+url = "https://mcp.linear.app/mcp"
