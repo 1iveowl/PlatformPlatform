@@ -17,7 +17,8 @@ public sealed record SendTestPushNotificationCommand : ICommand, IRequest<Result
 ///     Sends the caller a notification on every device they subscribed with, so they can see that notifications arrive
 ///     before relying on them. The payload is the title and body of the current culture's resources and the path the
 ///     subscribing client opens at, and nothing else: no code, no token and no personal data. A push service that has
-///     forgotten a subscription answers 404 or 410, and that subscription is deleted rather than retried.
+///     forgotten a subscription answers 404 or 410, and that subscription is deleted rather than retried. A subscription
+///     whose push service this deployment no longer sends through is skipped and kept.
 /// </summary>
 public sealed class SendTestPushNotificationHandler(
     IPushSubscriptionRepository pushSubscriptionRepository,
@@ -37,10 +38,16 @@ public sealed class SendTestPushNotificationHandler(
         var subscriptions = await pushSubscriptionRepository.GetByUserAsync(userInfo.Id, cancellationToken);
         if (subscriptions.Length == 0) return Result<SendTestPushNotificationResponse>.BadRequest("This account has no device subscribed to notifications.");
 
+        var allowedEndpointHosts = PushNotificationPolicy.GetAllowedEndpointHosts(configuration);
+
         var delivered = 0;
         var expired = new List<PushSubscription>();
         foreach (var subscription in subscriptions)
         {
+            // A row written before this deployment narrowed its allowlist is counted as undelivered and kept, because
+            // only the push service's own answer says a subscription is gone
+            if (!PushNotificationPolicy.IsPushServiceEndpoint(subscription.Endpoint, allowedEndpointHosts)) continue;
+
             var payload = new PushNotificationPayload(AccountStrings.PushTestNotificationTitle, AccountStrings.PushTestNotificationBody, subscription.ApplicationPath);
             var target = new PushNotificationTarget(subscription.Endpoint, subscription.PublicKey, subscription.AuthSecret);
             var outcome = await pushNotificationSender.SendAsync(target, payload, cancellationToken);

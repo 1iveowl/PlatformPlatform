@@ -4,14 +4,15 @@ using System.Text.Json;
 using Account.Database;
 using Account.Features.PushNotifications.Domain;
 using Account.Features.PushNotifications.Requests;
+using Account.Features.PushNotifications.Shared;
 using Account.Features.Subscriptions.Domain;
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
 using FluentAssertions;
 using SharedKernel.Domain;
-using SharedKernel.Validation;
 using SharedKernel.Tests;
 using SharedKernel.Tests.Persistence;
+using SharedKernel.Validation;
 using Xunit;
 
 namespace Account.Tests.PushNotifications;
@@ -23,6 +24,8 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
 
     // A second valid 16 byte secret, so a resubscribe changes something the row must take over
     private const string SecondAuthSecret = "c2Vjb25kLWF1dGgtc2VjIQ";
+
+    private readonly RecordingPushNotificationSender _pushNotificationSender = factory.PushNotificationSender;
 
     [Fact]
     public async Task SavePushSubscription_WhenNew_ShouldStoreSubscriptionForTheCallerAndCollectEvent()
@@ -69,9 +72,31 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
     }
 
     [Theory]
-    [InlineData("http://push.example.com/subscription", "Endpoint")]
-    [InlineData("not-a-url", "Endpoint")]
-    public async Task SavePushSubscription_WhenTheEndpointIsNotAnHttpsAddress_ShouldReturnBadRequest(string endpoint, string expectedField)
+    [InlineData("https://fcm.googleapis.com/fcm/send/google-device")]
+    [InlineData("https://updates.push.services.mozilla.com/wpush/v2/mozilla-device")]
+    [InlineData("https://push.apple.com/apple-device")]
+    [InlineData("https://web.push.apple.com/apple-subdomain-device")]
+    [InlineData("https://par02p.notify.windows.com/w/windows-subdomain-device")]
+    public async Task SavePushSubscription_WhenTheEndpointIsAKnownPushService_ShouldStoreIt(string endpoint)
+    {
+        // Arrange
+        var command = CreateCommand("allowlisted") with { Endpoint = endpoint };
+
+        // Act
+        var response = await AuthenticatedOwnerHttpClient.PostAsJsonAsync(RoutesPrefix, command);
+
+        // Assert
+        response.ShouldBeSuccessfulGetRequest();
+        var pushSubscriptionId = await ReadSubscriptionIdAsync(response);
+        Connection.ExecuteScalar<string>("SELECT endpoint FROM push_subscriptions WHERE id = @id", [new { id = pushSubscriptionId }]).Should().Be(endpoint);
+    }
+
+    [Theory]
+    [InlineData("http://fcm.googleapis.com/fcm/send/insecure")]
+    [InlineData("not-a-url")]
+    [InlineData("https://someone:secret@fcm.googleapis.com/fcm/send/user-information")]
+    [InlineData("https://fcm.googleapis.com:8443/fcm/send/other-port")]
+    public async Task SavePushSubscription_WhenTheEndpointIsNotAPlainHttpsAddress_ShouldReturnBadRequest(string endpoint)
     {
         // Arrange
         var command = CreateCommand("rejected") with { Endpoint = endpoint };
@@ -81,8 +106,79 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
 
         // Assert
         await response.ShouldHaveErrorStatusCode(
-            HttpStatusCode.BadRequest, [new ErrorDetail(expectedField, "The push service address must be an https address of at most 2000 characters.")]
+            HttpStatusCode.BadRequest,
+            [new ErrorDetail("Endpoint", "The push service address must be an https address with no user information and no port, of at most 2000 characters.")]
         );
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM push_subscriptions", []).Should().Be(0);
+        _pushNotificationSender.SendsTo(endpoint).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("https://notfcm.googleapis.com/fcm/send/look-alike")]
+    [InlineData("https://fcm.googleapis.com.evil.example.net/fcm/send/suffix-only")]
+    [InlineData("https://push.apple.com.evil.example.net/suffix-only")]
+    [InlineData("https://169.254.169.254/metadata")]
+    [InlineData("https://internal-service.local/secret")]
+    public async Task SavePushSubscription_WhenTheHostIsNotAKnownPushService_ShouldReturnBadRequestAndSendNothing(string endpoint)
+    {
+        // Arrange
+        var command = CreateCommand("not-a-push-service") with { Endpoint = endpoint };
+
+        // Act
+        var response = await AuthenticatedOwnerHttpClient.PostAsJsonAsync(RoutesPrefix, command);
+
+        // Assert
+        await response.ShouldHaveErrorStatusCode(HttpStatusCode.BadRequest, "The push service address is not one this system sends notifications through.");
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM push_subscriptions", []).Should().Be(0);
+        _pushNotificationSender.SendsTo(endpoint).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SavePushSubscription_WhenTheCallerAlreadyHoldsTheMaximumNumberOfSubscriptions_ShouldReturnBadRequest()
+    {
+        // Arrange
+        InsertSubscriptionsForOwnerUpToTheLimit();
+
+        // Act
+        var response = await AuthenticatedOwnerHttpClient.PostAsJsonAsync(RoutesPrefix, CreateCommand("one-device-too-many"));
+
+        // Assert
+        await response.ShouldHaveErrorStatusCode(HttpStatusCode.BadRequest, "This account has reached the limit of 20 devices subscribed to notifications.");
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM push_subscriptions", []).Should().Be(PushNotificationPolicy.MaximumSubscriptionsPerUser);
+    }
+
+    [Fact]
+    public async Task SavePushSubscription_WhenTheCallerIsAtTheMaximumAndResubscribesAKnownDevice_ShouldUpdateThatSubscription()
+    {
+        // Arrange
+        InsertSubscriptionsForOwnerUpToTheLimit();
+        var command = CreateCommand("limit-0") with { AuthSecret = SecondAuthSecret };
+
+        // Act
+        var response = await AuthenticatedOwnerHttpClient.PostAsJsonAsync(RoutesPrefix, command);
+
+        // Assert
+        response.ShouldBeSuccessfulGetRequest();
+        var pushSubscriptionId = await ReadSubscriptionIdAsync(response);
+        Connection.ExecuteScalar<string>("SELECT auth_secret FROM push_subscriptions WHERE id = @id", [new { id = pushSubscriptionId }]).Should().Be(SecondAuthSecret);
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM push_subscriptions", []).Should().Be(PushNotificationPolicy.MaximumSubscriptionsPerUser);
+    }
+
+    [Fact]
+    public async Task SavePushSubscription_WhenAnotherUserOfTheSameTenantIsAtTheMaximum_ShouldStoreTheCallersSubscription()
+    {
+        // Arrange
+        for (var deviceNumber = 0; deviceNumber < PushNotificationPolicy.MaximumSubscriptionsPerUser; deviceNumber++)
+        {
+            InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Member.Id, $"https://fcm.googleapis.com/fcm/send/member-limit-{deviceNumber}");
+        }
+
+        // Act
+        var response = await AuthenticatedOwnerHttpClient.PostAsJsonAsync(RoutesPrefix, CreateCommand("own-first-device"));
+
+        // Assert
+        response.ShouldBeSuccessfulGetRequest();
+        Connection.ExecuteScalar<long>("SELECT COUNT(*) FROM push_subscriptions WHERE user_id = @userId", [new { userId = DatabaseSeeder.Tenant1Owner.Id.ToString() }]).Should().Be(1);
     }
 
     [Fact]
@@ -123,7 +219,7 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
         // Arrange
         var ownResponse = await AuthenticatedOwnerHttpClient.PostAsJsonAsync(RoutesPrefix, CreateCommand("owner-list"));
         var ownSubscriptionId = await ReadSubscriptionIdAsync(ownResponse);
-        var memberSubscriptionId = InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Member.Id, "https://push.example.com/member-list");
+        var memberSubscriptionId = InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Member.Id, "https://fcm.googleapis.com/fcm/send/member-list");
 
         // Act
         var response = await AuthenticatedOwnerHttpClient.GetAsync(RoutesPrefix);
@@ -159,7 +255,7 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
     public async Task DeletePushSubscription_WhenItBelongsToAnotherUserOfTheSameTenant_ShouldReturnForbidden()
     {
         // Arrange
-        var memberSubscriptionId = InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Member.Id, "https://push.example.com/member-delete");
+        var memberSubscriptionId = InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Member.Id, "https://fcm.googleapis.com/fcm/send/member-delete");
 
         // Act
         var response = await AuthenticatedOwnerHttpClient.DeleteAsync($"{RoutesPrefix}/{memberSubscriptionId}");
@@ -174,7 +270,7 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
     {
         // Arrange
         var (otherTenantId, otherUserId) = InsertOtherTenantWithUser();
-        var otherSubscriptionId = InsertSubscription(otherTenantId, otherUserId, "https://push.example.com/other-tenant");
+        var otherSubscriptionId = InsertSubscription(otherTenantId, otherUserId, "https://fcm.googleapis.com/fcm/send/other-tenant");
 
         // Act
         var response = await AuthenticatedOwnerHttpClient.DeleteAsync($"{RoutesPrefix}/{otherSubscriptionId}");
@@ -194,9 +290,17 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    private void InsertSubscriptionsForOwnerUpToTheLimit()
+    {
+        for (var deviceNumber = 0; deviceNumber < PushNotificationPolicy.MaximumSubscriptionsPerUser; deviceNumber++)
+        {
+            InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Owner.Id, $"https://fcm.googleapis.com/fcm/send/limit-{deviceNumber}");
+        }
+    }
+
     private static SavePushSubscriptionCommand CreateCommand(string name)
     {
-        return new SavePushSubscriptionCommand($"https://push.example.com/{name}", PushNotificationsWebApplicationFactory.SubscriptionPublicKey, PushNotificationsWebApplicationFactory.SubscriptionAuthSecret, "Chrome on Linux", "/blazor/app");
+        return new SavePushSubscriptionCommand($"https://fcm.googleapis.com/fcm/send/{name}", PushNotificationsWebApplicationFactory.SubscriptionPublicKey, PushNotificationsWebApplicationFactory.SubscriptionAuthSecret, "Chrome on Linux", "/blazor/app");
     }
 
     private static async Task<string> ReadSubscriptionIdAsync(HttpResponseMessage response)

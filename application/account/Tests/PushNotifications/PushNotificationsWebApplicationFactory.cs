@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Account.Features.PushNotifications.Shared;
 using Account.Integrations.WebPush;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -11,7 +12,7 @@ namespace Account.Tests.PushNotifications;
 // Push notification tests need a deployment that has a VAPID key pair, because that is what the push-notifications-enabled
 // system flag is evaluated from. The pair is supplied as configuration rather than as environment variables, so a test
 // class that runs beside one whose deployment has no pair is unaffected.
-public sealed class PushNotificationsWebApplicationFactory : AccountWebApplicationFactory
+public class PushNotificationsWebApplicationFactory : AccountWebApplicationFactory
 {
     // The public half of a key pair, base64url encoded, which is what the flag is evaluated from. No private key is
     // configured and none is needed: nothing signs here, because the sender is replaced below.
@@ -25,6 +26,9 @@ public sealed class PushNotificationsWebApplicationFactory : AccountWebApplicati
 
     public RecordingPushNotificationSender PushNotificationSender { get; } = new();
 
+    // A deployment that names no push service hosts of its own sends through the policy's default set
+    protected virtual string? AllowedEndpointHosts => null;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
@@ -34,7 +38,8 @@ public sealed class PushNotificationsWebApplicationFactory : AccountWebApplicati
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                     {
                         ["PushNotifications:VapidPublicKey"] = VapidPublicKey,
-                        ["PushNotifications:Subject"] = "mailto:no-reply@platformplatform.net"
+                        ["PushNotifications:Subject"] = "mailto:no-reply@platformplatform.net",
+                        [PushNotificationPolicy.AllowedEndpointHostsConfigurationKey] = AllowedEndpointHosts
                     }
                 );
             }
@@ -47,6 +52,18 @@ public sealed class PushNotificationsWebApplicationFactory : AccountWebApplicati
             }
         );
     }
+}
+
+/// <summary>
+///     A deployment whose configuration names the push service hosts it sends through, the way the AppHost names the
+///     address the browser harness subscribes with. The configured value replaces the default set rather than extending
+///     it, so the default push services are refused here.
+/// </summary>
+public sealed class ConfiguredHostsPushNotificationsWebApplicationFactory : PushNotificationsWebApplicationFactory
+{
+    public const string ConfiguredEndpointHost = "push.harness.invalid";
+
+    protected override string AllowedEndpointHosts => ConfiguredEndpointHost;
 }
 
 /// <summary>

@@ -11,7 +11,8 @@ namespace Account.Integrations.WebPush;
 /// <summary>
 ///     The Web Push protocol over the push service the subscription names: the payload is encrypted for that browser's
 ///     key pair (RFC 8291) and the request is signed with this deployment's VAPID key pair (RFC 8292). A push service
-///     answering 404 or 410 has forgotten the subscription for good, which is reported as <see cref="PushDeliveryOutcome.Expired" />
+///     answering 404 or 410 has forgotten the subscription for good, which is reported as
+///     <see cref="PushDeliveryOutcome.Expired" />
 ///     so the caller can delete it.
 /// </summary>
 public sealed class WebPushNotificationSender : IPushNotificationSender, IDisposable

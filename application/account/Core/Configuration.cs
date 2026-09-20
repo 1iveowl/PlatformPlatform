@@ -68,8 +68,10 @@ public static class Configuration
             services.AddScoped<OAuthProviderFactory>();
 
             // The push service is whatever address a browser's subscription names, so this client has no base address;
-            // the timeout keeps one unreachable push service from holding a test notification open
-            services.AddHttpClient<IPushNotificationSender, WebPushNotificationSender>(client => { client.Timeout = TimeSpan.FromSeconds(10); });
+            // the timeout keeps one unreachable push service from holding a test notification open. Redirects are not
+            // followed, so the only address this client reaches is the allowlisted one the subscription named.
+            services.AddHttpClient<IPushNotificationSender, WebPushNotificationSender>(client => { client.Timeout = TimeSpan.FromSeconds(10); })
+                .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 
             services.AddEmailRendering();
 

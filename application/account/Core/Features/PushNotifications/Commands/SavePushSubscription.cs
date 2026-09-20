@@ -17,7 +17,7 @@ public sealed class SavePushSubscriptionValidator : AbstractValidator<SavePushSu
 {
     public SavePushSubscriptionValidator()
     {
-        RuleFor(x => x.Endpoint).Must(PushNotificationPolicy.IsPushServiceEndpoint).WithMessage("The push service address must be an https address of at most 2000 characters.");
+        RuleFor(x => x.Endpoint).Must(PushNotificationPolicy.IsPushServiceAddress).WithMessage("The push service address must be an https address with no user information and no port, of at most 2000 characters.");
         RuleFor(x => x.PublicKey).Must(PushNotificationPolicy.IsSubscriptionPublicKey).WithMessage("The subscription key must be a base64url encoded uncompressed P-256 public key.");
         RuleFor(x => x.AuthSecret).Must(PushNotificationPolicy.IsSubscriptionAuthSecret).WithMessage("The subscription secret must be a base64url encoded 16 byte value.");
         RuleFor(x => x.DeviceLabel).NotEmpty().MaximumLength(PushNotificationPolicy.MaximumDeviceLabelLength).WithMessage("The device label must be between 1 and 100 characters.");
@@ -39,6 +39,14 @@ public sealed class SavePushSubscriptionHandler(
         var userInfo = executionContext.UserInfo;
         if (userInfo.Id is null || userInfo.TenantId is null) return Result<SavePushSubscriptionResponse>.Unauthorized("A push subscription must be saved from an authenticated session.");
 
+        // A stored endpoint is an address this system will send a request to, so only the push services this deployment
+        // knows are stored at all
+        var allowedEndpointHosts = PushNotificationPolicy.GetAllowedEndpointHosts(configuration);
+        if (!PushNotificationPolicy.IsPushServiceEndpoint(command.Endpoint, allowedEndpointHosts))
+        {
+            return Result<SavePushSubscriptionResponse>.BadRequest("The push service address is not one this system sends notifications through.");
+        }
+
         // The same browser resubscribing arrives with the same endpoint, so its row is updated rather than duplicated
         var existingSubscription = await pushSubscriptionRepository.GetByEndpointAsync(userInfo.Id, command.Endpoint, cancellationToken);
         if (existingSubscription is not null)
@@ -47,6 +55,13 @@ public sealed class SavePushSubscriptionHandler(
             pushSubscriptionRepository.Update(existingSubscription);
             events.CollectEvent(new PushSubscriptionUpdated(existingSubscription.Id));
             return new SavePushSubscriptionResponse(existingSubscription.Id);
+        }
+
+        // A browser that resubscribes at the limit is updated above; only a device beyond the limit is refused
+        var subscriptionCount = await pushSubscriptionRepository.CountByUserAsync(userInfo.Id, cancellationToken);
+        if (subscriptionCount >= PushNotificationPolicy.MaximumSubscriptionsPerUser)
+        {
+            return Result<SavePushSubscriptionResponse>.BadRequest($"This account has reached the limit of {PushNotificationPolicy.MaximumSubscriptionsPerUser} devices subscribed to notifications.");
         }
 
         var pushSubscription = PushSubscription.Create(userInfo.TenantId, userInfo.Id, command.Endpoint, command.PublicKey, command.AuthSecret, command.DeviceLabel, command.ApplicationPath);

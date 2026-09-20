@@ -10,6 +10,8 @@ public interface IPushSubscriptionRepository : ICrudRepository<PushSubscription,
     Task<PushSubscription[]> GetByUserAsync(UserId userId, CancellationToken cancellationToken);
 
     Task<PushSubscription?> GetByEndpointAsync(UserId userId, string endpoint, CancellationToken cancellationToken);
+
+    Task<int> CountByUserAsync(UserId userId, CancellationToken cancellationToken);
 }
 
 public sealed class PushSubscriptionRepository(AccountDbContext accountDbContext)
@@ -24,5 +26,10 @@ public sealed class PushSubscriptionRepository(AccountDbContext accountDbContext
     public async Task<PushSubscription?> GetByEndpointAsync(UserId userId, string endpoint, CancellationToken cancellationToken)
     {
         return await DbSet.FirstOrDefaultAsync(p => p.UserId == userId && p.Endpoint == endpoint, cancellationToken);
+    }
+
+    public async Task<int> CountByUserAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return await DbSet.CountAsync(p => p.UserId == userId, cancellationToken);
     }
 }

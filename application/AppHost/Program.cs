@@ -161,6 +161,10 @@ var accountApi = builder
     .WithEnvironment("PushNotifications__VapidPublicKey", pushVapidPublicKey)
     .WithEnvironment("PushNotifications__VapidPrivateKey", pushVapidPrivateKey)
     .WithEnvironment("PushNotifications__Subject", pushNotificationSubject)
+    // Local development also accepts the address the browser harness subscribes with, because no browser under the
+    // automation library can reach a real push service. The list mirrors PushNotificationPolicy.DefaultAllowedEndpointHosts
+    // and replaces it; Azure sets nothing, so a deployed environment sends only through the default push services.
+    .WithEnvironment("PushNotifications__AllowedEndpointHosts", "fcm.googleapis.com,updates.push.services.mozilla.com,push.apple.com,notify.windows.com,push.harness.invalid")
     .WithEnvironment("PUBLIC_PUSH_NOTIFICATIONS_ENABLED", "true")
     .WithEnvironment("PUBLIC_PUSH_PUBLIC_KEY", pushVapidPublicKeyValue)
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", "true")
