@@ -3,8 +3,11 @@
 // authenticated channel and refreshed whenever the session is.
 //
 // A client also becomes stale without its version changing, because a deployment replaces the fingerprinted asset set:
-// the assets this document still asks for are then no longer served. StaleAssetObserver reports such a 404 here, and from
+// the assets this document still asks for are then no longer served. StaleAssetProbe reports such a 404 here, and from
 // then on this runtime is treated the same as one outside the version window.
+//
+// Both signals are read again before a mutation is forwarded, by StaleClientRecheck, so a tab that has not navigated since
+// a deployment still learns before it writes.
 
 using Account.Features.Authentication.Queries;
 

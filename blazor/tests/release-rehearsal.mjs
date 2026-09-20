@@ -5,8 +5,10 @@
 //   1. the current publish is served; a supported client reads and writes, and its document's assets all come from it
 //   2. the previous publish is served in its place, the rollback: the open tab's own fingerprinted assets are gone, its next
 //      write is refused with the reload prompt, and its unsaved edit is neither sent nor silently discarded
-//   3. a tab opened on the previous publish is outside the version window: it still reads, and its write is refused too
-//   4. the current publish is restored: the waiting tab is asked before its edits are discarded, and the write succeeds
+//   3. a second tab that never navigated after the switch writes straight away: the gate re-reads both signals before it
+//      forwards a mutation, so that write is refused too and its edit stays on the form
+//   4. a tab opened on the previous publish is outside the version window: it still reads, and its write is refused too
+//   5. the current publish is restored: the waiting tab is asked before its edits are discarded, and the write succeeds
 //
 // The two publishes must differ in version, which is what makes one of them unsupported:
 //   blazor-publish --folder a --version 0.9.0     (the previous release, outside the window)
@@ -183,6 +185,14 @@ async function openAccountSettings(browser, storageState) {
   return { context, page, observations, assets };
 }
 
+function isGuardArmed(page) {
+  return page.evaluate(() => {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+}
+
 async function saveAccountName(page, name) {
   await page.locator(testId("account-name")).fill(name);
   await page.waitForTimeout(guardArmingMs);
@@ -227,6 +237,7 @@ async function run() {
   const browser = await launchBrowser(options.browser);
   let serving = null;
   let currentTab = null;
+  let stayingTab = null;
   let previousTab = null;
   try {
     // 1. The current release
@@ -246,6 +257,12 @@ async function run() {
     // The edit this tab keeps across the deployment
     await currentTab.page.locator(testId("account-name")).fill("Rehearsal unsaved edit");
     await currentTab.page.waitForTimeout(guardArmingMs);
+
+    // A second tab of the same publish, which stays on this page across the switch and writes without navigating first.
+    // Nothing tells it about the deployment until the gate re-checks, which is the case this tab is here for.
+    stayingTab = await openAccountSettings(browser, signedUp.storageState);
+    await stayingTab.page.locator(testId("account-name")).fill("Rehearsal without navigating");
+    await stayingTab.page.waitForTimeout(guardArmingMs);
 
     // 2. The previous release, served in its place
     await stopServing(serving);
@@ -273,7 +290,12 @@ async function run() {
     await currentTab.page.locator(testId("account-settings-form")).waitFor({ timeout: interactiveTimeoutMs });
     await currentTab.page.waitForTimeout(settleMs);
 
-    await saveAccountName(currentTab.page, "Rehearsal after rollback");
+    // What the tab that crossed the deployment by an enhanced navigation knows of this edit, measured rather than assumed:
+    // its document comes from the publish that is served now while its runtime is the one it was loaded with
+    await currentTab.page.locator(testId("account-name")).fill("Rehearsal after rollback");
+    await currentTab.page.waitForTimeout(guardArmingMs);
+    measurements.staleTabAfterEnhancedNavigation = { guardArmedByTheEdit: await isGuardArmed(currentTab.page) };
+    await currentTab.page.locator(testId("save-account-settings")).click();
     await currentTab.page.locator(testId("form-error-reload")).waitFor({ timeout: interactiveTimeoutMs });
     const staleMessages = await currentTab.page.locator(testId("form-error-message")).allTextContents();
     record("a write from the open tab is refused with the reload prompt", staleMessages.length > 0, staleMessages.join(" | "));
@@ -281,7 +303,16 @@ async function run() {
     const keptEdit = await currentTab.page.locator(testId("account-name")).inputValue();
     record("the refused write leaves the edit on the form", keptEdit === "Rehearsal after rollback", `the form still holds "${keptEdit}"`);
 
-    // 3. A tab that loads the previous release, whose client is outside the version window
+    // 3. The tab that never navigated after the switch: its write is what makes it learn
+    await stayingTab.page.locator(testId("save-account-settings")).click();
+    await stayingTab.page.locator(testId("form-error-reload")).waitFor({ timeout: interactiveTimeoutMs });
+    const stayingMessages = await stayingTab.page.locator(testId("form-error-message")).allTextContents();
+    record("a write from a tab that never navigated is refused with the reload prompt", stayingMessages.length > 0, stayingMessages.join(" | "));
+
+    const stayingEdit = await stayingTab.page.locator(testId("account-name")).inputValue();
+    record("the tab that never navigated keeps its unsaved edit", stayingEdit === "Rehearsal without navigating", `the form still holds "${stayingEdit}"`);
+
+    // 4. A tab that loads the previous release, whose client is outside the version window
     previousTab = await openAccountSettings(browser, signedUp.storageState);
     assertAtomicAssetSet("the document of the previous publish loads only its own assets", previousTab.assets, previousRoutes);
     const readName = await previousTab.page.locator(testId("account-name")).inputValue();
@@ -292,16 +323,33 @@ async function run() {
     const unsupportedMessages = await previousTab.page.locator(testId("form-error-message")).allTextContents();
     record("a write from a client outside the version window is refused with the reload prompt", unsupportedMessages.length > 0, unsupportedMessages.join(" | "));
 
-    // 4. The current release restored
+    // 5. The current release restored
     await stopServing(serving);
     serving = await serve(options.current, current.clientAssembly);
 
-    // The prompt's own action loads the page again as a new document, which is where the restored release arrives. The
-    // unsaved-changes guard does not intercept it on a page that was reached by enhanced navigation, which is a defect of
-    // the guard recorded in docs/blazor-recovery-runbook.md, so the edit this tab still held is discarded here.
+    // The prompt's own action loads the page again as a new document, which is where the restored release arrives. On the
+    // tab whose document and runtime both come from the publish it was loaded with, the edit it still holds is guarded on
+    // that path too, so the user is asked before it is discarded.
+    measurements.tabThatNeverNavigated = {
+      guardArmedByTheEdit: await isGuardArmed(stayingTab.page),
+      editBeforeTheReloadPrompt: await stayingTab.page.locator(testId("account-name")).inputValue()
+    };
+    await stayingTab.page.locator(testId("form-error-reload")).click();
+    const reloadDialog = stayingTab.page.locator(`dialog${testId("unsaved-changes-dialog")}[open]`);
+    await reloadDialog.waitFor({ timeout: interactiveTimeoutMs });
+    record(
+      "the reload prompt asks before it discards the unsaved edit",
+      await reloadDialog.isVisible(),
+      `the unsaved changes dialog opened on the reload prompt's own action, on the tab still holding "${measurements.tabThatNeverNavigated.editBeforeTheReloadPrompt}"`
+    );
+    await reloadDialog.locator(testId("unsaved-changes-leave")).click();
+    await stayingTab.page.locator(testId("account-settings-form")).waitFor({ timeout: interactiveTimeoutMs });
+
+    // The tab that crossed the switch by an enhanced navigation reloads too, and what its mixed document did to the edit it
+    // was given is recorded above rather than asserted here
     const recoveredTab = currentTab;
-    const discardedEdit = await recoveredTab.page.locator(testId("account-name")).inputValue();
-    measurements.editDiscardedByTheReloadPrompt = discardedEdit;
+    measurements.staleTabAfterEnhancedNavigation.editBeforeTheReloadPrompt = await recoveredTab.page.locator(testId("account-name")).inputValue();
+    measurements.staleTabAfterEnhancedNavigation.guardArmedBeforeTheReloadPrompt = await isGuardArmed(recoveredTab.page);
     await recoveredTab.page.locator(testId("form-error-reload")).click();
     await recoveredTab.page.waitForTimeout(settleMs);
     if (await recoveredTab.page.locator(`dialog${testId("unsaved-changes-dialog")}[open]`).count() > 0) {
@@ -321,20 +369,21 @@ async function run() {
       recoveredMessages.join(" | ") || `the account name saved as "${recoveredName}"`
     );
 
-    const violations = [...policyViolationsOf(currentTab.context), ...policyViolationsOf(previousTab.context)];
+    const violations = [...policyViolationsOf(currentTab.context), ...policyViolationsOf(stayingTab.context), ...policyViolationsOf(previousTab.context)];
     record("no content security policy violation across the rehearsal", violations.length === 0, `${violations.length} violations`);
 
     // A refused write is a 412 this run asked for and a probed asset is a 404 this run asked for, so error responses are
     // counted rather than judged; an unhandled error in the runtime is never asked for
-    const pageErrors = [...currentTab.observations.pageErrors, ...previousTab.observations.pageErrors];
+    const tabs = [currentTab, stayingTab, previousTab];
+    const pageErrors = tabs.flatMap((tab) => tab.observations.pageErrors);
     measurements.observations = {
       pageErrors,
-      consoleErrors: currentTab.observations.consoleErrors.length + previousTab.observations.consoleErrors.length,
-      errorResponses: currentTab.observations.errorResponses.length + previousTab.observations.errorResponses.length
+      consoleErrors: tabs.reduce((total, tab) => total + tab.observations.consoleErrors.length, 0),
+      errorResponses: tabs.reduce((total, tab) => total + tab.observations.errorResponses.length, 0)
     };
     record("no unhandled error in the runtime across the rehearsal", pageErrors.length === 0, `${pageErrors.length} page errors`);
   } finally {
-    for (const [name, tab] of [["currentTab", currentTab], ["previousTab", previousTab]]) {
+    for (const [name, tab] of [["currentTab", currentTab], ["stayingTab", stayingTab], ["previousTab", previousTab]]) {
       if (tab !== null) {
         diagnostics[name] = {
           url: tab.page.url(),
@@ -345,7 +394,7 @@ async function run() {
       }
     }
 
-    for (const tab of [currentTab, previousTab]) {
+    for (const tab of [currentTab, stayingTab, previousTab]) {
       if (tab !== null) await tab.context.close();
     }
     await browser.close();
@@ -362,7 +411,7 @@ try {
 }
 
 // Every case runs in every browser: the policy needs no browser feature beyond a request that bypasses the cache
-const expectedCaseCount = 14;
+const expectedCaseCount = 17;
 const { resultFile, passed } = writeResult(`release-rehearsal-${options.browser}${options.label === "" ? "" : `-${options.label}`}.json`, {
   script: "release-rehearsal",
   browser: options.browser,

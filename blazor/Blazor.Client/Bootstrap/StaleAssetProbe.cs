@@ -7,16 +7,28 @@
 // served now, so this is a scoped service of the WebAssembly application rather than state on a component. A runtime that
 // finds no fingerprinted route in its document learns nothing and never becomes stale on this account; the version window
 // is then the only signal.
+//
+// The check runs on an in-app navigation and again before a mutation leaves the browser, so a tab that writes without
+// navigating first learns as well. Those two can meet, and one answer is enough: a check that finds another in flight
+// waits for it instead of asking a second time.
 
 using Microsoft.JSInterop;
 
 namespace Blazor.Client.Bootstrap;
 
-public sealed class StaleAssetProbe(IJSRuntime javaScriptRuntime, ClientVersionState versionState) : IAsyncDisposable
+// The write gate reaches the probe through this interface, because the probe needs a document and a JavaScript runtime
+// while the gate is a handler of the account API client, which is registered wherever that client is
+public interface IStaleAssetProbe
+{
+    Task CheckAsync();
+}
+
+public sealed class StaleAssetProbe(IJSRuntime javaScriptRuntime, ClientVersionState versionState) : IStaleAssetProbe, IAsyncDisposable
 {
     private const string ModulePath = "./js/stale-assets.js";
     private const int NotFound = 404;
 
+    private Task? _checkInFlight;
     private IJSObjectReference? _module;
 
     // The asset route this runtime watches, once one was captured
@@ -32,6 +44,13 @@ public sealed class StaleAssetProbe(IJSRuntime javaScriptRuntime, ClientVersionS
         {
             // The document is already gone
         }
+    }
+
+    public Task CheckAsync()
+    {
+        if (CapturedAssetUrl is null || versionState.IsStale) return Task.CompletedTask;
+
+        return _checkInFlight = _checkInFlight is { IsCompleted: false } inFlight ? inFlight : RequestAsync();
     }
 
     // Captures the first fingerprinted asset route of the document that started this runtime, and keeps it
@@ -53,17 +72,15 @@ public sealed class StaleAssetProbe(IJSRuntime javaScriptRuntime, ClientVersionS
         }
     }
 
-    public async Task CheckAsync()
+    private async Task RequestAsync()
     {
-        if (CapturedAssetUrl is null || versionState.IsStale) return;
-
         try
         {
             var module = await GetModuleAsync();
             if (module is null) return;
 
             var status = await module.InvokeAsync<int?>("requestStatus", CapturedAssetUrl);
-            if (status == NotFound) versionState.ReportMissingAsset(CapturedAssetUrl);
+            if (status == NotFound) versionState.ReportMissingAsset(CapturedAssetUrl!);
         }
         catch (JSDisconnectedException)
         {

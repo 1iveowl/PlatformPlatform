@@ -20,6 +20,10 @@ namespace Blazor.Tests.Client.Session;
 // Logout and tenant switch over the real WebAssembly registration, with a scripted network: every logout outcome, the
 // reconciliation of a lost response without replaying the mutation, serialization of transitions, the refusal of competing
 // writes, and the end of the previous identity after a switch whatever happens to the optional preference cookie.
+//
+// A tenant switch is a mutation, so the write gate re-reads the server's version before it forwards one; the bootstrap read
+// that precedes each switch, and the one a refused competing write makes before it is stopped, are that re-check. Logout is
+// never gated.
 public sealed class SessionTransitionTests
 {
     private const string BootstrapPath = "/api/account/bootstrap";
@@ -210,7 +214,8 @@ public sealed class SessionTransitionTests
         competingWrite.Outcome.Should().Be(ApiCallOutcome.TransportFailure);
         busyWhileSwitching.Should().BeTrue();
         switchResult.Outcome.Should().Be(TenantSwitchOutcome.Switched);
-        network.RequestsAfterSignIn.Should().Equal($"POST {SwitchTenantPath}");
+        // The competing write re-checked the version, which is a read, and was then stopped before it was sent
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"POST {SwitchTenantPath}", $"GET {BootstrapPath}");
         services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().Equal(AuthenticatedHomeDestination);
     }
 
@@ -280,7 +285,7 @@ public sealed class SessionTransitionTests
         services.GetRequiredService<FeatureFlagState>().UserId.Should().BeNull();
         services.GetRequiredService<ToastService>().Toasts.Should().BeEmpty();
         services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().Equal(AuthenticatedHomeDestination);
-        network.RequestsAfterSignIn.Should().Equal($"GET {CurrentUserPath}", $"POST {SwitchTenantPath}");
+        network.RequestsAfterSignIn.Should().Equal($"GET {CurrentUserPath}", $"GET {BootstrapPath}", $"POST {SwitchTenantPath}");
     }
 
     [Fact]
@@ -301,7 +306,7 @@ public sealed class SessionTransitionTests
         transition.Status.Should().Be(SessionTransitionStatus.Idle);
         services.GetRequiredService<AuthenticationNavigator>().IsLeaving.Should().BeFalse();
         services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().BeEmpty();
-        network.RequestsAfterSignIn.Should().Equal($"POST {SwitchTenantPath}");
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"POST {SwitchTenantPath}");
     }
 
     [Fact]
@@ -320,7 +325,7 @@ public sealed class SessionTransitionTests
         result.Outcome.Should().Be(TenantSwitchOutcome.Switched);
         services.GetRequiredService<ScriptedJavaScript>().RememberedTenants.Should().Equal("2");
         services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().Equal(AuthenticatedHomeDestination);
-        network.RequestsAfterSignIn.Should().Equal($"POST {SwitchTenantPath}", $"GET {BootstrapPath}");
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"POST {SwitchTenantPath}", $"GET {BootstrapPath}");
     }
 
     [Fact]
@@ -340,7 +345,7 @@ public sealed class SessionTransitionTests
         result.Failure!.Outcome.Should().Be(ApiCallOutcome.TransportFailure);
         services.GetRequiredService<AuthenticationNavigator>().IsLeaving.Should().BeFalse();
         services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().BeEmpty();
-        network.RequestsAfterSignIn.Should().Equal($"POST {SwitchTenantPath}", $"GET {BootstrapPath}");
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"POST {SwitchTenantPath}", $"GET {BootstrapPath}");
     }
 
     private static async Task<ServiceProvider> CreateSignedInServicesAsync(ScriptedNetwork network)

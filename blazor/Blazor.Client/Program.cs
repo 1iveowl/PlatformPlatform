@@ -30,8 +30,10 @@ builder.Services.AddScoped<ApiFailurePresenter>();
 builder.Services.AddScoped<SessionState>();
 
 // Watches whether the publish this runtime was loaded from is still served; one per application, so the asset route it
-// captured survives the enhanced navigations that replace the document
+// captured survives the enhanced navigations that replace the document. The shell checks it on every in-app navigation and
+// the write gate checks it again before a mutation, which is why the gate is given it as IStaleAssetProbe.
 builder.Services.AddScoped<StaleAssetProbe>();
+builder.Services.AddScoped<IStaleAssetProbe>(services => services.GetRequiredService<StaleAssetProbe>());
 
 // Logout and tenant switch, one at a time, for whichever component offers them
 builder.Services.AddScoped<SessionTransition>();

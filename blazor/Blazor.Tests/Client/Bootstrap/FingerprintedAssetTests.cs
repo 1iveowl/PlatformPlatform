@@ -1,12 +1,19 @@
+using System.Text.Json;
+using Blazor.Client;
 using Blazor.Client.Bootstrap;
 using FluentAssertions;
 
 namespace Blazor.Tests.Client.Bootstrap;
 
 // The routes are real ones from a trimmed Release publish's Blazor.Host.staticwebassets.endpoints.json, so the predicate is
-// measured against the fingerprints the static web asset pipeline actually produces
+// measured against the fingerprints the static web asset pipeline actually produces. The last two cases go further and hold
+// the predicate against this build's own endpoint manifest, route by route, so the shape is read from the pipeline rather
+// than guessed from a sample: a fingerprint that the predicate rejects would leave the asset unwatched by StaleAssetProbe
+// and unrecognized by the host's cache test.
 public sealed class FingerprintedAssetTests
 {
+    private const string EndpointManifestFileName = "Blazor.Host.staticwebassets.endpoints.json";
+
     [Theory]
     [InlineData("/blazor/_framework/Blazor.Client.6kbltrhlw8.wasm")]
     [InlineData("/blazor/_framework/Account.Contracts.4aysphzjbn.wasm")]
@@ -17,6 +24,11 @@ public sealed class FingerprintedAssetTests
     [InlineData("/blazor/_framework/Blazor.Client.6kbltrhlw8.wasm.br")]
     [InlineData("https://app.dev.localhost:9000/blazor/_framework/Blazor.Client.6kbltrhlw8.wasm")]
     [InlineData("/blazor/js/shell.9ab3cd12fe.js?v=1")]
+    // A fingerprint of ten letters and no digit: 17 of the 271 distinct fingerprints of this build carry no digit
+    [InlineData("/blazor/_framework/Microsoft.AspNetCore.Authorization.zsiysggeka.wasm")]
+    [InlineData("/blazor/_framework/dotnet.native.daihnlzyds.wasm")]
+    [InlineData("/blazor/js/document-base-uri.xtnnvhffqm.js")]
+    [InlineData("/blazor/images/mitid-logo-white.apddeezbwc.svg")]
     public void IsFingerprinted_WhenRouteCarriesAFingerprint_ShouldBeTrue(string url)
     {
         // Act
@@ -37,6 +49,9 @@ public sealed class FingerprintedAssetTests
     [InlineData("/blazor/_content/Microsoft.FluentUI.AspNetCore.Components/Components/DataGrid/FluentDataGrid.razor.js")]
     [InlineData("/blazor/app.css")]
     [InlineData("/blazor/app/users")]
+    // Nine characters, and eleven: only the length the pipeline emits is a fingerprint
+    [InlineData("/blazor/_framework/Blazor.Client.6kbltrhlw.wasm")]
+    [InlineData("/blazor/_framework/Blazor.Client.6kbltrhlw8x.wasm")]
     // The API and an avatar on the storage account are outside this edition's asset set, whatever their file names look
     // like; the observer in stale-assets.js has already dropped anything from another origin
     [InlineData("/api/account/users/usr_01jz8q4n6v3k2m7p9r5t0w1xyz")]
@@ -78,5 +93,63 @@ public sealed class FingerprintedAssetTests
 
         // Assert
         watchable.Should().BeNull();
+    }
+
+    [Fact]
+    public void IsFingerprinted_AgainstEveryRouteOfTheBuildsEndpointManifest_ShouldAgreeWithThePipeline()
+    {
+        // Arrange
+        var endpoints = ReadEndpointManifest();
+
+        // Act
+        var disagreements = endpoints
+            .Where(endpoint => FingerprintedAsset.IsFingerprinted($"{AppUrls.PathBase}/{endpoint.Route}") != endpoint.IsFingerprinted)
+            .Select(endpoint => $"{endpoint.Route} carries {(endpoint.IsFingerprinted ? "a fingerprint" : "none")}")
+            .Distinct()
+            .ToArray();
+
+        // Assert
+        endpoints.Should().Contain(endpoint => endpoint.IsFingerprinted).And.Contain(endpoint => !endpoint.IsFingerprinted);
+        disagreements.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EveryFingerprintOfTheBuildsEndpointManifest_ShouldHaveTheOneShapeThePredicateExpects()
+    {
+        // Arrange
+        var fingerprints = ReadEndpointManifest().Where(endpoint => endpoint.IsFingerprinted).Select(endpoint => endpoint.Fingerprint!).Distinct().ToArray();
+
+        // Act
+        var lengths = fingerprints.Select(fingerprint => fingerprint.Length).Distinct().ToArray();
+
+        // Assert
+        fingerprints.Should().NotBeEmpty();
+        lengths.Should().Equal(10);
+        fingerprints.Should().OnlyContain(fingerprint => fingerprint.All(character => char.IsAsciiDigit(character) || char.IsAsciiLetterLower(character)));
+    }
+
+    // The endpoint manifest of the host this test project references, which names each route's fingerprint where the
+    // pipeline gave it one
+    private static PublishedEndpoint[] ReadEndpointManifest()
+    {
+        var manifestPath = Path.Combine(AppContext.BaseDirectory, EndpointManifestFileName);
+        File.Exists(manifestPath).Should().BeTrue(manifestPath);
+
+        using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
+        return manifest.RootElement.GetProperty("Endpoints").EnumerateArray()
+            .Select(endpoint => new PublishedEndpoint(
+                    endpoint.GetProperty("Route").GetString()!,
+                    endpoint.GetProperty("EndpointProperties").EnumerateArray()
+                        .Where(property => property.GetProperty("Name").GetString() == "fingerprint")
+                        .Select(property => property.GetProperty("Value").GetString())
+                        .FirstOrDefault()
+                )
+            )
+            .ToArray();
+    }
+
+    private sealed record PublishedEndpoint(string Route, string? Fingerprint)
+    {
+        public bool IsFingerprinted => Fingerprint is not null;
     }
 }

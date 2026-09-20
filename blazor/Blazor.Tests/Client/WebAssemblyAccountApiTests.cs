@@ -26,6 +26,8 @@ public sealed class WebAssemblyAccountApiTests
     // A major version this client can never be built at, so the window is unsupported whatever version the test host reports
     private const string ServerVersionOutsideTheWindow = "9999.0.0";
 
+    private const string MissingAsset = "/blazor/_framework/Blazor.Client.6kbltrhlw8.wasm";
+
     private static readonly UserId UserId = new("usr_01JZ8Q4N6V3K2M7P9R5T0W1XYZ");
 
     [Fact]
@@ -123,7 +125,7 @@ public sealed class WebAssemblyAccountApiTests
     }
 
     [Fact]
-    public async Task StateChangingCalls_BeforeAnyBootstrapRead_ShouldReadBootstrapOnceAndSendItsToken()
+    public async Task StateChangingCalls_BeforeAnyBootstrapRead_ShouldRecheckTheServerVersionBeforeEachAndSendTheAcceptedToken()
     {
         // Arrange
         var network = new RecordingNetwork(request => request.RequestUri!.AbsolutePath == AccountApiRoutes.Bootstrap ? CreateBootstrapResponse() : new HttpResponseMessage(HttpStatusCode.NoContent));
@@ -135,8 +137,95 @@ public sealed class WebAssemblyAccountApiTests
         await usersClient.DeleteUserAsync(UserId, CancellationToken.None);
 
         // Assert
-        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap, AccountApiRoutes.User(UserId), AccountApiRoutes.User(UserId));
+        // Each write re-reads the server's version before it is forwarded, and the first one also waits for the session's
+        // own bootstrap read, which is what supplies the antiforgery token
+        network.Requests.Select(request => request.Path).Should().Equal(
+            AccountApiRoutes.Bootstrap, AccountApiRoutes.Bootstrap, AccountApiRoutes.User(UserId), AccountApiRoutes.Bootstrap, AccountApiRoutes.User(UserId)
+        );
         network.Requests.Where(request => request.Method == HttpMethod.Delete).Should().OnlyContain(request => request.SentAntiforgeryToken == AntiforgeryToken);
+    }
+
+    [Fact]
+    public async Task StateChangingCall_WhenTheServerVersionLeftTheWindowSinceTheSessionStarted_ShouldRecheckAndNotBeSent()
+    {
+        // Arrange
+        var bootstrapReads = 0;
+        var network = new RecordingNetwork(request =>
+            request.RequestUri!.AbsolutePath == AccountApiRoutes.Bootstrap
+                ? CreateBootstrapResponse(++bootstrapReads == 1 ? ClientVersionWindow.CurrentClientVersion : ServerVersionOutsideTheWindow)
+                : new HttpResponseMessage(HttpStatusCode.NoContent)
+        );
+        await using var services = CreateServices(network);
+        await services.GetRequiredService<SessionState>().GetAsync();
+        services.GetRequiredService<ClientVersionState>().Support.Should().Be(ClientVersionSupport.Supported);
+
+        // Act
+        var result = await services.GetRequiredService<UsersClient>().DeleteUserAsync(UserId, CancellationToken.None);
+
+        // Assert
+        ApiFailureClassifier.Classify(result).Kind.Should().Be(ApiFailureKind.Version);
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap, AccountApiRoutes.Bootstrap);
+        services.GetRequiredService<ClientVersionState>().Support.Should().Be(ClientVersionSupport.Unsupported);
+    }
+
+    [Fact]
+    public async Task StateChangingCall_WhenTheRuntimeHasNotNavigatedAndItsAssetSetIsGone_ShouldRecheckAndNotBeSent()
+    {
+        // Arrange
+        var network = new RecordingNetwork(_ => CreateBootstrapResponse());
+        var probe = new RecordingAssetProbe(MissingAsset);
+        await using var services = CreateServices(network, probe);
+        await services.GetRequiredService<SessionState>().GetAsync();
+
+        // Act
+        var result = await services.GetRequiredService<UsersClient>().DeleteUserAsync(UserId, CancellationToken.None);
+
+        // Assert
+        ApiFailureClassifier.Classify(result).Kind.Should().Be(ApiFailureKind.Version);
+        probe.Checks.Should().Be(1);
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap);
+        services.GetRequiredService<ClientVersionState>().MissingAsset.Should().Be(MissingAsset);
+    }
+
+    [Fact]
+    public async Task StateChangingCall_WhenNeitherSignalCanBeRead_ShouldStillBeSent()
+    {
+        // Arrange
+        var bootstrapReads = 0;
+        var network = new RecordingNetwork(request =>
+            request.RequestUri!.AbsolutePath == AccountApiRoutes.Bootstrap
+                ? ++bootstrapReads == 1 ? CreateBootstrapResponse() : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                : new HttpResponseMessage(HttpStatusCode.NoContent)
+        );
+        var probe = new RecordingAssetProbe(null) { Throws = true };
+        await using var services = CreateServices(network, probe);
+        await services.GetRequiredService<SessionState>().GetAsync();
+
+        // Act
+        var result = await services.GetRequiredService<UsersClient>().DeleteUserAsync(UserId, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        probe.Checks.Should().Be(1);
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap, AccountApiRoutes.Bootstrap, AccountApiRoutes.User(UserId));
+        services.GetRequiredService<ClientVersionState>().IsStale.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task StateChangingCall_WhenTheRuntimeIsAlreadyStale_ShouldAskNeitherSignalAgain()
+    {
+        // Arrange
+        var network = new RecordingNetwork(_ => CreateBootstrapResponse(ServerVersionOutsideTheWindow));
+        var probe = new RecordingAssetProbe(null);
+        await using var services = CreateServices(network, probe);
+        await services.GetRequiredService<SessionState>().GetAsync();
+
+        // Act
+        await services.GetRequiredService<UsersClient>().DeleteUserAsync(UserId, CancellationToken.None);
+
+        // Assert
+        probe.Checks.Should().Be(0);
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap);
     }
 
     [Fact]
@@ -209,12 +298,19 @@ public sealed class WebAssemblyAccountApiTests
         network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap);
     }
 
-    private static ServiceProvider CreateServices(RecordingNetwork network)
+    private static ServiceProvider CreateServices(RecordingNetwork network, RecordingAssetProbe? staleAssetProbe = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<RecordingNavigationManager>();
         services.AddSingleton<NavigationManager>(serviceProvider => serviceProvider.GetRequiredService<RecordingNavigationManager>());
         services.AddAccountApiClients(new Uri(RecordingNavigationManager.BaseAddress), () => network);
+        // The probe needs a document, so the browser registers it in Program.cs and a runtime without one is left with the
+        // version window as its only signal
+        if (staleAssetProbe is not null)
+        {
+            services.AddScoped<IStaleAssetProbe>(serviceProvider => staleAssetProbe.ReportingTo(serviceProvider.GetRequiredService<ClientVersionState>()));
+        }
+
         services.AddScoped<DataListPageCache>();
         services.AddScoped<ToastService>();
         services.AddScoped<SessionState>();
@@ -240,6 +336,32 @@ public sealed class WebAssemblyAccountApiTests
     }
 
     private sealed record RecordedRequest(HttpMethod Method, string Path, string? SentAntiforgeryToken);
+
+    // Stands in for StaleAssetProbe, whose own request needs a document: it reports the asset the server no longer serves,
+    // or fails the way a runtime whose module cannot be reached does
+    private sealed class RecordingAssetProbe(string? missingAsset) : IStaleAssetProbe
+    {
+        private ClientVersionState? _versionState;
+
+        public int Checks { get; private set; }
+
+        public bool Throws { get; init; }
+
+        public Task CheckAsync()
+        {
+            Checks++;
+            if (Throws) throw new InvalidOperationException("The probe could not ask.");
+            if (missingAsset is not null) _versionState!.ReportMissingAsset(missingAsset);
+
+            return Task.CompletedTask;
+        }
+
+        public RecordingAssetProbe ReportingTo(ClientVersionState versionState)
+        {
+            _versionState = versionState;
+            return this;
+        }
+    }
 
     private sealed class RecordingNetwork(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {

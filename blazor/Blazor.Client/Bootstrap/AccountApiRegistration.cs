@@ -9,15 +9,16 @@ public static class AccountApiRegistration
 {
     extension(IServiceCollection services)
     {
-        // A client outside the supported version window sends no mutation at all, which is why that gate is furthest from
-        // the network; a 401 from an API path ends the session in this runtime; every response reports the evaluated feature
-        // flags; state-changing calls carry the bootstrap antiforgery token; every call names the UI culture as X-Locale;
-        // closest to the network, a logout or tenant switch holds back competing writes and discards what arrives after it
-        // ended
+        // A client outside the supported version window sends no mutation at all, and re-reads both staleness signals
+        // before each one, which is why that gate is furthest from the network; a 401 from an API path ends the session in
+        // this runtime; every response reports the evaluated feature flags; state-changing calls carry the bootstrap
+        // antiforgery token; every call names the UI culture as X-Locale; closest to the network, a logout or tenant switch
+        // holds back competing writes and discards what arrives after it ended
         public IServiceCollection AddAccountApiClients(Uri baseAddress, Func<HttpMessageHandler> createPrimaryHandler)
         {
             services.AddScoped<AuthenticationNavigator>();
             services.AddScoped(_ => new ClientVersionState(ClientVersionWindow.CurrentClientVersion));
+            services.AddScoped<StaleClientRecheck>();
             services.AddScoped<FeatureFlagState>();
             services.AddScoped<BootstrapAntiforgeryTokenSource>();
             services.AddScoped<SessionTransitionGate>();
@@ -40,7 +41,12 @@ public static class AccountApiRegistration
                             }
                         }
                     };
-                    var staleClientRequestHandler = new StaleClientRequestHandler(serviceProvider.GetRequiredService<ClientVersionState>())
+                    // The re-check is resolved when a mutation is about to be sent, not here: it reads the bootstrap
+                    // through this very client, which is still being constructed
+                    var staleClientRequestHandler = new StaleClientRequestHandler(
+                        serviceProvider.GetRequiredService<ClientVersionState>(),
+                        cancellationToken => serviceProvider.GetRequiredService<StaleClientRecheck>().RunAsync(cancellationToken)
+                    )
                     {
                         InnerHandler = unauthorizedResponseHandler
                     };

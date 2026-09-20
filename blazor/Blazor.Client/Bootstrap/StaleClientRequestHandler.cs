@@ -6,6 +6,10 @@
 // Reads pass through, because an old client stays usable for reading, and so does logout: a stale client must always be
 // able to end its session. The gate is a client-side rule about what this runtime is willing to send; the server keeps
 // accepting what its contracts accept.
+//
+// Before a mutation is forwarded, both signals are read again through StaleClientRecheck, so a tab that has not navigated
+// since a deployment learns here instead of sending the write. A runtime already known to be stale asks nothing more, and
+// a re-check that cannot complete never blocks the write.
 
 using System.Net;
 using System.Text;
@@ -15,7 +19,7 @@ using SharedKernel.ApiResults;
 
 namespace Blazor.Client.Bootstrap;
 
-public sealed class StaleClientRequestHandler(ClientVersionState versionState) : DelegatingHandler
+public sealed class StaleClientRequestHandler(ClientVersionState versionState, Func<CancellationToken, Task> recheckBeforeWriteAsync) : DelegatingHandler
 {
     public const HttpStatusCode RefusalStatusCode = HttpStatusCode.PreconditionFailed;
 
@@ -24,14 +28,19 @@ public sealed class StaleClientRequestHandler(ClientVersionState versionState) :
 
     private static readonly JsonSerializerOptions JsonSerializerOptions = ApiJsonSerializerOptions.Create();
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        return IsRefused(request) ? Task.FromResult(CreateRefusal(request)) : base.SendAsync(request, cancellationToken);
+        if (!IsGated(request)) return await base.SendAsync(request, cancellationToken);
+
+        // One re-check per mutation, and none once this runtime is stale: nothing a later answer could say would let it
+        // send the write again
+        if (!versionState.IsStale) await recheckBeforeWriteAsync(cancellationToken);
+
+        return versionState.IsStale ? CreateRefusal(request) : await base.SendAsync(request, cancellationToken);
     }
 
-    private bool IsRefused(HttpRequestMessage request)
+    private static bool IsGated(HttpRequestMessage request)
     {
-        if (!versionState.IsStale) return false;
         if (request.Method == HttpMethod.Get || request.Method == HttpMethod.Head || request.Method == HttpMethod.Options) return false;
 
         return request.RequestUri?.AbsolutePath != AccountApiRoutes.Logout;

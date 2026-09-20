@@ -4,10 +4,10 @@ The supported window between an already downloaded WebAssembly client and the se
 unsupported client does, and what this policy does not cover. The operator side of the same subject, including
 what to do when a release goes wrong, is [the recovery runbook](blazor-recovery-runbook.md).
 
-Measured on the trimmed Release publishes of `797869f97` plus the change that added this document, 2026-09-19,
-by `blazor-harness release-rehearsal --browser chromium`; the result file is
-`.workspace/blazor-tests/release-rehearsal-chromium.json`. Every number and behaviour below was observed in that
-run unless it is marked as an assumption.
+Measured on the trimmed Release publishes of `7ce4df7fe` plus the change that added the pre-write re-check,
+2026-09-20, by `blazor-harness release-rehearsal --browser chromium --label ep61-pass2`; the result file is
+`.workspace/blazor-tests/release-rehearsal-chromium-ep61-pass2.json`. Every number and behaviour below was
+observed in that run unless it is marked as an assumption.
 
 ## The window
 
@@ -17,7 +17,7 @@ A client is **supported** when its major and minor version equal the server's. A
 
 - The server's version is the `APPLICATION_VERSION` entry of `RuntimeConfiguration` in the bootstrap response
   the account API returns on the authenticated channel. It is that API's own assembly informational version.
-  Observed value in the local stack: `1.0.0+797869f97929c0513c17563e0aaf936b873dfdd1`.
+  Observed value in the local stack of `797869f97`, 2026-09-19: `1.0.0+797869f97929c0513c17563e0aaf936b873dfdd1`.
 - The client's version is the informational version of the `Blazor.Client` assembly, read through
   `ClientVersionWindow.CurrentClientVersion`. A publish sets it with `blazor-publish --version <version>`.
 - Build metadata and a prerelease label name one build of a version, not another contract, so `1.2.3+9fd2c1a`
@@ -35,6 +35,26 @@ is stale, and refusing every write would take the application down on a build th
 The release rehearsal is what proves the trimmed publish keeps that metadata: only an unsupported client shows
 the prompt, so the case that expects the prompt fails if the client cannot read its own version.
 
+## When a client learns
+
+A client reads both signals again at two moments, and nothing else polls:
+
+- **At an in-app navigation**, where the asset probe re-requests the route it captured.
+- **Before it sends a mutation**, where the write gate re-checks both signals: the same asset request, and a fresh
+  read of the bootstrap, which is where the server's version comes from. A tab that has been open across a
+  deployment and then presses Save has navigated nowhere, so this is the only moment it can learn, and the
+  server's version is the account API's own, which changes when only that API is redeployed and no asset route
+  does.
+
+The cost is one extra request before a write, or two: writes are rare, and a read is never gated or delayed.
+Measured on the publish of `7ce4df7fe`: cold time to interactive 646 ms against 632 ms before the re-check was
+added, and the transfer of a cold authenticated start unchanged (4 098 514 bytes against 4 099 243), because
+nothing was added to the load.
+
+A re-check that cannot complete never blocks the write: an unreachable server, a document that is gone or a
+version neither side states is not evidence that this client is stale, and refusing every write on that would
+take the application down during an outage. A runtime already known to be stale asks nothing more.
+
 ## The second signal: the asset set is gone
 
 A client also becomes stale without any version changing, because a deployment replaces the content fingerprint
@@ -50,7 +70,16 @@ same consequence as being outside the version window.
 
 Measured in the rehearsal: publish B was served, a tab was opened, publish A was served in its place, and the
 tab's own client assembly route then answered 404. Its next write was refused with the reload prompt although
-its version matched the server's.
+its version matched the server's. A second tab that stayed on its page and never navigated was refused the same
+way on its first write, because the gate ran that request itself before forwarding anything, and its unsaved
+edit stayed on the form.
+
+The shape of a fingerprint is read from the pipeline, not guessed: every route the static web asset pipeline
+fingerprints carries exactly ten lowercase base36 characters, digits optional. Measured on the endpoint manifest
+of this build: 527 fingerprinted routes, 271 distinct fingerprints, 17 of them letters only, and no route
+without a fingerprint carries a segment of that shape. `FingerprintedAssetTests` holds the predicate against
+that manifest route by route, so a release whose client assembly draws a letters-only fingerprint is watched
+like any other.
 
 ## Where the decision lives
 
@@ -60,6 +89,7 @@ its version matched the server's.
 | What this runtime knows about itself | `blazor/Blazor.Client/Bootstrap/ClientVersionState.cs` |
 | Whether a route carries a fingerprint, and which one to watch | `blazor/Blazor.Client/Bootstrap/FingerprintedAsset.cs` |
 | Watching that route | `blazor/Blazor.Client/Bootstrap/StaleAssetProbe.cs` and `wwwroot/js/stale-assets.js` |
+| Reading both signals again before a write | `blazor/Blazor.Client/Bootstrap/StaleClientRecheck.cs` |
 | Refusing the mutation | `blazor/Blazor.Client/Bootstrap/StaleClientRequestHandler.cs` |
 | Turning the refusal into the prompt | `ApiFailureClassifier` (`ApiFailureKind.Version`), `ApiFailurePresenter`, `FormErrorMapper` |
 
@@ -68,6 +98,11 @@ antiforgery token and sends nothing. It answers the call locally with `412 Preco
 classifier matches, which is never shown to anyone. Two exceptions pass through: a read, because an old client
 stays usable for reading, and logout, because a stale client must always be able to end its session.
 
+The re-check the gate runs before it forwards a mutation reads the bootstrap through `IBootstrapSource` rather
+than through `SessionState`, whose refresh also republishes the identity and the feature flags to every surface
+that shows them; the re-check changes nothing a surface can see except the one decision it exists for. That read
+is a GET, so it passes the gate it is called from and cannot recurse.
+
 ## What the policy does not do
 
 - It does not stop a stale client at the server. The gate is a client-side rule about what this runtime is
@@ -75,8 +110,8 @@ stays usable for reading, and logout, because a stale client must always be able
   client cannot survive therefore needs a minor version bump, which puts every old client outside the window.
 - It does not cover a service worker or an installed application. The offline shell is built after this package,
   and the cases that need one are listed as unavailable in the rehearsal's result file.
-- It does not poll. A client learns of a new release from the bootstrap it reads anyway, or from an in-app
-  navigation that finds its asset set gone. A tab that sits untouched learns nothing until it is used again.
+- It does not poll. A client learns at its next in-app navigation or before its next write, whichever comes
+  first. A tab that sits untouched learns nothing, and nothing it does not send can be refused.
 
 ## Contract compatibility
 

@@ -4,8 +4,9 @@
 // means this document belongs to a publish that is gone, not that something is missing from the current one.
 //
 // Only routes under this edition's path base are considered, so a 404 from the account API or from an avatar on the
-// storage account never looks like a stale asset. A fingerprint segment is at least eight lowercase base36 characters with
-// both a digit and a letter, which the file and folder names of the published assets never are.
+// storage account never looks like a stale asset. A fingerprint segment is the shape the pipeline emits, measured against
+// the build's own endpoint manifest by FingerprintedAssetTests: exactly ten lowercase base36 characters, digits optional,
+// which no published file or folder name of this edition is.
 
 using System.Text.RegularExpressions;
 
@@ -13,6 +14,9 @@ namespace Blazor.Client.Bootstrap;
 
 public static partial class FingerprintedAsset
 {
+    // The length the static web asset pipeline emits for every fingerprint, asserted against the endpoint manifest
+    private const int FingerprintLength = 10;
+
     private static readonly string ClientAssemblyName = typeof(FingerprintedAsset).Assembly.GetName().Name!;
 
     // The asset route worth watching for a deployment, out of everything a document loaded: this client's own assembly
@@ -48,9 +52,11 @@ public static partial class FingerprintedAsset
         return url[(url.LastIndexOf('/') + 1)..].StartsWith($"{ClientAssemblyName}.", StringComparison.Ordinal) ? 0 : 1;
     }
 
+    // A fingerprint of ten letters and no digit is ordinary: 17 of the 271 distinct fingerprints of this build carry no
+    // digit, so a shape that demanded one would leave those assets unwatched and immutable without being recognized
     private static bool IsFingerprintSegment(string segment)
     {
-        return segment.Length >= 8 && FingerprintSegment().IsMatch(segment) && segment.Any(char.IsAsciiDigit) && segment.Any(char.IsAsciiLetterLower);
+        return segment.Length == FingerprintLength && FingerprintSegment().IsMatch(segment);
     }
 
     private static string? ReadPath(string url)

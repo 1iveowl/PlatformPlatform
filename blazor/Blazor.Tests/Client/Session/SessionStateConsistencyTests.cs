@@ -21,6 +21,10 @@ namespace Blazor.Tests.Client.Session;
 // antiforgery token source and the feature flag state, with a network whose responses the test releases in any order.
 // Every case asserts that the identity, the token a state-changing call sends, the flags and the notifications agree
 // with the one bootstrap the state accepted.
+//
+// The write gate re-reads the server's version before it forwards a mutation, so every state-changing call here makes a
+// bootstrap read of its own first. That read belongs to no session read: it is answered separately, it carries no version
+// in these responses, and it commits nothing to the session, the token source or the flags.
 public sealed class SessionStateConsistencyTests
 {
     private static readonly UserId UserId = new("usr_01JZ8Q4N6V3K2M7P9R5T0W1XYZ");
@@ -141,20 +145,24 @@ public sealed class SessionStateConsistencyTests
         );
 
         // Act
+        // A tenant switch is a mutation, so the gate re-reads the version before it is forwarded
         var switchCall = services.GetRequiredService<AuthenticationClient>().SwitchTenantAsync(new SwitchTenantCommand(new TenantId(2)), CancellationToken.None);
         await network.WaitForRequestsAsync(2);
+        network.Respond(1, CreateBootstrapResponse(UserId, 1, "Ann", "tenant-one-token", FeatureFlagRegistry.CompactView.Key));
+        await network.WaitForRequestsAsync(3);
         var switchResponse = new HttpResponseMessage(HttpStatusCode.OK);
         switchResponse.Headers.Add(AccountApiHeaders.UserFeatureFlags, FeatureFlagRegistry.BetaFeatures.Key);
-        network.Respond(1, switchResponse);
+        network.Respond(2, switchResponse);
         (await switchCall).IsSuccess.Should().BeTrue();
         var flagsAfterSwitchResponse = (featureFlagState.TenantId, featureFlagState.IsEnabled(FeatureFlagRegistry.BetaFeatures));
         var refresh = session.RefreshAsync();
-        await network.WaitForRequestsAsync(3);
-        network.Respond(2, CreateBootstrapResponse(UserId, 2, "Ann", "tenant-two-token", FeatureFlagRegistry.BetaFeatures.Key));
+        await network.WaitForRequestsAsync(4);
+        network.Respond(3, CreateBootstrapResponse(UserId, 2, "Ann", "tenant-two-token", FeatureFlagRegistry.BetaFeatures.Key));
         await refresh;
 
         // Assert
-        network.Requests[1].Path.Should().Be(AccountApiRoutes.SwitchTenant);
+        network.Requests[1].Path.Should().Be(AccountApiRoutes.Bootstrap);
+        network.Requests[2].Path.Should().Be(AccountApiRoutes.SwitchTenant);
         flagsAfterSwitchResponse.Should().Be((new TenantId(1), false));
         observations.Should().Equal("tenant:2:beta:");
         featureFlagState.TenantId.Should().Be(new TenantId(2));
@@ -169,21 +177,25 @@ public sealed class SessionStateConsistencyTests
         var network = new ControlledNetwork();
         await using var services = CreateServices(network);
         var session = services.GetRequiredService<SessionState>();
+        // The gate's own re-check is the first request; the session read and the call's lazy token read follow it
         var deleteCall = services.GetRequiredService<UsersClient>().DeleteUserAsync(OtherUserId, CancellationToken.None);
-        var sessionRead = session.GetAsync();
         await network.WaitForRequestsAsync(1);
+        network.Respond(0, CreateBootstrapResponse(UserId, 1, "Recheck", "recheck-token", FeatureFlagRegistry.BetaFeatures.Key));
+        var sessionRead = session.GetAsync();
+        await network.WaitForRequestsAsync(2);
 
         // Act
-        network.Respond(0, CreateBootstrapResponse(UserId, 1, "Ann", "shared-token", FeatureFlagRegistry.BetaFeatures.Key));
-        await network.WaitForRequestsAsync(2);
-        network.Respond(1, new HttpResponseMessage(HttpStatusCode.NoContent));
+        network.Respond(1, CreateBootstrapResponse(UserId, 1, "Ann", "shared-token", FeatureFlagRegistry.BetaFeatures.Key));
+        await network.WaitForRequestsAsync(3);
+        network.Respond(2, new HttpResponseMessage(HttpStatusCode.NoContent));
         await deleteCall;
 
         // Assert
         (await sessionRead).AntiforgeryToken.Should().Be("shared-token");
-        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap, AccountApiRoutes.User(OtherUserId));
-        network.Requests[1].SentAntiforgeryToken.Should().Be("shared-token");
-        session.Current!.AntiforgeryToken.Should().Be("shared-token");
+        network.Requests.Select(request => request.Path).Should().Equal(AccountApiRoutes.Bootstrap, AccountApiRoutes.Bootstrap, AccountApiRoutes.User(OtherUserId));
+        network.Requests[2].SentAntiforgeryToken.Should().Be("shared-token");
+        session.Current!.User!.FirstName.Should().Be("Ann");
+        session.Current.AntiforgeryToken.Should().Be("shared-token");
     }
 
     [Fact]
@@ -193,26 +205,29 @@ public sealed class SessionStateConsistencyTests
         var network = new ControlledNetwork();
         await using var services = CreateServices(network);
         var session = services.GetRequiredService<SessionState>();
+        // The first request is the gate's re-check, the second the call's lazy token read
         var deleteCall = services.GetRequiredService<UsersClient>().DeleteUserAsync(OtherUserId, CancellationToken.None);
         await network.WaitForRequestsAsync(1);
-        var refresh = session.RefreshAsync();
+        network.Respond(0, CreateBootstrapResponse(UserId, 1, "Recheck", "recheck-token", FeatureFlagRegistry.BetaFeatures.Key));
         await network.WaitForRequestsAsync(2);
+        var refresh = session.RefreshAsync();
+        await network.WaitForRequestsAsync(3);
 
         // Act
-        network.Respond(1, CreateBootstrapResponse(OtherUserId, 1, "Bob", "accepted-token", FeatureFlagRegistry.BetaFeatures.Key));
+        network.Respond(2, CreateBootstrapResponse(OtherUserId, 1, "Bob", "accepted-token", FeatureFlagRegistry.BetaFeatures.Key));
         await refresh;
-        network.Respond(0, CreateBootstrapResponse(UserId, 1, "Ann", "discarded-token", FeatureFlagRegistry.CompactView.Key));
-        await network.WaitForRequestsAsync(3);
-        network.Respond(2, new HttpResponseMessage(HttpStatusCode.NoContent));
+        network.Respond(1, CreateBootstrapResponse(UserId, 1, "Ann", "discarded-token", FeatureFlagRegistry.CompactView.Key));
+        await network.WaitForRequestsAsync(4);
+        network.Respond(3, new HttpResponseMessage(HttpStatusCode.NoContent));
         await deleteCall;
 
         // Assert
-        network.Requests[2].SentAntiforgeryToken.Should().Be("accepted-token");
+        network.Requests[3].SentAntiforgeryToken.Should().Be("accepted-token");
         session.Current!.User!.FirstName.Should().Be("Bob");
         var featureFlagState = services.GetRequiredService<FeatureFlagState>();
         featureFlagState.UserId.Should().Be(OtherUserId);
         featureFlagState.IsEnabled(FeatureFlagRegistry.CompactView).Should().BeFalse();
-        network.Requests.Count(request => request.Path == AccountApiRoutes.Bootstrap).Should().Be(2);
+        network.Requests.Count(request => request.Path == AccountApiRoutes.Bootstrap).Should().Be(3);
     }
 
     [Theory]
@@ -356,14 +371,19 @@ public sealed class SessionStateConsistencyTests
         return notifications;
     }
 
+    // The gate's re-check reads the bootstrap before the call is forwarded, and that read is answered on its own; the
+    // returned token is the one the forwarded call carried
     private static async Task<string?> SendStateChangingCallAsync(ServiceProvider services, ControlledNetwork network)
     {
-        var requestIndex = network.Requests.Count;
+        var recheckIndex = network.Requests.Count;
         var call = services.GetRequiredService<UsersClient>().DeleteUserAsync(OtherUserId, CancellationToken.None);
-        await network.WaitForRequestsAsync(requestIndex + 1);
-        network.Respond(requestIndex, new HttpResponseMessage(HttpStatusCode.NoContent));
+        await network.WaitForRequestsAsync(recheckIndex + 1);
+        network.Respond(recheckIndex, CreateBootstrapResponse(UserId, 1, "Ann", "recheck-token", FeatureFlagRegistry.BetaFeatures.Key));
+        await network.WaitForRequestsAsync(recheckIndex + 2);
+        network.Respond(recheckIndex + 1, new HttpResponseMessage(HttpStatusCode.NoContent));
         await call;
-        return network.Requests[requestIndex].SentAntiforgeryToken;
+        network.Requests[recheckIndex].Path.Should().Be(AccountApiRoutes.Bootstrap);
+        return network.Requests[recheckIndex + 1].SentAntiforgeryToken;
     }
 
     private static HttpResponseMessage CreateBootstrapResponse(UserId userId, long tenantId, string firstName, string antiforgeryToken, string featureFlag)
