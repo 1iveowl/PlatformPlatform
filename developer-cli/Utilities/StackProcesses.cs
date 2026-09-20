@@ -3,22 +3,27 @@ using System.Net.Sockets;
 namespace DeveloperCli.Utilities;
 
 /// <summary>
-///     Resolves which local processes belong to a worktree's Aspire stack, from the ports its allocation owns rather than
-///     from a pattern over command lines. Two processes make a pattern unreliable: the AppHost's own executable is
-///     "&lt;worktree&gt;/application/AppHost/bin/Debug/&lt;framework&gt;/AppHost", which nothing matching on "dotnet" finds, and
-///     Aspire's orchestrator (dcp) is started outside the AppHost's process tree and so is not reached by walking it. Both
-///     always hold a port from the allocation, which is what makes the ports the dependable signal.
+///     Resolves which local processes belong to a worktree's Aspire stack, from the ports its allocation owns and from
+///     the AppHost's own executable, rather than from a pattern over command lines. Two processes make a pattern
+///     unreliable: the AppHost's executable is "&lt;worktree&gt;/application/AppHost/bin/Debug/&lt;framework&gt;/AppHost",
+///     which nothing matching on "dotnet" finds, and Aspire's orchestrator (dcp) is started outside the AppHost's process
+///     tree and so is not reached by walking it. A stack started with the dashboard hands both of them a port of the
+///     allocation; a stack started without it (start-stack) leaves the AppHost holding none, so the AppHost is seeded
+///     from its executable as well.
 /// </summary>
 public static class StackProcesses
 {
+    // Only a launcher of this worktree's AppHost is followed upwards, never an operator's shell that happens to name the
+    // repository, so the command line has to mention the AppHost as well as the worktree.
+    private const string AppHostMarker = "AppHost";
+
+    // Where "dotnet run --project <worktree>/application/AppHost/AppHost.csproj" builds and starts the AppHost.
+    private const string AppHostOutputFolder = "/application/AppHost/bin/";
+
     // Processes that serve container ports on behalf of Docker. They are never part of a stack and are never killed;
     // containers are stopped separately and by name.
     private static readonly string[] ContainerRuntimeProcessNames =
         ["docker", "dockerd", "docker-proxy", "containerd", "containerd-shim", "containerd-shim-runc-v2"];
-
-    // Only a launcher of this worktree's AppHost is followed upwards, never an operator's shell that happens to name the
-    // repository, so the command line has to mention the AppHost as well as the worktree.
-    private const string AppHostMarker = "AppHost";
 
     /// <summary>
     ///     Resolves the processes belonging to the stack of <paramref name="worktreePath" />. Pure, so the resolution is
@@ -58,7 +63,19 @@ public static class StackProcesses
             owned[listener.ProcessId] = new StackProcess(listener.ProcessId, listener.CommandLine, $"holds port {listener.Port}");
         }
 
-        // 2. The detached launcher above a seed ("script ... dotnet run --project <worktree>/application/AppHost/AppHost.csproj").
+        // 2. Seeds: the AppHost of this worktree. start-stack disables the dashboard, and an AppHost without a dashboard holds
+        //    neither the dashboard port nor the resource service port, so step 1 never finds it, and step 4 then never reaches
+        //    the orchestrator that monitors it either. Only a process that is the AppHost counts, never one that merely names
+        //    it, so its executable has to be the binary built into this worktree's AppHost output folder.
+        foreach (var process in processes)
+        {
+            if (!IsEligible(process.ProcessId)) continue;
+            if (!IsWorktreeAppHost(process.CommandLine, worktreePath)) continue;
+
+            owned.TryAdd(process.ProcessId, new StackProcess(process.ProcessId, process.CommandLine, "runs this worktree's AppHost"));
+        }
+
+        // 3. The detached launcher above a seed ("script ... dotnet run --project <worktree>/application/AppHost/AppHost.csproj").
         //    A surviving launcher holds the log open and hides the stack from the next stop.
         foreach (var seedProcessId in owned.Keys.ToArray())
         {
@@ -74,7 +91,7 @@ public static class StackProcesses
             }
         }
 
-        // 3. Aspire's orchestrator monitors the AppHost by process id from outside its tree ("dcp start-apiserver --monitor
+        // 4. Aspire's orchestrator monitors the AppHost by process id from outside its tree ("dcp start-apiserver --monitor
         //    <pid>"), and the dashboard and the port proxies run beneath it. Follow the monitor argument, then the descendants,
         //    until nothing new is found.
         var pending = new Queue<int>(owned.Keys);
@@ -155,6 +172,19 @@ public static class StackProcesses
         }
 
         return chain;
+    }
+
+    /// <summary>
+    ///     Whether the process is this worktree's AppHost, which holds true when its executable is the binary built into the
+    ///     worktree's AppHost output folder. A shell, an editor or a build that only names that path is not the AppHost and is
+    ///     never owned.
+    /// </summary>
+    public static bool IsWorktreeAppHost(string commandLine, string worktreePath)
+    {
+        var executable = commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (executable is null) return false;
+
+        return executable.StartsWith($"{worktreePath.TrimEnd('/')}{AppHostOutputFolder}", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -256,7 +286,8 @@ public sealed record PortListener(int Port, int ProcessId, string CommandLine);
 public sealed record StackProcess(int ProcessId, string CommandLine, string Reason);
 
 /// <summary>
-///     Owned processes are the stack's and are stopped. Foreign listeners are another program's and are only reported, so a
+///     Owned processes are the stack's and are stopped. Foreign listeners are another program's and are only reported, so
+///     a
 ///     stop never kills what it does not own. Container ports are Docker's and are released when the containers stop.
 /// </summary>
 public sealed record StackOwnership(StackProcess[] Owned, PortListener[] Foreign, PortListener[] ContainerPorts);
