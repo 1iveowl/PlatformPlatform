@@ -21,8 +21,20 @@ function isInteractiveSurface() {
   return document.documentElement.hasAttribute("data-interactive-surface");
 }
 
+// The offline shell's worker is registered from the same marker, and from nothing else, so a static public page neither
+// downloads the registration module nor installs a worker. The registration is not awaited by the start-up path: an
+// offline shell is an addition, and a page must never wait for one.
+function registerOfflineShell() {
+  import("./service-worker-registration.js")
+    .then((module) => module.register())
+    .catch(() => {
+      // No offline shell on this device; every page still loads from the network
+    });
+}
+
 export async function beforeWebStart(options) {
   if (!isInteractiveSurface()) return;
+  registerOfflineShell();
   (await loadComponentLibrary()).beforeWebStart?.(options);
 }
 

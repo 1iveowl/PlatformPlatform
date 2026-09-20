@@ -279,6 +279,12 @@
     <data name="TryAgainOrReturnHome" xml:space="preserve">
         <value>Prøv venligst igen eller vend tilbage til forsiden.</value>
     </data>
+    <data name="YouAreOffline" xml:space="preserve">
+        <value>Du er offline</value>
+    </data>
+    <data name="YouAreOfflineMessage" xml:space="preserve">
+        <value>Der er ingen netværksforbindelse. Denne side vises igen, når forbindelsen er tilbage.</value>
+    </data>
     <data name="ShowDetails" xml:space="preserve">
         <value>Vis detaljer</value>
     </data>

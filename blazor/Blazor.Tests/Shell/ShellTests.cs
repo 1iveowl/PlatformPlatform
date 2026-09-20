@@ -28,6 +28,61 @@ public sealed class ShellTests
     }
 
     [Fact]
+    public void BuildContentSecurityPolicy_WithoutANonce_ShouldDropOnlyTheNonceSource()
+    {
+        // Arrange
+        var hostShell = new HostShell(new TestWebHostEnvironment(Environments.Production));
+
+        // Act
+        var withNonce = hostShell.BuildContentSecurityPolicy("test-nonce");
+        var withoutNonce = hostShell.BuildContentSecurityPolicy(null);
+
+        // Assert
+        withoutNonce.Should().NotContain("'nonce-");
+        withoutNonce.Should().Be(withNonce.Replace(" 'nonce-test-nonce'", ""));
+        withoutNonce.Split(';').Should().Contain(["base-uri 'none'", "object-src 'none'", "frame-src 'none'", "worker-src 'self'"]);
+    }
+
+    [Fact]
+    public void BuildWorkerScript_ShouldSubstituteEveryValueTheHostDecides()
+    {
+        // Act
+        var script = OfflineShell.BuildWorkerScript();
+
+        // Assert
+        script.Should().NotContain("__PATH_BASE__").And.NotContain("__SHELL_DOCUMENT__").And.NotContain("__APP_SEGMENTS__").And.NotContain("__CACHE_VERSION__");
+        script.Should().Contain("const pathBase = \"/blazor/\"").And.Contain("const shellDocument = \"/blazor/app/offline\"");
+        script.Should().Contain($"const appSegments = \"{string.Join(",", OfflineShell.AppNavigationSegments)}\".split(\",\")");
+        script.Should().MatchRegex("const cacheVersion = \"[^\"]+\";");
+    }
+
+    [Theory]
+    // Every first path segment of the authenticated surface, the shell document included
+    [InlineData("/blazor/app", true)]
+    [InlineData("/blazor/app/details", true)]
+    [InlineData("/blazor/app/offline", true)]
+    [InlineData("/blazor/account/users", true)]
+    [InlineData("/blazor/user/profile", true)]
+    [InlineData("/blazor/welcome", true)]
+    // The public surface, the status pages and anything outside the path base
+    [InlineData("/blazor/", false)]
+    [InlineData("/blazor/login", false)]
+    [InlineData("/blazor/signup/verify", false)]
+    [InlineData("/blazor/legal/terms", false)]
+    [InlineData("/blazor/not-found", false)]
+    [InlineData("/blazor/apples", false)]
+    [InlineData("/api/account/authentication/login/external/google/callback", false)]
+    [InlineData("/blazorapp", false)]
+    public void IsAppNavigation_ShouldAnswerForThePathAlone(string path, bool expected)
+    {
+        // Act
+        var isAppNavigation = OfflineShell.IsAppNavigation(path);
+
+        // Assert
+        isAppNavigation.Should().Be(expected);
+    }
+
+    [Fact]
     public void Manifest_ShouldStartAtAuthenticatedHomeWithInstallableIcons()
     {
         // Arrange

@@ -37,7 +37,12 @@
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["Blazor.Host.styles.css"])" nonce="@_nonce"/>
     @* Parser-blocking, after the stylesheets, so the stored theme is applied as data-theme before first paint on every page *@
     <script src="@AppUrls.ToAbsolute(Assets["js/theme.js"])" nonce="@_nonce"></script>
-    <ImportMap ImportMapDefinition="_importMap" nonce="@_nonce"/>
+    @* The offline shell document renders without a nonce, so it renders no inline element either: a nonce frozen into a
+       stored document names a request that is over. It hosts no interactive component, so it needs no import map. *@
+    @if (_nonce is not null)
+    {
+        <ImportMap ImportMapDefinition="_importMap" nonce="@_nonce"/>
+    }
     <HeadOutlet/>
 </head>
 
@@ -56,7 +61,7 @@
 
     private ImportMapDefinition? _importMap;
     private string _locale = "";
-    private string _nonce = "";
+    private string? _nonce;
     private PreloadLink[] _preloadLinks = [];
     private bool _isInteractiveSurface;
 
@@ -65,7 +70,7 @@
 
     protected override void OnInitialized()
     {
-        _nonce = HostShell.GetNonce(HttpContext);
+        _nonce = HostShell.FindNonce(HttpContext);
         // The request culture that request localization chose, so the attribute always names the culture the page renders in
         _locale = CultureInfo.CurrentUICulture.Name;
 

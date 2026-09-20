@@ -150,6 +150,18 @@ public static class HostApplication
             }
         );
 
+        // The offline shell's service worker, at one stable address under the path base rather than at a fingerprinted
+        // static asset route: no-cache so a deployment's worker is found on the next navigation, and Service-Worker-Allowed
+        // so its scope is the whole path base whatever folder it is served from. The response carries no policy of its own,
+        // so the worker's own fetches are not restricted by a page's nonce, which it could never carry.
+        app.MapGet(OfflineShell.WorkerPath, (HttpContext context) =>
+            {
+                context.Response.Headers.CacheControl = "no-cache";
+                context.Response.Headers["Service-Worker-Allowed"] = $"{AppUrls.PathBase}/";
+                return Results.Text(hostShell.WorkerScript, "text/javascript");
+            }
+        );
+
         app.MapStaticAssets();
         app.MapRazorComponents<App>()
             .AddInteractiveWebAssemblyRenderMode()

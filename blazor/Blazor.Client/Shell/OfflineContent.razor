@@ -1,0 +1,11 @@
+@* The offline shell's content: the heading, the explanation and a link back into the authenticated surface. It renders on
+   the host only, statically, and is deliberately free of anything a cache must not replay: no user, no tenant, no token and
+   no interactivity. The link loads a new document, so taking it while the network is back leaves the shell behind. *@
+
+<section class="status-page" data-testid="offline-page">
+    <h1>@CommonStrings.YouAreOffline</h1>
+    <p>@CommonStrings.YouAreOfflineMessage</p>
+    <div class="status-page-actions">
+        <a href="@AppUrls.AuthenticatedHome" class="button-primary" data-enhance-nav="false" data-testid="offline-retry">@CommonStrings.TryAgain</a>
+    </div>
+</section>

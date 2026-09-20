@@ -324,6 +324,12 @@
     <data name="TryAgainOrReturnHome" xml:space="preserve">
         <value>Please try again or return to the home page.</value>
     </data>
+    <data name="YouAreOffline" xml:space="preserve">
+        <value>You are offline</value>
+    </data>
+    <data name="YouAreOfflineMessage" xml:space="preserve">
+        <value>There is no network connection. This page is shown again once the connection is back.</value>
+    </data>
     <data name="ShowDetails" xml:space="preserve">
         <value>Show details</value>
     </data>

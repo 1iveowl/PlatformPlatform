@@ -91,6 +91,7 @@
     private AuthSyncCoordinator? _authSync;
     private DotNetObjectReference<AppShell>? _dotNet;
     private ShellInterop? _interop;
+    private OfflineShellCache? _offlineShell;
     private StaleAssetProbe? _staleAssets;
     private bool _isWide = true;
     private ShellLocationWatcher? _locationWatcher;
@@ -143,6 +144,7 @@
         if (_transition is not null) _transition.Changed -= OnStateChanged;
         if (_authSync is not null) _authSync.Changed -= OnAuthSyncChanged;
         if (_interop is not null) await _interop.DisposeAsync();
+        if (_offlineShell is not null) await _offlineShell.DisposeAsync();
         _dotNet?.Dispose();
     }
 
@@ -193,6 +195,11 @@
         // this publish that is no longer served makes this runtime stale and its next write ask for a reload instead
         _staleAssets = Services.GetRequiredService<StaleAssetProbe>();
         await _staleAssets.StartAsync();
+
+        // The offline shell the service worker stored, dropped when this runtime's session ends; the module is imported
+        // here because the departure itself has no time to await an import
+        _offlineShell = Services.GetRequiredService<OfflineShellCache>();
+        await _offlineShell.AttachAsync();
     }
 
     private void OnStateChanged()

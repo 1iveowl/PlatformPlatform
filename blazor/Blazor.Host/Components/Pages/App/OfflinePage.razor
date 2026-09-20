@@ -1,0 +1,14 @@
+@* The offline shell: the one document the service worker stores and the one it serves when a navigation into the
+   authenticated surface finds no network. It is anonymous and static on purpose. A stored document is replayed to whoever
+   launches the installed application next, so it carries no user, no tenant, no antiforgery token and no policy nonce, and
+   HostShell.ApplyPageHeadersAsync is what serves it storable instead of no-store. The address the browser asked for is kept,
+   so a reload retries the page the user was on rather than starting over. *@
+@page "/app/offline"
+@using Blazor.Client.Shell
+@using Blazor.Host.Shell
+@attribute [OfflineShellPage]
+@layout StaticPageLayout
+
+<PageTitle>@CommonStrings.YouAreOffline</PageTitle>
+
+<OfflineContent/>

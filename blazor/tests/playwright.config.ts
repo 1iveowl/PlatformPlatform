@@ -12,11 +12,19 @@ import { blazorLocales } from "./e2e/support/texts";
  * developer CLI selects both cultures and both lanes of a browser with "--project=chromium-*". Tests run fully parallel;
  * nothing depends on the order of the projects.
  */
+/**
+ * Chromium fetches a service worker script outside the context, so ignoreHTTPSErrors does not cover it and the offline
+ * shell's worker is refused over the development certificate with "An SSL certificate error occurred when fetching the
+ * script". The browser is told to accept that certificate as well, which is the same allowance the shared configuration
+ * already makes for every other request of these local runs. Only the Blazor projects are affected.
+ */
+const chromiumCertificate = { launchOptions: { ...baseConfig.use?.launchOptions, args: ["--ignore-certificate-errors"] } };
+
 const cultureProjects = baseConfig.projects!.flatMap((project) =>
   blazorLocales.map((locale) => ({
     ...project,
     name: `${project.name}-${locale}-${project.grep ? "smoke" : "comprehensive"}`,
-    use: { ...project.use, locale }
+    use: { ...project.use, locale, ...(project.name.startsWith("chromium") ? chromiumCertificate : {}) }
   }))
 );
 

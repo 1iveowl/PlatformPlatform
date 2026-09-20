@@ -21,14 +21,17 @@ path is the repository owner.
 | --- | --- | --- | --- |
 | Every component document (public and authenticated) | `no-cache, no-store, must-revalidate` plus `Pragma: no-cache` | `HostShell.ApplyPageHeadersAsync` | `HostSecurityTests.Caching.Document_ShouldBeNeitherStoredNorReused` and `AuthenticatedDocument_ShouldBeNeitherStoredNorReused` |
 | The bootstrap | `no-cache, no-store` | `GetBootstrapHandler` | `application/account/Tests/Authentication/GetBootstrapTests.cs` |
-| Every other account API response | no cache directive at this commit | nothing sets one | nothing; the offline shell stores no API response, by allowlist (the offline shell task), and whether these responses get `no-store` is a separate decision outside this stage |
+| Every other account API response | no cache directive at this commit | nothing sets one | nothing directly; the offline shell's worker stores only responses under the path base, which the account API is not, and only ones whose own `Cache-Control` allows it (`HostSecurityTests.OfflineShell` and `blazor/tests/offline-shell.mjs`). Whether these responses get `no-store` is a separate decision outside this stage |
 | An asset whose route carries a content fingerprint | `public, max-age=31536000, immutable` | `app.MapStaticAssets()` | `HostSecurityTests.Caching.StaticAssets_ShouldBeImmutableOnlyWhereTheRouteCarriesAFingerprint` |
 | An asset whose route carries no fingerprint | revalidated, never `immutable` | `app.MapStaticAssets()` | the same case |
 | `/brand.css`, whose URL carries its content version | `public, max-age=31536000, immutable` | `HostApplication` | `HostSecurityTests.Caching.BrandStylesheet_ShouldBeImmutableBecauseItsUrlCarriesItsContentVersion` |
 | The web manifest | `no-cache` | `HostApplication` | `HostSecurityTests.Caching.Manifest_ShouldBeRevalidatedAndNeverImmutable` |
+| The offline shell document | `no-cache, must-revalidate`, and no cookie | `HostShell.ApplyPageHeadersAsync` for the page carrying `[OfflineShellPage]` | `HostSecurityTests.OfflineShell.OfflineShell_WhenRequested_ShouldBeStorableAndCarryNoNonceOrAntiforgeryToken` |
+| The service worker | `no-cache` plus `Service-Worker-Allowed: /blazor/` | `HostApplication` | `HostSecurityTests.OfflineShell.ServiceWorker_WhenRequested_ShouldBeRevalidatedAndScopedToThePathBase` |
 
-A document is never stored, so every reload lands on the release that is served now, with the user information,
-antiforgery token and policy nonce of that request. Only an immutable, fingerprinted asset is kept, and a
+Every document but one is never stored, so every reload lands on the release that is served now, with the user
+information, antiforgery token and policy nonce of that request. The one exception is the offline shell, which
+is storable precisely because it carries none of those three. Only an immutable, fingerprinted asset is kept, and a
 deployment gives every changed asset a new route. The last column names the test that asserts each row, and the
 rehearsal re-checks the fingerprinted ones on the Production publish.
 
@@ -36,9 +39,48 @@ rehearsal re-checks the fingerprinted ones on the Production publish.
 
 ### A stale or broken service worker
 
-Not applicable yet: this edition ships no service worker. When the offline shell adds one, this case gets the
-update, skip-waiting and unregistration steps, and the rehearsal gains the cases listed as unavailable below.
-**Signal** until then: none, because nothing is cached that a reload does not replace.
+The edition ships one worker, served at `/blazor/service-worker.js` with `Cache-Control: no-cache` and
+`Service-Worker-Allowed: /blazor/`. It is registered only from a document the host marked as an interactive
+surface, and it stores exactly one document, the anonymous offline shell `/blazor/app/offline`, fetched with
+credentials omitted at install and again after any successful navigation into the authenticated surface that finds
+none stored, plus
+subresources under the path base whose own response says they may be stored. Its cache names carry the client
+version the window above compares, so a release that changes that version changes the worker's bytes.
+
+What happens by itself on a deployment: the browser revalidates the worker script on the next navigation in
+scope, finds different bytes, installs the new worker, and because it calls `skipWaiting` and `clients.claim`
+the new worker activates at once and its activation deletes every cache of another version. The stored shell is
+therefore never older than the release being served. A navigation inside the authenticated surface always tries
+the network first and only falls back to the stored shell, so a shell that is somehow stale is replaced by the
+first successful navigation.
+
+**Signal** that the worker is the problem: the offline shell (a page headed "You are offline") appearing while
+the network is fine, or an asset answered from a cache that the current release does not serve.
+**Action**, in order:
+
+1. Deploy a release with a different client version. That is the ordinary path and needs nothing from the user:
+   the new worker installs, activates and drops the previous caches.
+2. If a user is stuck, have them open the application and reload once. The worker script is `no-cache`, so the
+   reload is what fetches it again.
+3. To remove the worker entirely from one browser, unregister it from the browser's application tools
+   (Application, Service Workers, Unregister) and clear the site's Cache Storage. Nothing else depends on it;
+   the application then works exactly as it did before the offline shell.
+4. To remove it from every browser, serve `/blazor/service-worker.js` with a body that calls
+   `self.registration.unregister()` and deletes the caches it can see. Every controlled browser picks it up on
+   its next navigation, because the script is never cached.
+
+**Do not** expect the worker to hold a session, a token or a user's data: it has none. The shell document is
+fetched with credentials omitted and renders no user, no tenant, no antiforgery token and no policy nonce, and
+the store rule admits no document, bootstrap or account API response. Logout, a session the account API ended
+and a tenant switch each drop the stored shell as a second guard.
+
+Measured on the Development stack of `c5522b8fe` plus the change that added the worker, 2026-09-20, by
+`blazor-harness offline-shell --browser chromium` against the
+stack (result `.workspace/blazor-tests/offline-shell-chromium.json`), 7 of 7 cases: the worker takes control with
+scope `/blazor/`; the shell document and the assets of the documents loaded so far are stored (15 entries at that
+point of the run, 247 by its end), none outside the path base and none an account API response; offline, `/blazor/app/details` answers with the shell at that same address and a standalone launch at
+the manifest's `start_url` does too; a public route offline fails instead of showing the shell; the account API
+is never answered by the worker; and a logout drops the shell while keeping the assets.
 
 ### A forced security update: every client must stop writing now
 
@@ -120,10 +162,16 @@ measures it in its result file and the case is listed below as unverified.
 The rehearsal is local, on a browser tab, against two publishes served in turn by the developer CLI. These
 deployment behaviours remain unverified:
 
-- **An installed application or any service worker.** There is none yet. The offline shell task owns an installed
-  application kept open across a deployment and an interrupted update of a cached asset set, and the device pass
-  owns the shared-device cases. The rehearsal lists all three as unavailable in its result file.
-- **A cold anonymous visit with a service worker enabled.** The public-page budget is measured without one.
+- **An installed application kept open across a deployment, and an interrupted update of a cached asset set.**
+  The worker exists now and its behaviour is measured offline and on departure, but the release rehearsal still
+  serves two publishes to a browser tab without one, so a worker updating across a deployment has not been
+  measured end to end. The device pass owns the shared-device cases. The rehearsal lists all three as
+  unavailable in its result file.
+- **A cold anonymous visit with a service worker enabled.** The public-page budget is measured in fresh browser
+  contexts, which hold no worker, and the worker is registered only from the authenticated surface, so a visitor
+  who has never signed in has none. A public document is never answered from a cache even when a worker is
+  active, which `offline-shell.mjs` and `offline-shell-flows.spec.ts` both assert; what is not measured is a
+  public page's subresources being served from the worker's asset cache to a browser that has signed in before.
 - **A multi-revision rollout.** Azure Container Apps can serve two revisions at once, so a client can be served
   assets by one revision and API responses by another, and an old revision can keep serving the asset set of the
   release it belongs to. Locally only one publish is served at a time, so the rehearsal always sees the harsher

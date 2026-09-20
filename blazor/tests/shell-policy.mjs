@@ -8,7 +8,7 @@
 // .workspace/blazor-tests/ and exits non-zero when a case fails.
 
 import { mkdirSync, readFileSync } from "node:fs";
-import { redact, writeResult } from "./support/stack.mjs";
+import { launchBrowser, redact, writeResult } from "./support/stack.mjs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -36,7 +36,10 @@ const options = parseArguments(process.argv.slice(2));
 const resultsFolder = path.join(repositoryRoot, ".workspace/blazor-tests");
 mkdirSync(resultsFolder, { recursive: true });
 
-const browser = await playwright[options.browser].launch();
+// Through the shared launcher, which accepts the development certificate's public key by fingerprint in Chromium. Without
+// it Chromium refuses the service worker script over the development certificate and logs a console error the strict
+// verdict counts, although ignoreHTTPSErrors covers every other request of the context.
+const browser = await launchBrowser(options.browser);
 const result = {
   browser: options.browser,
   browserVersion: browser.version(),
@@ -59,6 +62,7 @@ try {
     result.cases.deeperRoute = await runDeeperRoute(account);
     result.cases.enhancedNavigation = await runEnhancedNavigation();
     result.cases.workerSource = await runWorkerSource(account);
+    result.cases.offlineShell = await runOfflineShell(account);
     result.cases.formAction = await runFormAction(account);
     result.cases.legalPages = await runLegalPages();
     result.cases.manifest = await runManifest();
@@ -75,7 +79,7 @@ result.finishedAt = new Date().toISOString();
 // The Development run drives the Development-only fixture pages and signs up with the development verification code, so it
 // is a fixture check and never Production evidence; the Production run checks that those pages are not reachable
 result.hostConfiguration = options.environment === "production" ? "Production host, expected to be the trimmed publish served by blazor-serve" : "Development host run by the AppHost (fixture check)";
-const expectedCaseCount = options.environment === "production" ? 1 : 11;
+const expectedCaseCount = options.environment === "production" ? 1 : 12;
 const verdict = writeResult(`shell-policy-${options.browser}-${options.environment}.json`, result, expectedCaseCount);
 console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: redact(value.failures.join(" ; ")) })));
 console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
@@ -275,6 +279,30 @@ async function runEnhancedNavigation() {
 
 // worker-src 'self': a same-origin worker script must be allowed. The blob: worker outcome is recorded, not asserted, because
 // browsers differ in whether and where they report it
+// The one document served without a nonce, because the offline shell's worker stores it and replays it. Its scripts and
+// stylesheets are allowed by the trusted host list instead, so it must still raise no violation, and it must render no
+// inline element the policy would have to carry a nonce for.
+async function runOfflineShell(account) {
+  const signedIn = await newContext(account.storageState);
+  const checked = await loadAndCheck(signedIn, `${baseUrl}${pathBase}/app/offline`, { interactive: false });
+  const page = await signedIn.newPage();
+  await page.goto(`${baseUrl}${pathBase}/app/offline`, { waitUntil: "load" });
+  const document = await page.evaluate(() => ({
+    nonced: document.querySelectorAll("[nonce]").length,
+    importMaps: document.querySelectorAll('script[type="importmap"]').length,
+    inlineScripts: [...document.querySelectorAll("script")].filter((element) => element.src === "").length,
+    heading: document.querySelector("h1")?.textContent?.trim() ?? null
+  }));
+  await signedIn.close();
+
+  const failures = [...checked.failures];
+  if (checked.details.contentSecurityPolicy?.includes("'nonce-")) failures.push("the offline shell was served with a nonce source");
+  if (document.nonced > 0) failures.push(`the offline shell rendered ${document.nonced} nonced elements`);
+  if (document.importMaps > 0 || document.inlineScripts > 0) failures.push("the offline shell rendered an inline script");
+  if (document.heading === null) failures.push("the offline shell rendered no heading");
+  return outcome({ ...checked.details, document }, failures);
+}
+
 async function runWorkerSource(account) {
   const context = await newContext(account.storageState);
   const page = await context.newPage();

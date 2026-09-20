@@ -35,6 +35,9 @@ builder.Services.AddScoped<SessionState>();
 builder.Services.AddScoped<StaleAssetProbe>();
 builder.Services.AddScoped<IStaleAssetProbe>(services => services.GetRequiredService<StaleAssetProbe>());
 
+// Drops the offline shell the service worker stored when this runtime's session ends, whichever way it ends
+builder.Services.AddScoped<OfflineShellCache>();
+
 // Logout and tenant switch, one at a time, for whichever component offers them
 builder.Services.AddScoped<SessionTransition>();
 
