@@ -44,6 +44,7 @@ builder.Services.AddScoped<SessionTransition>();
 // Ends this runtime's identity when another tab of the browser logs out, logs in or switches tenant
 builder.Services.AddScoped<AuthSyncCoordinator>();
 builder.Services.AddScoped<DevicePreferences>();
+builder.Services.AddScoped<PushNotificationBrowser>();
 
 // The language of the signed-in user, one change at a time, shared by the preferences page and the shell's mobile menu
 builder.Services.AddScoped<LocaleSwitch>();

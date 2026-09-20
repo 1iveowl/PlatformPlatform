@@ -2,6 +2,7 @@ using Account.Features.Authentication.Domain;
 using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.FeatureFlags.Domain;
+using Account.Features.PushNotifications.Domain;
 using Account.Features.Subscriptions.Domain;
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
@@ -152,6 +153,21 @@ public sealed class PaymentRefunded(SubscriptionId subscriptionId, SubscriptionP
 
 public sealed class PendingInvoicePaymentRetried(SubscriptionId subscriptionId)
     : TelemetryEvent(("subscription_id", subscriptionId));
+
+public sealed class PushSubscriptionCreated(PushSubscriptionId pushSubscriptionId)
+    : TelemetryEvent(("push_subscription_id", pushSubscriptionId));
+
+public sealed class PushSubscriptionDeleted(PushSubscriptionId pushSubscriptionId)
+    : TelemetryEvent(("push_subscription_id", pushSubscriptionId));
+
+public sealed class PushSubscriptionExpired(PushSubscriptionId pushSubscriptionId)
+    : TelemetryEvent(("push_subscription_id", pushSubscriptionId));
+
+public sealed class PushSubscriptionUpdated(PushSubscriptionId pushSubscriptionId)
+    : TelemetryEvent(("push_subscription_id", pushSubscriptionId));
+
+public sealed class PushTestNotificationSent(int deliveredCount, int removedCount)
+    : TelemetryEvent(("delivered_count", deliveredCount), ("removed_count", removedCount));
 
 public sealed class SessionCreated(SessionId sessionId)
     : TelemetryEvent(("session_id", sessionId));

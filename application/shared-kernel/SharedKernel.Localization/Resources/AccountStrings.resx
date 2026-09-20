@@ -513,4 +513,52 @@
         <value>Reduce spacing between UI elements for a denser layout</value>
         <comment>The compact-view flag's description; React: the generated feature flag label</comment>
     </data>
+    <data name="NotificationsDescription" xml:space="preserve">
+        <value>Get notified on this device, also when the app is not open.</value>
+        <comment>The notifications section description on the preferences page</comment>
+    </data>
+    <data name="NotificationsOnThisDevice" xml:space="preserve">
+        <value>Notifications on this device</value>
+        <comment>The label of the switch that subscribes this browser to notifications</comment>
+    </data>
+    <data name="NotificationsBlocked" xml:space="preserve">
+        <value>Notifications are blocked in this browser. Allow them in the browser settings to turn them on here.</value>
+        <comment>Shown when the browser permission for notifications is denied</comment>
+    </data>
+    <data name="NotificationsNotSupported" xml:space="preserve">
+        <value>This browser cannot show notifications.</value>
+        <comment>Shown when the browser has no support for notifications or service workers</comment>
+    </data>
+    <data name="NotificationsTurnedOn" xml:space="preserve">
+        <value>Notifications turned on</value>
+        <comment>Toast shown after this device subscribed to notifications</comment>
+    </data>
+    <data name="NotificationsTurnedOff" xml:space="preserve">
+        <value>Notifications turned off</value>
+        <comment>Toast shown after this device unsubscribed from notifications</comment>
+    </data>
+    <data name="SendTestNotification" xml:space="preserve">
+        <value>Send a test notification</value>
+        <comment>The button that asks the account API to send the signed-in user a notification</comment>
+    </data>
+    <data name="TestNotificationSent" xml:space="preserve">
+        <value>Test notification sent</value>
+        <comment>Toast shown after a test notification was accepted by the push service</comment>
+    </data>
+    <data name="PushTestNotificationTitle" xml:space="preserve">
+        <value>Test notification</value>
+        <comment>The title of the test notification the service worker shows</comment>
+    </data>
+    <data name="PushTestNotificationBody" xml:space="preserve">
+        <value>Notifications are working on this device.</value>
+        <comment>The body of the test notification the service worker shows</comment>
+    </data>
+    <data name="NotificationsUnknownBrowser" xml:space="preserve">
+        <value>Unknown browser</value>
+        <comment>The browser name used when the user agent names no browser this edition recognises</comment>
+    </data>
+    <data name="NotificationsDeviceLabel" xml:space="preserve">
+        <value>{0} on {1}</value>
+        <comment>The browser name joined with the platform name, for example Chrome on Windows</comment>
+    </data>
 </root>

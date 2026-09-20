@@ -426,4 +426,40 @@
     <data name="FeatureFlagCompactViewDescription" xml:space="preserve">
         <value>Reducér afstanden mellem UI-elementer for et tættere layout</value>
     </data>
+    <data name="NotificationsDescription" xml:space="preserve">
+        <value>Få en notifikation på denne enhed, også når appen ikke er åben.</value>
+    </data>
+    <data name="NotificationsOnThisDevice" xml:space="preserve">
+        <value>Notifikationer på denne enhed</value>
+    </data>
+    <data name="NotificationsBlocked" xml:space="preserve">
+        <value>Notifikationer er blokeret i denne browser. Tillad dem i browserens indstillinger for at slå dem til her.</value>
+    </data>
+    <data name="NotificationsNotSupported" xml:space="preserve">
+        <value>Denne browser kan ikke vise notifikationer.</value>
+    </data>
+    <data name="NotificationsTurnedOn" xml:space="preserve">
+        <value>Notifikationer er slået til</value>
+    </data>
+    <data name="NotificationsTurnedOff" xml:space="preserve">
+        <value>Notifikationer er slået fra</value>
+    </data>
+    <data name="SendTestNotification" xml:space="preserve">
+        <value>Send en testnotifikation</value>
+    </data>
+    <data name="TestNotificationSent" xml:space="preserve">
+        <value>Testnotifikation sendt</value>
+    </data>
+    <data name="PushTestNotificationTitle" xml:space="preserve">
+        <value>Testnotifikation</value>
+    </data>
+    <data name="PushTestNotificationBody" xml:space="preserve">
+        <value>Notifikationer virker på denne enhed.</value>
+    </data>
+    <data name="NotificationsUnknownBrowser" xml:space="preserve">
+        <value>Ukendt browser</value>
+    </data>
+    <data name="NotificationsDeviceLabel" xml:space="preserve">
+        <value>{0} på {1}</value>
+    </data>
 </root>

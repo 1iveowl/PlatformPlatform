@@ -1,6 +1,7 @@
 using System.Globalization;
 using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.PushNotifications.Domain;
 using Account.Features.Users.Requests;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
@@ -39,6 +40,10 @@ public static class AccountApiRoutes
 
     public const string RemoveAvatar = "/api/account/users/me/remove-avatar";
 
+    public const string PushSubscriptions = "/api/account/users/me/push-subscriptions";
+
+    public const string TestPushNotification = "/api/account/users/me/push-subscriptions/test";
+
     public const string DeletedUsers = "/api/account/users/deleted";
 
     public const string BulkPurgeUsers = "/api/account/users/deleted/bulk-purge";
@@ -66,6 +71,11 @@ public static class AccountApiRoutes
     public static string RevokeSession(SessionId sessionId)
     {
         return $"{Sessions}/{Uri.EscapeDataString(sessionId.Value)}";
+    }
+
+    public static string PushSubscription(PushSubscriptionId pushSubscriptionId)
+    {
+        return $"{PushSubscriptions}/{Uri.EscapeDataString(pushSubscriptionId.Value)}";
     }
 
     // The flag key is a registry key (lower case kebab-case), escaped here like every other route value

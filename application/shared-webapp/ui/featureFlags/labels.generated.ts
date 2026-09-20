@@ -39,6 +39,10 @@ function getKnownFeatureFlagLabels(): Record<string, FeatureFlagLabel> {
       name: t`Subscriptions`,
       description: t`Stripe-powered subscription billing and plan management`
     },
+    "push-notifications-enabled": {
+      name: t`Push notifications`,
+      description: t`Let a signed-in user receive web push notifications on their own devices`
+    },
     "beta-features": {
       name: t`Beta features`,
       description: t`Early access to experimental features before general availability`

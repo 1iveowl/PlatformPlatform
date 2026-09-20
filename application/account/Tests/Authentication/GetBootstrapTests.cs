@@ -13,12 +13,13 @@ public sealed class GetBootstrapTests(AccountWebApplicationFactory factory) : En
 {
     private const string BootstrapUrl = "/api/account/bootstrap";
 
-    private static readonly string[] SystemFeatureFlagKeys = ["google-oauth", "entra-oauth", "mitid-verification", "mitid-login", "subscriptions"];
+    private static readonly string[] SystemFeatureFlagKeys = ["google-oauth", "entra-oauth", "mitid-verification", "mitid-login", "subscriptions", "push-notifications-enabled"];
 
     private static readonly string[] RuntimeConfigurationKeys =
     [
-        "PUBLIC_URL", "CDN_URL", "APPLICATION_VERSION", "PUBLIC_GOOGLE_OAUTH_ENABLED", "PUBLIC_ENTRA_OAUTH_ENABLED",
-        "PUBLIC_MITID_VERIFICATION_ENABLED", "PUBLIC_MITID_LOGIN_ENABLED", "PUBLIC_SUBSCRIPTION_ENABLED"
+        "PUBLIC_URL", "CDN_URL", "APPLICATION_VERSION", "PUBLIC_PUSH_PUBLIC_KEY", "PUBLIC_GOOGLE_OAUTH_ENABLED",
+        "PUBLIC_ENTRA_OAUTH_ENABLED", "PUBLIC_MITID_VERIFICATION_ENABLED", "PUBLIC_MITID_LOGIN_ENABLED",
+        "PUBLIC_SUBSCRIPTION_ENABLED", "PUBLIC_PUSH_NOTIFICATIONS_ENABLED"
     ];
 
     [Fact]

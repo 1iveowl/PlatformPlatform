@@ -72,6 +72,18 @@ public static partial class FeatureFlags
         "true"
     );
 
+    // Web push needs a VAPID key pair to sign what it sends, so the public key is what says this deployment can send at
+    // all: without it there is nothing to subscribe with and nothing to sign with, and the preferences section and the
+    // subscription endpoints stay closed.
+    public static readonly FeatureFlagDefinition PushNotifications = new SystemFeatureFlag(
+        "push-notifications-enabled",
+        "Push notifications",
+        "Let a signed-in user receive web push notifications on their own devices",
+        "PushNotifications:VapidPublicKey",
+        "PUBLIC_PUSH_NOTIFICATIONS_ENABLED",
+        false
+    );
+
     public static readonly FeatureFlagDefinition BetaFeatures = new TenantAbTestFlag(
         "beta-features",
         "Beta features",

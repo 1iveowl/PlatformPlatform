@@ -9,7 +9,7 @@
 // `useFeatureFlag(deletedKey)` and `getFeatureFlagLabel(deletedKey)` callsite into a TS compile
 // error after the next backend build regenerates this file.
 
-export type FeatureFlagKey = "google-oauth" | "entra-oauth" | "mitid-verification" | "mitid-login" | "subscriptions" | "beta-features" | "sso" | "account-overview" | "compact-view" | "experimental-ui";
+export type FeatureFlagKey = "google-oauth" | "entra-oauth" | "mitid-verification" | "mitid-login" | "subscriptions" | "push-notifications-enabled" | "beta-features" | "sso" | "account-overview" | "compact-view" | "experimental-ui";
 
 type FeatureFlagScope = "system" | "tenant" | "user";
 type FeatureFlagAdminLevel = "systemAdmin" | "tenantOwner" | "user";
@@ -73,6 +73,14 @@ const featureFlagRegistry: Record<FeatureFlagKey, FeatureFlagDefinition> = {
       parentDependency: null,
       description: "Stripe-powered subscription billing and plan management",
       envVar: "PUBLIC_SUBSCRIPTION_ENABLED"
+    },
+    "push-notifications-enabled": {
+      key: "push-notifications-enabled",
+      scope: "system",
+      adminLevel: "systemAdmin",
+      parentDependency: null,
+      description: "Let a signed-in user receive web push notifications on their own devices",
+      envVar: "PUBLIC_PUSH_NOTIFICATIONS_ENABLED"
     },
     "beta-features": {
       key: "beta-features",

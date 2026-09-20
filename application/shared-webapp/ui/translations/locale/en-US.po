@@ -89,6 +89,9 @@ msgstr "Leave"
 msgid "Let a signed-in user prove their identity with MitID"
 msgstr "Let a signed-in user prove their identity with MitID"
 
+msgid "Let a signed-in user receive web push notifications on their own devices"
+msgstr "Let a signed-in user receive web push notifications on their own devices"
+
 msgid "Let a user who has verified with MitID sign in with it"
 msgstr "Let a user who has verified with MitID sign in with it"
 
@@ -136,6 +139,9 @@ msgstr "Plan"
 
 msgid "Previous"
 msgstr "Previous"
+
+msgid "Push notifications"
+msgstr "Push notifications"
 
 msgid "Reduce spacing between UI elements for a denser layout"
 msgstr "Reduce spacing between UI elements for a denser layout"

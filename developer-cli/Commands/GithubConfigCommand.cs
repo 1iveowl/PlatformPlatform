@@ -63,6 +63,24 @@ public sealed class GithubConfigCommand : Command
             "false",
             "MitID"
         ),
+        ["PUSH_VAPID_PUBLIC_KEY"] = new GithubConfig(
+            "VAPID public key for Web Push, base64url encoded. Generate a pair and keep the two halves together",
+            GithubType.Variable,
+            "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U",
+            "Push notifications"
+        ),
+        ["PUSH_VAPID_PRIVATE_KEY"] = new GithubConfig(
+            "VAPID private key for Web Push, base64url encoded. The private half of the same pair",
+            GithubType.Secret,
+            "your-base64url-private-key",
+            "Push notifications"
+        ),
+        ["PUSH_NOTIFICATION_SUBJECT"] = new GithubConfig(
+            "Contact address a push service can reach the operator at, as a mailto or https address",
+            GithubType.Variable,
+            "mailto:no-reply@example.com",
+            "Push notifications"
+        ),
         ["STRIPE_PUBLISHABLE_KEY"] = new GithubConfig(
             "Stripe Publishable Key from the Stripe Dashboard API keys page",
             GithubType.Variable,
@@ -83,7 +101,7 @@ public sealed class GithubConfigCommand : Command
         )
     };
 
-    public GithubConfigCommand() : base("github-config", "Configure GitHub repository variables and secrets for external integrations like Google OAuth, Microsoft Entra ID, MitID and Stripe")
+    public GithubConfigCommand() : base("github-config", "Configure GitHub repository variables and secrets for external integrations like Google OAuth, Microsoft Entra ID, MitID, push notifications and Stripe")
     {
         SetAction(_ => Execute());
     }

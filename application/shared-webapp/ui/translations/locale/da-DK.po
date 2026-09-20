@@ -89,6 +89,9 @@ msgstr "Forlad"
 msgid "Let a signed-in user prove their identity with MitID"
 msgstr "Lad en bruger, der er logget ind, bekræfte sin identitet med MitID"
 
+msgid "Let a signed-in user receive web push notifications on their own devices"
+msgstr "Lad en bruger, der er logget ind, modtage web push-notifikationer på sine egne enheder"
+
 msgid "Let a user who has verified with MitID sign in with it"
 msgstr "Lad en bruger, der har bekræftet sin identitet med MitID, logge ind med det"
 
@@ -136,6 +139,9 @@ msgstr "Plan"
 
 msgid "Previous"
 msgstr "Forrige"
+
+msgid "Push notifications"
+msgstr "Push-notifikationer"
 
 msgid "Reduce spacing between UI elements for a denser layout"
 msgstr "Reducér afstanden mellem UI-elementer for et tættere layout"

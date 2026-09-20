@@ -64,10 +64,10 @@ async function expectWorkspaceCulture(page: Page, culture: BlazorCulture): Promi
 test.describe("@smoke", () => {
   /**
    * The preferences page, in the culture of the running project:
-   * - Preferences opens from the user menu with the theme, language and zoom groups
+   * - Preferences opens from the user menu with the theme, language and zoom groups and the notifications section
    * - Dark applies at once with its toast; Larger applies at once with its toast and scales the root font size to 20px
    * - The Arrow keys move the zoom choice to Large, which applies at once
-   * - Choosing the other language saves it and loads the page again in that language, with the cookie written
+   * - Choosing the other language saves it and loads the page again in that language, notifications section included, with the cookie written
    * - A reload keeps the theme, the zoom level and the language
    * - Zoom is applied through a data attribute and external CSS: no policy violation and no style attribute
    */
@@ -88,6 +88,10 @@ test.describe("@smoke", () => {
       await expect(preferenceChoice(page, texts.theme, texts.themeSystem)).toBeChecked();
       await expect(preferenceChoice(page, texts.language, texts.languageName)).toBeChecked();
       await expect(preferenceChoice(page, texts.zoom, texts.zoomDefault)).toBeChecked();
+      await expect(page.getByRole("heading", { name: texts.notifications, exact: true, level: 2 })).toBeVisible();
+      await expect(page.getByText(texts.notificationsSectionDescription, { exact: true })).toBeVisible();
+      await expect(page.getByRole("switch", { name: texts.notificationsOnThisDevice, exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: texts.sendTestNotification, exact: true })).toBeVisible();
     })();
 
     await step("Choose the dark theme and the larger zoom & verify both apply at once with their toasts")(async () => {
@@ -119,6 +123,8 @@ test.describe("@smoke", () => {
       await expect(page.getByRole("heading", { name: other.userPreferences, exact: true, level: 1 })).toBeVisible();
       await expect(page.locator("html")).toHaveAttribute("lang", other.locale);
       await expect(preferenceChoice(page, other.language, other.languageName)).toBeChecked();
+      await expect(page.getByRole("heading", { name: other.notifications, exact: true, level: 2 })).toBeVisible();
+      await expect(page.getByRole("switch", { name: other.notificationsOnThisDevice, exact: true })).toBeVisible();
       expect(await getPreferredLocaleCookie(page)).toBe(other.locale);
     })();
 
@@ -269,7 +275,8 @@ test.describe("@comprehensive", () => {
 
       await expect(preferenceChoice(page, other.language, other.languageName)).toBeDisabled();
       await expect(preferenceChoice(page, other.language, texts.languageName)).toBeDisabled();
-      expect(changeRequests).toEqual(["PUT"]);
+      // Polled: the choices are disabled the moment the change starts, which is before the request leaves the runtime
+      await expect.poll(() => changeRequests).toEqual(["PUT"]);
       releaseChange();
       await expect(page.getByRole("heading", { name: texts.userPreferences, exact: true, level: 1 })).toBeVisible();
       await expect(page.locator("html")).toHaveAttribute("lang", texts.locale);

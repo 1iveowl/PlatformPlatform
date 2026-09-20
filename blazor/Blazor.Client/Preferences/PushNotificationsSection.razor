@@ -1,0 +1,196 @@
+@* The notifications section of the preferences page: the permission this browser reports, a switch that subscribes or
+   unsubscribes this device, and a button that asks the account API for a test notification. The section renders only when
+   this deployment offers notifications, which is the push-notifications-enabled system flag and the VAPID public key the
+   bootstrap carries; with either missing the section is absent and the endpoints answer as if the feature were not there.
+   The switch state comes from what the browser and the account API report after a change, never from the click, so a
+   refused permission or a refused save leaves the state they report. A permission the user denied shows the sentence that
+   says where to change it, because only the browser can undo that. A subscription the user revoked in the browser settings
+   is removed from the account on the next visit: the browser no longer has it, and the identifier this device stored is
+   what says which row it was. During prerender the section renders nothing, because only the browser knows any of this. *@
+@using Account.Client
+@using Account.Features.Authentication.Queries
+@using Account.Features.PushNotifications.Domain
+@using Account.Features.PushNotifications.Requests
+@using Blazor.Client.Bootstrap
+@using Blazor.Client.Session
+@implements IDisposable
+@inject SessionState Session
+@inject IServiceProvider Services
+@inject ToastService Toasts
+@inject FeatureFlagState FeatureFlags
+
+@if (_section.IsVisible)
+{
+    <section class="preferences-section" aria-labelledby="@_section.HeadingId" data-testid="@PushNotificationSection.SectionTestId">
+        <h2 id="@_section.HeadingId">@CommonStrings.Notifications</h2>
+        <p id="@_section.DescriptionId" class="preferences-description">@AccountStrings.NotificationsDescription</p>
+
+        <div class="notifications-controls">
+            <span class="notifications-switch-label" id="@($"{PushNotificationSection.SectionTestId}-switch-label")">@AccountStrings.NotificationsOnThisDevice</span>
+            <button type="button" role="@SwitchRole" class="switch" aria-checked="@(_section.IsSubscribed ? "true" : "false")"
+                    aria-labelledby="@($"{PushNotificationSection.SectionTestId}-switch-label")" aria-describedby="@_section.DescriptionId"
+                    disabled="@_section.IsSwitchDisabled" data-testid="@PushNotificationSection.SwitchTestId" @onclick="ToggleAsync">
+                <span class="switch-thumb" aria-hidden="true"></span>
+            </button>
+        </div>
+
+        @if (_section.Notice is { } notice)
+        {
+            <p class="preferences-notice" data-testid="@PushNotificationSection.NoticeTestId">@notice</p>
+        }
+
+        <button type="button" class="button-secondary" disabled="@_section.IsTestDisabled"
+                data-testid="@PushNotificationSection.TestButtonTestId" @onclick="SendTestAsync">
+            @AccountStrings.SendTestNotification
+        </button>
+    </section>
+}
+
+@code {
+
+    // The ARIA 1.1 role the feature flag switches also carry, through a constant because the inspector's attribute value
+    // list predates ARIA 1.1 and reports the literal as unresolved; the rendered attribute is the same
+    public const string SwitchRole = "switch";
+
+    private readonly PushNotificationSection _section = new();
+
+    private AuthenticationNavigator? _navigator;
+    private bool _hasReadTheBrowser;
+    private string _applicationServerKey = "";
+
+    public void Dispose()
+    {
+        if (_navigator is not null) _navigator.Leaving -= OnLeaving;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var bootstrap = await Session.GetUnlessLeavingAsync();
+        if (bootstrap is null || !RendererInfo.IsInteractive || !bootstrap.IsAuthenticated) return;
+
+        if (!FeatureFlags.IsEnabled(SharedKernel.FeatureFlags.FeatureFlags.PushNotifications)) return;
+
+        _applicationServerKey = bootstrap.RuntimeConfiguration.GetValueOrDefault(BootstrapConfiguration.PushPublicKeyKey, "");
+        if (_applicationServerKey.Length == 0) return;
+
+        _navigator = Services.GetRequiredService<AuthenticationNavigator>();
+        _navigator.Leaving += OnLeaving;
+    }
+
+    // Not the first render: the bootstrap read in OnInitializedAsync completes after it, so the first render that may ask
+    // the browser anything is the one that follows the read. Asking again on every later render would be a loop.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_navigator is null || _hasReadTheBrowser) return;
+
+        _hasReadTheBrowser = true;
+        await ReconcileRevokedSubscriptionAsync();
+        await ReadBrowserStateAsync();
+        StateHasChanged();
+    }
+
+    private void OnLeaving()
+    {
+        _section.Reset();
+    }
+
+    // The browser no longer has the subscription this device saved, which is what revoking notifications in the browser
+    // settings leaves behind, so the row it named is removed from the account before the section is read
+    private async Task ReconcileRevokedSubscriptionAsync()
+    {
+        var browser = Services.GetRequiredService<PushNotificationBrowser>();
+        if (await browser.ReadSubscriptionAsync() is not null) return;
+
+        if (!PushSubscriptionId.TryParse(await browser.ReadSavedSubscriptionIdAsync(), out var savedSubscriptionId)) return;
+
+        var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<PushSubscriptionsClient>().DeleteSubscriptionAsync(savedSubscriptionId, cancellationToken));
+        if (result is null) return;
+
+        await browser.SaveSubscriptionIdAsync(null);
+    }
+
+    private async Task ReadBrowserStateAsync()
+    {
+        var browser = Services.GetRequiredService<PushNotificationBrowser>();
+        var isSupported = await browser.IsSupportedAsync();
+        var permission = await browser.ReadPermissionAsync();
+        var subscription = isSupported ? await browser.ReadSubscriptionAsync() : null;
+
+        _section.Load(isSupported, permission, subscription is not null);
+    }
+
+    private Task ToggleAsync()
+    {
+        return _section.IsSubscribed ? UnsubscribeAsync() : SubscribeAsync();
+    }
+
+    private async Task SubscribeAsync()
+    {
+        if (!_section.TryBeginChange()) return;
+
+        var browser = Services.GetRequiredService<PushNotificationBrowser>();
+        var (outcome, subscription) = await browser.SubscribeAsync(_applicationServerKey);
+        if (outcome != PushSubscribeOutcome.Subscribed || subscription is null)
+        {
+            _section.EndChange();
+            await ReadBrowserStateAsync();
+            return;
+        }
+
+        var command = new SavePushSubscriptionCommand(subscription.Endpoint, subscription.PublicKey, subscription.AuthSecret, await browser.ReadDeviceLabelAsync(), AppUrls.AuthenticatedHome);
+        var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<PushSubscriptionsClient>().SaveSubscriptionAsync(command, cancellationToken));
+        if (result is null) return;
+
+        _section.EndChange();
+        if (!result.IsSuccess)
+        {
+            // The account did not keep it, so the browser does not keep it either and the switch goes back off
+            await browser.UnsubscribeAsync();
+            await ReadBrowserStateAsync();
+            if (result.Outcome != ApiCallOutcome.Unauthorized) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        await browser.SaveSubscriptionIdAsync(result.Value!.PushSubscriptionId.Value);
+        await ReadBrowserStateAsync();
+        Toasts.Show(ToastKind.Success, AccountStrings.NotificationsTurnedOn, null, PushNotificationSection.TurnedOnToastTestId);
+    }
+
+    private async Task UnsubscribeAsync()
+    {
+        if (!_section.TryBeginChange()) return;
+
+        var browser = Services.GetRequiredService<PushNotificationBrowser>();
+        var savedSubscriptionId = await browser.ReadSavedSubscriptionIdAsync();
+        await browser.UnsubscribeAsync();
+
+        if (PushSubscriptionId.TryParse(savedSubscriptionId, out var pushSubscriptionId))
+        {
+            var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<PushSubscriptionsClient>().DeleteSubscriptionAsync(pushSubscriptionId, cancellationToken));
+            if (result is null) return;
+        }
+
+        await browser.SaveSubscriptionIdAsync(null);
+        _section.EndChange();
+        await ReadBrowserStateAsync();
+        Toasts.Show(ToastKind.Success, AccountStrings.NotificationsTurnedOff, null, PushNotificationSection.TurnedOffToastTestId);
+    }
+
+    private async Task SendTestAsync()
+    {
+        if (!_section.TryBeginChange()) return;
+
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<PushSubscriptionsClient>().SendTestNotificationAsync);
+        if (result is null) return;
+
+        _section.EndChange();
+        if (!result.IsSuccess)
+        {
+            if (result.Outcome != ApiCallOutcome.Unauthorized) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        Toasts.Show(ToastKind.Success, AccountStrings.TestNotificationSent, null, PushNotificationSection.TestSentToastTestId);
+    }
+
+}

@@ -45,6 +45,16 @@ param mitIdClientSecret string
 param mitIdVerificationEnabled bool = false
 param mitIdLoginEnabled bool = false
 
+// The VAPID key pair this deployment signs Web Push requests with, and the address a push service can reach its
+// operator at. The public key is published to every client through the bootstrap runtime configuration; the private key
+// never leaves the account API. Without a pair, push notifications stay off and their endpoints answer as if absent.
+// Only the private key is a secret: the public key is handed to every browser that subscribes, and the subject is the
+// contact address a push service is told to use.
+param pushVapidPublicKey string = ''
+@secure()
+param pushVapidPrivateKey string
+param pushNotificationSubject string = ''
+
 @secure()
 param stripePublishableKey string
 @secure()
@@ -164,6 +174,19 @@ module mitIdSecrets '../modules/key-vault-secrets.bicep' = if (!empty(mitIdDomai
       'OAuth--MitId--Domain': mitIdDomain
       'OAuth--MitId--ClientId': mitIdClientId
       'OAuth--MitId--ClientSecret': mitIdClientSecret
+    }
+  }
+}
+
+module pushNotificationSecrets '../modules/key-vault-secrets.bicep' = if (!empty(pushVapidPublicKey) && !empty(pushVapidPrivateKey) && !empty(pushNotificationSubject)) {
+  scope: clusterResourceGroup
+  name: '${clusterResourceGroupName}-push-notification-secrets'
+  params: {
+    keyVaultName: keyVault.outputs.name
+    secrets: {
+      'PushNotifications--VapidPublicKey': pushVapidPublicKey
+      'PushNotifications--VapidPrivateKey': pushVapidPrivateKey
+      'PushNotifications--Subject': pushNotificationSubject
     }
   }
 }
@@ -368,6 +391,14 @@ var accountEnvironmentVariables = [
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'
     value: !empty(stripeApiKey) && !empty(stripeWebhookSecret) && !empty(stripePublishableKey) ? 'true' : 'false'
   }
+  {
+    name: 'PUBLIC_PUSH_NOTIFICATIONS_ENABLED'
+    value: !empty(pushVapidPublicKey) && !empty(pushVapidPrivateKey) ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_PUSH_PUBLIC_KEY'
+    value: pushVapidPublicKey
+  }
 ]
 
 module accountWorkers '../modules/container-app.bicep' = {
@@ -562,6 +593,14 @@ var mainEnvironmentVariables = [
   {
     name: 'PUBLIC_SUBSCRIPTION_ENABLED'
     value: !empty(stripeApiKey) && !empty(stripeWebhookSecret) && !empty(stripePublishableKey) ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_PUSH_NOTIFICATIONS_ENABLED'
+    value: !empty(pushVapidPublicKey) && !empty(pushVapidPrivateKey) ? 'true' : 'false'
+  }
+  {
+    name: 'PUBLIC_PUSH_PUBLIC_KEY'
+    value: pushVapidPublicKey
   }
 ]
 

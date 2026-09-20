@@ -23,6 +23,12 @@
 //
 // Logout, a session that ended and a tenant switch post clearOfflineShell, which empties the document cache and keeps the
 // asset cache. The cache holds no identity by construction; the message is the second guard.
+//
+// The same worker also shows the push notifications the account API sends. A push payload carries a title, a body and the
+// path the subscribing client opens at, and nothing else: no code, no token and no personal data, so nothing that arrives
+// this way is stored, logged or sent anywhere. A payload that cannot be read shows nothing, and the browser then shows its
+// own generic message, which is what userVisibleOnly asks for. The path is resolved against this worker's own scope and
+// refused when it points anywhere else, so a payload can never send a browser to another origin or another surface.
 
 const pathBase = "__PATH_BASE__";
 const shellDocument = "__SHELL_DOCUMENT__";
@@ -33,6 +39,8 @@ const cachePrefix = "blazor-offline-";
 const documentCacheName = `${cachePrefix}document-${cacheVersion}`;
 const assetCacheName = `${cachePrefix}assets-${cacheVersion}`;
 const clearMessageType = "clearOfflineShell";
+// One tag for every notification of this application, so a second notification replaces the first instead of stacking
+const notificationTag = "blazor-notification";
 
 // The shell is fetched without credentials, so what is stored cannot depend on who was signed in when it was stored
 async function storeShellDocument() {
@@ -124,6 +132,55 @@ self.addEventListener("message", (event) => {
 
   const reply = event.ports?.[0];
   event.waitUntil(clearShellDocument().then(() => reply?.postMessage({ type: clearMessageType, cleared: true })));
+});
+
+// A payload that is absent or not the shape this application sends shows nothing at all
+function readNotification(data) {
+  if (!data) return null;
+
+  try {
+    const payload = data.json();
+    if (typeof payload?.title !== "string" || payload.title.length === 0) return null;
+    return { title: payload.title, body: typeof payload.body === "string" ? payload.body : "", url: payload.url };
+  } catch {
+    return null;
+  }
+}
+
+// The payload's destination is never trusted: anything that is not a path of this origin under this worker's own scope is
+// replaced by the scope itself
+function destinationUnderPathBase(url) {
+  if (typeof url !== "string" || url.length === 0) return pathBase;
+
+  try {
+    const resolved = new URL(url, self.location.origin);
+    if (resolved.origin !== self.location.origin || !resolved.pathname.startsWith(pathBase)) return pathBase;
+    return `${resolved.pathname}${resolved.search}`;
+  } catch {
+    return pathBase;
+  }
+}
+
+async function openApplication(url) {
+  const destination = destinationUnderPathBase(url);
+  const windowClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const openWindow = windowClients.find((client) => new URL(client.url).pathname.startsWith(pathBase));
+  if (openWindow === undefined) return self.clients.openWindow(destination);
+
+  if (new URL(openWindow.url).pathname !== destination && "navigate" in openWindow) await openWindow.navigate(destination);
+  return openWindow.focus();
+}
+
+self.addEventListener("push", (event) => {
+  const notification = readNotification(event.data);
+  if (notification === null) return;
+
+  event.waitUntil(self.registration.showNotification(notification.title, { body: notification.body, data: { url: notification.url }, tag: notificationTag }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(openApplication(event.notification.data?.url));
 });
 
 self.addEventListener("fetch", (event) => {

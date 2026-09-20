@@ -60,6 +60,7 @@ public static class HostApplication
         builder.Services.AddScoped<ViewportState>();
         builder.Services.AddScoped<SessionState>();
         builder.Services.AddScoped<DevicePreferences>();
+        builder.Services.AddScoped<PushNotificationBrowser>();
         builder.Services.AddScoped<LocaleSwitch>();
 
         // The static server-rendered form handlers call the account API directly through the typed clients, the way the gateway
@@ -76,6 +77,7 @@ public static class HostApplication
         AddAccountApiClient<UsersClient>(builder.Services, accountApiUrl);
         AddAccountApiClient<TenantsClient>(builder.Services, accountApiUrl);
         AddAccountApiClient<FeatureFlagsClient>(builder.Services, accountApiUrl);
+        AddAccountApiClient<PushSubscriptionsClient>(builder.Services, accountApiUrl);
 
         // The platform's data protection registration: the APIs' application name locally and the Container Apps key ring in
         // Azure, so an antiforgery token issued here validates at the account API and one issued by the React shell validates here

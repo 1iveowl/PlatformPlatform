@@ -11,10 +11,12 @@
     <ItemGroup>
         <ProjectReference Include="..\Contracts\Account.Contracts.csproj"/>
         <ProjectReference Include="..\Emails\Account.Emails.csproj"/>
+        <ProjectReference Include="..\..\shared-kernel\SharedKernel.Localization\SharedKernel.Localization.csproj"/>
         <ProjectReference Include="..\..\shared-kernel\SharedKernel\SharedKernel.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Lib.Net.Http.WebPush"/>
         <PackageReference Include="Stripe.net"/>
     </ItemGroup>
 

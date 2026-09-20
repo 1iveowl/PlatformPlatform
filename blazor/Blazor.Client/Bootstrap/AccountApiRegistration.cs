@@ -59,6 +59,7 @@ public static class AccountApiRegistration
             services.AddScoped<UsersClient>();
             services.AddScoped<TenantsClient>();
             services.AddScoped<FeatureFlagsClient>();
+            services.AddScoped<PushSubscriptionsClient>();
             return services.AddScoped<IBootstrapSource, HttpBootstrapSource>();
         }
     }

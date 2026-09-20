@@ -1888,6 +1888,35 @@ h1:focus {
     font-size: 0.875rem;
 }
 
+/* The notifications section (Blazor.Client/Preferences/PushNotificationsSection): the switch beside its label, the sentence
+   that explains a permission the browser refused, and the test button under both */
+.notifications-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: 40rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+}
+
+.notifications-switch-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.preferences-notice {
+    max-width: 40rem;
+    margin-block: 0.75rem 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.preferences-section .button-secondary {
+    margin-block-start: 0.75rem;
+}
+
 /* The toggle group (Blazor.Client/Components/ToggleGroup): native radio inputs, visually hidden, inside labels styled from
    the input's state */
 .toggle-group {

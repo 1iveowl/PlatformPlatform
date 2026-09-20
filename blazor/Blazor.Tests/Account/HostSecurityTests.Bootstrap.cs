@@ -15,11 +15,12 @@ public sealed partial class HostSecurityTests
 {
     private static readonly string[] BootstrapRuntimeConfigurationKeys =
     [
-        "PUBLIC_URL", "CDN_URL", "APPLICATION_VERSION", "PUBLIC_GOOGLE_OAUTH_ENABLED", "PUBLIC_ENTRA_OAUTH_ENABLED",
-        "PUBLIC_MITID_VERIFICATION_ENABLED", "PUBLIC_MITID_LOGIN_ENABLED", "PUBLIC_SUBSCRIPTION_ENABLED"
+        "PUBLIC_URL", "CDN_URL", "APPLICATION_VERSION", "PUBLIC_PUSH_PUBLIC_KEY", "PUBLIC_GOOGLE_OAUTH_ENABLED",
+        "PUBLIC_ENTRA_OAUTH_ENABLED", "PUBLIC_MITID_VERIFICATION_ENABLED", "PUBLIC_MITID_LOGIN_ENABLED",
+        "PUBLIC_SUBSCRIPTION_ENABLED", "PUBLIC_PUSH_NOTIFICATIONS_ENABLED"
     ];
 
-    private static readonly string[] SystemFeatureFlagKeys = ["google-oauth", "entra-oauth", "mitid-verification", "mitid-login", "subscriptions"];
+    private static readonly string[] SystemFeatureFlagKeys = ["google-oauth", "entra-oauth", "mitid-verification", "mitid-login", "subscriptions", "push-notifications-enabled"];
 
     [Fact]
     public async Task BootstrapAdapter_WhenAuthenticated_ShouldMapTokenClaimsToContractWithoutCredentials()

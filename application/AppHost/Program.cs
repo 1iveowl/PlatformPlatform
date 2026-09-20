@@ -51,6 +51,8 @@ var (mitIdConfigured, mitIdDomain, mitIdClientId, mitIdClientSecret, mitIdVerifi
 var mitIdVerificationConfigured = mitIdConfigured && builder.Configuration["Parameters:mitid-verification-enabled"] == "true";
 var mitIdLoginConfigured = mitIdConfigured && builder.Configuration["Parameters:mitid-login-enabled"] == "true";
 
+var (pushVapidPublicKey, pushVapidPrivateKey, pushNotificationSubject, pushVapidPublicKeyValue) = ConfigurePushNotificationParameters();
+
 var (stripeConfigured, stripePublishableKey, stripeApiKey, stripeWebhookSecret) = ConfigureStripeParameters();
 var stripeFullyConfigured = stripeConfigured && builder.Configuration["Parameters:stripe-webhook-secret"] is not null and not "not-configured";
 
@@ -156,6 +158,11 @@ var accountApi = builder
     .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
     // Force-on so newcomers see the back-office billing UI without Stripe configured. Set to "false" (or
     // change back to `stripeFullyConfigured ? "true" : "false"`) to hide all billing/revenue/Stripe data.
+    .WithEnvironment("PushNotifications__VapidPublicKey", pushVapidPublicKey)
+    .WithEnvironment("PushNotifications__VapidPrivateKey", pushVapidPrivateKey)
+    .WithEnvironment("PushNotifications__Subject", pushNotificationSubject)
+    .WithEnvironment("PUBLIC_PUSH_NOTIFICATIONS_ENABLED", "true")
+    .WithEnvironment("PUBLIC_PUSH_PUBLIC_KEY", pushVapidPublicKeyValue)
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", "true")
     .WaitFor(accountWorkers);
 
@@ -179,6 +186,8 @@ var mainApi = builder
     .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")
     .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
+    .WithEnvironment("PUBLIC_PUSH_NOTIFICATIONS_ENABLED", "true")
+    .WithEnvironment("PUBLIC_PUSH_PUBLIC_KEY", pushVapidPublicKeyValue)
     .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
     .WaitFor(mainWorkers);
 
@@ -194,6 +203,8 @@ if (!excludeBlazorHost)
         .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
         .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")
         .WithEnvironment("PUBLIC_MITID_LOGIN_ENABLED", mitIdLoginConfigured ? "true" : "false")
+        .WithEnvironment("PUBLIC_PUSH_NOTIFICATIONS_ENABLED", "true")
+        .WithEnvironment("PUBLIC_PUSH_PUBLIC_KEY", pushVapidPublicKeyValue)
         .WithEnvironment("PUBLIC_SUBSCRIPTION_ENABLED", stripeFullyConfigured ? "true" : "false")
         .WithUrlConfiguration(appHostname, ports.AppGateway, "/blazor");
 }
@@ -411,6 +422,26 @@ void AddStripeCliContainer()
         builder.CreateResourceBuilder(new ParameterResource("mitid-oauth-client-secret", _ => "not-configured", true)),
         builder.CreateResourceBuilder(new ParameterResource("mitid-verification-enabled", _ => "false", true)),
         builder.CreateResourceBuilder(new ParameterResource("mitid-login-enabled", _ => "false", true))
+    );
+}
+
+(IResourceBuilder<ParameterResource> VapidPublicKey, IResourceBuilder<ParameterResource> VapidPrivateKey, IResourceBuilder<ParameterResource> Subject, string PublicKeyValue) ConfigurePushNotificationParameters()
+{
+    // Unlike an external identity provider, Web Push needs no account anywhere: the key pair is this deployment's own,
+    // so a development pair is generated into user secrets on first start and nobody is prompted. Azure supplies its
+    // own pair through Key Vault, and a developer who wants a specific pair sets the two secrets and restarts.
+    var (publicKey, privateKey) = SecretManagerHelper.GenerateWebPushVapidKeyPair("push-vapid-public-key", "push-vapid-private-key");
+
+    // The address a push service can reach the operator of this deployment at, as RFC 8292 requires
+    var subject = builder.Configuration["Parameters:push-notifications-subject"] is { Length: > 0 } configuredSubject
+        ? configuredSubject
+        : $"mailto:no-reply@{appHostname}";
+
+    return (
+        builder.CreateResourceBuilder(new ParameterResource("push-vapid-public-key", _ => publicKey, true)),
+        builder.CreateResourceBuilder(new ParameterResource("push-vapid-private-key", _ => privateKey, true)),
+        builder.CreateResourceBuilder(new ParameterResource("push-notifications-subject", _ => subject, true)),
+        publicKey
     );
 }
 

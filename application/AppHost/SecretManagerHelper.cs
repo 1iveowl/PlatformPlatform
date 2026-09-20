@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -21,6 +22,30 @@ public static class SecretManagerHelper
             var base64Key = Convert.ToBase64String(key);
             SaveSecrectToDotNetUserSecrets(secretName, base64Key);
         }
+    }
+
+    /// <summary>
+    ///     The VAPID key pair the account API signs Web Push requests with, as the base64url values the protocol uses:
+    ///     the public key is the uncompressed P-256 point a browser subscribes with, the private key its scalar. A
+    ///     development pair is generated once and kept in user secrets, the way the token signing key is, so push
+    ///     notifications work locally without anyone being asked for a key. An operator who wants their own pair sets
+    ///     both secrets and restarts.
+    /// </summary>
+    public static (string PublicKey, string PrivateKey) GenerateWebPushVapidKeyPair(string publicKeySecretName, string privateKeySecretName)
+    {
+        var publicKey = ConfigurationRoot[publicKeySecretName];
+        var privateKey = ConfigurationRoot[privateKeySecretName];
+        if (!string.IsNullOrEmpty(publicKey) && !string.IsNullOrEmpty(privateKey)) return (publicKey, privateKey);
+
+        using var keyPair = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var parameters = keyPair.ExportParameters(true);
+        publicKey = Base64Url.EncodeToString([0x04, .. parameters.Q.X!, .. parameters.Q.Y!]);
+        privateKey = Base64Url.EncodeToString(parameters.D!);
+
+        SaveSecrectToDotNetUserSecrets(publicKeySecretName, publicKey);
+        SaveSecrectToDotNetUserSecrets(privateKeySecretName, privateKey);
+
+        return (publicKey, privateKey);
     }
 
     private static void SaveSecrectToDotNetUserSecrets(string key, string value)

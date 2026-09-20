@@ -14,6 +14,7 @@ using Account.Integrations.OAuth.Google;
 using Account.Integrations.OAuth.MitId;
 using Account.Integrations.OAuth.Mock;
 using Account.Integrations.Stripe;
+using Account.Integrations.WebPush;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SharedKernel.Configuration;
@@ -65,6 +66,10 @@ public static class Configuration
             services.AddKeyedScoped<IOAuthProvider, MitIdOAuthProvider>("mitid");
             services.AddKeyedScoped<IOAuthProvider>("mock-mitid", (serviceProvider, _) => ActivatorUtilities.CreateInstance<MockOAuthProvider>(serviceProvider, ExternalProviderType.MitId));
             services.AddScoped<OAuthProviderFactory>();
+
+            // The push service is whatever address a browser's subscription names, so this client has no base address;
+            // the timeout keeps one unreachable push service from holding a test notification open
+            services.AddHttpClient<IPushNotificationSender, WebPushNotificationSender>(client => { client.Timeout = TimeSpan.FromSeconds(10); });
 
             services.AddEmailRendering();
 

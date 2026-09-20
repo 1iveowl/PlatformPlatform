@@ -45,6 +45,10 @@ public static class BootstrapConfiguration
     public const string CdnUrlKey = "CDN_URL";
     public const string ApplicationVersionKey = "APPLICATION_VERSION";
 
+    // The VAPID public key a browser subscribes to push notifications with. It is the public half of the deployment's
+    // signing key pair and is meant to be read by every client; the private half never leaves the account API.
+    public const string PushPublicKeyKey = "PUBLIC_PUSH_PUBLIC_KEY";
+
     // Fully qualified: this file's namespace sits under Account.Features, which also holds the FeatureFlags contracts,
     // so the bare name would resolve to that namespace instead of the registry
     private static readonly SystemFeatureFlag[] SystemFlags = SharedKernel.FeatureFlags.FeatureFlags.GetAll().OfType<SystemFeatureFlag>().ToArray();
@@ -55,7 +59,8 @@ public static class BootstrapConfiguration
         {
             [PublicUrlKey] = getEnvironmentVariable(PublicUrlKey) ?? string.Empty,
             [CdnUrlKey] = getEnvironmentVariable(CdnUrlKey) ?? string.Empty,
-            [ApplicationVersionKey] = applicationVersion
+            [ApplicationVersionKey] = applicationVersion,
+            [PushPublicKeyKey] = getEnvironmentVariable(PushPublicKeyKey) ?? string.Empty
         };
 
         foreach (var flag in SystemFlags)

@@ -62,6 +62,7 @@ var runtimeEnvironment = new Dictionary<string, string>
     ["PUBLIC_ENTRA_OAUTH_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_ENTRA_OAUTH_ENABLED") ?? "false",
     ["PUBLIC_MITID_VERIFICATION_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_MITID_VERIFICATION_ENABLED") ?? "false",
     ["PUBLIC_MITID_LOGIN_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_MITID_LOGIN_ENABLED") ?? "false",
+    ["PUBLIC_PUSH_NOTIFICATIONS_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_PUSH_NOTIFICATIONS_ENABLED") ?? "false",
     ["PUBLIC_SUBSCRIPTION_ENABLED"] = Environment.GetEnvironmentVariable("PUBLIC_SUBSCRIPTION_ENABLED") ?? "false"
 };
 

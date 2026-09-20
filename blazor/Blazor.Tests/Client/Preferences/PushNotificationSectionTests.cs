@@ -1,0 +1,176 @@
+using Blazor.Client.Preferences;
+using FluentAssertions;
+using SharedKernel.Localization;
+
+namespace Blazor.Tests.Client.Preferences;
+
+// What the notifications section shows for each combination the browser can report, and how one change at a time is kept.
+// The section never decides from a click: every state below comes from what the browser and the account API reported.
+public sealed class PushNotificationSectionTests
+{
+    [Fact]
+    public void IsVisible_BeforeTheBrowserHasBeenRead_ShouldStayHidden()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+
+        // Assert
+        section.IsVisible.Should().BeFalse();
+        section.Notice.Should().BeNull();
+        section.IsSwitchDisabled.Should().BeTrue();
+        section.IsTestDisabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Load_WhenTheBrowserSupportsNotificationsAndIsSubscribed_ShouldEnableBothControls()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+
+        // Act
+        section.Load(true, PushPermission.Granted, true);
+
+        // Assert
+        section.IsVisible.Should().BeTrue();
+        section.IsSubscribed.Should().BeTrue();
+        section.IsSwitchDisabled.Should().BeFalse();
+        section.IsTestDisabled.Should().BeFalse();
+        section.Notice.Should().BeNull();
+    }
+
+    [Fact]
+    public void Load_WhenThePermissionHasNotBeenAnswered_ShouldAllowSubscribingAndRefuseTheTest()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+
+        // Act
+        section.Load(true, PushPermission.Default, false);
+
+        // Assert
+        section.IsSwitchDisabled.Should().BeFalse();
+        section.IsTestDisabled.Should().BeTrue();
+        section.Notice.Should().BeNull();
+    }
+
+    [Fact]
+    public void Load_WhenThePermissionIsDenied_ShouldRefuseTheSwitchAndSayWhereToChangeIt()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+
+        // Act
+        section.Load(true, PushPermission.Denied, false);
+
+        // Assert
+        section.IsBlocked.Should().BeTrue();
+        section.IsSwitchDisabled.Should().BeTrue();
+        section.Notice.Should().Be(AccountStrings.NotificationsBlocked);
+    }
+
+    [Fact]
+    public void Load_WhenThePermissionIsDeniedWhileStillSubscribed_ShouldAllowTurningItOff()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+
+        // Act
+        section.Load(true, PushPermission.Denied, true);
+
+        // Assert
+        section.IsSwitchDisabled.Should().BeFalse();
+        section.Notice.Should().Be(AccountStrings.NotificationsBlocked);
+    }
+
+    [Fact]
+    public void Load_WhenTheBrowserHasNoSupport_ShouldRefuseEverythingAndSayWhy()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+
+        // Act
+        section.Load(false, PushPermission.Default, true);
+
+        // Assert
+        section.IsSupported.Should().BeFalse();
+        section.IsSubscribed.Should().BeFalse();
+        section.IsSwitchDisabled.Should().BeTrue();
+        section.IsTestDisabled.Should().BeTrue();
+        section.Notice.Should().Be(AccountStrings.NotificationsNotSupported);
+    }
+
+    [Fact]
+    public void TryBeginChange_WhenAChangeIsAlreadyRunning_ShouldStartNothingElse()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+        section.Load(true, PushPermission.Granted, true);
+
+        // Act
+        var first = section.TryBeginChange();
+        var second = section.TryBeginChange();
+
+        // Assert
+        first.Should().BeTrue();
+        second.Should().BeFalse();
+        section.IsBusy.Should().BeTrue();
+        section.IsSwitchDisabled.Should().BeTrue();
+        section.IsTestDisabled.Should().BeTrue();
+
+        section.EndChange();
+        section.TryBeginChange().Should().BeTrue();
+    }
+
+    [Fact]
+    public void TryBeginChange_BeforeTheBrowserHasBeenRead_ShouldStartNothing()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+
+        // Assert
+        section.TryBeginChange().Should().BeFalse();
+    }
+
+    [Fact]
+    public void Reset_WhenTheAccountIsLeft_ShouldHideTheSectionAndForgetTheState()
+    {
+        // Arrange
+        var section = new PushNotificationSection();
+        section.Load(true, PushPermission.Granted, true);
+        section.TryBeginChange();
+
+        // Act
+        section.Reset();
+
+        // Assert
+        section.IsVisible.Should().BeFalse();
+        section.IsSubscribed.Should().BeFalse();
+        section.IsBusy.Should().BeFalse();
+        section.Permission.Should().Be(PushPermission.Default);
+    }
+
+    [Theory]
+    [InlineData("granted", PushPermission.Granted)]
+    [InlineData("denied", PushPermission.Denied)]
+    [InlineData("default", PushPermission.Default)]
+    [InlineData("", PushPermission.Default)]
+    [InlineData(null, PushPermission.Default)]
+    public void ParsePermission_WhenTheBrowserReportsAValue_ShouldMapItOrFallBackToDefault(string? permission, PushPermission expected)
+    {
+        // Assert
+        PushNotificationSection.ParsePermission(permission).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("subscribed", PushSubscribeOutcome.Subscribed)]
+    [InlineData("denied", PushSubscribeOutcome.Denied)]
+    [InlineData("dismissed", PushSubscribeOutcome.Dismissed)]
+    [InlineData("unsupported", PushSubscribeOutcome.Unsupported)]
+    [InlineData("something else", PushSubscribeOutcome.Failed)]
+    [InlineData(null, PushSubscribeOutcome.Failed)]
+    public void ParseOutcome_WhenTheModuleReportsAnOutcome_ShouldMapItOrFallBackToFailed(string? outcome, PushSubscribeOutcome expected)
+    {
+        // Assert
+        PushNotificationSection.ParseOutcome(outcome).Should().Be(expected);
+    }
+}

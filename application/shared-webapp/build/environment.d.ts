@@ -119,6 +119,10 @@ export declare global {
      **/
     PUBLIC_MITID_LOGIN_ENABLED: string;
     /**
+     * Web push notifications enabled (a VAPID key pair is configured)
+     **/
+    PUBLIC_PUSH_NOTIFICATIONS_ENABLED: string;
+    /**
      * Whether subscription/billing is enabled (Stripe configured)
      **/
     PUBLIC_SUBSCRIPTION_ENABLED: string;
