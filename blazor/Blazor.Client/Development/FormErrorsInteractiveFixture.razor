@@ -44,6 +44,8 @@
         <button type="submit" data-testid="submit" disabled="@(!RendererInfo.IsInteractive)">Submit</button>
     </EditForm>
 
+    <FormErrorAlert Errors="_formErrors"/>
+
     <p data-testid="submit-count">@_submitCount</p>
 </section>
 
@@ -73,6 +75,8 @@
     <a href="#guard-cases-anchor" id="guard-cases-anchor" data-testid="guard-link-fragment">Fragment on this page</a>
     <button type="button" data-testid="guard-navigate-code" @onclick="NavigateFromCode">Navigate from code</button>
     <button type="button" data-testid="guard-authentication-loss" @onclick="LoseAuthentication">Lose authentication</button>
+
+    <button type="button" data-testid="guard-reload-prompt" disabled="@(!RendererInfo.IsInteractive)" @onclick="ShowReloadPrompt">Show the reload prompt</button>
 
     <button type="button" data-testid="guard-remount" @onclick="RemountGuard">Mount the guard again</button>
     <p data-testid="guard-generation">@_guardGeneration</p>
@@ -151,6 +155,14 @@
     {
         var (outcome, problem) = FormErrorScenarios.Get(FormErrorScenarios.Detail);
         FailurePresenter.Present(outcome, problem);
+    }
+
+    // The form-level reload prompt FormErrorAlert renders after a refused write, whose link loads the page again as a new
+    // document; the guard has to ask before it discards the edits
+    private void ShowReloadPrompt()
+    {
+        var (outcome, problem) = FormErrorScenarios.Get(FormErrorScenarios.Antiforgery);
+        _formErrors.ApplyFailure(outcome, problem);
     }
 
     private void NavigateFromCode()

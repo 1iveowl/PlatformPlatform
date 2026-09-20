@@ -16,6 +16,9 @@
 // 7. Mounting the guard again repeatedly leaves one working guard: one dialog, and Leave is not blocked by a stale listener.
 // 8. The dirty dialog: Escape, the close button and the backdrop close a clean dialog at once and ask for a dirty one;
 //    Stay keeps the dialog and its edit, Leave closes it once, and the next open starts clean.
+// 9. A page reached by enhanced navigation rather than by a document load is guarded the same way, and the two reload
+//    prompts a refused write raises are navigations away like any other: the form alert's link, which loads a new
+//    document, and the toast's action, which forces one from .NET.
 // Every case asserts zero content security policy violations, no style attribute in the toast region or any dialog, and
 // no console or page errors.
 //
@@ -133,6 +136,25 @@ async function leave(page) {
 
 function documentOrigin(page) {
   return page.evaluate(() => performance.timeOrigin);
+}
+
+// The reload prompts load the page again at the same address, so the new document is what the wait is on, not the URL
+function waitForNewDocument(page, origin) {
+  return page.waitForFunction((previous) => performance.timeOrigin !== previous, origin, { timeout: interactiveTimeoutMs });
+}
+
+// The fixture reaches the interactive page from the static one, which is an enhanced navigation inside the document
+async function openThroughEnhancedNavigation(page, open) {
+  await open(staticUrl);
+  await page.locator(testId("interactive-fixture-link")).click();
+  await page.waitForURL(interactiveUrl);
+  await waitInteractive(page);
+}
+
+// The form-level prompt a refused write leaves on the form, whose link loads the page again as a new document
+async function showReloadPrompt(page) {
+  await page.locator(testId("guard-reload-prompt")).click();
+  await page.locator(testId("form-error-reload")).waitFor();
 }
 
 async function assertEditKept(page) {
@@ -440,6 +462,78 @@ await check("dirty dialog guards Escape, the close button and the backdrop", () 
     await openDialog();
     assert((await dirtyDialog.locator(testId("dialog-input")).inputValue()) === "", "The reopened dialog kept the discarded edit.");
     return { closes: expectedCloses + 1 };
+  })
+);
+
+await check("a page reached by enhanced navigation is guarded like a freshly loaded document", () =>
+  withFixture(async ({ page, open, nativeDialogs }) => {
+    await openThroughEnhancedNavigation(page, open);
+    await makeDirty(page);
+    await page.locator(testId("guard-link-enhanced")).click();
+    await expectUnsavedChangesDialog(page);
+    await stay(page);
+    await assertEditKept(page);
+    await page.locator(testId("guard-link-full")).click();
+    await expectUnsavedChangesDialog(page);
+    await leave(page);
+    await page.waitForURL(staticUrl, { waitUntil: "load" });
+    assert(nativeDialogs.length === 0, `Native dialogs: ${JSON.stringify(nativeDialogs)}.`);
+  })
+);
+
+await check("the form alert's reload link asks before it loads the page again", () =>
+  withFixture(async ({ page, open, nativeDialogs }) => {
+    await open();
+    const origin = await documentOrigin(page);
+    await makeDirty(page);
+    await showReloadPrompt(page);
+    await page.locator(testId("form-error-reload")).click();
+    await expectUnsavedChangesDialog(page);
+    await stay(page);
+    await assertEditKept(page);
+    await page.locator(testId("form-error-reload")).click();
+    await expectUnsavedChangesDialog(page);
+    await leave(page);
+    await waitForNewDocument(page, origin);
+    await waitInteractive(page);
+    assert(page.url() === interactiveUrl, `The reload link went to ${page.url()}.`);
+    assert((await page.locator(testId("guard-input")).inputValue()) === "", "The new document kept the edit.");
+    assert(nativeDialogs.length === 0, `Native dialogs: ${JSON.stringify(nativeDialogs)}.`);
+  })
+);
+
+await check("the form alert's reload link is guarded after an enhanced navigation too", () =>
+  withFixture(async ({ page, open }) => {
+    await openThroughEnhancedNavigation(page, open);
+    await makeDirty(page);
+    await showReloadPrompt(page);
+    await page.locator(testId("form-error-reload")).click();
+    await expectUnsavedChangesDialog(page);
+    await stay(page);
+    await assertEditKept(page);
+  })
+);
+
+await check("the toast's reload action asks before it loads the page again", () =>
+  withFixture(async ({ page, open, nativeDialogs }) => {
+    await open();
+    const origin = await documentOrigin(page);
+    await makeDirty(page);
+    await page.locator(testId("present-antiforgery")).click();
+    const reloadAction = page.locator(`${testId("antiforgery-recovery-toast")} ${testId("toast-action")}`);
+    await reloadAction.waitFor();
+    await reloadAction.click();
+    await expectUnsavedChangesDialog(page);
+    await stay(page);
+    await assertEditKept(page);
+    await reloadAction.click();
+    await expectUnsavedChangesDialog(page);
+    await leave(page);
+    await waitForNewDocument(page, origin);
+    await waitInteractive(page);
+    assert(page.url() === interactiveUrl, `The reload action went to ${page.url()}.`);
+    assert((await page.locator(testId("guard-input")).inputValue()) === "", "The new document kept the edit.");
+    assert(nativeDialogs.length === 0, `Native dialogs: ${JSON.stringify(nativeDialogs)}.`);
   })
 );
 

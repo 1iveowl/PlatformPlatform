@@ -27,6 +27,7 @@ Guidelines for building forms in the Blazor edition. Static server-rendered form
    - Render `<UnsavedChangesGuard HasUnsavedChanges="..."/>` on a page with edits; it blocks navigation from .NET, in-app links, Back and Forward inside the document and document unload, and opens the "Unsaved changes" dialog with Stay and Leave
    - Use `DirtyDialog` for edits inside a dialog and route the cancel button through its `RequestCloseAsync`, so Escape, the close button, the backdrop and Cancel are guarded the same way
    - Subscribe to `AuthenticationNavigator.Leaving` to clear sensitive state; the guard releases itself on that event so a lost session never traps the user
+   - Report the edit to the guard as it is made: `HasUnsavedChanges` is everything the guard knows, and `InputText` and the other `InputBase` components commit on `change`, which the browser raises only when the field loses focus. A click on a link blurs the field first and is therefore guarded either way, but a document unload while the edited field still has focus is not, because the edit has not reached .NET. Bind such a field with `@bind:event="oninput"` where a reload, a typed address or Back must be guarded on it
 7. Keep API text as returned: messages render as text, never as markup, and stay English in every UI culture.
 
 ## Examples
