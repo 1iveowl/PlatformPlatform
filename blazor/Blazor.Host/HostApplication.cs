@@ -16,8 +16,10 @@ using Blazor.Client.Session;
 using Blazor.Host.Account;
 using Blazor.Host.Components;
 using Blazor.Host.Shell;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.FluentUI.AspNetCore.Components;
 using SharedKernel.Authentication.TokenSigning;
 using SharedKernel.Configuration;
@@ -95,6 +97,12 @@ public static class HostApplication
 
         builder.Services.AddHostAuthentication(tokenSigningClient);
 
+        // The same single liveness check the other systems register (SharedKernel's AddDefaultHealthChecks): the container
+        // platform's readiness probe decides whether this replica takes traffic, so it states only that this process is
+        // responsive. It deliberately does not call the account API: a probe that fails while a dependency restarts would
+        // take every replica of this host out of rotation for a failure that is not its own.
+        builder.Services.AddHealthChecks().AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
+
         var app = builder.Build();
 
         // The runtime the host runs on, recorded at start because the edition runs on a prerelease framework
@@ -163,6 +171,16 @@ public static class HostApplication
                 return Results.Text(hostShell.WorkerScript, "text/javascript");
             }
         );
+
+        // The two routes the container platform probes, on the paths and with the predicate SharedKernel's HealthEndpoints
+        // defines, so both editions answer the same way. They are written here rather than mapped from that class because
+        // the Blazor build root references only the platform-neutral projects and SharedKernel.Security, and SharedKernel
+        // itself carries Entity Framework, MediatR, OpenTelemetry and the Azure clients this host has no use for.
+        // The probe reaches the container directly on its listening port, so its URL carries no path base; UsePathBase
+        // leaves a path that does not start with the base untouched. Neither response carries the document headers, the
+        // nonce or the antiforgery cookie, because HostShell.ApplyPageHeadersAsync acts on component endpoints only.
+        app.MapHealthChecks("/internal-api/ready").AllowAnonymous();
+        app.MapHealthChecks("/internal-api/live", new HealthCheckOptions { Predicate = registration => registration.Tags.Contains("live") }).AllowAnonymous();
 
         app.MapStaticAssets();
         app.MapRazorComponents<App>()

@@ -12,6 +12,7 @@ param backOfficeAdminsGroupId string = ''
 param appGatewayVersion string
 param accountVersion string
 param mainVersion string
+param blazorVersion string
 param applicationInsightsConnectionString string
 param communicationServicesDataLocation string = 'europe'
 @minLength(1)
@@ -178,7 +179,11 @@ module mitIdSecrets '../modules/key-vault-secrets.bicep' = if (!empty(mitIdDomai
   }
 }
 
-module pushNotificationSecrets '../modules/key-vault-secrets.bicep' = if (!empty(pushVapidPublicKey) && !empty(pushVapidPrivateKey) && !empty(pushNotificationSubject)) {
+// The three values are written together, and the account API answers as if push notifications were absent unless all
+// three are configured, so the flag every client reads states the same condition as the secrets
+var pushNotificationsConfigured = !empty(pushVapidPublicKey) && !empty(pushVapidPrivateKey) && !empty(pushNotificationSubject)
+
+module pushNotificationSecrets '../modules/key-vault-secrets.bicep' = if (pushNotificationsConfigured) {
   scope: clusterResourceGroup
   name: '${clusterResourceGroupName}-push-notification-secrets'
   params: {
@@ -393,7 +398,7 @@ var accountEnvironmentVariables = [
   }
   {
     name: 'PUBLIC_PUSH_NOTIFICATIONS_ENABLED'
-    value: !empty(pushVapidPublicKey) && !empty(pushVapidPrivateKey) ? 'true' : 'false'
+    value: pushNotificationsConfigured ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_PUSH_PUBLIC_KEY'
@@ -596,7 +601,7 @@ var mainEnvironmentVariables = [
   }
   {
     name: 'PUBLIC_PUSH_NOTIFICATIONS_ENABLED'
-    value: !empty(pushVapidPublicKey) && !empty(pushVapidPrivateKey) ? 'true' : 'false'
+    value: pushNotificationsConfigured ? 'true' : 'false'
   }
   {
     name: 'PUBLIC_PUSH_PUBLIC_KEY'
@@ -653,6 +658,104 @@ module mainApi '../modules/container-app.bicep' = {
     environmentVariables: mainEnvironmentVariables
   }
   dependsOn: [mainWorkers]
+}
+
+// Blazor
+
+// The Blazor host serves the second edition of the same product under the /blazor path base, behind the same gateway and
+// on the same session cookies. It reads the token signing key and the token issuer and audience from Key Vault, so it has
+// an identity of its own with the same read permissions the other containers get, and it reaches the account API on the
+// cluster's internal name the way the gateway does.
+var blazorHostIdentityName = '${clusterResourceGroupName}-blazor-host'
+module blazorHostIdentity '../modules/user-assigned-managed-identity.bicep' = {
+  name: '${clusterResourceGroupName}-blazor-host-managed-identity'
+  scope: clusterResourceGroup
+  params: {
+    name: blazorHostIdentityName
+    location: location
+    tags: tags
+    containerRegistryName: containerRegistryName
+    globalResourceGroupName: globalResourceGroupName
+    keyVaultName: keyVault.outputs.name
+  }
+}
+
+var blazorHostContainerAppName = 'blazor-host'
+module blazorHost '../modules/container-app.bicep' = {
+  name: '${clusterResourceGroupName}-blazor-host-container-app'
+  scope: clusterResourceGroup
+  params: {
+    name: blazorHostContainerAppName
+    location: location
+    tags: tags
+    clusterResourceGroupName: clusterResourceGroupName
+    containerAppsEnvironmentId: containerAppsEnvironment.outputs.environmentId
+    containerAppsEnvironmentName: containerAppsEnvironment.outputs.name
+    containerRegistryName: containerRegistryName
+    containerImageName: 'blazor-host'
+    containerImageTag: blazorVersion
+    cpu: '0.25'
+    memory: '0.5Gi'
+    minReplicas: 0
+    maxReplicas: 3
+    userAssignedIdentityName: blazorHostIdentityName
+    ingress: true
+    hasProbesEndpoint: true
+    external: false
+    revisionSuffix: revisionSuffix
+    environmentVariables: [
+      {
+        name: 'AZURE_CLIENT_ID'
+        value: '${blazorHostIdentity.outputs.clientId} ' // Hack, without this trailing space, Bicep --what-if will ignore all changes to Container App
+      }
+      {
+        name: 'KEYVAULT_URL'
+        value: 'https://${keyVault.outputs.name}${az.environment().suffixes.keyvaultDns}'
+      }
+      {
+        name: 'ACCOUNT_API_URL'
+        value: 'https://account-api.internal.${containerAppsEnvironment.outputs.defaultDomainName}'
+      }
+      {
+        // The public origin, which is also the only forwarded host the Blazor host accepts; its own assets are served
+        // under the path base, the way AppHost configures the local stack
+        name: 'PUBLIC_URL'
+        value: publicUrl
+      }
+      {
+        name: 'CDN_URL'
+        value: '${cdnUrl}/blazor'
+      }
+      {
+        name: 'PUBLIC_GOOGLE_OAUTH_ENABLED'
+        value: !empty(googleOAuthClientId) && !empty(googleOAuthClientSecret) ? 'true' : 'false'
+      }
+      {
+        name: 'PUBLIC_ENTRA_OAUTH_ENABLED'
+        value: !empty(entraOAuthClientId) && !empty(entraOAuthClientSecret) ? 'true' : 'false'
+      }
+      {
+        name: 'PUBLIC_MITID_VERIFICATION_ENABLED'
+        value: mitIdVerificationEnabled ? 'true' : 'false'
+      }
+      {
+        name: 'PUBLIC_MITID_LOGIN_ENABLED'
+        value: mitIdLoginEnabled ? 'true' : 'false'
+      }
+      {
+        name: 'PUBLIC_PUSH_NOTIFICATIONS_ENABLED'
+        value: pushNotificationsConfigured ? 'true' : 'false'
+      }
+      {
+        name: 'PUBLIC_PUSH_PUBLIC_KEY'
+        value: pushVapidPublicKey
+      }
+      {
+        name: 'PUBLIC_SUBSCRIPTION_ENABLED'
+        value: !empty(stripeApiKey) && !empty(stripeWebhookSecret) && !empty(stripePublishableKey) ? 'true' : 'false'
+      }
+    ]
+  }
 }
 
 // App Gateway
@@ -719,6 +822,10 @@ module appGateway '../modules/container-app.bicep' = {
       {
         name: 'MAIN_API_URL'
         value: 'https://main-api.internal.${containerAppsEnvironment.outputs.defaultDomainName}'
+      }
+      {
+        name: 'BLAZOR_HOST_URL'
+        value: 'https://${blazorHostContainerAppName}.internal.${containerAppsEnvironment.outputs.defaultDomainName}'
       }
       {
         name: 'Hostnames__App'

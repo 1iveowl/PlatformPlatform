@@ -14,6 +14,7 @@ public sealed class RouteConfigurationTests(AppGatewayApplicationFactory factory
     [InlineData("account-hmr")]
     [InlineData("main-static")]
     [InlineData("main-hmr")]
+    [InlineData("blazor")]
     [InlineData("main")]
     public void AppRoutes_ShouldDeclareAppHostnameKey(string routeId)
     {

@@ -14,6 +14,7 @@ param backOfficeAdminsGroupId = readEnvironmentVariable('BACK_OFFICE_ADMINS_GROU
 param appGatewayVersion = readEnvironmentVariable('APP_GATEWAY_VERSION')
 param accountVersion = readEnvironmentVariable('ACCOUNT_VERSION')
 param mainVersion = readEnvironmentVariable('MAIN_VERSION')
+param blazorVersion = readEnvironmentVariable('BLAZOR_VERSION')
 param applicationInsightsConnectionString = readEnvironmentVariable('APPLICATIONINSIGHTS_CONNECTION_STRING')
 param revisionSuffix = readEnvironmentVariable('REVISION_SUFFIX')
 param postgresAdminObjectId = readEnvironmentVariable('POSTGRES_ADMIN_OBJECT_ID', '')

@@ -80,6 +80,7 @@ export CLUSTER_RESOURCE_GROUP_NAME="$UNIQUE_PREFIX-$ENVIRONMENT-$CLUSTER_LOCATIO
 export APP_GATEWAY_VERSION=$(get_active_version "app-gateway" $CLUSTER_RESOURCE_GROUP_NAME)
 export ACCOUNT_VERSION=$(get_active_version "account-api" $CLUSTER_RESOURCE_GROUP_NAME) # The version from the API is use for both API and Workers
 export MAIN_VERSION=$(get_active_version "main-api" $CLUSTER_RESOURCE_GROUP_NAME) # The version from the API is use for both API and Workers
+export BLAZOR_VERSION=$(get_active_version "blazor-host" $CLUSTER_RESOURCE_GROUP_NAME)
 
 az extension add --name application-insights --allow-preview true --only-show-errors
 
