@@ -1,0 +1,27 @@
+@* The validation messages of one field, inside the element that field's aria-describedby names. The id comes from the
+   same derivation the description does, so the control and its messages cannot drift apart. The element is always
+   rendered, so the reference stays valid and an enhanced form update fills an existing element; app.css gives it no room
+   while it is empty. *@
+@using System.Linq.Expressions
+@typeparam TValue
+
+<div id="@FieldAria.ValidationId(FieldName)" class="field-validation">
+    <ValidationMessage For="For" data-testid="@TestId"/>
+</div>
+
+@code {
+
+    // The field's name in the form, which FieldAria.For was given for the same field
+    [Parameter]
+    [EditorRequired]
+    public string FieldName { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public Expression<Func<TValue>> For { get; set; } = null!;
+
+    // Put on each message the field has, for the fixtures the browser harness reads them from
+    [Parameter]
+    public string? TestId { get; set; }
+
+}

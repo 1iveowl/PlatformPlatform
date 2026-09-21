@@ -97,15 +97,18 @@ public sealed class BreakpointsTests
         module.Should().Contain($"\"{Breakpoints.MinWidthQuery(Breakpoint.Small)}\"");
     }
 
+    // Only width conditions are breakpoints. A media query on a user preference, such as reduced motion, names no width
+    // and is checked by StylesheetAccessibilityTests instead.
     [Fact]
-    public void Stylesheet_WhenMediaQueriesListed_ShouldUseOnlyTheBreakpoints()
+    public void Stylesheet_WhenWidthMediaQueriesListed_ShouldUseOnlyTheBreakpoints()
     {
         // Arrange
         var allowed = Breakpoints.All.SelectMany(breakpoint => new[] { Breakpoints.MinWidthQuery(breakpoint), Breakpoints.MaxWidthQuery(breakpoint) }).ToHashSet();
 
         // Act
         var conditions = Stylesheet.Split('\n').Where(line => line.TrimStart().StartsWith("@media", StringComparison.Ordinal))
-            .SelectMany(line => line.Trim().TrimStart('@').Replace("media", "").TrimEnd('{').Split(" and ", StringSplitOptions.TrimEntries));
+            .SelectMany(line => line.Trim().TrimStart('@').Replace("media", "").TrimEnd('{').Split(" and ", StringSplitOptions.TrimEntries))
+            .Where(condition => condition.Contains("width", StringComparison.Ordinal));
 
         // Assert
         conditions.Should().OnlyContain(condition => allowed.Contains(condition));

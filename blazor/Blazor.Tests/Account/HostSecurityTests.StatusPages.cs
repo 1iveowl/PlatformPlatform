@@ -81,6 +81,43 @@ public sealed partial class HostSecurityTests
         html.Should().Contain(ShellMarker).And.Contain(">Something went wrong</h1>").And.NotContain(PublicNavigationMarker);
     }
 
+    [Theory]
+    [InlineData("identity_already_linked")]
+    [InlineData("assurance_level_insufficient")]
+    public async Task ErrorPage_WhenAVerificationRefusalReachesASignedInUser_ShouldRenderInsideTheShell(string errorCode)
+    {
+        // Arrange
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"blazor/Error?error={errorCode}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.CreateToken("verified@example.com"));
+
+        // Act
+        using var response = await fixture.Client.SendAsync(request);
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        html.Should().Contain(ShellMarker).And.NotContain(PublicNavigationMarker);
+    }
+
+    // The refusal a login attempt and an identity verification share offers a login, so it stays in the public layout
+    [Theory]
+    [InlineData("authentication_failed")]
+    [InlineData("session_expired")]
+    public async Task ErrorPage_WhenALoginRefusalOrEndedSessionReachesASignedInUser_ShouldKeepThePublicLayout(string errorCode)
+    {
+        // Arrange
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"blazor/Error?error={errorCode}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.CreateToken("expired@example.com"));
+
+        // Act
+        using var response = await fixture.Client.SendAsync(request);
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        html.Should().Contain(PublicNavigationMarker).And.NotContain(ShellMarker);
+    }
+
     [Fact]
     public async Task ErrorPage_WhenHostIsNotDevelopment_ShouldShowOnlyTheReferenceId()
     {

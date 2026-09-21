@@ -144,7 +144,8 @@ async function controlState(page) {
       verifyDisabled: document.querySelector('[data-testid="submit"]').disabled,
       describedBy: input.getAttribute("aria-describedby"),
       autocomplete: input.getAttribute("autocomplete"),
-      maxLength: input.maxLength
+      maxLength: input.maxLength,
+      fontSizePx: Number.parseFloat(getComputedStyle(input).fontSize)
     };
   });
 }
@@ -175,6 +176,10 @@ async function assertAccessibleInput(page, label) {
     state.describedBy
   );
   assert(describedByTargets, `Not every id in aria-describedby "${state.describedBy}" exists.`);
+  // iOS Safari zooms the page when the field it focuses computes below 16px, which puts the slots off screen. The
+  // enhanced input draws its value in the slots beside it and its own text is transparent, so this size is read by the
+  // browser alone and nothing but the zoom depends on it.
+  assert(state.fontSizePx >= 16, `The code input computes ${state.fontSizePx}px, below the 16px iOS zooms at.`);
   assertEqual(await page.locator("[data-one-time-password-slots]").getAttribute("aria-hidden"), "true", "The slots' aria-hidden");
   return state;
 }

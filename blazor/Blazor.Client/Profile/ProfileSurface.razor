@@ -40,25 +40,28 @@
             <p>
                 <label>
                     @AccountStrings.FirstName
-                    <InputText @bind-Value="_form.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" data-testid="first-name"/>
+                    <InputText @bind-Value="_form.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" data-testid="first-name"
+                               @attributes='_fieldAria.For(() => _form.FirstName, "first-name")'/>
                 </label>
-                <ValidationMessage For="() => _form.FirstName"/>
+                <FieldValidation FieldName="first-name" For="() => _form.FirstName"/>
             </p>
             <p>
                 <label>
                     @AccountStrings.LastName
-                    <InputText @bind-Value="_form.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"/>
+                    <InputText @bind-Value="_form.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"
+                               @attributes='_fieldAria.For(() => _form.LastName, "last-name")'/>
                 </label>
-                <ValidationMessage For="() => _form.LastName"/>
+                <FieldValidation FieldName="last-name" For="() => _form.LastName"/>
             </p>
             <p>
                 <label>
                     @AccountStrings.Title
-                    <InputText @bind-Value="_form.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"/>
+                    <InputText @bind-Value="_form.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"
+                               @attributes='_fieldAria.For(() => _form.Title, "title")'/>
                 </label>
-                <ValidationMessage For="() => _form.Title"/>
+                <FieldValidation FieldName="title" For="() => _form.Title"/>
             </p>
-            <FormErrorAlert Errors="_formErrors"/>
+            <FormErrorAlert Errors="_formErrors" Id="profile-error"/>
             <button type="submit" disabled="@_isSaving" data-testid="save-profile">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
         </EditForm>
 
@@ -88,6 +91,7 @@
     private readonly CancellationTokenSource _disposed = new();
     private ImagePicker? _avatarPicker;
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private ProfileForm _form = new();
     private FormErrorMapper? _formErrors;
     private bool _isSaving;
@@ -132,6 +136,7 @@
         _form = ProfileForm.From(result.Value);
         _editContext = new EditContext(_form);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "profile-error");
     }
 
     private void OnAvatarSelected(ChosenFile file)

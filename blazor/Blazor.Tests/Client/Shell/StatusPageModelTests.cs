@@ -93,10 +93,10 @@ public sealed class StatusPageModelTests
     [InlineData("server_error", AuthenticationErrorKind.ServerError, "LogIn")]
     [InlineData("identity_already_linked", AuthenticationErrorKind.IdentityAlreadyLinked, "BackToProfile")]
     [InlineData("assurance_level_insufficient", AuthenticationErrorKind.AssuranceLevelInsufficient, "BackToProfile")]
-    public void CreateError_WhenAuthenticationErrorCodeGiven_ShouldPickItsActionsAndThePublicLayout(string errorCode, AuthenticationErrorKind expected, string actions)
+    public void CreateError_WhenAuthenticationErrorCodeGivenWithoutASession_ShouldPickItsActionsAndThePublicLayout(string errorCode, AuthenticationErrorKind expected, string actions)
     {
         // Act
-        var view = StatusPageModel.CreateError(errorCode, "exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ", true, false, null, null, null, "trace-1");
+        var view = StatusPageModel.CreateError(errorCode, "exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ", false, false, null, null, null, "trace-1");
 
         // Assert
         view.Authentication.Should().Be(expected);
@@ -105,6 +105,51 @@ public sealed class StatusPageModelTests
         string.Join(',', view.Actions).Should().Be(actions);
         view.Layout.Should().Be(StatusPageLayout.Public);
         view.ReferenceId.Should().Be("exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ");
+    }
+
+    // A refusal a signed-in user can reach, above all the identity verification ones, keeps the shell the retry lives in
+    [Theory]
+    [InlineData("identity_already_linked")]
+    [InlineData("assurance_level_insufficient")]
+    [InlineData("identity_not_verified")]
+    [InlineData("invalid_request")]
+    [InlineData("access_denied")]
+    [InlineData("server_error")]
+    [InlineData("user_not_found")]
+    [InlineData("account_already_exists")]
+    [InlineData("email_not_provided")]
+    public void CreateError_WhenAnAuthenticationRefusalReachesASignedInUser_ShouldRenderInsideTheShell(string errorCode)
+    {
+        // Act
+        var view = StatusPageModel.CreateError(errorCode, "exlog_01JZ8Q4N6V3K2M7P9R5T0W1XYZ", true, false, null, null, null, "trace-1");
+
+        // Assert
+        view.Layout.Should().Be(StatusPageLayout.Shell);
+        view.ErrorCode.Should().Be(errorCode);
+        view.HomeUrl.Should().Be("/blazor/app");
+    }
+
+    // The one refusal a login attempt and an identity verification share stays public, because its action is to log in
+    [Fact]
+    public void CreateError_WhenAuthenticationFailedReachesASignedInUser_ShouldKeepThePublicLayout()
+    {
+        // Act
+        var view = StatusPageModel.CreateError("authentication_failed", null, true, false, null, null, null, "trace-1");
+
+        // Assert
+        view.Layout.Should().Be(StatusPageLayout.Public);
+        view.HomeUrl.Should().Be("/blazor/");
+    }
+
+    [Fact]
+    public void CreateError_WhenNoCodeIsGivenForASignedInUser_ShouldRenderInsideTheShell()
+    {
+        // Act
+        var view = StatusPageModel.CreateError(null, null, true, false, null, null, null, "trace-1");
+
+        // Assert
+        view.Layout.Should().Be(StatusPageLayout.Shell);
+        view.HomeUrl.Should().Be("/blazor/app");
     }
 
     [Theory]

@@ -144,8 +144,10 @@ test.describe("@smoke", () => {
       await expect(pane.getByRole("button", { name: `${texts.changeUserRoleFor}${memberEmail}`, exact: true })).toBeFocused();
       await page.keyboard.press("Tab");
 
-      // Past its last control the trap wraps to the pane's own backdrop, so focus never reaches the list behind the modal
-      await expect(pane.getByRole("button", { name: texts.closeSidePanel, exact: true })).toBeFocused();
+      // Past its last control the trap wraps to the pane's first, so focus never reaches the list behind the modal and
+      // never stops on the backdrop, which carries tabindex="-1" because it exists for the pointer alone
+      await expect(pane.getByRole("button", { name: texts.closeUserProfile, exact: true })).toBeFocused();
+      await expect(pane.getByRole("button", { name: texts.closeSidePanel, exact: true })).not.toBeFocused();
       await expect(phoneUserRow(page, memberEmail)).not.toBeFocused();
     })();
 

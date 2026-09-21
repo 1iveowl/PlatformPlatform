@@ -15,27 +15,28 @@
     <DataAnnotationsValidator/>
     <label>
         Name
-        <InputText @bind-Value="Input.Name" data-testid="name"/>
+        <InputText @bind-Value="Input.Name" data-testid="name" @attributes='_fieldAria.For(() => Input.Name, "name")'/>
     </label>
-    <ValidationMessage For="() => Input.Name" data-testid="name-messages"/>
+    <FieldValidation FieldName="name" For="() => Input.Name" TestId="name-messages"/>
     <label>
         Email
-        <InputText @bind-Value="Input.Email" data-testid="email"/>
+        <InputText @bind-Value="Input.Email" data-testid="email" @attributes='_fieldAria.For(() => Input.Email, "email")'/>
     </label>
-    <ValidationMessage For="() => Input.Email" data-testid="email-messages"/>
+    <FieldValidation FieldName="email" For="() => Input.Email" TestId="email-messages"/>
     <label>
         Scenario
-        <InputSelect @bind-Value="Input.Scenario" data-testid="scenario">
+        <InputSelect @bind-Value="Input.Scenario" data-testid="scenario" @attributes='_fieldAria.For(() => Input.Scenario, "scenario")'>
             @foreach (var scenario in FormErrorScenarios.All)
             {
                 <option value="@scenario">@scenario</option>
             }
         </InputSelect>
     </label>
+    <FieldValidation FieldName="scenario" For="() => Input.Scenario"/>
     <button type="submit" data-testid="submit">Submit</button>
 </EditForm>
 
-<FormErrorAlert Errors="_formErrors"/>
+<FormErrorAlert Errors="_formErrors" Id="static-form-error"/>
 
 <p data-testid="applied-scenario">@_appliedFailure</p>
 
@@ -45,6 +46,7 @@
 
     private string _appliedFailure = "";
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private FormErrorMapper _formErrors = null!;
 
     [SupplyParameterFromForm(FormName = "form-errors-static")]
@@ -59,6 +61,7 @@
     {
         _editContext = new EditContext(Input);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "static-form-error");
     }
 
     public void Dispose()

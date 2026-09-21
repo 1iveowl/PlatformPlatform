@@ -151,19 +151,26 @@ public static class StatusPageModel
         return id.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '-') ? id : null;
     }
 
-    // failedPath is the path of the request that threw, including the path base, and failedQuery its query string. A
-    // session error always renders in the public layout: the session it reports is gone, so the shell could only leave for
-    // login and lose the message. Exception details are revealed in Development only; elsewhere only the reference id.
-    // A known code always renders in the public layout too: a session error because the session is gone, and a login or
-    // signup refusal because it happened without a session. For a known code the reference id is the one the query
-    // carried (errorId), shown only when it has the shape of an external login id; the code itself is never echoed
-    // unless it is one of the known ones.
+    // Two landings render in the public layout whatever the request's user is: a session error, because the session it
+    // reports is gone and a shell around it could only leave for login, and authentication_failed, the one refusal a login
+    // attempt and an identity verification share, whose action is to log in again. Every other landing follows the request:
+    // a signed-in user refused an identity verification stays inside the shell the retry lives in, rather than being shown
+    // a document that offers to log in while a session is open.
+    public static bool KeepsPublicLayout(SessionErrorKind? session, AuthenticationErrorKind? authentication)
+    {
+        return session is not null || authentication is AuthenticationErrorKind.AuthenticationFailed;
+    }
+
+    // failedPath is the path of the request that threw, including the path base, and failedQuery its query string.
+    // Exception details are revealed in Development only; elsewhere only the reference id. For a known code the reference
+    // id is the one the query carried (errorId), shown only when it has the shape of an external login id; the code itself
+    // is never echoed unless it is one of the known ones.
     public static ErrorPageView CreateError(string? errorCode, string? errorId, bool isAuthenticated, bool isDevelopment, string? failedPath, string? failedQuery, Exception? exception, string? referenceId)
     {
         var session = GetSessionError(errorCode);
         var authentication = session is null ? GetAuthenticationError(errorCode) : null;
         var knownCode = session is not null || authentication is not null;
-        var signedIn = isAuthenticated && !knownCode;
+        var signedIn = isAuthenticated && !KeepsPublicLayout(session, authentication);
         var homeUrl = GetHomeUrl(signedIn);
         var showsException = isDevelopment && exception is not null;
         return new ErrorPageView(

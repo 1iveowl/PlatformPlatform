@@ -109,8 +109,18 @@ export function attachNavigationGuard(dotNet) {
 // A modal dialog keeps Tab inside itself: past the last focusable element focus wraps to the first and back, instead of
 // leaving for the browser's own controls. Only a dialog the browser opened with showModal is trapped, so when a destructive
 // dialog opens over the side pane the topmost one owns the trap and the pane below is inert.
-const focusableSelector =
-  "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+// Every branch excludes tabindex="-1": an element with it is reachable by script and by pointer but never by Tab, so a
+// trap that counted it would stop on it. The side pane's full-screen backdrop is such a button.
+const focusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]"
+]
+  .map((selector) => `${selector}:not([tabindex='-1'])`)
+  .join(", ");
 
 function trapTab(dialog, event) {
   if (event.key !== "Tab" || !dialog.open) return;

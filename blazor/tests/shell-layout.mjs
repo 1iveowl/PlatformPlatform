@@ -203,6 +203,31 @@ await check("error page renders inside the shell for a signed-in user with Show 
   })
 );
 
+// A refusal only a signed-in user can meet keeps the shell the retry lives in; the two refusals that offer a login,
+// because the session they report is gone or because a login attempt and a verification share the code, do not
+await check("error page keeps the shell for a verification refusal and the public layout for a lost session", () =>
+  withPage({ width: 1280, height: 800 }, async (page) => {
+    const shellCodes = ["identity_already_linked", "assurance_level_insufficient"];
+    const publicCodes = ["session_expired", "authentication_failed"];
+    for (const code of shellCodes) {
+      const response = await page.goto(`${baseUrl}${pathBase}/Error?error=${code}`, { waitUntil: "load" });
+      assert(response.status() === 200, `${code} answered ${response.status()}.`);
+      assert((await page.locator('[data-testid="app-shell"] .app-sidebar-navigation a').count()) > 0, `No shell navigation on ${code}.`);
+      assert((await page.getByTestId("public-nav").count()) === 0, `The public navigation rendered for ${code} with a session.`);
+      assert((await page.locator('a[href$="/blazor/user/profile"]').count()) > 0, `${code} offers no way back to the profile.`);
+    }
+
+    for (const code of publicCodes) {
+      await page.goto(`${baseUrl}${pathBase}/Error?error=${code}`, { waitUntil: "load" });
+      assert((await page.getByTestId("public-nav").count()) === 1, `No public navigation on ${code}.`);
+      assert((await page.locator('[data-testid="app-shell"]').count()) === 0, `The shell rendered for ${code}.`);
+    }
+
+    assert((await styleAttributeCount(page)) === 0, "A style attribute was written.");
+    return { shellCodes, publicCodes };
+  })
+);
+
 await check("tooltip is announced through aria-describedby and opens by keyboard and by touch", async () => {
   const context = await browser.newContext({ ignoreHTTPSErrors: options.browser !== "chromium", locale: "en-US", hasTouch: true });
   try {

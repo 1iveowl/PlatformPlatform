@@ -47,15 +47,15 @@
                 <label>
                     @CommonStrings.AccountName
                     <InputText @bind-Value="_form.Name" autocomplete="organization" placeholder="@AuthenticationStrings.AccountNamePlaceholder"
-                               readonly="@(!_canEdit)" disabled="@_isSaving" data-testid="account-name"/>
+                               readonly="@(!_canEdit)" disabled="@_isSaving" data-testid="account-name" @attributes='_fieldAria.For(() => _form.Name, "account-name")'/>
                 </label>
-                <ValidationMessage For="() => _form.Name"/>
+                <FieldValidation FieldName="account-name" For="() => _form.Name"/>
                 @if (AccountSettingsPermissions.ReadOnlyDescription(Session.Current?.User) is { } readOnlyDescription)
                 {
                     <span class="field-description" data-testid="account-name-description">@readOnlyDescription</span>
                 }
             </p>
-            <FormErrorAlert Errors="_formErrors"/>
+            <FormErrorAlert Errors="_formErrors" Id="account-settings-error"/>
             @if (_canEdit)
             {
                 <button type="submit" disabled="@_isSaving" data-testid="save-account-settings">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
@@ -95,6 +95,7 @@
     private readonly ImageDraft _logo = new();
     private bool _canEdit;
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private AccountSettingsForm _form = new();
     private FormErrorMapper? _formErrors;
     private bool _isDeleteDialogOpen;
@@ -263,6 +264,7 @@
         _form = AccountSettingsForm.From(tenant);
         _editContext = new EditContext(_form);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "account-settings-error");
     }
 
 }

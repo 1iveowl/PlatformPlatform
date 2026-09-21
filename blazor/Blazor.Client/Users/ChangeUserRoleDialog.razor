@@ -23,7 +23,7 @@
                 </div>
             </div>
 
-            <FormErrorAlert Errors="_formErrors"/>
+            <FormErrorAlert Errors="_formErrors" Id="change-user-role-error"/>
 
             <InputRadioGroup TValue="UserRole" @bind-Value="_form.Role">
                 <fieldset class="change-role-options">
@@ -31,7 +31,8 @@
                     @foreach (var role in Roles)
                     {
                         <label class="change-role-option">
-                            <InputRadio TValue="UserRole" Value="role" aria-label="@UserRoleText.Label(role)" aria-describedby="@DescriptionId(role)" data-testid="@($"role-{role.ToString().ToLowerInvariant()}")"/>
+                            <InputRadio TValue="UserRole" Value="role" aria-label="@UserRoleText.Label(role)" data-testid="@($"role-{role.ToString().ToLowerInvariant()}")"
+                                        aria-describedby='@FieldAria.DescribedBy(DescriptionId(role), "change-user-role-error")'/>
                             <span>
                                 <span class="change-role-option-title">@UserRoleText.Label(role)</span>
                                 <span class="change-role-option-description" id="@DescriptionId(role)">@UserRoleText.Description(role)</span>

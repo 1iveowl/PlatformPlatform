@@ -11,15 +11,15 @@
         <DataAnnotationsValidator/>
         <p class="modal-dialog-description">@UsersStrings.InviteInstructions</p>
 
-        <FormErrorAlert Errors="_formErrors"/>
+        <FormErrorAlert Errors="_formErrors" Id="invite-user-error"/>
 
         <p>
             <label>
                 @CommonStrings.Email
                 <InputText @bind-Value="_form.Email" type="email" autocomplete="off" placeholder="@UsersStrings.InviteEmailPlaceholder" data-testid="invite-email"
-                           @oninput="OnEmailInput"/>
+                           @oninput="OnEmailInput" @attributes='_fieldAria.For(() => _form.Email, "invite-email")'/>
             </label>
-            <ValidationMessage For="() => _form.Email"/>
+            <FieldValidation FieldName="invite-email" For="() => _form.Email"/>
         </p>
 
         <div class="modal-dialog-actions">
@@ -34,6 +34,7 @@
     private readonly InviteUserForm _form = new();
     private DirtyDialog _dialog = null!;
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private FormErrorMapper _formErrors = null!;
     private bool _isSending;
 
@@ -64,6 +65,7 @@
     {
         _editContext = new EditContext(_form);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "invite-user-error");
     }
 
     // Every opening starts with an empty field and no messages

@@ -313,6 +313,55 @@ await check("interactive antiforgery rejection shows a toast whose Reload page a
   })
 );
 
+// The accessible state of a field the account API refused, which a screen reader needs and the mapper alone does not
+// give: the control says it is invalid and points at the element holding its messages and at the form's alert
+async function assertFieldState(page, fieldId, invalid, alertId) {
+  const state = await page.locator(testId(fieldId)).evaluate((element) => ({
+    invalid: element.getAttribute("aria-invalid"),
+    describedBy: element.getAttribute("aria-describedby")
+  }));
+  assertEqual(state.invalid, invalid ? "true" : null, `${fieldId} aria-invalid`);
+  assertEqual(state.describedBy, `${fieldId}-validation ${alertId}`, `${fieldId} aria-describedby`);
+  const described = await page.evaluate((ids) => ids.split(" ").every((id) => document.getElementById(id) !== null), state.describedBy);
+  assert(described, `${fieldId} is described by an element that does not exist.`);
+}
+
+await check("static form marks a field the API refused invalid and describes it with its messages and the alert", async () => {
+  const context = await danishContext();
+  const page = await context.newPage();
+  const observations = observeErrors(page);
+  try {
+    await page.goto(staticUrl, { waitUntil: "load" });
+    await assertFieldState(page, "name", false, "static-form-error");
+    await postStatic(page, "field-messages");
+    await assertFieldState(page, "name", true, "static-form-error");
+    await assertFieldState(page, "email", true, "static-form-error");
+    await assertFieldState(page, "scenario", false, "static-form-error");
+    assertEqual(await texts(page, "name-messages"), [messages.nameTooShort, messages.nameReserved], "Name messages");
+    await assertCleanPage(page, observations);
+    return { alert: "static-form-error" };
+  } finally {
+    await context.close();
+  }
+});
+
+await check("interactive form marks a field the API refused invalid and clears the mark on the next submit", () =>
+  withInteractivePage(async (page) => {
+    await assertFieldState(page, "name", false, "interactive-form-error");
+    await submitInteractive(page, "field-messages");
+    await page.locator(`${testId("name-messages")}`).first().waitFor();
+    await assertFieldState(page, "name", true, "interactive-form-error");
+    await assertFieldState(page, "email", true, "interactive-form-error");
+
+    // The next submit refuses the email alone, so the mark the previous one left on the name is cleared with its message
+    await submitInteractive(page, "case-insensitive-key");
+    await page.waitForFunction(() => document.querySelector('[data-testid="name"]')?.getAttribute("aria-invalid") === null, undefined, { timeout: interactiveTimeoutMs });
+    await assertFieldState(page, "name", false, "interactive-form-error");
+    await assertFieldState(page, "email", true, "interactive-form-error");
+    return { alert: "interactive-form-error" };
+  })
+);
+
 await browser.close();
 
 mkdirSync(resultsFolder, { recursive: true });

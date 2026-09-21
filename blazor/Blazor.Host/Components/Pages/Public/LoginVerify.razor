@@ -24,10 +24,8 @@
 <EditForm EditContext="_editContext" FormName="login-verify" OnValidSubmit="CompleteAsync">
     <DataAnnotationsValidator/>
     <OneTimePasswordInput InputId="one-time-password" Label="@AuthenticationStrings.LoginVerificationCode" @bind-Value="Input.OneTimePassword" Outcome="_outcome"
-                          DescribedBy="one-time-password-validation one-time-password-error"/>
-    <div id="one-time-password-validation">
-        <ValidationMessage For="() => Input.OneTimePassword"/>
-    </div>
+                          Field='_fieldAria.For(() => Input.OneTimePassword, "one-time-password")'/>
+    <FieldValidation FieldName="one-time-password" For="() => Input.OneTimePassword"/>
     <button type="submit" disabled="@_outcome.IsLocked" data-testid="submit">@AuthenticationStrings.Verify</button>
 </EditForm>
 
@@ -48,6 +46,7 @@
 @code {
 
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private VerificationFlow _flow = null!;
     private FormErrorMapper _formErrors = null!;
     private DateTimeOffset _now;
@@ -88,6 +87,7 @@
         _flow = VerificationFlow.FromQuery(Sent, ValidFor, _now);
         _editContext = new EditContext(Input);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "one-time-password-error");
     }
 
     private bool IsShownAsExpired => _flow.GetRemainingSeconds(_now) == 0;

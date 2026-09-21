@@ -11,7 +11,9 @@ import { X509Certificate, createHash } from "node:crypto";
 import tls from "node:tls";
 
 export const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
-const requireFromApplication = createRequire(path.join(repositoryRoot, "application/"));
+// The harness has no package.json of its own: every npm package it uses is a development dependency of
+// application/package.json, resolved from there
+export const requireFromApplication = createRequire(path.join(repositoryRoot, "application/"));
 export const playwright = requireFromApplication("playwright");
 export const playwrightVersion = requireFromApplication("playwright/package.json").version;
 

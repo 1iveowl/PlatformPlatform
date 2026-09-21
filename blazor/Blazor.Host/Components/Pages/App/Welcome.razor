@@ -25,9 +25,10 @@
         <DataAnnotationsValidator/>
         <label>
             @CommonStrings.AccountName
-            <InputText @bind-Value="AccountInput.Name" autocomplete="organization" placeholder="@AuthenticationStrings.AccountNamePlaceholder" autofocus data-testid="account-name"/>
+            <InputText @bind-Value="AccountInput.Name" autocomplete="organization" placeholder="@AuthenticationStrings.AccountNamePlaceholder" autofocus data-testid="account-name"
+                       @attributes='_fieldAria.For(() => AccountInput.Name, "account-name")'/>
         </label>
-        <ValidationMessage For="() => AccountInput.Name"/>
+        <FieldValidation FieldName="account-name" For="() => AccountInput.Name"/>
         <button type="submit" data-testid="continue">@CommonStrings.Continue</button>
     </EditForm>
 }
@@ -41,28 +42,32 @@ else if (_step == WelcomeStep.Profile)
         <DataAnnotationsValidator/>
         <label>
             @AccountStrings.FirstName
-            <InputText @bind-Value="ProfileInput.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" autofocus data-testid="first-name"/>
+            <InputText @bind-Value="ProfileInput.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" autofocus data-testid="first-name"
+                       @attributes='_fieldAria.For(() => ProfileInput.FirstName, "first-name")'/>
         </label>
-        <ValidationMessage For="() => ProfileInput.FirstName"/>
+        <FieldValidation FieldName="first-name" For="() => ProfileInput.FirstName"/>
         <label>
             @AccountStrings.LastName
-            <InputText @bind-Value="ProfileInput.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"/>
+            <InputText @bind-Value="ProfileInput.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"
+                       @attributes='_fieldAria.For(() => ProfileInput.LastName, "last-name")'/>
         </label>
-        <ValidationMessage For="() => ProfileInput.LastName"/>
+        <FieldValidation FieldName="last-name" For="() => ProfileInput.LastName"/>
         <label>
             @AccountStrings.Title
-            <InputText @bind-Value="ProfileInput.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"/>
+            <InputText @bind-Value="ProfileInput.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"
+                       @attributes='_fieldAria.For(() => ProfileInput.Title, "title")'/>
         </label>
-        <ValidationMessage For="() => ProfileInput.Title"/>
+        <FieldValidation FieldName="title" For="() => ProfileInput.Title"/>
         <button type="submit" data-testid="continue">@CommonStrings.Continue</button>
     </EditForm>
 }
 
-<FormErrorAlert Errors="_formErrors"/>
+<FormErrorAlert Errors="_formErrors" Id="welcome-error"/>
 
 @code {
 
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private FormErrorMapper _formErrors = null!;
     private WelcomeStep _step;
 
@@ -92,6 +97,7 @@ else if (_step == WelcomeStep.Profile)
         _step = WelcomeGate.GetStep(HttpContext.User);
         _editContext = new EditContext(_step == WelcomeStep.Account ? AccountInput : ProfileInput);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "welcome-error");
         if (_step == WelcomeStep.Done && !HttpMethods.IsPost(HttpContext.Request.Method))
         {
             Navigation.NavigateTo(WelcomeGate.GetDestination(ReturnPath), true);

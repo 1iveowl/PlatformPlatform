@@ -48,8 +48,15 @@ export async function readSubscription() {
   const registration = await navigator.serviceWorker.getRegistration();
   if (!registration) return null;
 
-  const subscription = await registration.pushManager.getSubscription();
-  return subscription === null ? null : describe(subscription);
+  try {
+    const subscription = await registration.pushManager.getSubscription();
+    return subscription === null ? null : describe(subscription);
+  } catch {
+    // A browser can carry the push manager and still refuse to use it, which Firefox does when push is turned off in its
+    // configuration. The device then has no subscription, the same as a browser that was never asked; letting the refusal
+    // through would fail the whole preferences surface, because an interop error reaches the framework's error banner.
+    return null;
+  }
 }
 
 // Asks for the permission if it has not been answered, then subscribes this browser with the deployment's public key.

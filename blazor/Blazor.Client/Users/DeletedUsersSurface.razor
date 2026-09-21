@@ -86,6 +86,10 @@
     public const string UsersPermanentlyDeletedToastTestId = "users-permanently-deleted-toast";
 
     private BootstrapResponse? _bootstrap;
+    // Below the Small breakpoint only the name column stays, as in the users list: the four columns together are wider than
+    // a phone, and a table that scrolls sideways is a region no keyboard can reach
+    private const Breakpoint HideBelowSmall = Breakpoint.Small;
+
     private IReadOnlyList<DataListColumn<DeletedUserDetails>> _columns = [];
     private IReadOnlyList<DeletedUserDetails> _deleteUsers = [];
     private bool _isDeleteDialogOpen;
@@ -107,11 +111,12 @@
                                                                                   <span class="user-name" data-testid="user-name">@user.DisplayNameOrEmail</span>
                                                                               </span>
             ),
-            new DataListColumn<DeletedUserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>
+            new DataListColumn<DeletedUserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, HideBelow: HideBelowSmall
             ),
-            new DataListColumn<DeletedUserDetails>(UsersStrings.Deleted, user => @<text>@RelativeTime.Format(user.DeletedAt, TimeProvider.System.GetUtcNow())</text>
+            new DataListColumn<DeletedUserDetails>(UsersStrings.Deleted, user => @<text>@RelativeTime.Format(user.DeletedAt, TimeProvider.System.GetUtcNow())</text>,
+                HideBelow: HideBelowSmall
             ),
-            new DataListColumn<DeletedUserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>
+            new DataListColumn<DeletedUserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, HideBelow: HideBelowSmall
             )
         ];
 

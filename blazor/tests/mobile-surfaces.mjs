@@ -702,9 +702,21 @@ await check(`a toast never covers the mobile menu button and a refused field kee
     const association = await page.evaluate(() => {
       const field = document.querySelector('[data-testid="invite-email"]');
       const messages = [...document.querySelectorAll('[data-testid="invite-user-dialog"] .validation-message, [data-testid="invite-user-dialog"] [role="alert"]')];
-      return { invalid: field.getAttribute("aria-invalid"), messages: messages.map((message) => message.textContent.trim()).filter((text) => text.length > 0).length };
+      const describedBy = field.getAttribute("aria-describedby");
+      return {
+        invalid: field.getAttribute("aria-invalid"),
+        describedBy,
+        describedByExists: (describedBy ?? "").split(" ").filter((id) => id.length > 0).every((id) => document.getElementById(id) !== null),
+        fieldMessages: document.getElementById("invite-email-validation")?.querySelectorAll(".validation-message").length ?? 0,
+        messages: messages.map((message) => message.textContent.trim()).filter((text) => text.length > 0).length
+      };
     });
     assert(association.messages > 0, "The refused invitation shows no message");
+    // The field points at its own messages and at the dialog's alert, so whichever of the two the refusal landed in is
+    // read with the field; aria-invalid follows the messages placed at the field itself
+    assert(association.describedBy === "invite-email-validation invite-user-error", `The refused field's aria-describedby is ${association.describedBy}`);
+    assert(association.describedByExists, `The refused field is described by an element that does not exist: ${association.describedBy}`);
+    assert(association.invalid === (association.fieldMessages > 0 ? "true" : null), `aria-invalid is ${association.invalid} with ${association.fieldMessages} messages at the field`);
 
     // The dialog holds an edit, so Escape asks first; leaving discards it
     await page.keyboard.press("Escape");
@@ -807,6 +819,38 @@ await check(`every surface holds the longer Danish labels at ${smallPhone.name}`
   assert(language === "da-DK", `The documents render in ${language} instead of da-DK`);
   return { measured: measured.length, language };
 });
+
+// The pane's backdrop is a button only a pointer uses: it carries tabindex="-1", so the trap must not count it as a
+// stop. A Tab that landed on it would put focus on a control the user cannot see the outline of.
+await check(`the full-screen side pane traps Tab without stopping on its backdrop at ${phone.name}`, () =>
+  withPage(phone, owner.storageState, async (page, observations) => {
+    await open(page, invitedRows);
+    await page.locator(`${testId("users-grid")} tbody tr.data-list-row`).first().locator("[data-user-row]").tap();
+    await page.locator('dialog.side-pane[data-side-pane-mode="fullscreen"]:not([hidden])').waitFor({ timeout: interactiveTimeoutMs });
+    await page.waitForTimeout(settleMs);
+
+    const stops = [];
+    for (let presses = 0; presses < 15; presses++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const active = document.activeElement;
+        return {
+          insidePane: active?.closest("dialog.side-pane") !== null && active?.closest("dialog.side-pane") !== undefined,
+          onBackdrop: active?.hasAttribute("data-side-pane-backdrop") === true,
+          testId: active?.getAttribute("data-testid") ?? active?.tagName.toLowerCase() ?? "none"
+        };
+      });
+      assert(stop.insidePane, `Tab left the full-screen pane after ${presses + 1} presses.`);
+      assert(!stop.onBackdrop, `Tab stopped on the pane's backdrop after ${presses + 1} presses.`);
+      stops.push(stop.testId);
+    }
+
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("dialog.side-pane")?.hasAttribute("hidden") === true, undefined, { timeout: interactiveTimeoutMs });
+    await assertCleanDocument(page, observations, `the full-screen pane at ${phone.name}`);
+    return { stops: [...new Set(stops)] };
+  })
+);
 
 await check(`nothing animates under reduced motion at ${phone.name}`, async () => {
   const context = await newContext(browser, options.browser, owner.storageState, "en-US", { viewport: phone.viewport, hasTouch: true, reducedMotion: "reduce" });

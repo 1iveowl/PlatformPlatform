@@ -26,19 +26,20 @@
     <DataAnnotationsValidator/>
     <label>
         @CommonStrings.Email
-        <InputText @bind-Value="Input.Email" type="email" autocomplete="email" data-testid="email"/>
+        <InputText @bind-Value="Input.Email" type="email" autocomplete="email" data-testid="email" @attributes='_fieldAria.For(() => Input.Email, "email")'/>
     </label>
-    <ValidationMessage For="() => Input.Email"/>
+    <FieldValidation FieldName="email" For="() => Input.Email"/>
     <button type="submit" data-testid="submit">@AuthenticationStrings.LogInWithEmail</button>
 </EditForm>
 
 <ExternalLoginOptions Flow="ExternalLoginFlow.Login" ReturnPath="@ReturnPath" PreferredTenantId="@_preferredTenantId"/>
 
-<FormErrorAlert Errors="_formErrors"/>
+<FormErrorAlert Errors="_formErrors" Id="login-error"/>
 
 @code {
 
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private FormErrorMapper _formErrors = null!;
     private TenantId? _preferredTenantId;
 
@@ -63,6 +64,7 @@
     {
         _editContext = new EditContext(Input);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "login-error");
         _preferredTenantId = PreferredTenant.Parse(HttpContext.Request.Cookies[PreferredTenant.CookieName]);
     }
 

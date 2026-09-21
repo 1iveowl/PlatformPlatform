@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
 using Blazor.Client.Development;
 using Blazor.Host;
 using FluentAssertions;
@@ -178,6 +179,43 @@ public sealed partial class HostSecurityTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         (await response.Content.ReadAsStringAsync()).Should().Contain("data-testid=\"scenario\"");
+    }
+
+    [Fact]
+    public async Task StaticFixturePost_WhenTheAccountApiRefusedAField_ShouldMarkItInvalidAndDescribeItWithItsMessagesAndTheAlert()
+    {
+        // Act
+        var html = await PostStaticFixtureAsync(FormErrorScenarios.FieldMessages);
+
+        // Assert
+        FieldTag(html, "name").Should().Contain("aria-invalid=\"true\"").And.Contain("aria-describedby=\"name-validation static-form-error\"");
+        FieldTag(html, "email").Should().Contain("aria-invalid=\"true\"").And.Contain("aria-describedby=\"email-validation static-form-error\"");
+        FieldTag(html, "scenario").Should().NotContain("aria-invalid").And.Contain("aria-describedby=\"scenario-validation static-form-error\"");
+        html.Should().Contain("id=\"name-validation\"").And.Contain("id=\"email-validation\"").And.Contain("id=\"static-form-error\"");
+    }
+
+    [Fact]
+    public async Task StaticFixturePage_WhenNothingIsRefused_ShouldDescribeEveryFieldWithoutMarkingItInvalid()
+    {
+        // Arrange
+        using var request = new HttpRequestMessage(HttpMethod.Get, StaticFixturePath);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fixture.CreateToken("fixture@example.com"));
+
+        // Act
+        using var response = await fixture.Client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        FieldTag(html, "name").Should().Contain("aria-describedby=\"name-validation static-form-error\"").And.NotContain("aria-invalid");
+        html.Should().Contain("id=\"name-validation\"").And.Contain("id=\"static-form-error\"");
+    }
+
+    // The rendered tag of one field, so an assertion names the field it is about whatever order the attributes take
+    private static string FieldTag(string html, string testId)
+    {
+        var match = Regex.Match(html, $"<(?:input|select)[^>]*data-testid=\"{testId}\"[^>]*>");
+        match.Success.Should().BeTrue($"the {testId} field is rendered");
+        return match.Value;
     }
 
     private async Task<string> PostStaticFixtureAsync(string scenario, string name = "Ada")

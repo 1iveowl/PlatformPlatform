@@ -23,28 +23,29 @@
         <DataAnnotationsValidator/>
         <label>
             Name
-            <InputText @bind-Value="_model.Name" data-testid="name"/>
+            <InputText @bind-Value="_model.Name" data-testid="name" @attributes='_fieldAria.For(() => _model.Name, "name")'/>
         </label>
-        <ValidationMessage For="() => _model.Name" data-testid="name-messages"/>
+        <FieldValidation FieldName="name" For="() => _model.Name" TestId="name-messages"/>
         <label>
             Email
-            <InputText @bind-Value="_model.Email" data-testid="email"/>
+            <InputText @bind-Value="_model.Email" data-testid="email" @attributes='_fieldAria.For(() => _model.Email, "email")'/>
         </label>
-        <ValidationMessage For="() => _model.Email" data-testid="email-messages"/>
+        <FieldValidation FieldName="email" For="() => _model.Email" TestId="email-messages"/>
         <label>
             Scenario
-            <InputSelect @bind-Value="_model.Scenario" data-testid="scenario">
+            <InputSelect @bind-Value="_model.Scenario" data-testid="scenario" @attributes='_fieldAria.For(() => _model.Scenario, "scenario")'>
                 @foreach (var scenario in FieldScenarios)
                 {
                     <option value="@scenario">@scenario</option>
                 }
             </InputSelect>
         </label>
+        <FieldValidation FieldName="scenario" For="() => _model.Scenario"/>
         <ValidationSummary data-testid="validation-summary"/>
         <button type="submit" data-testid="submit" disabled="@(!RendererInfo.IsInteractive)">Submit</button>
     </EditForm>
 
-    <FormErrorAlert Errors="_formErrors"/>
+    <FormErrorAlert Errors="_formErrors" Id="interactive-form-error"/>
 
     <p data-testid="submit-count">@_submitCount</p>
 </section>
@@ -104,6 +105,7 @@
     private DirtyDialog _dirtyDialog = null!;
     private string _draft = "";
     private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
     private FormErrorMapper _formErrors = null!;
     private int _guardGeneration;
     private bool _isDialogOpen;
@@ -117,6 +119,7 @@
     {
         _editContext = new EditContext(_model);
         _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, "interactive-form-error");
         AuthenticationNavigator.Leaving += ClearSensitiveState;
     }
 
