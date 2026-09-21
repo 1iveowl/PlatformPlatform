@@ -1,17 +1,13 @@
 import { expect, type Page } from "@playwright/test";
 import { inviteUsersThroughAccountApi } from "@blazor/e2e/account-api";
 import { logInThroughBlazor, logOutThroughBlazor, openUserMenu, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
+import { expectTheWorkerToFetchTheShellAgain, offlineShellPath, openAuthenticatedRouteWithoutNetwork, readWorkerRegistration, watchForTheStoredShellToBeDropped } from "@blazor/e2e/offline";
 import { expectNoPolicyViolations, trackPolicyViolations } from "@blazor/e2e/policy";
 import { blazorPath, blazorUrl, expectBlazorUrl, gotoBlazor } from "@blazor/e2e/routes";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
 import { blazorTexts } from "@blazor/e2e/texts";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
-
-/**
- * The path of the one document the offline shell's service worker stores
- */
-const offlineShellPath = blazorPath("app/offline");
 
 /**
  * Wait until the worker registered by the authenticated surface controls the document
@@ -50,12 +46,14 @@ test.describe("@smoke", () => {
    * An installed application that loses the network:
    * - The authenticated surface registers the worker, which stores the anonymous offline shell and nothing else that is a
    *   document
-   * - Offline, a navigation inside the authenticated surface answers with the shell at the address that was asked for, so
-   *   a reload retries that page
+   * - Without a network, a navigation inside the authenticated surface answers with the shell at the address that was
+   *   asked for, so a reload retries that page. This leg runs on Chromium only: in Firefox and WebKit the automation
+   *   library cannot take the network away from the service worker, which offlineNavigationReachesTheWorker records with
+   *   the measurements, and those browsers are covered by blazor/tests/offline-shell-relaunch.mjs and by the device pass
    * - Back online, the same address shows the real page again
    * - No policy violation on any document, the shell included
    */
-  test("should show the offline shell for an authenticated route without a network and the real page once it is back", async ({ page }) => {
+  test("should show the offline shell for an authenticated route without a network and the real page once it is back", async ({ page, browserName }) => {
     createTestContext(page);
     const texts = blazorTexts();
     const email = uniqueBlazorEmail();
@@ -72,13 +70,9 @@ test.describe("@smoke", () => {
       await expectNoPolicyViolations(page);
     })();
 
-    await step("Go offline and open an authenticated route & verify the shell answers at that address")(async () => {
-      await page.context().setOffline(true);
+    await step("Open an authenticated route without a network & verify the stored shell answers at that address")(async () => {
+      await openAuthenticatedRouteWithoutNetwork(page, browserName, "app/details", texts.youAreOffline);
 
-      await page.goto(blazorPath("app/details"));
-
-      await expect(page.getByTestId("offline-page")).toBeVisible();
-      await expect(page.getByRole("heading", { name: texts.youAreOffline })).toBeVisible();
       await expectBlazorUrl(page, "app/details");
       await expectNoPolicyViolations(page);
     })();
@@ -102,9 +96,9 @@ test.describe("@comprehensive", () => {
    * - A tenant switch drops the stored shell, so the next launch of the installed application shows no shell of the
    *   previous tenant
    * - A logout drops it as well and keeps the immutable assets
-   * - The public documents are served by the network although the worker is active and controls them
+   * - The public documents are served by the network although a worker is installed and in scope for them
    */
-  test("should drop the stored shell on a tenant switch and a logout and never answer a public document", async ({ page }) => {
+  test("should drop the stored shell on a tenant switch and a logout and never answer a public document", async ({ page, browserName }) => {
     createTestContext(page);
     const texts = blazorTexts();
     const userEmail = uniqueBlazorEmail();
@@ -124,37 +118,45 @@ test.describe("@comprehensive", () => {
       await signUpThroughBlazor(page, userEmail);
       await expectWorkerInControl(page);
 
-      await expect.poll(async () => (await readStoredPaths(page)).includes(offlineShellPath)).toBe(true);
+      // Every cache reading of this test is taken from the owner's page, a same-origin document that is not navigating.
+      // The caches belong to the origin, not to a document, and the page under test navigates throughout, which destroys
+      // the execution context a reading of its own would run in
+      await expect.poll(async () => (await readStoredPaths(ownerPage)).includes(offlineShellPath)).toBe(true);
     })();
 
     await step("Switch account & verify the stored shell is dropped and fetched again for the new tenant")(async () => {
-      // The worker fetches the anonymous shell only when it has none, so this request is the drop, observed from the
-      // outside; the new tenant's first navigation is what puts one back, and the assets are untouched throughout
-      const shellFetchedAgain = page.context().waitForEvent("request", (request) => new URL(request.url()).pathname === offlineShellPath);
+      // Two observations of the same drop. The shell leaving the caches is watched from the owner's page, a same-origin
+      // document that is not navigating while this one does, and every browser can see it. The worker fetches the
+      // anonymous shell only when it has none, so the request for it is the drop observed from the outside, which only
+      // Chromium reports. The new tenant's first navigation is what puts one back, asserted by the next step, and the
+      // assets are untouched throughout
+      const shellDropped = watchForTheStoredShellToBeDropped(ownerPage);
+      const workerFetchedTheShellAgain = expectTheWorkerToFetchTheShellAgain(page, browserName);
 
       await openUserMenu(page);
       await page.getByRole("menuitem", { name: secondaryTenantName }).click();
 
-      expect((await shellFetchedAgain).serviceWorker()).not.toBeNull();
+      expect(await shellDropped).toBe(true);
+      await workerFetchedTheShellAgain;
     })();
 
     await step("Land in the new tenant & verify the worker stored a shell again and kept the assets")(async () => {
       await page.waitForLoadState("load");
       await expect(page.getByTestId("app-shell")).toBeVisible();
 
-      await expect.poll(async () => (await readStoredPaths(page)).includes(offlineShellPath)).toBe(true);
-      expect((await readStoredPaths(page)).length).toBeGreaterThan(0);
+      await expect.poll(async () => (await readStoredPaths(ownerPage)).includes(offlineShellPath)).toBe(true);
+      expect((await readStoredPaths(ownerPage)).length).toBeGreaterThan(0);
     })();
 
     await step("Log out & verify the shell stored for the new tenant is dropped and stays dropped")(async () => {
 
       await logOutThroughBlazor(page);
 
-      await expect.poll(async () => (await readStoredPaths(page)).includes(offlineShellPath)).toBe(false);
-      expect((await readStoredPaths(page)).length).toBeGreaterThan(0);
+      await expect.poll(async () => (await readStoredPaths(ownerPage)).includes(offlineShellPath)).toBe(false);
+      expect((await readStoredPaths(ownerPage)).length).toBeGreaterThan(0);
     })();
 
-    await step("Open the public documents & verify the worker controls the page but answers none of them")(async () => {
+    await step("Open the public documents & verify a worker is in scope but answers none of them")(async () => {
       const documentsFromTheWorker: string[] = [];
       page.on("response", (response) => {
         if (response.request().resourceType() === "document" && response.fromServiceWorker()) documentsFromTheWorker.push(new URL(response.url()).pathname);
@@ -165,7 +167,10 @@ test.describe("@comprehensive", () => {
         await expectNoPolicyViolations(page);
       }
 
-      expect(await page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true);
+      // The precondition is that a worker is installed and in scope for these documents, not that it controls them:
+      // Firefox sets navigator.serviceWorker.controller only for a document the worker answered, and this worker answers
+      // no public document by design, so a controlled public document is unreachable there. See readWorkerRegistration
+      expect(await readWorkerRegistration(page)).toEqual({ scope: blazorPath(), active: "activated" });
       expect(documentsFromTheWorker).toEqual([]);
       await expect(page).toHaveURL(blazorUrl("legal"));
     })();
@@ -173,7 +178,7 @@ test.describe("@comprehensive", () => {
     await step("Log in again & verify the worker stores a shell of the current identity only")(async () => {
       await logInThroughBlazor(page, userEmail);
 
-      await expect.poll(async () => (await readStoredPaths(page)).includes(offlineShellPath)).toBe(true);
+      await expect.poll(async () => (await readStoredPaths(ownerPage)).includes(offlineShellPath)).toBe(true);
       await expect(page.getByRole("heading", { name: texts.yourWorkspace })).toBeVisible();
     })();
   });

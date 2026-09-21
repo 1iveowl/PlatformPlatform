@@ -60,7 +60,7 @@ export async function launchBrowser(browserName) {
   return playwright.chromium.launch({ args: [`--ignore-certificate-errors-spki-list=${fingerprint}`] });
 }
 
-function gatewayCertificateFingerprint() {
+export function gatewayCertificateFingerprint() {
   return new Promise((resolve, reject) => {
     const socket = tls.connect({ host: "127.0.0.1", port: basePort, servername: gatewayHostname, rejectUnauthorized: false }, () => {
       const certificate = new X509Certificate(socket.getPeerCertificate().raw);

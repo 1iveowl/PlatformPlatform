@@ -82,6 +82,32 @@ point of the run, 247 by its end), none outside the path base and none an accoun
 the manifest's `start_url` does too; a public route offline fails instead of showing the shell; the account API
 is never answered by the worker; and a logout drops the shell while keeping the assets.
 
+**Where the offline shell is proved, and in which browser.** Measured at `b5a22f2d7`, 2026-09-21, with probe code
+inside the worker writing one entry per decision, in all three browsers.
+
+| Browser | What proves the offline navigation | What is left unproven |
+| --- | --- | --- |
+| Chromium | the `@smoke` case of `blazor/tests/e2e/offline-shell-flows.spec.ts` in both cultures, `blazor-harness offline-shell --browser chromium`, and `blazor-harness offline-shell-relaunch --browser chromium` as a second reading | nothing of the shell itself |
+| Firefox | `blazor-harness offline-shell-relaunch --browser firefox`, which installs the worker in a browser profile of its own and relaunches the same profile behind a proxy at a closed port, so the worker's own fetch is refused too | the culture projects of the specification, which open the route with the network there |
+| WebKit | nothing automated; the device pass on real Safari owns it | the offline navigation itself, until that pass |
+
+The reason is in the automation library, not in this edition. Taking a browser context offline takes the network away
+from the document but not from the service worker in Firefox: in the same run `navigator.onLine` is false in the document
+and true inside the worker, the worker's own fetch is answered 200, and the real page is returned, so the shell can never
+appear. In WebKit the navigation fails before the worker's fetch handler is dispatched at all, with the same "WebKit
+encountered an internal error" that browser gives for a public route offline, which the worker never intercepts. With the
+network taken away below the browser instead, WebKit does dispatch the navigation to the worker
+(`FetchEvent.respondWith received an error`), so its interception works; that technique still cannot prove the shell
+there, because a relaunched WebKit profile returns with its Cache Storage empty and the stored shell is gone before the
+navigation. The `@smoke` case therefore opens the route with the network in Firefox and WebKit, annotated with the
+reason, and still asserts everything around it in both: that the worker installs, takes control and stores exactly the
+shell and nothing else, and that the real page loads at the same address.
+
+**Signal** that this is being mistaken for a defect: a report that the offline shell "does not work in Safari or
+Firefox" whose only evidence is a run of the specification. **Action**: run
+`blazor-harness offline-shell-relaunch --browser firefox`, which proves the shell in Firefox, and read the device pass
+for Safari before changing the worker.
+
 ### A forced security update: every client must stop writing now
 
 Deploy a release whose minor version differs from the one clients hold. Every already downloaded client is then
@@ -182,6 +208,9 @@ deployment behaviours remain unverified:
   case, where the old asset set is gone at once.
 - **Traffic splitting and session affinity** during a rollout, and what a client does when its asset set and its
   API answer come from different revisions.
+- **The offline navigation in WebKit.** No automated run reaches the worker's fetch handler with the network gone in
+  that browser, for the reason recorded under "A stale or broken service worker"; the device pass on real Safari is the
+  only evidence there will be until it runs.
 - **Firefox and WebKit.** The rehearsal was run in Chromium. Nothing in the mechanism depends on a Chromium
   feature, so the other two browsers are expected to behave the same; that is an assumption until the run is
   repeated with `--browser all`.
