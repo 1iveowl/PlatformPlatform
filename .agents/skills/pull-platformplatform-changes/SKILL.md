@@ -161,7 +161,7 @@ For each iteration:
 
 3. Cherry-pick — `git cherry-pick -m 1 --strategy=recursive -X theirs <hash>`. Resolve any conflicts so the working tree reflects the intended state of the PR. Note whether conflicts were manually resolved — this drives the validation order in step 5. If the cherry-pick produces no changes (already applied downstream), skip the rest and mark [x] with [NO-OP: already applied].
 
-4. Rename the commit — amend the commit message to 'PlatformPlatform PR <N> - <original subject without trailing (#<N>)>'. Strip the trailing PR number suffix; preserve the rest of the body. Strip any `# Conflicts:` block git inserted after a conflicted cherry-pick, and any other `#`-prefixed comment lines — PlatformPlatform's pull-request-conventions CI accepts multi-line messages only for `PlatformPlatform PR ...` and `Co-authored-by:` commits, but conflict-marker noise must never land in the final history.
+4. Rename the commit — amend the commit message to 'PlatformPlatform PR <N> - <original subject without trailing (#<N>)>'. Strip the trailing PR number suffix; preserve the rest of the body. Strip any `# Conflicts:` block git inserted after a conflicted cherry-pick, and any other `#`-prefixed comment lines: PlatformPlatform's pull-request-conventions CI accepts multi-line messages only for `PlatformPlatform PR ...` commits and for commits carrying a co-author trailer, but conflict-marker noise must never land in the final history.
 
 5. Validate the change — order depends on whether conflicts were resolved in step 3:
 

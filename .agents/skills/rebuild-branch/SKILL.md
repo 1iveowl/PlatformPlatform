@@ -138,7 +138,7 @@ For each iteration:
 
 2. Land the commit cleanly — cherry-pick it and resolve any conflicts so the working tree reflects the intended state of that commit. Note whether conflicts were manually resolved — this drives the validation order in step 4.
 
-3. Sanitize the commit message — the message must be a single line (PlatformPlatform's pull-request-conventions CI forbids multi-line messages except for `Co-authored-by:` trailers). Strip any `# Conflicts:` block that git inserts after a conflicted cherry-pick, and any other `#`-prefixed comment lines. Verify with `git log -1 --format=%B` that the message is one line.
+3. Sanitize the commit message. The message must be a single line (PlatformPlatform's pull-request-conventions CI forbids multi-line messages except when the extra lines are a co-author trailer). Strip any `# Conflicts:` block that git inserts after a conflicted cherry-pick, and any other `#`-prefixed comment lines. Verify with `git log -1 --format=%B` that the message is one line.
 
 4. Validate the change — order depends on whether conflicts were resolved in step 2:
 
