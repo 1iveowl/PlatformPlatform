@@ -54,7 +54,7 @@ public class AccountWebApplicationFactory : WebApplicationFactory<Program>
 
     // Sets the per-test context for the calling logical-call context. The returned scope clears the
     // context on Dispose so the AsyncLocal does not leak past the test instance lifetime.
-    public IDisposable BeginTest(AccountTestContext context)
+    public virtual IDisposable BeginTest(AccountTestContext context)
     {
         _currentContext.Value = context;
         return new TestScope(this);

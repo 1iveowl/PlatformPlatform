@@ -6,7 +6,10 @@
    refused permission or a refused save leaves the state they report. A permission the user denied shows the sentence that
    says where to change it, because only the browser can undo that. A subscription the user revoked in the browser settings
    is removed from the account on the next visit: the browser no longer has it, and the identifier this device stored is
-   what says which row it was. During prerender the section renders nothing, because only the browser knows any of this. *@
+   what says which row it was. The switch itself is read from the account and not from the browser: a subscription this
+   browser holds for an account that left the device is not this account's, so the switch reads off for whoever signs in
+   next and that subscription is unsubscribed rather than shown as theirs. During prerender the section renders nothing,
+   because only the browser knows any of this. *@
 @using Account.Client
 @using Account.Features.Authentication.Queries
 @using Account.Features.PushNotifications.Domain
@@ -57,6 +60,7 @@
     private AuthenticationNavigator? _navigator;
     private bool _hasReadTheBrowser;
     private string _applicationServerKey = "";
+    private PushDeviceOwner _deviceOwner = PushDeviceOwner.None;
 
     public void Dispose()
     {
@@ -91,6 +95,7 @@
 
     private void OnLeaving()
     {
+        _deviceOwner = PushDeviceOwner.None;
         _section.Reset();
     }
 
@@ -116,7 +121,30 @@
         var permission = await browser.ReadPermissionAsync();
         var subscription = isSupported ? await browser.ReadSubscriptionAsync() : null;
 
-        _section.Load(isSupported, permission, subscription is not null);
+        _deviceOwner = await ReadDeviceOwnerAsync(browser, subscription is not null);
+        if (_deviceOwner == PushDeviceOwner.AnotherAccount)
+        {
+            // The account that made this subscription has left the device, so the browser stops holding it: a notification
+            // sent to that account's row cannot reach a browser that is no longer subscribed
+            await browser.UnsubscribeAsync();
+            await browser.SaveSubscriptionIdAsync(null);
+            _deviceOwner = PushDeviceOwner.None;
+        }
+
+        _section.Load(isSupported, permission, _deviceOwner == PushDeviceOwner.ThisAccount);
+    }
+
+    // Whose the subscription this browser holds is, which only the account's own rows can say
+    private async Task<PushDeviceOwner> ReadDeviceOwnerAsync(PushNotificationBrowser browser, bool hasBrowserSubscription)
+    {
+        if (!hasBrowserSubscription) return PushDeviceOwner.None;
+
+        var storedSubscriptionId = await browser.ReadSavedSubscriptionIdAsync();
+        var result = await Session.UnlessLeavingAsync(Services.GetRequiredService<PushSubscriptionsClient>().GetSubscriptionsAsync);
+        if (result is not { IsSuccess: true }) return PushDeviceOwner.Unattributed;
+
+        var accountSubscriptionIds = result.Value!.Subscriptions.Select(pushSubscription => pushSubscription.Id.Value).ToArray();
+        return PushNotificationSection.ReadDeviceOwner(true, storedSubscriptionId, accountSubscriptionIds);
     }
 
     private Task ToggleAsync()
@@ -129,6 +157,11 @@
         if (!_section.TryBeginChange()) return;
 
         var browser = Services.GetRequiredService<PushNotificationBrowser>();
+
+        // A subscription this device cannot attribute to this account may be one an account that left the device made, and
+        // saving it would let that account's row keep sending to this browser; the browser starts a new one instead
+        if (_deviceOwner == PushDeviceOwner.Unattributed) await browser.UnsubscribeAsync();
+
         var (outcome, subscription) = await browser.SubscribeAsync(_applicationServerKey);
         if (outcome != PushSubscribeOutcome.Subscribed || subscription is null)
         {

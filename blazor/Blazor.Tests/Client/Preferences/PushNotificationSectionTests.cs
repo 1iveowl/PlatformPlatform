@@ -9,6 +9,58 @@ namespace Blazor.Tests.Client.Preferences;
 public sealed class PushNotificationSectionTests
 {
     [Fact]
+    public void ReadDeviceOwner_WhenTheBrowserHoldsNoSubscription_ShouldReportNone()
+    {
+        // Act
+        var owner = PushNotificationSection.ReadDeviceOwner(false, "psub_01KC0000000000000000000001", ["psub_01KC0000000000000000000001"]);
+
+        // Assert
+        owner.Should().Be(PushDeviceOwner.None);
+    }
+
+    [Fact]
+    public void ReadDeviceOwner_WhenTheAccountHasTheRowThisDeviceStored_ShouldReportThisAccount()
+    {
+        // Act
+        var owner = PushNotificationSection.ReadDeviceOwner(true, "psub_01KC0000000000000000000001", ["psub_01KC0000000000000000000002", "psub_01KC0000000000000000000001"]);
+
+        // Assert
+        owner.Should().Be(PushDeviceOwner.ThisAccount);
+    }
+
+    [Fact]
+    public void ReadDeviceOwner_WhenTheAccountDoesNotHaveTheRowThisDeviceStored_ShouldReportAnotherAccount()
+    {
+        // Act: what an account that logged out of this browser without the browser being unsubscribed leaves behind
+        var owner = PushNotificationSection.ReadDeviceOwner(true, "psub_01KC0000000000000000000001", ["psub_01KC0000000000000000000002"]);
+
+        // Assert
+        owner.Should().Be(PushDeviceOwner.AnotherAccount);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void ReadDeviceOwner_WhenThisDeviceStoredNoIdentifier_ShouldReportUnattributed(string? storedSubscriptionId)
+    {
+        // Act
+        var owner = PushNotificationSection.ReadDeviceOwner(true, storedSubscriptionId, ["psub_01KC0000000000000000000002"]);
+
+        // Assert
+        owner.Should().Be(PushDeviceOwner.Unattributed);
+    }
+
+    [Fact]
+    public void ReadDeviceOwner_WhenTheAccountHasNoSubscriptionsAtAll_ShouldReportAnotherAccount()
+    {
+        // Act
+        var owner = PushNotificationSection.ReadDeviceOwner(true, "psub_01KC0000000000000000000001", []);
+
+        // Assert
+        owner.Should().Be(PushDeviceOwner.AnotherAccount);
+    }
+
+    [Fact]
     public void IsVisible_BeforeTheBrowserHasBeenRead_ShouldStayHidden()
     {
         // Arrange

@@ -10,6 +10,8 @@
 // 6. Unsubscribing: the switch removes the row through the account API and forgets it on this device.
 // 7. A subscription revoked in the browser is removed from the account on the next visit.
 // 8. A denied permission disables the switch and says where to change it.
+// 9. Logging out leaves nothing of the subscription on the device: the identifier this device stored is gone, and the next
+//    account to sign in on the same browser reads the switch as off instead of the previous account's subscription.
 //
 // Two things this harness cannot do, and neither is worked around:
 // - Chromium in the automation library has no push service it can reach: pushManager.subscribe answers "Registration
@@ -27,7 +29,20 @@
 // Development and a VAPID key pair configured, which the AppHost generates on first start.
 // Run: dotnet run --project developer-cli -- blazor-harness push-notifications --browser chromium
 
-import { baseUrl, newContext, observeErrors, parseArguments, pathBase, playwright, policyViolationsOf, signUpThroughBlazor, writeResult } from "./support/stack.mjs";
+import {
+  baseUrl,
+  completeWelcomeThroughBlazor,
+  newContext,
+  observeErrors,
+  parseArguments,
+  pathBase,
+  playwright,
+  policyViolationsOf,
+  readOneTimePassword,
+  signUpThroughBlazor,
+  submitOneTimePasswordThroughBlazor,
+  writeResult
+} from "./support/stack.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 if (options.browser !== "chromium") {
@@ -39,7 +54,7 @@ const preferencesUrl = `${baseUrl}${pathBase}/user/preferences`;
 const subscriptionsPath = "/api/account/users/me/push-subscriptions";
 const interactiveTimeoutMs = 60_000;
 const workerTimeoutMs = 30_000;
-const expectedCaseCount = 8;
+const expectedCaseCount = 9;
 
 // The three PushManager methods a browser without a reachable push service cannot answer. The endpoint is an address no
 // push service resolves, which is what makes the account API report a test notification as undelivered rather than
@@ -317,6 +332,44 @@ try {
     } finally {
       await deniedContext.close();
     }
+  });
+
+  await check("logging out leaves nothing of the subscription for the next account on this browser", async () => {
+    await openPreferences();
+    await switchLocator().click();
+    await page.locator(testId("notifications-turned-on-toast")).waitFor({ timeout: interactiveTimeoutMs });
+    await waitForSwitch("true");
+    const rememberedBeforeTheLogout = await page.evaluate(() => localStorage.getItem("blazor-push-subscription"));
+    assert(rememberedBeforeTheLogout !== null, "This device did not remember the row before the logout.");
+
+    await page.locator("#user-menu-trigger").click({ timeout: interactiveTimeoutMs });
+    await page.locator('[role="menu"] [role="menuitem"]').last().click();
+    await page.waitForURL(`${baseUrl}${pathBase}/login`, { timeout: interactiveTimeoutMs });
+
+    const rememberedAfterTheLogout = await page.evaluate(() => localStorage.getItem("blazor-push-subscription"));
+    assert(rememberedAfterTheLogout === null, "This device still remembers the row of the account that logged out.");
+
+    // The second person on this browser, signed up in the same context so the storage the first one wrote is still there
+    const secondEmail = `push-second-${Date.now()}@platformplatform.net`;
+    await page.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
+    await page.locator(testId("email")).fill(secondEmail);
+    const sentAfter = Date.now();
+    await page.locator(testId("submit")).click();
+    await page.waitForURL(/\/blazor\/signup\/verify\?/, { timeout: interactiveTimeoutMs });
+    await submitOneTimePasswordThroughBlazor(page, await readOneTimePassword(secondEmail, sentAfter));
+    await completeWelcomeThroughBlazor(page, "Second harness account");
+
+    await openPreferences();
+    await waitForSwitch("false");
+
+    const rememberedForTheSecondAccount = await page.evaluate(() => localStorage.getItem("blazor-push-subscription"));
+    assert(rememberedForTheSecondAccount === null, "The second account inherited the identifier the first one stored.");
+    assert(await testButtonLocator().isDisabled(), "The second account can send a test notification to a device it never subscribed.");
+
+    // The browser's own subscription is unsubscribed on the way out, which is started before the document goes away and
+    // is therefore reported rather than asserted; the switch above is off whether or not it finished
+    const browserStillSubscribed = (await page.evaluate(() => localStorage.getItem("__harness-push-subscription"))) !== null;
+    return { rememberedForTheSecondAccount, browserStillSubscribed };
   });
 
 } finally {

@@ -30,10 +30,28 @@ public static class PushNotificationPolicy
 
     public const int AuthSecretLength = 16;
 
+    // How long a user waits between test notifications. The test send exists to confirm once that notifications arrive on
+    // the devices already subscribed, and it sends to every one of them in a single call, so one call per minute is more
+    // than the purpose needs and bounds a single account to at most MaximumSubscriptionsPerUser outbound requests a minute.
+    public static readonly TimeSpan TestNotificationInterval = TimeSpan.FromMinutes(1);
+
     // The push services of the browsers this edition supports. An entry matches its own host and any subdomain of it,
     // which is what the Apple and Windows push services need; the Google and Mozilla ones are single hosts.
     public static readonly string[] DefaultAllowedEndpointHosts =
         ["fcm.googleapis.com", "updates.push.services.mozilla.com", "push.apple.com", "notify.windows.com"];
+
+    // The lowest device slot this user is not already holding, or none when every slot is taken. The slot is what the
+    // unique index on (user_id, device_slot) makes the cap atomic with: two saves racing at the limit compute the same
+    // free slot, and the database lets exactly one of them insert it.
+    public static int? FindFreeDeviceSlot(int[] usedDeviceSlots)
+    {
+        for (var deviceSlot = 0; deviceSlot < MaximumSubscriptionsPerUser; deviceSlot++)
+        {
+            if (!usedDeviceSlots.Contains(deviceSlot)) return deviceSlot;
+        }
+
+        return null;
+    }
 
     public static bool IsEnabled(IConfiguration configuration)
     {

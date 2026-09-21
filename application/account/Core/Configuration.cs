@@ -5,6 +5,7 @@ using Account.Features.ExternalAuthentication;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Shared;
 using Account.Features.FeatureFlags.Shared;
+using Account.Features.PushNotifications.Shared;
 using Account.Features.Subscriptions.Shared;
 using Account.Features.Users.Shared;
 using Account.Integrations.Gravatar;
@@ -72,6 +73,9 @@ public static class Configuration
             // followed, so the only address this client reaches is the allowlisted one the subscription named.
             services.AddHttpClient<IPushNotificationSender, WebPushNotificationSender>(client => { client.Timeout = TimeSpan.FromSeconds(10); })
                 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
+
+            // How often one user may ask for a test notification, which is process state and therefore a singleton
+            services.AddSingleton<PushTestNotificationThrottle>();
 
             services.AddEmailRendering();
 

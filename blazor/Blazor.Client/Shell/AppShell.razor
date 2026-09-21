@@ -200,6 +200,11 @@
         // here because the departure itself has no time to await an import
         _offlineShell = Services.GetRequiredService<OfflineShellCache>();
         await _offlineShell.AttachAsync();
+
+        // The subscription this browser made for the signed-in account, forgotten when this runtime's session ends, so a
+        // notification for the account that left is never shown to whoever signs in next; the module is imported here for
+        // the same reason the offline shell's is
+        await Services.GetRequiredService<PushNotificationDeparture>().AttachAsync();
     }
 
     private void OnStateChanged()

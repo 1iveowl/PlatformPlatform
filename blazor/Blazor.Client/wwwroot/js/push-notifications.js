@@ -7,7 +7,8 @@
 //
 // The identifier of the saved subscription is kept in this device's local storage, so a subscription the user revoked in
 // the browser settings can be removed from the account on the next visit, when the browser no longer has it and only the
-// stored identifier says which row it was.
+// stored identifier says which row it was. The same identifier is what says, to the account signed in next on this
+// browser, that the subscription the browser still holds was another account's.
 
 const storageKey = "blazor-push-subscription";
 
@@ -75,6 +76,20 @@ export async function subscribe(applicationServerKey) {
     // The browser has no push service it can reach, or it refused the key; the section reports that and stays off
     return { outcome: "failed" };
   }
+}
+
+// The account that made this browser's subscription is leaving the device. The stored identifier goes first and
+// synchronously, because the document is on its way out and only what runs before the first await is certain to run; the
+// unsubscribe is started and not waited for. What it does not finish, the next visit finishes: a subscription the signed
+// in account does not own is unsubscribed when the notifications section is read.
+export function forgetDevice() {
+  storeSubscriptionId(null);
+
+  unsubscribe().catch(() => {
+    // This browser would not look at its push manager; the subscription it still holds is unsubscribed on the next visit
+  });
+
+  return true;
 }
 
 export async function unsubscribe() {

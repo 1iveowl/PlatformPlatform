@@ -11,7 +11,7 @@ public interface IPushSubscriptionRepository : ICrudRepository<PushSubscription,
 
     Task<PushSubscription?> GetByEndpointAsync(UserId userId, string endpoint, CancellationToken cancellationToken);
 
-    Task<int> CountByUserAsync(UserId userId, CancellationToken cancellationToken);
+    Task<int[]> GetUsedDeviceSlotsAsync(UserId userId, CancellationToken cancellationToken);
 }
 
 public sealed class PushSubscriptionRepository(AccountDbContext accountDbContext)
@@ -28,8 +28,9 @@ public sealed class PushSubscriptionRepository(AccountDbContext accountDbContext
         return await DbSet.FirstOrDefaultAsync(p => p.UserId == userId && p.Endpoint == endpoint, cancellationToken);
     }
 
-    public async Task<int> CountByUserAsync(UserId userId, CancellationToken cancellationToken)
+    // The device slots this user is holding, which is what a free slot for a new device is chosen from
+    public async Task<int[]> GetUsedDeviceSlotsAsync(UserId userId, CancellationToken cancellationToken)
     {
-        return await DbSet.CountAsync(p => p.UserId == userId, cancellationToken);
+        return await DbSet.Where(p => p.UserId == userId).Select(p => p.DeviceSlot).ToArrayAsync(cancellationToken);
     }
 }

@@ -170,7 +170,7 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
         // Arrange
         for (var deviceNumber = 0; deviceNumber < PushNotificationPolicy.MaximumSubscriptionsPerUser; deviceNumber++)
         {
-            InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Member.Id, $"https://fcm.googleapis.com/fcm/send/member-limit-{deviceNumber}");
+            InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Member.Id, $"https://fcm.googleapis.com/fcm/send/member-limit-{deviceNumber}", deviceNumber);
         }
 
         // Act
@@ -294,7 +294,7 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
     {
         for (var deviceNumber = 0; deviceNumber < PushNotificationPolicy.MaximumSubscriptionsPerUser; deviceNumber++)
         {
-            InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Owner.Id, $"https://fcm.googleapis.com/fcm/send/limit-{deviceNumber}");
+            InsertSubscription(DatabaseSeeder.Tenant1.Id, DatabaseSeeder.Tenant1Owner.Id, $"https://fcm.googleapis.com/fcm/send/limit-{deviceNumber}", deviceNumber);
         }
     }
 
@@ -313,13 +313,14 @@ public sealed class PushSubscriptionTests(PushNotificationsWebApplicationFactory
         return JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
     }
 
-    private PushSubscriptionId InsertSubscription(TenantId tenantId, UserId userId, string endpoint)
+    private PushSubscriptionId InsertSubscription(TenantId tenantId, UserId userId, string endpoint, int deviceSlot = 0)
     {
         var pushSubscriptionId = PushSubscriptionId.NewId();
         Connection.Insert("push_subscriptions", [
                 ("tenant_id", tenantId.Value),
                 ("id", pushSubscriptionId.Value),
                 ("user_id", userId.Value),
+                ("device_slot", deviceSlot),
                 ("created_at", TimeProvider.GetUtcNow()),
                 ("modified_at", null),
                 ("endpoint", endpoint),

@@ -57,14 +57,17 @@ public sealed class SavePushSubscriptionHandler(
             return new SavePushSubscriptionResponse(existingSubscription.Id);
         }
 
-        // A browser that resubscribes at the limit is updated above; only a device beyond the limit is refused
-        var subscriptionCount = await pushSubscriptionRepository.CountByUserAsync(userInfo.Id, cancellationToken);
-        if (subscriptionCount >= PushNotificationPolicy.MaximumSubscriptionsPerUser)
+        // A browser that resubscribes at the limit is updated above; only a device beyond the limit is refused. The slot
+        // this new device takes is the lowest one the user is not holding, and the unique index on (user_id, device_slot)
+        // is what makes the limit hold: two saves racing at the limit choose the same free slot and only the first commits,
+        // which the second is told about as a conflict rather than being let past the limit.
+        var usedDeviceSlots = await pushSubscriptionRepository.GetUsedDeviceSlotsAsync(userInfo.Id, cancellationToken);
+        if (PushNotificationPolicy.FindFreeDeviceSlot(usedDeviceSlots) is not { } deviceSlot)
         {
             return Result<SavePushSubscriptionResponse>.BadRequest($"This account has reached the limit of {PushNotificationPolicy.MaximumSubscriptionsPerUser} devices subscribed to notifications.");
         }
 
-        var pushSubscription = PushSubscription.Create(userInfo.TenantId, userInfo.Id, command.Endpoint, command.PublicKey, command.AuthSecret, command.DeviceLabel, command.ApplicationPath);
+        var pushSubscription = PushSubscription.Create(userInfo.TenantId, userInfo.Id, deviceSlot, command.Endpoint, command.PublicKey, command.AuthSecret, command.DeviceLabel, command.ApplicationPath);
         await pushSubscriptionRepository.AddAsync(pushSubscription, cancellationToken);
 
         events.CollectEvent(new PushSubscriptionCreated(pushSubscription.Id));

@@ -44,7 +44,91 @@ public sealed class WebPushNotificationSenderTests
         pushService.RequestedUris.Should().Equal(new Uri(PushServiceEndpoint));
     }
 
-    private static WebPushNotificationSender CreateSender(HttpMessageHandler pushService)
+    [Theory]
+    // The push service has forgotten this subscription for good, and only these two answers say so
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Gone)]
+    public async Task SendAsync_WhenThePushServiceHasForgottenTheSubscription_ShouldReportExpired(HttpStatusCode statusCode)
+    {
+        // Arrange
+        var pushService = new RecordingHttpMessageHandler(new HttpResponseMessage(statusCode));
+        using var sender = CreateSender(pushService);
+
+        // Act
+        var outcome = await sender.SendAsync(CreateTarget(), CreatePayload(), CancellationToken.None);
+
+        // Assert
+        outcome.Should().Be(PushDeliveryOutcome.Expired);
+    }
+
+    [Fact]
+    public async Task SendAsync_WhenThePushServiceRefuses_ShouldReportUndeliveredAndKeepTheSubscription()
+    {
+        // Arrange
+        var pushService = new RecordingHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        using var sender = CreateSender(pushService);
+
+        // Act
+        var outcome = await sender.SendAsync(CreateTarget(), CreatePayload(), CancellationToken.None);
+
+        // Assert
+        outcome.Should().Be(PushDeliveryOutcome.Failed);
+    }
+
+    [Fact]
+    public async Task SendAsync_WhenThePushServiceNeverAnswers_ShouldReportUndeliveredRatherThanThrow()
+    {
+        // Arrange
+        var pushService = new NeverAnsweringHttpMessageHandler();
+        using var sender = CreateSender(pushService, TimeSpan.FromMilliseconds(100));
+
+        // Act
+        var outcome = await sender.SendAsync(CreateTarget(), CreatePayload(), CancellationToken.None);
+
+        // Assert: the caller did not cancel anything, so this is the client's own timeout and not a request going away
+        outcome.Should().Be(PushDeliveryOutcome.Failed);
+    }
+
+    [Fact]
+    public async Task SendAsync_WhenTheCallerCancels_ShouldLetTheCancellationThrough()
+    {
+        // Arrange
+        var pushService = new NeverAnsweringHttpMessageHandler();
+        using var sender = CreateSender(pushService);
+        using var callerCancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        // Act
+        OperationCanceledException? cancellation = null;
+        try
+        {
+            await sender.SendAsync(CreateTarget(), CreatePayload(), callerCancellation.Token);
+        }
+        catch (OperationCanceledException exception)
+        {
+            cancellation = exception;
+        }
+
+        // Assert: a cancelled request is the request going away, which is not an outcome of the notification
+        cancellation.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SendAsync_WhenTheSubscriptionKeyCannotBeUsed_ShouldReportUndeliveredRatherThanThrow()
+    {
+        // Arrange
+        var pushService = new RecordingHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.Created));
+        using var sender = CreateSender(pushService);
+        var target = new PushNotificationTarget(PushServiceEndpoint, "bm90LWEtcDI1Ni1wb2ludA", PushNotificationsWebApplicationFactory.SubscriptionAuthSecret);
+
+        // Act
+        var outcome = await sender.SendAsync(target, CreatePayload(), CancellationToken.None);
+
+        // Assert
+        outcome.Should().Be(PushDeliveryOutcome.Failed);
+        pushService.RequestedUris.Should().BeEmpty();
+    }
+
+    private static WebPushNotificationSender CreateSender(HttpMessageHandler pushService, TimeSpan? timeout = null)
     {
         using var vapidKeyPair = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var vapidParameters = vapidKeyPair.ExportParameters(true);
@@ -57,7 +141,10 @@ public sealed class WebPushNotificationSenderTests
             }
         ).Build();
 
-        return new WebPushNotificationSender(new HttpClient(pushService), configuration, Substitute.For<ILogger<WebPushNotificationSender>>());
+        var httpClient = new HttpClient(pushService);
+        if (timeout is not null) httpClient.Timeout = timeout.Value;
+
+        return new WebPushNotificationSender(httpClient, configuration, Substitute.For<ILogger<WebPushNotificationSender>>());
     }
 
     private static PushNotificationTarget CreateTarget()
@@ -68,6 +155,16 @@ public sealed class WebPushNotificationSenderTests
     private static PushNotificationPayload CreatePayload()
     {
         return new PushNotificationPayload("Test notification", "Notifications are working on this device.", "/blazor/app");
+    }
+
+    // A push service that accepts the request and never answers, which is what the client's own timeout is measured against
+    private sealed class NeverAnsweringHttpMessageHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.Created);
+        }
     }
 
     private sealed class RecordingHttpMessageHandler(HttpResponseMessage response) : HttpMessageHandler

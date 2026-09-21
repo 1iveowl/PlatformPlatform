@@ -14,6 +14,25 @@ public enum PushPermission
     Denied
 }
 
+// Whose subscription the one this browser holds is. The browser's subscription and the identifier this device stored both
+// outlive a logout, so a switch read from the browser alone shows the account that left this device as the one signed in
+// now; only the account's own rows say which it is.
+public enum PushDeviceOwner
+{
+    // The browser holds no subscription
+    None,
+
+    // The browser holds one and the account has the row this device stored for it
+    ThisAccount,
+
+    // The browser holds one the account does not have, which is what an account that left this device leaves behind
+    AnotherAccount,
+
+    // The browser holds one this device cannot attribute: it stored no identifier for it, or the account's rows could not
+    // be read. Nothing is destroyed for one, and the switch reads off until the account says it is its own.
+    Unattributed
+}
+
 // What a subscribe attempt ended in, as the module reports it
 public enum PushSubscribeOutcome
 {
@@ -82,6 +101,16 @@ public sealed class PushNotificationSection
             "denied" => PushPermission.Denied,
             _ => PushPermission.Default
         };
+    }
+
+    // The switch is on for this account's own subscription and for no other: an identifier this device stored for a row the
+    // account does not have belonged to the account that left the device.
+    public static PushDeviceOwner ReadDeviceOwner(bool hasBrowserSubscription, string? storedSubscriptionId, string[] accountSubscriptionIds)
+    {
+        if (!hasBrowserSubscription) return PushDeviceOwner.None;
+        if (string.IsNullOrEmpty(storedSubscriptionId)) return PushDeviceOwner.Unattributed;
+
+        return accountSubscriptionIds.Contains(storedSubscriptionId, StringComparer.Ordinal) ? PushDeviceOwner.ThisAccount : PushDeviceOwner.AnotherAccount;
     }
 
     public static PushSubscribeOutcome ParseOutcome(string? outcome)

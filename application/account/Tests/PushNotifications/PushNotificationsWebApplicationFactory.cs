@@ -29,6 +29,15 @@ public class PushNotificationsWebApplicationFactory : AccountWebApplicationFacto
     // A deployment that names no push service hosts of its own sends through the policy's default set
     protected virtual string? AllowedEndpointHosts => null;
 
+    // How often one user may ask for a test notification is state of this process rather than of the test's database, so
+    // every test of this host would otherwise inherit the allowance the test before it spent
+    public override IDisposable BeginTest(AccountTestContext context)
+    {
+        var testScope = base.BeginTest(context);
+        Services.GetRequiredService<PushTestNotificationThrottle>().Clear();
+        return testScope;
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
@@ -69,7 +78,9 @@ public sealed class ConfiguredHostsPushNotificationsWebApplicationFactory : Push
 /// <summary>
 ///     A push service that answers from the address it is asked to deliver to, so a test states the outcome it needs in
 ///     the subscription it creates and no test has to reach into shared state: an endpoint under /gone/ is one the push
-///     service has forgotten, an endpoint under /fail/ is one that refused, and every other endpoint is delivered to.
+///     service has forgotten, an endpoint under /fail/ is one that refused, an endpoint under /timeout/ is one that never
+///     answered, which is what the real sender reports as Failed when its client's timeout elapses, and every other
+///     endpoint is delivered to.
 ///     Every send is recorded, and a test reads back only the sends to its own endpoints.
 /// </summary>
 public sealed class RecordingPushNotificationSender : IPushNotificationSender
@@ -77,6 +88,8 @@ public sealed class RecordingPushNotificationSender : IPushNotificationSender
     public const string ForgottenSubscriptionSegment = "/gone/";
 
     public const string RefusingSubscriptionSegment = "/fail/";
+
+    public const string TimingOutSubscriptionSegment = "/timeout/";
 
     private readonly ConcurrentQueue<(PushNotificationTarget Target, PushNotificationPayload Payload)> _sends = new();
 
@@ -88,6 +101,7 @@ public sealed class RecordingPushNotificationSender : IPushNotificationSender
 
         if (target.Endpoint.Contains(ForgottenSubscriptionSegment, StringComparison.Ordinal)) return Task.FromResult(PushDeliveryOutcome.Expired);
         if (target.Endpoint.Contains(RefusingSubscriptionSegment, StringComparison.Ordinal)) return Task.FromResult(PushDeliveryOutcome.Failed);
+        if (target.Endpoint.Contains(TimingOutSubscriptionSegment, StringComparison.Ordinal)) return Task.FromResult(PushDeliveryOutcome.Failed);
 
         return Task.FromResult(PushDeliveryOutcome.Delivered);
     }

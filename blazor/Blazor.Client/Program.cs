@@ -46,6 +46,9 @@ builder.Services.AddScoped<AuthSyncCoordinator>();
 builder.Services.AddScoped<DevicePreferences>();
 builder.Services.AddScoped<PushNotificationBrowser>();
 
+// Forgets this browser's subscription when the account that made it leaves the device
+builder.Services.AddScoped<PushNotificationDeparture>();
+
 // The language of the signed-in user, one change at a time, shared by the preferences page and the shell's mobile menu
 builder.Services.AddScoped<LocaleSwitch>();
 

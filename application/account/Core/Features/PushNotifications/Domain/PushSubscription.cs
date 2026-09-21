@@ -10,11 +10,12 @@ namespace Account.Features.PushNotifications.Domain;
 /// </summary>
 public sealed class PushSubscription : AggregateRoot<PushSubscriptionId>, ITenantScopedEntity
 {
-    private PushSubscription(TenantId tenantId, UserId userId, string endpoint, string publicKey, string authSecret, string deviceLabel, string applicationPath)
+    private PushSubscription(TenantId tenantId, UserId userId, int deviceSlot, string endpoint, string publicKey, string authSecret, string deviceLabel, string applicationPath)
         : base(PushSubscriptionId.NewId())
     {
         TenantId = tenantId;
         UserId = userId;
+        DeviceSlot = deviceSlot;
         Endpoint = endpoint;
         PublicKey = publicKey;
         AuthSecret = authSecret;
@@ -23,6 +24,13 @@ public sealed class PushSubscription : AggregateRoot<PushSubscriptionId>, ITenan
     }
 
     public UserId UserId { get; private init; }
+
+    /// <summary>
+    ///     Which of this user's device places this subscription holds, from zero to one below the maximum. A unique index
+    ///     on (user_id, device_slot) is what caps the number of devices: the slot is chosen from the ones the user is not
+    ///     holding, so two saves racing at the limit choose the same one and the database admits only the first.
+    /// </summary>
+    public int DeviceSlot { get; private init; }
 
     public string Endpoint { get; private init; }
 
@@ -41,9 +49,9 @@ public sealed class PushSubscription : AggregateRoot<PushSubscriptionId>, ITenan
 
     public TenantId TenantId { get; }
 
-    public static PushSubscription Create(TenantId tenantId, UserId userId, string endpoint, string publicKey, string authSecret, string deviceLabel, string applicationPath)
+    public static PushSubscription Create(TenantId tenantId, UserId userId, int deviceSlot, string endpoint, string publicKey, string authSecret, string deviceLabel, string applicationPath)
     {
-        return new PushSubscription(tenantId, userId, endpoint, publicKey, authSecret, deviceLabel, applicationPath);
+        return new PushSubscription(tenantId, userId, deviceSlot, endpoint, publicKey, authSecret, deviceLabel, applicationPath);
     }
 
     // The same browser resubscribing keeps its row: the endpoint is the identity, the keys and the rest are what change

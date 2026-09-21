@@ -18,11 +18,14 @@ public sealed record SendTestPushNotificationCommand : ICommand, IRequest<Result
 ///     before relying on them. The payload is the title and body of the current culture's resources and the path the
 ///     subscribing client opens at, and nothing else: no code, no token and no personal data. A push service that has
 ///     forgotten a subscription answers 404 or 410, and that subscription is deleted rather than retried. A subscription
-///     whose push service this deployment no longer sends through is skipped and kept.
+///     whose push service this deployment no longer sends through is skipped and kept. A user may ask for this once per
+///     <see cref="PushNotificationPolicy.TestNotificationInterval" />, so one account cannot decide how many requests this
+///     deployment makes to the push services; a refused call sends nothing and removes nothing.
 /// </summary>
 public sealed class SendTestPushNotificationHandler(
     IPushSubscriptionRepository pushSubscriptionRepository,
     IPushNotificationSender pushNotificationSender,
+    PushTestNotificationThrottle throttle,
     IExecutionContext executionContext,
     IConfiguration configuration,
     ITelemetryEventsCollector events
@@ -37,6 +40,12 @@ public sealed class SendTestPushNotificationHandler(
 
         var subscriptions = await pushSubscriptionRepository.GetByUserAsync(userInfo.Id, cancellationToken);
         if (subscriptions.Length == 0) return Result<SendTestPushNotificationResponse>.BadRequest("This account has no device subscribed to notifications.");
+
+        // The allowance is this account's own and says nothing about any other account's
+        if (!throttle.TryBeginSend(userInfo.Id))
+        {
+            return Result<SendTestPushNotificationResponse>.TooManyRequests("A test notification was sent to this account recently. Please wait a minute before sending another.");
+        }
 
         var allowedEndpointHosts = PushNotificationPolicy.GetAllowedEndpointHosts(configuration);
 

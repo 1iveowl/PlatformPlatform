@@ -14,6 +14,11 @@ public sealed class PushSubscriptionConfiguration : IEntityTypeConfiguration<Pus
         builder.MapStronglyTypedLongId<PushSubscription, TenantId>(p => p.TenantId);
         builder.MapStronglyTypedUuid<PushSubscription, UserId>(p => p.UserId);
 
+        // The cap on devices per user is this index and not the count the handler reads: the count can be stale by the
+        // time the row is inserted, and this cannot. Declared here as well as in the migration because the test schema is
+        // built from this model.
+        builder.HasIndex(p => new { p.UserId, p.DeviceSlot }).IsUnique();
+
         // Deleting the user takes the device subscriptions with it; EF needs the relationship to cascade at runtime
         builder.HasOne<User>()
             .WithMany()

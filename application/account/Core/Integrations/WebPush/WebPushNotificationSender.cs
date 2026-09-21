@@ -13,7 +13,12 @@ namespace Account.Integrations.WebPush;
 ///     key pair (RFC 8291) and the request is signed with this deployment's VAPID key pair (RFC 8292). A push service
 ///     answering 404 or 410 has forgotten the subscription for good, which is reported as
 ///     <see cref="PushDeliveryOutcome.Expired" />
-///     so the caller can delete it.
+///     so the caller can delete it. Every other way a send can end, including a push service that never answers and a
+///     resilience handler that has opened its circuit, is reported as <see cref="PushDeliveryOutcome.Failed" /> rather
+///     than
+///     thrown: one unreachable push service must not end the request that was sending to the subscriptions after it, nor
+///     stop the caller from deleting the subscriptions it has already found expired. The caller's own cancellation is the
+///     one exception, because that is the request going away rather than the send failing.
 /// </summary>
 public sealed class WebPushNotificationSender : IPushNotificationSender, IDisposable
 {
@@ -77,6 +82,20 @@ public sealed class WebPushNotificationSender : IPushNotificationSender, IDispos
             // Either this deployment's VAPID pair or the subscription's own key pair cannot be used; the subscription is
             // kept, because a key the deployment holds wrongly is not the subscriber's to fix
             _logger.LogWarning(exception, "Push notification could not be encrypted or signed");
+            return PushDeliveryOutcome.Failed;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The client's own timeout, which arrives as a cancelled operation that the caller did not ask for. A push
+            // service that never answers is an undelivered notification, not a failed request.
+            _logger.LogWarning("Push service did not answer within the timeout");
+            return PushDeliveryOutcome.Failed;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Anything else this send can end in, an opened circuit of the resilience handler included. The subscription is
+            // kept: nothing here says the push service has forgotten it.
+            _logger.LogWarning(exception, "Push notification could not be sent");
             return PushDeliveryOutcome.Failed;
         }
     }
