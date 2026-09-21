@@ -1,0 +1,23 @@
+@* A text input that commits its value as the user types. InputText, and every component deriving from InputBase, commits
+   on the browser's change event, which a field raises only when it loses focus; an edit typed with the focus still in the
+   field has therefore not reached .NET when the document unloads, and the unsaved-changes guard, which knows nothing but
+   its HasUnsavedChanges parameter, has nothing to guard. This is the same input bound on the input event instead, so a
+   reload, a typed address or Back asks before it discards the edit. Everything else is InputText: the same Value
+   binding, the same EditContext notification on each commit, the same validation class and the same name attribute.
+   Writing @bind-Value:event="oninput" on InputText itself compiles but throws while rendering (Arg_ObjObjEx,
+   ChangeEventArgs to String), because the handler it puts on the element is typed for the component's own callback. *@
+@inherits InputText
+
+<input @attributes="AdditionalAttributes" name="@OmitWhenEmpty(NameAttributeValue)" class="@OmitWhenEmpty(CssClass)"
+       @bind="CurrentValueAsString" @bind:event="oninput" @ref="Element"/>
+
+@code {
+
+    // InputText leaves each of the two attributes out when its value is empty, while a razor attribute is left out only
+    // for null
+    private static string? OmitWhenEmpty(string? value)
+    {
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+}

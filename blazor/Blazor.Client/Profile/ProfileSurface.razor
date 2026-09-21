@@ -40,24 +40,24 @@
             <p>
                 <label>
                     @AccountStrings.FirstName
-                    <InputText @bind-Value="_form.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" data-testid="first-name"
-                               @attributes='_fieldAria.For(() => _form.FirstName, "first-name")'/>
+                    <ImmediateInputText @bind-Value="_form.FirstName" autocomplete="given-name" placeholder="@AccountStrings.FirstNamePlaceholder" data-testid="first-name"
+                                        @attributes='_fieldAria.For(() => _form.FirstName, "first-name")'/>
                 </label>
                 <FieldValidation FieldName="first-name" For="() => _form.FirstName"/>
             </p>
             <p>
                 <label>
                     @AccountStrings.LastName
-                    <InputText @bind-Value="_form.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"
-                               @attributes='_fieldAria.For(() => _form.LastName, "last-name")'/>
+                    <ImmediateInputText @bind-Value="_form.LastName" autocomplete="family-name" placeholder="@AccountStrings.LastNamePlaceholder" data-testid="last-name"
+                                        @attributes='_fieldAria.For(() => _form.LastName, "last-name")'/>
                 </label>
                 <FieldValidation FieldName="last-name" For="() => _form.LastName"/>
             </p>
             <p>
                 <label>
                     @AccountStrings.Title
-                    <InputText @bind-Value="_form.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"
-                               @attributes='_fieldAria.For(() => _form.Title, "title")'/>
+                    <ImmediateInputText @bind-Value="_form.Title" autocomplete="organization-title" placeholder="@AccountStrings.TitlePlaceholder" data-testid="title"
+                                        @attributes='_fieldAria.For(() => _form.Title, "title")'/>
                 </label>
                 <FieldValidation FieldName="title" For="() => _form.Title"/>
             </p>

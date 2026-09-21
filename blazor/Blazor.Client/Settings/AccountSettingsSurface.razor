@@ -46,8 +46,8 @@
             <p>
                 <label>
                     @CommonStrings.AccountName
-                    <InputText @bind-Value="_form.Name" autocomplete="organization" placeholder="@AuthenticationStrings.AccountNamePlaceholder"
-                               readonly="@(!_canEdit)" disabled="@_isSaving" data-testid="account-name" @attributes='_fieldAria.For(() => _form.Name, "account-name")'/>
+                    <ImmediateInputText @bind-Value="_form.Name" autocomplete="organization" placeholder="@AuthenticationStrings.AccountNamePlaceholder"
+                                        readonly="@(!_canEdit)" disabled="@_isSaving" data-testid="account-name" @attributes='_fieldAria.For(() => _form.Name, "account-name")'/>
                 </label>
                 <FieldValidation FieldName="account-name" For="() => _form.Name"/>
                 @if (AccountSettingsPermissions.ReadOnlyDescription(Session.Current?.User) is { } readOnlyDescription)

@@ -12,6 +12,9 @@
 // 5. Partial save: when the upload commits and the profile PUT fails, the form shows the API message and the partial-save
 //    message without the success toast, the server holds the new avatar, and Save again sends only the PUT.
 // 6. Removal: "Remove profile picture" shows the initials, Save removes the stored avatar and the header shows initials.
+// 7. Reload guard: an edit typed on the first name, the last name or the title raises the browser's beforeunload prompt
+//    whether the field was left or still has the focus, and dismissing the prompt keeps the typed text.
+// 8. Typing cost: the edited fields commit as they are typed, so the keystroke's own task is measured and recorded.
 // Every case asserts zero content security policy violations and no page errors, and the cases without an expected error
 // response also no console errors.
 //
@@ -27,7 +30,7 @@ const usersUrl = `${baseUrl}${pathBase}/account/users`;
 const currentUserPath = "/api/account/users/me";
 const interactiveTimeoutMs = 60_000;
 const settleMs = 500;
-const expectedCaseCount = 6;
+const expectedCaseCount = 8;
 
 const texts = {
   "en-US": {
@@ -279,6 +282,88 @@ await check("remove the avatar, save, initials in the header", () =>
     assert((await currentUser(page)).avatarUrl === null, "The server still holds an avatar.");
     await page.waitForFunction(() => !document.querySelector(".user-menu img.user-avatar-image"), undefined, { timeout: 15_000 });
     return "removed on the server, initials in picker and header";
+  })
+);
+
+// One cell of the reload table: a fresh page, an edit appended to the field, either left or still holding the focus,
+// then a document reload. The cell records whether the browser asked before it discarded the edit and whether the edit
+// survived a dismissed prompt. A page of its own per cell, so the field is clean when the cell starts.
+async function reloadAfterEdit(fieldTestId, { keepFocus }) {
+  return withProfile(async (page) => {
+    const field = page.locator(testId(fieldTestId));
+    const original = await field.inputValue();
+    const dialogs = [];
+    page.on("dialog", async (dialog) => {
+      dialogs.push(dialog.type());
+      await dialog.dismiss();
+    });
+    await field.click();
+    await field.press("End");
+    await field.pressSequentially("Zed");
+    if (!keepFocus) await field.press("Tab");
+    // The dirty state reaches the browser's listeners on the render that follows the commit
+    await page.waitForTimeout(settleMs);
+    await page.evaluate(() => setTimeout(() => location.reload(), 0));
+    await page.waitForTimeout(2_000);
+    return { asked: dialogs.length === 1 && dialogs[0] === "beforeunload", kept: (await field.inputValue()) === `${original}Zed`, dialogs };
+  });
+}
+
+// The cost of one keystroke on a field that commits as it is typed: the milliseconds the input event's own task takes,
+// timed from before the framework's delegated listener to the next macrotask, which covers the render the keystroke
+// causes. The first keystroke is the warm-up. The number is recorded with its conditions rather than turned into a
+// budget: a timing budget is set on the trimmed Release publish (the measurements rule), and the harness runs this
+// against whichever host it was pointed at. The ceiling asserted is the perceptual one, a keystroke a user would see
+// lag behind, not a baseline figure.
+const keystrokeCeilingMs = 100;
+
+async function measureKeystrokeCost(page, fieldTestId, text) {
+  const field = page.locator(testId(fieldTestId));
+  await field.click();
+  await field.press("End");
+  await page.evaluate((id) => {
+    window.__keystrokeCosts = [];
+    document.querySelector(`[data-testid="${id}"]`).addEventListener("input", () => {
+      const started = performance.now();
+      setTimeout(() => window.__keystrokeCosts.push(performance.now() - started), 0);
+    });
+  }, fieldTestId);
+  await field.pressSequentially(text, { delay: 60 });
+  await page.waitForTimeout(settleMs);
+  return page.evaluate((expected) => {
+    const observed = window.__keystrokeCosts.length;
+    const samples = window.__keystrokeCosts.slice(1).sort((first, second) => first - second);
+    const round = (value) => Math.round(value * 10) / 10;
+    return {
+      observed,
+      expected,
+      samples: samples.length,
+      median: round(samples[Math.floor(samples.length / 2)]),
+      min: round(samples[0]),
+      max: round(samples[samples.length - 1])
+    };
+  }, text.length);
+}
+
+await check("an edit typed on a profile field is guarded on a reload whether or not the field was left", async () => {
+  const cells = [];
+  for (const field of ["first-name", "last-name", "title"]) {
+    for (const keepFocus of [false, true]) {
+      cells.push({ field, state: keepFocus ? "typed with the focus kept" : "typed and committed", ...(await reloadAfterEdit(field, { keepFocus })) });
+    }
+  }
+
+  const table = cells.map((cell) => `${cell.field} ${cell.state}: ${cell.asked ? "asks" : "silent"}, the edit was ${cell.kept ? "kept" : "lost"}`).join("; ");
+  assert(cells.every((cell) => cell.asked && cell.kept), `A reload discarded an edit without asking: ${table}`);
+  return table;
+});
+
+await check("typing on the first name costs one keystroke's render and stays under the perceptual ceiling", () =>
+  withProfile(async (page) => {
+    const cost = await measureKeystrokeCost(page, "first-name", "Typing cost sample");
+    assert(cost.observed === cost.expected, `${cost.observed} of ${cost.expected} keystrokes reached the field as input events.`);
+    assert(cost.median < keystrokeCeilingMs, `The median keystroke took ${cost.median} ms, over the ${keystrokeCeilingMs} ms ceiling.`);
+    return `median ${cost.median} ms, min ${cost.min} ms, max ${cost.max} ms over ${cost.samples} keystrokes after one warm-up`;
   })
 );
 
