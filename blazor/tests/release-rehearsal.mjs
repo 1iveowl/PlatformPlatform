@@ -4,7 +4,9 @@
 //
 //   1. the current publish is served; a supported client reads and writes, and its document's assets all come from it
 //   2. the previous publish is served in its place, the rollback: the open tab's own fingerprinted assets are gone, its next
-//      write is refused with the reload prompt, and its unsaved edit is neither sent nor silently discarded
+//      write is refused with the reload prompt, and its unsaved edit is neither sent nor silently discarded. The tab that
+//      crosses the deployment through the guard's dialog keeps nothing the Leave discarded, and an edit typed on the
+//      document it is given afterwards is guarded again, on the reload prompt's own action too
 //   3. a second tab that never navigated after the switch writes straight away: the gate re-reads both signals before it
 //      forwards a mutation, so that write is refused too and its edit stays on the form
 //   4. a tab opened on the previous publish is outside the version window: it still reads, and its write is refused too
@@ -193,6 +195,17 @@ function isGuardArmed(page) {
   });
 }
 
+// What the account name field carries at a measurement: the value on screen, the event handler attribute that makes a
+// browser event find its .NET handler, and the class the EditContext writes on a field it has been told about
+async function accountNameFieldState(page) {
+  const field = page.locator(testId("account-name"));
+  return {
+    value: await field.inputValue(),
+    fieldClass: await field.getAttribute("class"),
+    handlerAttributes: await field.evaluate((element) => element.getAttributeNames().filter((name) => name.startsWith("_bl")))
+  };
+}
+
 async function saveAccountName(page, name) {
   await page.locator(testId("account-name")).fill(name);
   await page.waitForTimeout(guardArmingMs);
@@ -291,10 +304,34 @@ async function run() {
     await currentTab.page.waitForTimeout(settleMs);
 
     // What the tab that crossed the deployment by an enhanced navigation knows of this edit, measured rather than assumed:
-    // its document comes from the publish that is served now while its runtime is the one it was loaded with
+    // its document comes from the publish that is served now while its runtime is the one it was loaded with.
+    // First, what the Leave left on the form, before anything is typed on the merged document: this component survived
+    // both navigations, so a Leave that discarded nothing would leave the user holding an edit they were told was gone
+    const editAfterTheLeave = await accountNameFieldState(currentTab.page);
+    record(
+      "the Leave discards the edit it asked about",
+      editAfterTheLeave.value === "Rehearsal current",
+      `the form holds "${editAfterTheLeave.value}" after the Leave and the two navigations`
+    );
+
+    // Whether the merged document's form still renders what it is told: a name longer than the thirty characters the
+    // account allows must make the field invalid, and the name it takes next must make it valid again
+    await currentTab.page.locator(testId("account-name")).fill("A rehearsal name far longer than the thirty characters an account name allows");
+    await currentTab.page.waitForTimeout(guardArmingMs);
+    const overlongName = {
+      ...(await accountNameFieldState(currentTab.page)),
+      ariaInvalid: await currentTab.page.locator(testId("account-name")).getAttribute("aria-invalid"),
+      validationMessage: (await currentTab.page.locator(testId("account-settings-form")).locator(".field-validation").first().textContent())?.trim() ?? ""
+    };
+
     await currentTab.page.locator(testId("account-name")).fill("Rehearsal after rollback");
     await currentTab.page.waitForTimeout(guardArmingMs);
-    measurements.staleTabAfterEnhancedNavigation = { guardArmedByTheEdit: await isGuardArmed(currentTab.page) };
+    measurements.staleTabAfterEnhancedNavigation = { guardArmedByTheEdit: await isGuardArmed(currentTab.page), editAfterTheLeave, overlongName, ...(await accountNameFieldState(currentTab.page)) };
+    record(
+      "an edit typed after the deployment arms the guard on the tab that navigated",
+      measurements.staleTabAfterEnhancedNavigation.guardArmedByTheEdit,
+      `the field carries ${measurements.staleTabAfterEnhancedNavigation.fieldClass} and the document unload ${measurements.staleTabAfterEnhancedNavigation.guardArmedByTheEdit ? "is" : "is not"} guarded`
+    );
     await currentTab.page.locator(testId("save-account-settings")).click();
     await currentTab.page.locator(testId("form-error-reload")).waitFor({ timeout: interactiveTimeoutMs });
     const staleMessages = await currentTab.page.locator(testId("form-error-message")).allTextContents();
@@ -332,7 +369,8 @@ async function run() {
     // that path too, so the user is asked before it is discarded.
     measurements.tabThatNeverNavigated = {
       guardArmedByTheEdit: await isGuardArmed(stayingTab.page),
-      editBeforeTheReloadPrompt: await stayingTab.page.locator(testId("account-name")).inputValue()
+      editBeforeTheReloadPrompt: await stayingTab.page.locator(testId("account-name")).inputValue(),
+      ...(await accountNameFieldState(stayingTab.page))
     };
     await stayingTab.page.locator(testId("form-error-reload")).click();
     const reloadDialog = stayingTab.page.locator(`dialog${testId("unsaved-changes-dialog")}[open]`);
@@ -345,16 +383,27 @@ async function run() {
     await reloadDialog.locator(testId("unsaved-changes-leave")).click();
     await stayingTab.page.locator(testId("account-settings-form")).waitFor({ timeout: interactiveTimeoutMs });
 
-    // The tab that crossed the switch by an enhanced navigation reloads too, and what its mixed document did to the edit it
-    // was given is recorded above rather than asserted here
+    // The tab that crossed the switch by an enhanced navigation reloads too, and the edit its merged document holds is
+    // guarded on that path like any other
     const recoveredTab = currentTab;
     measurements.staleTabAfterEnhancedNavigation.editBeforeTheReloadPrompt = await recoveredTab.page.locator(testId("account-name")).inputValue();
     measurements.staleTabAfterEnhancedNavigation.guardArmedBeforeTheReloadPrompt = await isGuardArmed(recoveredTab.page);
+    measurements.staleTabAfterEnhancedNavigation.beforeTheReloadPrompt = await accountNameFieldState(recoveredTab.page);
     await recoveredTab.page.locator(testId("form-error-reload")).click();
-    await recoveredTab.page.waitForTimeout(settleMs);
-    if (await recoveredTab.page.locator(`dialog${testId("unsaved-changes-dialog")}[open]`).count() > 0) {
-      await recoveredTab.page.locator(testId("unsaved-changes-leave")).click();
+    const staleReloadDialog = recoveredTab.page.locator(`dialog${testId("unsaved-changes-dialog")}[open]`);
+    let staleReloadAsked = true;
+    try {
+      await staleReloadDialog.waitFor({ timeout: interactiveTimeoutMs });
+    } catch {
+      staleReloadAsked = false;
     }
+
+    record(
+      "the reload prompt asks the tab that navigated before it discards its edit",
+      staleReloadAsked,
+      `the tab held "${measurements.staleTabAfterEnhancedNavigation.editBeforeTheReloadPrompt}" and the unsaved changes dialog ${staleReloadAsked ? "opened" : "did not open"} on the prompt's own action`
+    );
+    if (staleReloadAsked) await staleReloadDialog.locator(testId("unsaved-changes-leave")).click();
 
     await recoveredTab.page.locator(testId("account-settings-form")).waitFor({ timeout: interactiveTimeoutMs });
     await recoveredTab.page.waitForTimeout(settleMs);
@@ -411,7 +460,7 @@ try {
 }
 
 // Every case runs in every browser: the policy needs no browser feature beyond a request that bypasses the cache
-const expectedCaseCount = 17;
+const expectedCaseCount = 20;
 const { resultFile, passed } = writeResult(`release-rehearsal-${options.browser}${options.label === "" ? "" : `-${options.label}`}.json`, {
   script: "release-rehearsal",
   browser: options.browser,

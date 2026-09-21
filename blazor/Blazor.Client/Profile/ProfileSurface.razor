@@ -65,7 +65,7 @@
             <button type="submit" disabled="@_isSaving" data-testid="save-profile">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
         </EditForm>
 
-        <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges"/>
+        <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges" OnLeave="DiscardEditsAsync"/>
 
         <IdentityVerificationSection/>
     }
@@ -228,6 +228,17 @@
         if (outcome.ConfirmedUser is { } confirmedUser) _user = confirmedUser;
         if (outcome.ProfileSaved) _saved = intended;
         if (outcome.AvatarSaved && _avatar.HasChanges) await ResetAvatarAsync();
+    }
+
+    // Leave discards the edits: the fields go back to what the server confirmed, so this page holds nothing the user
+    // was told was gone, whether the navigation loads a new document or keeps this one
+    private async Task DiscardEditsAsync()
+    {
+        _form.FirstName = _saved.FirstName;
+        _form.LastName = _saved.LastName;
+        _form.Title = _saved.Title;
+        _editContext.MarkAsUnmodified();
+        await ResetAvatarAsync();
     }
 
     private async Task ResetAvatarAsync()

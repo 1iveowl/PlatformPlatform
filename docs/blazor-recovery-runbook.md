@@ -137,25 +137,29 @@ routes of the release that was rolled back.
 an old revision can keep serving its own assets alongside the new one, which this local rehearsal cannot
 reproduce; see below.
 
-## A stale tab that navigated once holds an edit its runtime never received
+## A tab that crosses a deployment keeps its guard
 
-Measured at `7ce4df7fe` on the trimmed publishes, 2026-09-20. After a deployment, a tab that navigates inside the
-application gets a document from the publish that is served now while its runtime is still the one it was loaded
-with. An edit typed into an interactive form of that merged document never reaches .NET: the unsaved-changes
-guard was not armed by it (`measurements.staleTabAfterEnhancedNavigation.guardArmedByTheEdit` is `false`), so the
-guard has nothing to guard and the reload prompt's action discards what is on screen without asking. In the same
-run, the tab that never navigated was armed by its edit
-(`measurements.tabThatNeverNavigated.guardArmedByTheEdit` is `true`) and was asked before the same action.
+Corrected 2026-09-21. The earlier version of this section, written at `7ce4df7fe`, said that an edit typed on a
+stale tab that had navigated never reached .NET. That is wrong, and so was the cause it gave.
 
-What this is not: a defect of the guard. The task that measured the guard on this surface recorded the same
-enhanced-navigation path on a tab that had not crossed a deployment as asking, on the Development host and on a
-trimmed publish alike, so what differs here is the document merged from the other publish. The cause is not
-established beyond that.
+What was measured at `c820bd945` on the trimmed publishes, by `blazor-harness stale-tab-edit --browser chromium`
+over six documents: every event of a form reaches .NET on a document merged from the other publish, exactly as on
+a freshly loaded one. The input event, the change event, a data annotation refusing an empty name and a plain
+click handler all arrive, and an edit arms the unsaved-changes guard.
 
-Consequence for recovery: a user who keeps typing in a tab after a deployment can lose what they typed when they
-take the reload prompt. The write itself is still refused before it is sent, and the version policy still makes
-the runtime read-only, so nothing reaches the server from a stale client. Nothing is fixed here; the rehearsal
-measures it in its result file and the case is listed below as unverified.
+What was actually broken, and is fixed in the same commit: the guard releases itself when the user chooses Leave,
+so that the render following the click cannot arm the listeners again before the document unloads. Enhanced
+navigation keeps the page's component alive across the navigation it lets through, so the release outlived it,
+and the edits the Leave was supposed to discard were still on the form. The page therefore never reported itself
+clean, the release was never lifted, and every later edit on that tab was unguarded: the reload prompt discarded
+what was on screen without asking. The guard now ends the release when the navigation it covered has happened,
+and raises a callback on Leave that the settings and profile surfaces use to drop their edits.
+
+**Signal**: a tab that took Leave on the "Unsaved changes" dialog and came back to the same page still shows the
+edit it was told was discarded.
+**Action**: none for an operator. `blazor-harness release-rehearsal --browser chromium` asserts all of it, in the
+cases "the Leave discards the edit it asked about", "an edit typed after the deployment arms the guard on the tab
+that navigated" and "the reload prompt asks the tab that navigated before it discards its edit".
 
 ## What this rehearsal has not verified
 
@@ -196,10 +200,7 @@ deployment behaviours remain unverified:
   one publish is served, which is where mixing cannot happen. Enhanced navigation in a stale tab merges the new
   publish's document into the old runtime by design, and what protects that state is the probe firing on that
   very navigation, which makes the runtime read-only until it is reloaded. What that state does to an edit typed
-  afterwards is the section above.
-- **An edit typed in a stale tab after an in-app navigation.** Measured to be lost when the reload prompt is
-  taken, as the section above records; no case asserts a prompt there, because the runtime never learns of the
-  edit.
+  afterwards is the section above, and the rehearsal asserts it.
 
 ## How to run the rehearsal
 

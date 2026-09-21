@@ -64,7 +64,7 @@
 
         @if (_canEdit)
         {
-            <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges"/>
+            <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedChanges" OnLeave="DiscardEditsAsync"/>
 
             <FeatureFlagsSection Scope="FeatureFlagSectionScope.Tenant"/>
 
@@ -249,6 +249,15 @@
         if (outcome.ConfirmedTenant is { } confirmedTenant) _tenant = confirmedTenant;
         if (outcome.NameSaved) _saved = intended;
         if (outcome.LogoSaved && _logo.HasChanges) await ResetLogoAsync();
+    }
+
+    // Leave discards the edits: the form goes back to what the server confirmed, so this page holds nothing the user
+    // was told was gone, whether the navigation loads a new document or keeps this one
+    private async Task DiscardEditsAsync()
+    {
+        _form.Name = _saved.Name;
+        _editContext.MarkAsUnmodified();
+        await ResetLogoAsync();
     }
 
     private async Task ResetLogoAsync()

@@ -6,8 +6,8 @@
    - document unload, through a beforeunload listener, whose prompt wording belongs to the browser
    - closing a dialog, through ConfirmCloseAsync
    A blocked navigation or close opens the in-app "Unsaved changes" dialog: Stay keeps the page and the edits, Leave
-   discards them and completes the original request once. An authentication loss releases the guard before its full
-   document navigation starts. *@
+   raises OnLeave so the page discards them and completes the original request once. An authentication loss releases the
+   guard before its full document navigation starts. *@
 @using Blazor.Client.Bootstrap
 @implements IAsyncDisposable
 @inject NavigationManager Navigation
@@ -32,6 +32,10 @@
 
     private bool _isDisposed;
 
+    // Set while Leave runs: the page drops its edits there, and a browser half told the page is clean forgets which
+    // navigation it blocked, which is the one Leave is about to let through
+    private bool _isLeaving;
+
     // Set by Leave for a navigation: the render that follows the click must not arm the listeners again before the
     // document unloads. Cleared once the owner reports no unsaved changes.
     private bool _isReleased;
@@ -43,6 +47,12 @@
 
     [Parameter]
     public bool HasUnsavedChanges { get; set; }
+
+    // Raised when the user chooses Leave, for the page to drop what it was guarding. The navigation continues either
+    // way, but an enhanced navigation keeps this component alive, so a page the user returns to would otherwise still
+    // hold the edits they were told were discarded
+    [Parameter]
+    public EventCallback OnLeave { get; set; }
 
     private string TitleId => $"{_idPrefix}-title";
 
@@ -71,6 +81,7 @@
     {
         _isDisposed = true;
         AuthenticationNavigator.Leaving -= OnAuthenticationLeaving;
+        Navigation.LocationChanged -= OnLocationChanged;
         _locationChangingRegistration?.Dispose();
         try
         {
@@ -93,6 +104,21 @@
     protected override void OnInitialized()
     {
         AuthenticationNavigator.Leaving += OnAuthenticationLeaving;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    // The release covers the moment between Leave and the navigation it lets through, where the render that follows the
+    // click must not arm the listeners again. That navigation has now happened, and enhanced navigation keeps this
+    // component alive across it, so the release ends here and the browser half is told what the page holds now. Without
+    // this the guard would stay released for the rest of the document's life, because a page whose edits are still
+    // unsaved never reports itself clean.
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs eventArgs)
+    {
+        if (_isDisposed || !_isReleased) return;
+
+        _isReleased = false;
+        _sentDirtyState = false;
+        _ = InvokeAsync(SendDirtyStateAsync);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -112,6 +138,8 @@
 
     private async Task SendDirtyStateAsync()
     {
+        if (_isLeaving) return;
+
         if (!HasUnsavedChanges) _isReleased = false;
         if (_guard is null || _isDisposed || _isReleased || _sentDirtyState == HasUnsavedChanges) return;
 
@@ -151,25 +179,46 @@
         _pendingClose = null;
         _pendingLocation = null;
 
-        if (pendingClose is not null)
+        _isLeaving = true;
+        try
         {
-            await pendingClose();
-            return;
-        }
+            if (pendingClose is not null)
+            {
+                await DiscardAsync();
+                await pendingClose();
+                return;
+            }
 
-        if (pendingLocation is not null)
-        {
-            // The handler context does not say whether the request was a full load; a full document navigation completes
-            // either kind correctly, and the released guard lets it through without another prompt
+            if (pendingLocation is not null)
+            {
+                // The handler context does not say whether the request was a full load; a full document navigation
+                // completes either kind correctly, and the released guard lets it through without another prompt
+                _isReleased = true;
+                await DiscardAsync();
+                if (_guard is not null) await _guard.InvokeVoidAsync("setDirty", false);
+                _sentDirtyState = false;
+                Navigation.NavigateTo(pendingLocation, true);
+                return;
+            }
+
             _isReleased = true;
-            if (_guard is not null) await _guard.InvokeVoidAsync("setDirty", false);
-            _sentDirtyState = false;
-            Navigation.NavigateTo(pendingLocation, true);
-            return;
-        }
+            await DiscardAsync();
+            if (_guard is not null) await _guard.InvokeVoidAsync("proceed");
 
-        _isReleased = true;
-        if (_guard is not null) await _guard.InvokeVoidAsync("proceed");
+            // proceed leaves the browser half clean, as the branch above does through setDirty, so what .NET believes
+            // it sent has to match
+            _sentDirtyState = false;
+        }
+        finally
+        {
+            _isLeaving = false;
+        }
+    }
+
+    // Leave means the edits are gone, so the page drops them
+    private async Task DiscardAsync()
+    {
+        if (OnLeave.HasDelegate) await OnLeave.InvokeAsync();
     }
 
     // Synchronous in the browser, so the listeners are released before the navigator's full document navigation begins
