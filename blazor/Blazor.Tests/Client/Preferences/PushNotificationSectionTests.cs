@@ -121,16 +121,18 @@ public sealed class PushNotificationSectionTests
     }
 
     [Fact]
-    public void Load_WhenThePermissionIsDeniedWhileStillSubscribed_ShouldAllowTurningItOff()
+    public void Load_WhenThePermissionIsDeniedWhileTheBrowserStillHoldsTheSubscription_ShouldReadOffAndSayItIsBlocked()
     {
         // Arrange
         var section = new PushNotificationSection();
 
-        // Act
+        // Act: what Safari reports after the user denies the permission in its settings for a device that was subscribed
         section.Load(true, PushPermission.Denied, true);
 
         // Assert
-        section.IsSwitchDisabled.Should().BeFalse();
+        section.IsSubscribed.Should().BeFalse();
+        section.IsSwitchDisabled.Should().BeTrue();
+        section.IsTestDisabled.Should().BeTrue();
         section.Notice.Should().Be(AccountStrings.NotificationsBlocked);
     }
 

@@ -5,8 +5,9 @@
    The switch state comes from what the browser and the account API report after a change, never from the click, so a
    refused permission or a refused save leaves the state they report. A permission the user denied shows the sentence that
    says where to change it, because only the browser can undo that. A subscription the user revoked in the browser settings
-   is removed from the account on the next visit: the browser no longer has it, and the identifier this device stored is
-   what says which row it was. The switch itself is read from the account and not from the browser: a subscription this
+   is removed from the account on the next visit: the browser no longer has it, or still holds it while the permission is
+   denied, as Safari does, and is then unsubscribed; the identifier this device stored is what says which row it was. The
+   switch itself is read from the account and not from the browser: a subscription this
    browser holds for an account that left the device is not this account's, so the switch reads off for whoever signs in
    next and that subscription is unsubscribed rather than shown as theirs. During prerender the section renders nothing,
    because only the browser knows any of this. *@
@@ -99,19 +100,14 @@
         _section.Reset();
     }
 
-    // The browser no longer has the subscription this device saved, which is what revoking notifications in the browser
-    // settings leaves behind, so the row it named is removed from the account before the section is read
-    private async Task ReconcileRevokedSubscriptionAsync()
+    // Revoking notifications in the browser settings leaves the account's row behind, so it is removed before the section
+    // is read and the switch, the notice and the account agree
+    private Task ReconcileRevokedSubscriptionAsync()
     {
-        var browser = Services.GetRequiredService<PushNotificationBrowser>();
-        if (await browser.ReadSubscriptionAsync() is not null) return;
-
-        if (!PushSubscriptionId.TryParse(await browser.ReadSavedSubscriptionIdAsync(), out var savedSubscriptionId)) return;
-
-        var result = await Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<PushSubscriptionsClient>().DeleteSubscriptionAsync(savedSubscriptionId, cancellationToken));
-        if (result is null) return;
-
-        await browser.SaveSubscriptionIdAsync(null);
+        return PushSubscriptionRevocation.ReconcileAsync(
+            Services.GetRequiredService<PushNotificationBrowser>(),
+            savedSubscriptionId => Session.UnlessLeavingAsync(cancellationToken => Services.GetRequiredService<PushSubscriptionsClient>().DeleteSubscriptionAsync(savedSubscriptionId, cancellationToken))
+        );
     }
 
     private async Task ReadBrowserStateAsync()

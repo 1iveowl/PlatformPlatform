@@ -2,7 +2,11 @@
 // stays hidden until this deployment is known to offer notifications and the browser has been asked what it supports and
 // what the user has allowed. One change runs at a time: while it does, the switch and the test button are disabled, and
 // both are set from what the browser and the account API report afterwards, never from the click, so a refused or a lost
-// change leaves the state they report.
+// change leaves the state they report. A denied permission ends this device's subscription: the switch reads off, and
+// PushSubscriptionRevocation removes what the browser and the account still hold for it.
+
+using Account.Client;
+using Account.Features.PushNotifications.Domain;
 
 namespace Blazor.Client.Preferences;
 
@@ -73,8 +77,9 @@ public sealed class PushNotificationSection
 
     public bool IsBlocked => Permission == PushPermission.Denied;
 
-    // Turning notifications on needs a permission the browser has not refused; turning them off is always allowed
-    public bool IsSwitchDisabled => !IsLoaded || !IsSupported || IsBusy || (IsBlocked && !IsSubscribed);
+    // Turning notifications on needs a permission the browser has not refused, and a refused permission has already ended
+    // this device's subscription, so there is nothing to turn off either
+    public bool IsSwitchDisabled => !IsLoaded || !IsSupported || IsBusy || IsBlocked;
 
     public bool IsTestDisabled => !IsLoaded || !IsSubscribed || IsBusy;
 
@@ -125,11 +130,13 @@ public sealed class PushNotificationSection
         };
     }
 
+    // A subscription the browser still holds while the permission is denied is one nothing sent to it is shown for, so the
+    // switch reads off and agrees with the notice that says notifications are blocked
     public void Load(bool isSupported, PushPermission permission, bool isSubscribed)
     {
         IsSupported = isSupported;
         Permission = permission;
-        IsSubscribed = isSupported && isSubscribed;
+        IsSubscribed = isSupported && isSubscribed && permission != PushPermission.Denied;
         IsLoaded = true;
     }
 
@@ -155,5 +162,31 @@ public sealed class PushNotificationSection
         Permission = PushPermission.Default;
         IsSubscribed = false;
         IsBusy = false;
+    }
+}
+
+// A subscription the user revoked in the browser settings is removed from the account on the next visit, in either form a
+// browser leaves it in: the browser no longer holds the subscription, or it still holds one while the permission is denied,
+// which Safari does, so nothing sent to it is ever shown. The browser lets go of the one it holds, and the identifier this
+// device stored names the row the account deletes. A granted or unanswered permission with a subscription is left alone.
+public static class PushSubscriptionRevocation
+{
+    // deleteSubscription returns null when the authenticated surface is being left (SessionState.UnlessLeavingAsync); the
+    // stored identifier is then kept, so the next visit, finding no subscription in the browser, deletes the row
+    public static async Task ReconcileAsync(PushNotificationBrowser browser, Func<PushSubscriptionId, Task<ApiCallResult?>> deleteSubscription)
+    {
+        if (await browser.ReadSubscriptionAsync() is not null)
+        {
+            if (await browser.ReadPermissionAsync() != PushPermission.Denied) return;
+
+            await browser.UnsubscribeAsync();
+        }
+
+        if (!PushSubscriptionId.TryParse(await browser.ReadSavedSubscriptionIdAsync(), out var savedSubscriptionId)) return;
+
+        var result = await deleteSubscription(savedSubscriptionId);
+        if (result is null) return;
+
+        await browser.SaveSubscriptionIdAsync(null);
     }
 }

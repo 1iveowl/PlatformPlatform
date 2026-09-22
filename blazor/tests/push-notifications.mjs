@@ -9,9 +9,11 @@
 // 5. A payload this application did not send shows nothing, which leaves the browser's own generic message.
 // 6. Unsubscribing: the switch removes the row through the account API and forgets it on this device.
 // 7. A subscription revoked in the browser is removed from the account on the next visit.
-// 8. A denied permission disables the switch and says where to change it.
-// 9. Logging out leaves nothing of the subscription on the device: the identifier this device stored is gone, and the next
-//    account to sign in on the same browser reads the switch as off instead of the previous account's subscription.
+// 8. A permission denied in the browser settings while the browser keeps its subscription, which Safari does, reads the
+//    switch off with the blocked notice on the next visit, unsubscribes the browser and removes the account's row.
+// 9. A denied permission disables the switch and says where to change it.
+// 10. Logging out leaves nothing of the subscription on the device: the identifier this device stored is gone, and the next
+//     account to sign in on the same browser reads the switch as off instead of the previous account's subscription.
 //
 // Two things this harness cannot do, and neither is worked around:
 // - Chromium in the automation library has no push service it can reach: pushManager.subscribe answers "Registration
@@ -54,11 +56,12 @@ const preferencesUrl = `${baseUrl}${pathBase}/user/preferences`;
 const subscriptionsPath = "/api/account/users/me/push-subscriptions";
 const interactiveTimeoutMs = 60_000;
 const workerTimeoutMs = 30_000;
-const expectedCaseCount = 9;
+const expectedCaseCount = 10;
 
 // The three PushManager methods a browser without a reachable push service cannot answer. The endpoint is an address no
 // push service resolves, which is what makes the account API report a test notification as undelivered rather than
-// delivered to someone.
+// delivered to someone. The subscription is kept whatever happens to the permission afterwards, which is what Safari does
+// when the permission is denied in its settings.
 const pushManagerStub = () => {
   const storageKey = "__harness-push-subscription";
   const encode = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -306,6 +309,70 @@ try {
     assert(removed !== undefined, `The revoked subscription was not removed; the calls were ${JSON.stringify(callsSince(before))}.`);
     assert((await page.evaluate(() => localStorage.getItem("blazor-push-subscription"))) === null, "This device still remembers the revoked row.");
     return { status: removed.status };
+  });
+
+  await check("a permission denied while the browser keeps its subscription ends it on the next visit", async () => {
+    // A context of its own, because the permission this case denies cannot be granted again to a context that goes on
+    const revokedContext = await newContext(browser, options.browser, signedUp.storageState);
+    await revokedContext.grantPermissions(["notifications"], { origin: baseUrl });
+    await revokedContext.addInitScript(pushManagerStub);
+    const browserSession = await browser.newBrowserCDPSession();
+    try {
+      const revokedPage = await revokedContext.newPage();
+      const revokedCalls = [];
+      revokedPage.on("response", (response) => {
+        const url = new URL(response.url());
+        if (url.pathname.startsWith(subscriptionsPath)) revokedCalls.push({ method: response.request().method(), path: url.pathname, status: response.status() });
+      });
+      const revokedSwitch = revokedPage.locator(testId("notifications-switch"));
+      const openRevokedPreferences = async () => {
+        await revokedPage.goto(preferencesUrl, { waitUntil: "load" });
+        await revokedPage.locator(testId("preferences-notifications")).waitFor({ timeout: interactiveTimeoutMs });
+      };
+
+      await openRevokedPreferences();
+      await revokedPage.locator(`${testId("notifications-switch")}[aria-checked="false"]`).waitFor({ timeout: interactiveTimeoutMs });
+      await revokedSwitch.click();
+      await revokedPage.locator(testId("notifications-turned-on-toast")).waitFor({ timeout: interactiveTimeoutMs });
+      await revokedPage.locator(`${testId("notifications-switch")}[aria-checked="true"]`).waitFor({ timeout: interactiveTimeoutMs });
+      const storedSubscriptionId = await revokedPage.evaluate(() => localStorage.getItem("blazor-push-subscription"));
+      assert(storedSubscriptionId !== null, "This device did not remember which row the account kept.");
+
+      // What denying notifications in the browser settings does: the permission changes and the subscription stays
+      const pageSession = await revokedContext.newCDPSession(revokedPage);
+      const { targetInfo } = await pageSession.send("Target.getTargetInfo");
+      await pageSession.detach();
+      await browserSession.send("Browser.setPermission", { permission: { name: "notifications" }, setting: "denied", origin: baseUrl, browserContextId: targetInfo.browserContextId });
+      const before = revokedCalls.length;
+
+      await openRevokedPreferences();
+      await revokedPage.locator(testId("notifications-notice")).waitFor({ timeout: interactiveTimeoutMs });
+      await revokedPage.locator(`${testId("notifications-switch")}[aria-checked="false"]`).waitFor({ timeout: interactiveTimeoutMs });
+
+      const permission = await revokedPage.evaluate(() => Notification.permission);
+      assert(permission === "denied", `The browser reports the notification permission as ${permission}.`);
+      assert(await revokedSwitch.isDisabled(), "The switch is usable although the permission is denied.");
+      assert(await revokedPage.locator(testId("notifications-send-test")).isDisabled(), "The test button is usable although the permission is denied.");
+
+      const calls = revokedCalls.slice(before);
+      const removed = calls.find((call) => call.method === "DELETE" && call.path === `${subscriptionsPath}/${storedSubscriptionId}`);
+      assert(removed !== undefined, `The row of the revoked subscription was not removed; the calls were ${JSON.stringify(calls)}.`);
+      assert(removed.status === 204 || removed.status === 200, `The account API answered ${removed.status} to the removal.`);
+      assert((await revokedPage.evaluate(() => localStorage.getItem("__harness-push-subscription"))) === null, "The browser still holds the revoked subscription.");
+      assert((await revokedPage.evaluate(() => localStorage.getItem("blazor-push-subscription"))) === null, "This device still remembers the revoked row.");
+
+      const rows = await revokedPage.evaluate(async (path) => {
+        const response = await fetch(path, { headers: { accept: "application/json" } });
+        return { status: response.status, ids: response.ok ? (await response.json()).subscriptions.map((subscription) => subscription.id) : [] };
+      }, subscriptionsPath);
+      assert(rows.status === 200, `The account API answered ${rows.status} to reading the subscriptions.`);
+      assert(!rows.ids.includes(storedSubscriptionId), `The account still has the revoked row ${storedSubscriptionId}.`);
+      assert(policyViolationsOf(revokedContext).length === 0, "The preferences page reported a content security policy violation.");
+      return { permission, status: removed.status, rowsLeft: rows.ids.length };
+    } finally {
+      await browserSession.detach();
+      await revokedContext.close();
+    }
   });
 
   await check("a denied permission disables the switch and says where to change it", async () => {
