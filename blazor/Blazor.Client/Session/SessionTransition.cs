@@ -15,11 +15,17 @@
 // loaded as a new document. Nothing is rolled back and no work of the previous tenant resumes. A switch whose outcome is
 // uncertain is reconciled the same way as a logout: a bootstrap read on another tenant proves the switch and leaves for
 // the authenticated home, a 401 is left to the handler, and anything else is presented as the failure it was.
+//
+// Before either request is sent, the account's row for this device's push subscription is deleted while the session that
+// owns it is still valid (PushNotificationDeparture.DeleteRowAsync). The transition already reads as in flight, so a second
+// click is ignored; the write gate is entered only afterwards, because it would refuse the delete. The wait is bounded,
+// its outcome is ignored, and a device with no stored subscription sends nothing, so the user leaves whatever it answers.
 
 using Account.Client;
 using Account.Features.Authentication.Queries;
 using Account.Features.Authentication.Requests;
 using Blazor.Client.Bootstrap;
+using Blazor.Client.Preferences;
 using Microsoft.JSInterop;
 using SharedKernel.Domain;
 
@@ -66,6 +72,7 @@ public sealed class SessionTransition(
     SessionTransitionGate gate,
     SessionState session,
     AuthSyncCoordinator authSync,
+    PushNotificationDeparture pushNotificationDeparture,
     IJSRuntime jsRuntime
 )
 {
@@ -84,7 +91,7 @@ public sealed class SessionTransition(
     public async Task<LogoutOutcome> LogoutAsync()
     {
         var user = session.Current?.User;
-        if (!TryBegin(AccountApiRoutes.Logout, SessionTransitionStatus.LoggingOut)) return LogoutOutcome.Ignored;
+        if (!await TryBeginAsync(AccountApiRoutes.Logout, SessionTransitionStatus.LoggingOut)) return LogoutOutcome.Ignored;
 
         try
         {
@@ -113,7 +120,7 @@ public sealed class SessionTransition(
     public async Task<TenantSwitchResult> SwitchTenantAsync(TenantId tenantId, string? tenantName = null)
     {
         var previousUser = session.Current?.User;
-        if (!TryBegin(AccountApiRoutes.SwitchTenant, SessionTransitionStatus.SwitchingTenant)) return new TenantSwitchResult(TenantSwitchOutcome.Ignored);
+        if (!await TryBeginAsync(AccountApiRoutes.SwitchTenant, SessionTransitionStatus.SwitchingTenant)) return new TenantSwitchResult(TenantSwitchOutcome.Ignored);
 
         try
         {
@@ -138,13 +145,22 @@ public sealed class SessionTransition(
         }
     }
 
-    private bool TryBegin(string transitionPath, SessionTransitionStatus status)
+    private async Task<bool> TryBeginAsync(string transitionPath, SessionTransitionStatus status)
     {
-        if (authenticationNavigator.IsLeaving || !gate.TryBegin(transitionPath)) return false;
+        if (IsBusy || gate.IsActive || gate.IsIdentityReplaced) return false;
 
+        var previousStatus = _status;
         _status = status;
         Changed?.Invoke();
-        return true;
+
+        await pushNotificationDeparture.DeleteRowAsync();
+
+        if (!authenticationNavigator.IsLeaving && gate.TryBegin(transitionPath)) return true;
+
+        // The session ended while the row was being deleted; the transition starts nothing
+        _status = previousStatus;
+        Changed?.Invoke();
+        return false;
     }
 
     private void End()

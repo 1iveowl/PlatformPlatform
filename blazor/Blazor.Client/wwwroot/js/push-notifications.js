@@ -78,7 +78,9 @@ export async function subscribe(applicationServerKey) {
   }
 }
 
-// The account that made this browser's subscription is leaving the device. The stored identifier goes first and
+// The account that made this browser's subscription is leaving the device. A logout or a tenant switch has already asked
+// the account API to delete its row, using the identifier readStoredSubscriptionId returned, while its session was valid;
+// whatever that delete answered, this browser now lets go of its side. The stored identifier goes first and
 // synchronously, because the document is on its way out and only what runs before the first await is certain to run; the
 // unsubscribe is started and not waited for. What it does not finish, the next visit finishes: a subscription the signed
 // in account does not own is unsubscribed when the notifications section is read.

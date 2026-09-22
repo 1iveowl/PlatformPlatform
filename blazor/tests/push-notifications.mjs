@@ -12,8 +12,11 @@
 // 8. A permission denied in the browser settings while the browser keeps its subscription, which Safari does, reads the
 //    switch off with the blocked notice on the next visit, unsubscribes the browser and removes the account's row.
 // 9. A denied permission disables the switch and says where to change it.
-// 10. Logging out leaves nothing of the subscription on the device: the identifier this device stored is gone, and the next
-//     account to sign in on the same browser reads the switch as off instead of the previous account's subscription.
+// 10. Logging out leaves nothing of the subscription on the device or in the account: the row is deleted before the logout
+//     request is sent, the account holds no row for this device when it signs in again, the identifier this device stored
+//     is gone, and the next account to sign in on the same browser reads the switch as off.
+// 11. A row delete the account API refuses on logout still logs out and leaves the browser unsubscribed and the identifier
+//     gone; the row it leaves behind is removed when a push service reports it gone.
 //
 // Two things this harness cannot do, and neither is worked around:
 // - Chromium in the automation library has no push service it can reach: pushManager.subscribe answers "Registration
@@ -56,7 +59,8 @@ const preferencesUrl = `${baseUrl}${pathBase}/user/preferences`;
 const subscriptionsPath = "/api/account/users/me/push-subscriptions";
 const interactiveTimeoutMs = 60_000;
 const workerTimeoutMs = 30_000;
-const expectedCaseCount = 10;
+const expectedCaseCount = 11;
+const logoutPath = "/api/account/authentication/logout";
 
 // The three PushManager methods a browser without a reachable push service cannot answer. The endpoint is an address no
 // push service resolves, which is what makes the account API report a test notification as undelivered rather than
@@ -133,6 +137,46 @@ page.on("response", (response) => {
 
 function callsSince(index) {
   return apiCalls.slice(index);
+}
+
+// Every account API request the page sends, in order and with the time it was sent, so a case can say which went first
+function recordRequests() {
+  const requests = [];
+  const record = (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith("/api/")) requests.push({ method: request.method(), path: url.pathname, sentAt: Date.now() });
+  };
+  page.on("request", record);
+  return { requests, stop: () => page.off("request", record) };
+}
+
+async function logOut() {
+  await page.locator("#user-menu-trigger").click({ timeout: interactiveTimeoutMs });
+  const clickedAt = Date.now();
+  await page.locator('[role="menu"] [role="menuitem"]').last().click();
+  await page.waitForURL(`${baseUrl}${pathBase}/login`, { timeout: interactiveTimeoutMs });
+  return clickedAt;
+}
+
+// Signs in to an account in a context of its own and reads the ids of the rows it holds
+async function readRowsOf(email) {
+  const loginContext = await newContext(browser, options.browser);
+  try {
+    const loginPage = await loginContext.newPage();
+    await loginPage.goto(`${baseUrl}${pathBase}/login`, { waitUntil: "load" });
+    await loginPage.locator(testId("email")).fill(email);
+    const sentAfter = Date.now();
+    await loginPage.locator(testId("submit")).click();
+    await loginPage.waitForURL(/\/blazor\/login\/verify\?/, { timeout: interactiveTimeoutMs });
+    await submitOneTimePasswordThroughBlazor(loginPage, await readOneTimePassword(email, sentAfter));
+    await loginPage.waitForURL(`${baseUrl}${pathBase}/app`, { timeout: interactiveTimeoutMs });
+    return await loginPage.evaluate(async (path) => {
+      const response = await fetch(path, { headers: { accept: "application/json" } });
+      return { status: response.status, ids: response.ok ? (await response.json()).subscriptions.map((subscription) => subscription.id) : [] };
+    }, subscriptionsPath);
+  } finally {
+    await loginContext.close();
+  }
 }
 
 async function openPreferences() {
@@ -408,10 +452,24 @@ try {
     await waitForSwitch("true");
     const rememberedBeforeTheLogout = await page.evaluate(() => localStorage.getItem("blazor-push-subscription"));
     assert(rememberedBeforeTheLogout !== null, "This device did not remember the row before the logout.");
+    const rowPath = `${subscriptionsPath}/${rememberedBeforeTheLogout}`;
 
-    await page.locator("#user-menu-trigger").click({ timeout: interactiveTimeoutMs });
-    await page.locator('[role="menu"] [role="menuitem"]').last().click();
-    await page.waitForURL(`${baseUrl}${pathBase}/login`, { timeout: interactiveTimeoutMs });
+    const before = apiCalls.length;
+    const recording = recordRequests();
+    const clickedAt = await logOut();
+    recording.stop();
+
+    const deleted = callsSince(before).find((call) => call.method === "DELETE" && call.path === rowPath);
+    assert(deleted !== undefined, "The logout did not delete the row this device stored.");
+    assert(deleted.status === 204 || deleted.status === 200, `The account API answered ${deleted.status} to the row delete on logout.`);
+    const deleteRequest = recording.requests.findIndex((request) => request.method === "DELETE" && request.path === rowPath);
+    const logoutRequest = recording.requests.findIndex((request) => request.method === "POST" && request.path === logoutPath);
+    assert(logoutRequest >= 0, "The logout request was not sent.");
+    assert(deleteRequest >= 0 && deleteRequest < logoutRequest, "The row delete was not sent before the logout request.");
+    // What the delete costs the logout: from the first request the departure sends to the logout request itself
+    measurements.logoutDelayedByRowDeleteMs = recording.requests[logoutRequest].sentAt - recording.requests[0].sentAt;
+    measurements.logoutRequestAfterClickMs = recording.requests[logoutRequest].sentAt - clickedAt;
+    measurements.departureRequests = recording.requests.map((request) => `${request.method} ${request.path}`);
 
     const rememberedAfterTheLogout = await page.evaluate(() => localStorage.getItem("blazor-push-subscription"));
     assert(rememberedAfterTheLogout === null, "This device still remembers the row of the account that logged out.");
@@ -436,7 +494,50 @@ try {
     // The browser's own subscription is unsubscribed on the way out, which is started before the document goes away and
     // is therefore reported rather than asserted; the switch above is off whether or not it finished
     const browserStillSubscribed = (await page.evaluate(() => localStorage.getItem("__harness-push-subscription"))) !== null;
-    return { rememberedForTheSecondAccount, browserStillSubscribed };
+
+    // The first account signs in again, as a person who comes back to this browser would, and holds no row for it
+    const rowsOfTheFirstAccount = await readRowsOf(signedUp.email);
+    assert(rowsOfTheFirstAccount.status === 200, `The account API answered ${rowsOfTheFirstAccount.status} to reading the subscriptions.`);
+    assert(!rowsOfTheFirstAccount.ids.includes(rememberedBeforeTheLogout), `The account still has the row ${rememberedBeforeTheLogout} of the device it left.`);
+    return {
+      deleteStatus: deleted.status,
+      logoutDelayedByRowDeleteMs: measurements.logoutDelayedByRowDeleteMs,
+      rowsLeftInTheFirstAccount: rowsOfTheFirstAccount.ids.length,
+      rememberedForTheSecondAccount,
+      browserStillSubscribed
+    };
+  });
+
+  await check("a row delete refused on logout still logs out and leaves the browser unsubscribed", async () => {
+    // The second account from the case above, still signed in on this page
+    await openPreferences();
+    await switchLocator().click();
+    await page.locator(testId("notifications-turned-on-toast")).waitFor({ timeout: interactiveTimeoutMs });
+    await waitForSwitch("true");
+    const remembered = await page.evaluate(() => localStorage.getItem("blazor-push-subscription"));
+    assert(remembered !== null, "This device did not remember the row before the logout.");
+    assert((await page.evaluate(() => localStorage.getItem("__harness-push-subscription"))) !== null, "The browser is not subscribed before the logout.");
+
+    const rowPath = `${subscriptionsPath}/${remembered}`;
+    const refuseRowDelete = (route) => (route.request().method() === "DELETE" ? route.fulfill({ status: 503 }) : route.continue());
+    await page.route(`**${rowPath}`, refuseRowDelete);
+    const before = apiCalls.length;
+    try {
+      await logOut();
+    } finally {
+      await page.unroute(`**${rowPath}`, refuseRowDelete);
+    }
+
+    const refused = callsSince(before).find((call) => call.method === "DELETE" && call.path === rowPath);
+    assert(refused !== undefined && refused.status === 503, "The logout did not attempt the row delete this case refuses.");
+    // The unsubscribe is started by the departure and finishes in the old document or not at all, so a short wait on the
+    // login page is enough to tell the two apart
+    const unsubscribed = await page
+      .waitForFunction(() => localStorage.getItem("__harness-push-subscription") === null, null, { timeout: 5_000 })
+      .then(() => true, () => false);
+    assert(unsubscribed, "The browser is still subscribed after a logout whose row delete was refused.");
+    assert((await page.evaluate(() => localStorage.getItem("blazor-push-subscription"))) === null, "This device still remembers the row after the logout.");
+    return { deleteStatus: refused.status, unsubscribed };
   });
 
 } finally {

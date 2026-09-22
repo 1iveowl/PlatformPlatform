@@ -7,6 +7,7 @@ using Account.Features.Users.Requests;
 using Blazor.Client.Bootstrap;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
+using Blazor.Client.Preferences;
 using Blazor.Client.Session;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components;
@@ -24,12 +25,17 @@ namespace Blazor.Tests.Client.Session;
 // A tenant switch is a mutation, so the write gate re-reads the server's version before it forwards one; the bootstrap read
 // that precedes each switch, and the one a refused competing write makes before it is stopped, are that re-check. Logout is
 // never gated.
+//
+// A device that stored a push subscription has the account's row for it deleted before the logout or the switch is sent,
+// which is a gated mutation of its own; whatever it answers, the transition goes on and Leaving forgets the browser side.
 public sealed class SessionTransitionTests
 {
     private const string BootstrapPath = "/api/account/bootstrap";
     private const string LogoutPath = "/api/account/authentication/logout";
     private const string SwitchTenantPath = "/api/account/authentication/switch-tenant";
     private const string CurrentUserPath = "/api/account/users/me";
+    private const string SavedSubscriptionId = "psub_01KC0000000000000000000001";
+    private const string PushSubscriptionRowPath = $"/api/account/users/me/push-subscriptions/{SavedSubscriptionId}";
     private const string LoggedOutDestination = "/blazor/login";
     private const string AuthenticatedHomeDestination = "/blazor/app";
 
@@ -348,6 +354,116 @@ public sealed class SessionTransitionTests
         network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"POST {SwitchTenantPath}", $"GET {BootstrapPath}");
     }
 
+    [Fact]
+    public async Task LogoutAsync_WhenThisDeviceStoredAPushSubscription_ShouldDeleteItsRowBeforeTheLogoutRequest()
+    {
+        // Arrange
+        var network = new ScriptedNetwork();
+        await using var services = await CreateSignedInServicesAsync(network);
+        await AttachPushNotificationDepartureAsync(services);
+        network.Respond(PushSubscriptionRowPath, () => new HttpResponseMessage(HttpStatusCode.NoContent));
+        network.Respond(LogoutPath, () => new HttpResponseMessage(HttpStatusCode.OK));
+
+        // Act
+        var outcome = await services.GetRequiredService<SessionTransition>().LogoutAsync();
+
+        // Assert
+        outcome.Should().Be(LogoutOutcome.LoggedOut);
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"DELETE {PushSubscriptionRowPath}", $"POST {LogoutPath}");
+        services.GetRequiredService<ScriptedJavaScript>().DeviceCalls.Should().Equal("readStoredSubscriptionId", "forgetDevice");
+        services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().Equal(LoggedOutDestination);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.NotFound)]
+    public async Task LogoutAsync_WhenThePushSubscriptionRowDeleteFails_ShouldStillLogOutAndForgetTheBrowserSide(HttpStatusCode statusCode)
+    {
+        // Arrange
+        var network = new ScriptedNetwork();
+        await using var services = await CreateSignedInServicesAsync(network);
+        await AttachPushNotificationDepartureAsync(services);
+        network.Respond(PushSubscriptionRowPath, () => new HttpResponseMessage(statusCode));
+        network.Respond(LogoutPath, () => new HttpResponseMessage(HttpStatusCode.OK));
+
+        // Act
+        var outcome = await services.GetRequiredService<SessionTransition>().LogoutAsync();
+
+        // Assert
+        outcome.Should().Be(LogoutOutcome.LoggedOut);
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"DELETE {PushSubscriptionRowPath}", $"POST {LogoutPath}");
+        services.GetRequiredService<ScriptedJavaScript>().DeviceCalls.Should().Equal("readStoredSubscriptionId", "forgetDevice");
+        services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().Equal(LoggedOutDestination);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WhenThePushSubscriptionRowDeleteDoesNotAnswer_ShouldSendTheLogoutAfterTheTimeout()
+    {
+        // Arrange
+        var network = new ScriptedNetwork();
+        await using var services = await CreateSignedInServicesAsync(network);
+        await AttachPushNotificationDepartureAsync(services);
+        network.NeverRespond(PushSubscriptionRowPath);
+        network.Respond(LogoutPath, () => new HttpResponseMessage(HttpStatusCode.OK));
+        var transition = services.GetRequiredService<SessionTransition>();
+
+        // Act
+        var logout = transition.LogoutAsync();
+        var busyWhileDeleting = transition.IsBusy;
+        var outcome = await logout;
+
+        // Assert
+        busyWhileDeleting.Should().BeTrue();
+        outcome.Should().Be(LogoutOutcome.LoggedOut);
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"DELETE {PushSubscriptionRowPath}", $"POST {LogoutPath}");
+        services.GetRequiredService<ScriptedJavaScript>().DeviceCalls.Should().Equal("readStoredSubscriptionId", "forgetDevice");
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WhenClickedAgainWhileThePushSubscriptionRowIsDeleted_ShouldIgnoreTheSecondClick()
+    {
+        // Arrange
+        var network = new ScriptedNetwork();
+        await using var services = await CreateSignedInServicesAsync(network);
+        await AttachPushNotificationDepartureAsync(services);
+        var deleteResponse = network.Hold(PushSubscriptionRowPath);
+        network.Respond(LogoutPath, () => new HttpResponseMessage(HttpStatusCode.OK));
+        var transition = services.GetRequiredService<SessionTransition>();
+        var firstLogout = transition.LogoutAsync();
+
+        // Act
+        var secondOutcome = await transition.LogoutAsync();
+        deleteResponse.SetResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        var firstOutcome = await firstLogout;
+
+        // Assert
+        secondOutcome.Should().Be(LogoutOutcome.Ignored);
+        firstOutcome.Should().Be(LogoutOutcome.LoggedOut);
+        network.RequestsAfterSignIn.Should().Equal($"GET {BootstrapPath}", $"DELETE {PushSubscriptionRowPath}", $"POST {LogoutPath}");
+    }
+
+    [Fact]
+    public async Task SwitchTenantAsync_WhenThisDeviceStoredAPushSubscription_ShouldDeleteItsRowBeforeTheSwitchRequest()
+    {
+        // Arrange
+        var network = new ScriptedNetwork();
+        await using var services = await CreateSignedInServicesAsync(network);
+        await AttachPushNotificationDepartureAsync(services);
+        network.Respond(PushSubscriptionRowPath, () => new HttpResponseMessage(HttpStatusCode.NoContent));
+        network.Respond(SwitchTenantPath, () => new HttpResponseMessage(HttpStatusCode.OK));
+
+        // Act
+        var result = await services.GetRequiredService<SessionTransition>().SwitchTenantAsync(OtherTenantId);
+
+        // Assert
+        result.Outcome.Should().Be(TenantSwitchOutcome.Switched);
+        network.RequestsAfterSignIn.Should().Equal(
+            $"GET {BootstrapPath}", $"DELETE {PushSubscriptionRowPath}", $"GET {BootstrapPath}", $"POST {SwitchTenantPath}"
+        );
+        services.GetRequiredService<ScriptedJavaScript>().DeviceCalls.Should().Equal("readStoredSubscriptionId", "forgetDevice");
+        services.GetRequiredService<RecordingNavigationManager>().Navigations.Should().Equal(AuthenticatedHomeDestination);
+    }
+
     private static async Task<ServiceProvider> CreateSignedInServicesAsync(ScriptedNetwork network)
     {
         var services = new ServiceCollection();
@@ -360,6 +476,7 @@ public sealed class SessionTransitionTests
         services.AddScoped<ToastService>();
         services.AddScoped<SessionState>();
         services.AddScoped<AuthSyncCoordinator>();
+        services.AddScoped<PushNotificationDeparture>();
         services.AddScoped<SessionTransition>();
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = false });
 
@@ -367,6 +484,13 @@ public sealed class SessionTransitionTests
         await provider.GetRequiredService<SessionState>().GetAsync();
         network.MarkSignedIn();
         return provider;
+    }
+
+    // What AppShell does on its first interactive render, on a device that stored a subscription for this account
+    private static async Task AttachPushNotificationDepartureAsync(ServiceProvider services)
+    {
+        services.GetRequiredService<ScriptedJavaScript>().StoredSubscriptionId = SavedSubscriptionId;
+        await services.GetRequiredService<PushNotificationDeparture>().AttachAsync();
     }
 
     private static HttpResponseMessage CreateBootstrapResponse(TenantId tenantId)
@@ -397,20 +521,30 @@ public sealed class SessionTransitionTests
     private sealed class ScriptedNetwork : HttpMessageHandler
     {
         private readonly List<string> _requests = [];
-        private readonly Dictionary<string, Func<Task<HttpResponseMessage>>> _responses = [];
+        private readonly Dictionary<string, Func<CancellationToken, Task<HttpResponseMessage>>> _responses = [];
         private int _signedInAt;
 
         public IReadOnlyList<string> RequestsAfterSignIn => _requests[_signedInAt..];
 
         public void Respond(string path, Func<HttpResponseMessage> respond)
         {
-            _responses[path] = () => Task.FromResult(respond());
+            _responses[path] = _ => Task.FromResult(respond());
+        }
+
+        // A request that is never answered and ends only when its caller cancels it, as a browser aborts a fetch
+        public void NeverRespond(string path)
+        {
+            _responses[path] = async cancellationToken =>
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                throw new InvalidOperationException("A cancelled delay never completes.");
+            };
         }
 
         public TaskCompletionSource<HttpResponseMessage> Hold(string path)
         {
             var response = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _responses[path] = () => response.Task;
+            _responses[path] = _ => response.Task;
             return response;
         }
 
@@ -423,13 +557,18 @@ public sealed class SessionTransitionTests
         {
             var path = request.RequestUri!.AbsolutePath;
             _requests.Add($"{request.Method} {path}");
-            return _responses[path]();
+            return _responses[path](cancellationToken);
         }
     }
 
-    // Stands in for the browser's module loader and preferred-tenant.js
-    private sealed class ScriptedJavaScript : IJSRuntime, IJSObjectReference
+    // Stands in for the browser's module loader, preferred-tenant.js and the two calls PushNotificationDeparture makes to
+    // push-notifications.js
+    private sealed class ScriptedJavaScript : IJSRuntime, IJSInProcessObjectReference
     {
+        public string? StoredSubscriptionId { get; set; }
+
+        public List<string> DeviceCalls { get; } = [];
+
         public JSException? ImportFailure { get; set; }
 
         public Action? OnRemember { get; set; }
@@ -439,6 +578,21 @@ public sealed class SessionTransitionTests
         public ValueTask DisposeAsync()
         {
             return ValueTask.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public TValue Invoke<TValue>(string identifier, params object?[]? args)
+        {
+            DeviceCalls.Add(identifier);
+            return identifier switch
+            {
+                "readStoredSubscriptionId" => (TValue)(object?)StoredSubscriptionId!,
+                "forgetDevice" => default!,
+                _ => throw new NotSupportedException($"No script for '{identifier}'.")
+            };
         }
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)

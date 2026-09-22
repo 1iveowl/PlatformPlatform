@@ -1,3 +1,5 @@
+using System.Net;
+using Account.Client;
 using Blazor.Client.Bootstrap;
 using Blazor.Client.Preferences;
 using FluentAssertions;
@@ -11,9 +13,14 @@ namespace Blazor.Tests.Client.Preferences;
 ///     forget; a reload of the same user is a new document that raises nothing, which is the row that must not forget.
 ///     The table is driven through the real AuthenticationNavigator rather than described, so a departure added later
 ///     without a row here shows up as an unexplained call.
+///     A logout and a tenant switch first delete the account's row for this device, while the session that owns it is
+///     still valid; the browser side is forgotten afterwards by Leaving, whatever the delete answered.
 /// </summary>
 public sealed class PushNotificationDepartureTests
 {
+    private const string SavedSubscriptionId = "psub_01KC0000000000000000000001";
+    private const string RowPath = $"/api/account/users/me/push-subscriptions/{SavedSubscriptionId}";
+
     [Theory]
     // The user logged out here: SessionTransition ends the session and leaves for the login page
     [InlineData("logout")]
@@ -30,7 +37,7 @@ public sealed class PushNotificationDepartureTests
         // Arrange
         var navigator = new AuthenticationNavigator(new TestNavigationManager());
         var javaScript = new RecordingJavaScript();
-        var departureListener = new PushNotificationDeparture(javaScript, navigator);
+        var departureListener = CreateDeparture(javaScript, navigator);
         await departureListener.AttachAsync();
 
         // Act
@@ -48,7 +55,7 @@ public sealed class PushNotificationDepartureTests
         var navigation = new TestNavigationManager();
         var navigator = new AuthenticationNavigator(navigation);
         var javaScript = new RecordingJavaScript();
-        var departureListener = new PushNotificationDeparture(javaScript, navigator);
+        var departureListener = CreateDeparture(javaScript, navigator);
         await departureListener.AttachAsync();
 
         // Act: what the invalidation dialog does, which is the only caller of LeaveForReload
@@ -66,7 +73,7 @@ public sealed class PushNotificationDepartureTests
         // Arrange
         var navigator = new AuthenticationNavigator(new TestNavigationManager());
         var javaScript = new RecordingJavaScript();
-        var departureListener = new PushNotificationDeparture(javaScript, navigator);
+        var departureListener = CreateDeparture(javaScript, navigator);
 
         // Act: a reload of the same user is a new document; no departure of this runtime happens and Leaving is never raised
         await departureListener.AttachAsync();
@@ -82,7 +89,7 @@ public sealed class PushNotificationDepartureTests
         // Arrange
         var navigator = new AuthenticationNavigator(new TestNavigationManager());
         var javaScript = new RecordingJavaScript { FailImport = true };
-        var departureListener = new PushNotificationDeparture(javaScript, navigator);
+        var departureListener = CreateDeparture(javaScript, navigator);
         await departureListener.AttachAsync();
 
         // Act
@@ -99,7 +106,7 @@ public sealed class PushNotificationDepartureTests
         // Arrange
         var navigator = new AuthenticationNavigator(new TestNavigationManager());
         var javaScript = new RecordingJavaScript();
-        var departureListener = new PushNotificationDeparture(javaScript, navigator);
+        var departureListener = CreateDeparture(javaScript, navigator);
         await departureListener.AttachAsync();
 
         // Act
@@ -109,6 +116,134 @@ public sealed class PushNotificationDepartureTests
         // Assert
         departureListener.Forgotten.Should().BeFalse();
         javaScript.Calls.Should().Equal("import", "dispose");
+    }
+
+    [Fact]
+    public async Task DeleteRowAsync_WhenThisDeviceStoredASubscription_ShouldDeleteItsRowBeforeTheBrowserSideIsForgotten()
+    {
+        // Arrange
+        var navigator = new AuthenticationNavigator(new TestNavigationManager());
+        var javaScript = new RecordingJavaScript { StoredSubscriptionId = SavedSubscriptionId };
+        var departureListener = CreateDeparture(javaScript, navigator, _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
+        await departureListener.AttachAsync();
+
+        // Act: what SessionTransition does for a logout, which deletes the row before it sends the logout request
+        await departureListener.DeleteRowAsync();
+        Depart(navigator, "logout");
+
+        // Assert
+        departureListener.Forgotten.Should().BeTrue();
+        javaScript.Calls.Should().Equal("import", "readStoredSubscriptionId", $"DELETE {RowPath}", "forgetDevice");
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task DeleteRowAsync_WhenTheDeleteIsRefused_ShouldStillForgetTheBrowserSide(HttpStatusCode statusCode)
+    {
+        // Arrange
+        var navigator = new AuthenticationNavigator(new TestNavigationManager());
+        var javaScript = new RecordingJavaScript { StoredSubscriptionId = SavedSubscriptionId };
+        var departureListener = CreateDeparture(javaScript, navigator, _ => Task.FromResult(new HttpResponseMessage(statusCode)));
+        await departureListener.AttachAsync();
+
+        // Act
+        await departureListener.DeleteRowAsync();
+        Depart(navigator, "logout");
+
+        // Assert
+        departureListener.Forgotten.Should().BeTrue();
+        javaScript.Calls.Should().Equal("import", "readStoredSubscriptionId", $"DELETE {RowPath}", "forgetDevice");
+    }
+
+    [Fact]
+    public async Task DeleteRowAsync_WhenTheDeleteCannotReachTheAccountApi_ShouldStillForgetTheBrowserSide()
+    {
+        // Arrange
+        var navigator = new AuthenticationNavigator(new TestNavigationManager());
+        var javaScript = new RecordingJavaScript { StoredSubscriptionId = SavedSubscriptionId };
+        var departureListener = CreateDeparture(javaScript, navigator, _ => throw new HttpRequestException("The network is gone."));
+        await departureListener.AttachAsync();
+
+        // Act
+        await departureListener.DeleteRowAsync();
+        Depart(navigator, "logout");
+
+        // Assert
+        departureListener.Forgotten.Should().BeTrue();
+        javaScript.Calls.Should().Equal("import", "readStoredSubscriptionId", $"DELETE {RowPath}", "forgetDevice");
+    }
+
+    [Fact]
+    public async Task DeleteRowAsync_WhenTheDeleteDoesNotAnswer_ShouldGiveUpWithinTheTimeoutAndStillForgetTheBrowserSide()
+    {
+        // Arrange
+        var navigator = new AuthenticationNavigator(new TestNavigationManager());
+        var javaScript = new RecordingJavaScript { StoredSubscriptionId = SavedSubscriptionId };
+        var departureListener = CreateDeparture(javaScript, navigator, async cancellationToken =>
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                throw new InvalidOperationException("A cancelled delay never completes.");
+            }
+        );
+        await departureListener.AttachAsync();
+        var startedAt = TimeProvider.System.GetTimestamp();
+
+        // Act
+        await departureListener.DeleteRowAsync();
+        Depart(navigator, "logout");
+
+        // Assert
+        TimeProvider.System.GetElapsedTime(startedAt).Should().BeLessThan(PushNotificationDeparture.RowDeletionTimeout * 5);
+        departureListener.Forgotten.Should().BeTrue();
+        javaScript.Calls.Should().Equal("import", "readStoredSubscriptionId", $"DELETE {RowPath}", "forgetDevice");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("not-a-subscription-id")]
+    public async Task DeleteRowAsync_WhenThisDeviceStoredNoSubscription_ShouldSendNothing(string? storedSubscriptionId)
+    {
+        // Arrange
+        var navigator = new AuthenticationNavigator(new TestNavigationManager());
+        var javaScript = new RecordingJavaScript { StoredSubscriptionId = storedSubscriptionId };
+        var departureListener = CreateDeparture(javaScript, navigator);
+        await departureListener.AttachAsync();
+
+        // Act
+        await departureListener.DeleteRowAsync();
+
+        // Assert
+        departureListener.Forgotten.Should().BeFalse();
+        javaScript.Calls.Should().Equal("import", "readStoredSubscriptionId");
+    }
+
+    [Fact]
+    public async Task DeleteRowAsync_WhenTheModuleCannotBeImported_ShouldSendNothing()
+    {
+        // Arrange
+        var navigator = new AuthenticationNavigator(new TestNavigationManager());
+        var javaScript = new RecordingJavaScript { FailImport = true, StoredSubscriptionId = SavedSubscriptionId };
+        var departureListener = CreateDeparture(javaScript, navigator);
+        await departureListener.AttachAsync();
+
+        // Act
+        await departureListener.DeleteRowAsync();
+
+        // Assert
+        javaScript.Calls.Should().Equal("import");
+    }
+
+    private static PushNotificationDeparture CreateDeparture(
+        RecordingJavaScript javaScript,
+        AuthenticationNavigator navigator,
+        Func<CancellationToken, Task<HttpResponseMessage>>? respond = null
+    )
+    {
+        var network = new RecordingNetwork(javaScript.Calls, respond ?? (_ => throw new InvalidOperationException("No request was expected.")));
+        var pushSubscriptionsClient = new PushSubscriptionsClient(new HttpClient(network) { BaseAddress = new Uri("https://app.dev.localhost:9000/") });
+        return new PushNotificationDeparture(javaScript, navigator, pushSubscriptionsClient);
     }
 
     private static void Depart(AuthenticationNavigator navigator, string departure)
@@ -141,6 +276,8 @@ public sealed class PushNotificationDepartureTests
 
         public bool FailImport { get; init; }
 
+        public string? StoredSubscriptionId { get; init; }
+
         public void Dispose()
         {
             Calls.Add("dispose");
@@ -155,7 +292,7 @@ public sealed class PushNotificationDepartureTests
         public TValue Invoke<TValue>(string identifier, params object?[]? args)
         {
             Calls.Add(identifier);
-            return default!;
+            return identifier == "readStoredSubscriptionId" ? (TValue)(object?)StoredSubscriptionId! : default!;
         }
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
@@ -188,6 +325,16 @@ public sealed class PushNotificationDepartureTests
             if (FailImport) throw new JSException("No module.");
 
             return (TValue)(object)this;
+        }
+    }
+
+    // Records each request in the same list as the module calls, so a test reads the order across both
+    private sealed class RecordingNetwork(List<string> calls, Func<CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            calls.Add($"{request.Method} {request.RequestUri!.AbsolutePath}");
+            return respond(cancellationToken);
         }
     }
 }
