@@ -89,7 +89,7 @@ inside the worker writing one entry per decision, in all three browsers.
 | --- | --- | --- |
 | Chromium | the `@smoke` case of `blazor/tests/e2e/offline-shell-flows.spec.ts` in both cultures, `blazor-harness offline-shell --browser chromium`, and `blazor-harness offline-shell-relaunch --browser chromium` as a second reading | nothing of the shell itself |
 | Firefox | `blazor-harness offline-shell-relaunch --browser firefox`, which installs the worker in a browser profile of its own and relaunches the same profile behind a proxy at a closed port, so the worker's own fetch is refused too | the culture projects of the specification, which open the route with the network there |
-| WebKit | nothing automated; the device pass on real Safari owns it | the offline navigation itself, until that pass |
+| WebKit | `node blazor/tests/device/run.mjs` on the macOS host (`blazor/tests/device/README.md`): real Safari in a tab, driven by `safaridriver`, with the network refused at the host by the runner's own loopback proxy. Measured 2026-09-23 on Safari 27.0 and macOS 27.0 against a Production publish of `e25c6d209`: 7 of 7, the shell shown offline at `/blazor/app` and a public route not answered | the automation library's WebKit, for the reason below; an app added to the Dock, which the driver does not reach; iOS Safari, whose Simulator target does not run yet |
 
 The reason is in the automation library, not in this edition. Taking a browser context offline takes the network away
 from the document but not from the service worker in Firefox: in the same run `navigator.onLine` is false in the document
@@ -208,9 +208,10 @@ deployment behaviours remain unverified:
   case, where the old asset set is gone at once.
 - **Traffic splitting and session affinity** during a rollout, and what a client does when its asset set and its
   API answer come from different revisions.
-- **The offline navigation in WebKit.** No automated run reaches the worker's fetch handler with the network gone in
-  that browser, for the reason recorded under "A stale or broken service worker"; the device pass on real Safari is the
-  only evidence there will be until it runs.
+- **The offline navigation in WebKit outside a macOS Safari tab.** The device runner proves it in a real Safari tab on
+  macOS (the table under "A stale or broken service worker"). An app added to the Dock and iOS Safari have no
+  automated run: the driver does not reach the first, and the runner's iOS Simulator target is refused a session on
+  the Mac it was written for (`blazor/tests/device/README.md`).
 - **Firefox and WebKit.** The rehearsal was run in Chromium. Nothing in the mechanism depends on a Chromium
   feature, so the other two browsers are expected to behave the same; that is an assumption until the run is
   repeated with `--browser all`.

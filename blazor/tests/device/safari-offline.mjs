@@ -1,6 +1,7 @@
-// Spike (EP-187): the offline shell in a real Safari tab on macOS, driven through safaridriver, with the network refused
-// at the host by the runner's own proxy on the gateway port. It also takes the first step of T023 (EP-185): whether the
-// worker registers in a Safari tab, whether it takes control, what Cache Storage holds and what the offline navigation does.
+// The offline shell in a Safari tab, driven through safaridriver, with the network refused at the host by the runner's own
+// proxy on the gateway port. Two targets: real Safari on macOS, and Safari in the iOS Simulator, which shares the Mac's
+// loopback and so reaches the same proxy. The readings are those T023 (EP-185) needs: whether the worker registers in a
+// Safari tab, whether it takes control, what Cache Storage holds and what the offline navigation does.
 //
 // Cases:
 // 1. The page is a secure context with the service worker and Cache Storage interfaces.
@@ -14,28 +15,36 @@
 // Readings recorded beside the cases, never judged: an explicit registration attempt when case 2 finds none (the
 // application swallows registration errors), the worker's state at each step, and a screenshot per offline navigation.
 //
-// Run on the Mac, from the repository folder: node blazor/tests/device/safari-offline.mjs [--upstream 19000]
+// Run on the Mac, from the repository folder, or through run.mjs, which runs every script for every target:
+//   node blazor/tests/device/safari-offline.mjs [--target mac|simulator] [--device "iPhone 17"] [--upstream 19000]
 
 import {
   baseUrl,
   basePort,
+  bootSimulator,
   caseRecorder,
   checkPreconditions,
   fail,
+  exitCodeFor,
   HostNetwork,
-  macEnvironment,
   parseArguments,
   pathBase,
   publishIdentity,
+  resolveTarget,
   servedWorkerVersion,
+  sessionCapabilities,
+  shutDownSimulator,
   signUp,
   sleep,
   startSafariDriver,
+  targetEnvironment,
+  trustGatewayInSimulator,
   WebDriverSession,
   writeResult
 } from "./support.mjs";
 
-const options = parseArguments(process.argv.slice(2), { upstream: "19000", "driver-port": "4444" });
+const options = parseArguments(process.argv.slice(2), { target: "mac", upstream: "19000", "driver-port": "4444" });
+const target = resolveTarget(options.target);
 const upstreamPort = Number(options.upstream);
 const expectedCaseCount = 7;
 const scope = `${pathBase}/`;
@@ -52,9 +61,25 @@ if (problems.length > 0) {
 const network = new HostNetwork(basePort, upstreamPort);
 await network.online();
 const workerVersion = await servedWorkerVersion();
-const driver = await startSafariDriver(Number(options["driver-port"]));
-const { results, check } = caseRecorder();
 const readings = {};
+
+// The simulator boots and trusts the development authority before the driver starts; a Mac without an iOS runtime or an
+// iPhone device stops here as a setup problem, not as a failed run
+let device;
+if (target.name === "simulator") {
+  try {
+    device = bootSimulator(typeof options.device === "string" ? options.device : undefined);
+    readings.trust = await trustGatewayInSimulator(device, basePort);
+  } catch (error) {
+    console.log(`SETUP ${error.message}`);
+    shutDownSimulator(device);
+    await network.offline().catch(() => undefined);
+    process.exit(2);
+  }
+}
+
+const driver = await startSafariDriver(Number(options["driver-port"]), target);
+const { results, check } = caseRecorder();
 const failures = [];
 let session;
 
@@ -131,9 +156,9 @@ async function navigateOffline(url, screenshotName) {
 }
 
 try {
-  session = await WebDriverSession.create(driver.url, { browserName: "safari" });
+  session = await WebDriverSession.create(driver.url, sessionCapabilities(target, device));
   readings.capabilities = session.capabilities;
-  const email = `device-safari-${Date.now()}@example.com`;
+  const email = `device-${target.resultPrefix}-${Date.now()}@example.com`;
   await signUp(session, email);
 
   await check("the page is a secure context with the service worker and Cache Storage interfaces", async () => {
@@ -178,18 +203,18 @@ try {
   await session.navigate(`${baseUrl}${pathBase}/app/offline`);
   await session.waitFor('[data-testid="offline-page"]');
   readings.shellOnline = await pageReading();
-  readings.shellOnline.screenshot = await session.screenshot("safari-online-shell.png").catch((error) => `not taken: ${error.message}`);
+  readings.shellOnline.screenshot = await session.screenshot(`${target.resultPrefix}-online-shell.png`).catch((error) => `not taken: ${error.message}`);
 
   await network.offline();
 
   await check("with the network refused at the host an authenticated navigation shows the offline shell", async () => {
-    readings.offlineApp = await navigateOffline(appUrl, "safari-offline-app.png");
+    readings.offlineApp = await navigateOffline(appUrl, `${target.resultPrefix}-offline-app.png`);
     if (!readings.offlineApp.offlinePage) throw fail("The offline shell was not shown.", readings.offlineApp);
     return readings.offlineApp;
   });
 
   await check("with the network refused at the host a public route is not answered from a cache", async () => {
-    readings.offlinePublic = await navigateOffline(publicUrl, "safari-offline-public.png");
+    readings.offlinePublic = await navigateOffline(publicUrl, `${target.resultPrefix}-offline-public.png`);
     if (readings.offlinePublic.offlinePage || (typeof readings.offlinePublic.applicationElements === "number" && readings.offlinePublic.applicationElements > 0)) {
       throw fail("A page of the application answered a public route while offline.", readings.offlinePublic);
     }
@@ -212,15 +237,16 @@ try {
   await session?.close();
   driver.process.kill();
   await network.offline().catch(() => undefined);
+  shutDownSimulator(device);
 }
 
-const { resultFile, passed } = writeResult(
-  "safari-offline-shell.json",
+const { resultFile, verdict } = writeResult(
+  `${target.resultPrefix}-offline-shell.json`,
   {
-    target: "real Safari, macOS",
+    target: target.label,
     publish: publishIdentity(),
     servedWorkerVersion: workerVersion,
-    environment: macEnvironment(),
+    environment: targetEnvironment(target, session?.capabilities, device),
     network: `refused at the host: the runner's loopback proxy on ${basePort} closed, upstream ${upstreamPort}`,
     readings,
     results,
@@ -228,5 +254,5 @@ const { resultFile, passed } = writeResult(
   },
   expectedCaseCount
 );
-console.log(`${passed ? "PASSED" : "FAILED"} safari-offline-shell: ${resultFile}`);
-process.exit(passed ? 0 : 1);
+console.log(`${verdict.toUpperCase()} ${target.resultPrefix}-offline-shell: ${resultFile}`);
+process.exit(exitCodeFor(verdict));

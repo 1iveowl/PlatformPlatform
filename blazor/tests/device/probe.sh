@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Spike (EP-187): read-only setup probe for the device pass. Run on the macOS host, not in the development
-# container: bash blazor/tests/device/probe.sh
-# It changes nothing on the machine. It writes its report to .workspace/blazor-tests/device/probe.txt so the
+# Read-only setup probe for the device pass. Run on the macOS host, not in the development container; run.mjs runs it
+# first: bash blazor/tests/device/probe.sh
+# It changes nothing on the machine. The Simulator tools are read through Xcode (DEVELOPER_DIR, defaulting to
+# /Applications/Xcode.app) even when the Mac's active developer folder is the command line tools, as the runner does. It writes its report to .workspace/blazor-tests/device/probe.txt so the
 # container session can read it through the shared workspace folder.
 
 set -u
@@ -15,6 +16,8 @@ mkdir -p "$out_dir"
 report() { printf '%s: %s\n' "$1" "$2"; }
 run() { local value; value="$("$@" 2>&1 | head -n 20)"; printf '%s' "${value:-<empty>}"; }
 have() { command -v "$1" >/dev/null 2>&1; }
+xcode_dir="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+xcode() { DEVELOPER_DIR="$xcode_dir" "$@"; }
 
 {
   report "probed at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -32,12 +35,13 @@ have() { command -v "$1" >/dev/null 2>&1; }
   report "node" "$(have node && run node --version || echo absent)"
 
   echo "== Xcode and the iOS Simulator"
-  report "xcode-select" "$(run xcode-select -p)"
-  report "xcodebuild" "$(have xcodebuild && run xcodebuild -version | tr '\n' ' ' || echo absent)"
+  report "xcode-select (the Mac's active folder)" "$(run xcode-select -p)"
+  report "Xcode folder the runner uses" "$xcode_dir ($([ -d "$xcode_dir" ] && echo present || echo absent))"
+  report "xcodebuild" "$(run xcode xcodebuild -version | tr '\n' ' ')"
   echo "simctl runtimes:"
-  if have xcrun; then xcrun simctl list runtimes 2>&1 | sed 's/^/  /'; else echo "  xcrun absent"; fi
+  if have xcrun; then xcode xcrun simctl list runtimes 2>&1 | sed 's/^/  /'; else echo "  xcrun absent"; fi
   echo "simctl available iPhone devices:"
-  if have xcrun; then xcrun simctl list devices available 2>&1 | grep -i iphone | sed 's/^/  /'; fi
+  if have xcrun; then xcode xcrun simctl list devices available 2>&1 | grep -i iphone | sed 's/^/  /'; fi
 
   echo "== Android"
   sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
@@ -53,10 +57,14 @@ have() { command -v "$1" >/dev/null 2>&1; }
   report "chromedriver" "$(have chromedriver && run chromedriver --version || echo absent)"
 
   echo "== The forwarded stack"
-  report "listener on 9000" "$(run lsof -nP -iTCP:9000 -sTCP:LISTEN | awk 'NR>1 {print $1" pid "$2" "$9}' | sort -u | tr '\n' ' ')"
-  report "https://app.dev.localhost:9000/blazor/ status" "$(run curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://app.dev.localhost:9000/blazor/)"
-  report "certificate verified by curl" "$(curl -s -o /dev/null --max-time 10 https://app.dev.localhost:9000/blazor/ && echo yes || echo 'no (or unreachable)')"
-  report "served worker cacheVersion" "$(curl -sk --max-time 10 https://app.dev.localhost:9000/blazor/service-worker.js | grep -o 'cacheVersion[^,;]*' | head -n 1)"
+  # The runner owns 9000 while it runs and reaches the stack through the editor's forward on 19000 (README.md)
+  upstream="${DEVICE_PASS_UPSTREAM:-19000}"
+  report "listener on 9000 (free before a run)" "$(run lsof -nP -iTCP:9000 -sTCP:LISTEN | awk 'NR>1 {print $1" pid "$2" "$9}' | sort -u | tr '\n' ' ')"
+  report "listener on $upstream (the editor's forward)" "$(run lsof -nP -iTCP:"$upstream" -sTCP:LISTEN | awk 'NR>1 {print $1" pid "$2" "$9}' | sort -u | tr '\n' ' ')"
+  through_forward=(--connect-to "app.dev.localhost:9000:127.0.0.1:$upstream")
+  report "https://app.dev.localhost:9000/blazor/ status through the forward" "$(run curl -s "${through_forward[@]}" -o /dev/null -w '%{http_code}' --max-time 10 https://app.dev.localhost:9000/blazor/)"
+  report "certificate verified by curl" "$(curl -s "${through_forward[@]}" -o /dev/null --max-time 10 https://app.dev.localhost:9000/blazor/ && echo yes || echo 'no (or unreachable)')"
+  report "served worker cacheVersion" "$(curl -sk "${through_forward[@]}" --max-time 10 https://app.dev.localhost:9000/blazor/service-worker.js | grep -o 'cacheVersion[^,;]*' | head -n 1)"
 } | tee "$out_file"
 
 echo
