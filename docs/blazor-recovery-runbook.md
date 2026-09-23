@@ -106,7 +106,11 @@ shell and nothing else, and that the real page loads at the same address.
 **Signal** that this is being mistaken for a defect: a report that the offline shell "does not work in Safari or
 Firefox" whose only evidence is a run of the specification. **Action**: run
 `blazor-harness offline-shell-relaunch --browser firefox`, which proves the shell in Firefox, and read the device pass
-for Safari before changing the worker.
+for Safari before changing the worker. One manual reading in an everyday Safari profile on macOS, taken by hand on
+2026-09-22 against a publish of `21fb82e4f`, showed "Safari can't connect to the server" at `/blazor/app` offline;
+the device runner did not reproduce it with the same worker code, and the owner judged it not a defect of this
+edition. If that reading recurs, first read Develop, Service Workers and Web Inspector, Storage, Cache Storage for
+the host in that profile, to see whether the worker was ever registered there.
 
 ### A forced security update: every client must stop writing now
 
