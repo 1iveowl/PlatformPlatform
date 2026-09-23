@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Spike (EP-187): read-only setup probe for the device pass. Run on the macOS host, not in the development
+# container: bash blazor/tests/device/probe.sh
+# It changes nothing on the machine. It writes its report to .workspace/blazor-tests/device/probe.txt so the
+# container session can read it through the shared workspace folder.
+
+set -u
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/../../.." && pwd)"
+out_dir="$repo_root/.workspace/blazor-tests/device"
+out_file="$out_dir/probe.txt"
+mkdir -p "$out_dir"
+
+report() { printf '%s: %s\n' "$1" "$2"; }
+run() { local value; value="$("$@" 2>&1 | head -n 20)"; printf '%s' "${value:-<empty>}"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+{
+  report "probed at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  report "repository commit" "$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
+  report "host" "$(uname -s) $(uname -m)"
+
+  echo "== macOS and Safari"
+  report "macOS" "$(run sw_vers -productVersion) ($(run sw_vers -buildVersion))"
+  report "Safari" "$(run defaults read /Applications/Safari.app/Contents/Info.plist CFBundleShortVersionString)"
+  report "Safari Technology Preview" "$([ -d '/Applications/Safari Technology Preview.app' ] && echo present || echo absent)"
+  report "safaridriver" "$(have safaridriver && run safaridriver --version || echo absent)"
+  report "Safari develop menu" "$(run defaults read com.apple.Safari IncludeDevelopMenu)"
+
+  echo "== Node"
+  report "node" "$(have node && run node --version || echo absent)"
+
+  echo "== Xcode and the iOS Simulator"
+  report "xcode-select" "$(run xcode-select -p)"
+  report "xcodebuild" "$(have xcodebuild && run xcodebuild -version | tr '\n' ' ' || echo absent)"
+  echo "simctl runtimes:"
+  if have xcrun; then xcrun simctl list runtimes 2>&1 | sed 's/^/  /'; else echo "  xcrun absent"; fi
+  echo "simctl available iPhone devices:"
+  if have xcrun; then xcrun simctl list devices available 2>&1 | grep -i iphone | sed 's/^/  /'; fi
+
+  echo "== Android"
+  sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+  report "sdk folder" "$sdk ($([ -d "$sdk" ] && echo present || echo absent))"
+  adb_bin="$(command -v adb || echo "$sdk/platform-tools/adb")"
+  emulator_bin="$(command -v emulator || echo "$sdk/emulator/emulator")"
+  report "adb" "$([ -x "$adb_bin" ] && run "$adb_bin" version | head -n 1 || echo absent)"
+  report "emulator" "$([ -x "$emulator_bin" ] && run "$emulator_bin" -version | head -n 1 || echo absent)"
+  echo "virtual devices:"
+  if [ -x "$emulator_bin" ]; then "$emulator_bin" -list-avds 2>/dev/null | sed 's/^/  /'; fi
+  echo "system images:"
+  if [ -d "$sdk/system-images" ]; then (cd "$sdk/system-images" && find . -mindepth 3 -maxdepth 3 -type d | sed 's/^/  /'); fi
+  report "chromedriver" "$(have chromedriver && run chromedriver --version || echo absent)"
+
+  echo "== The forwarded stack"
+  report "listener on 9000" "$(run lsof -nP -iTCP:9000 -sTCP:LISTEN | awk 'NR>1 {print $1" pid "$2" "$9}' | sort -u | tr '\n' ' ')"
+  report "https://app.dev.localhost:9000/blazor/ status" "$(run curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://app.dev.localhost:9000/blazor/)"
+  report "certificate verified by curl" "$(curl -s -o /dev/null --max-time 10 https://app.dev.localhost:9000/blazor/ && echo yes || echo 'no (or unreachable)')"
+  report "served worker cacheVersion" "$(curl -sk --max-time 10 https://app.dev.localhost:9000/blazor/service-worker.js | grep -o 'cacheVersion[^,;]*' | head -n 1)"
+} | tee "$out_file"
+
+echo
+echo "Report written to $out_file"
