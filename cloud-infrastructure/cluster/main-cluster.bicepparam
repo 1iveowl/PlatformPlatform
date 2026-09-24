@@ -25,8 +25,8 @@ param entraOAuthClientSecret = readEnvironmentVariable('ENTRA_OAUTH_CLIENT_SECRE
 param mitIdDomain = readEnvironmentVariable('MITID_DOMAIN', '')
 param mitIdClientId = readEnvironmentVariable('MITID_CLIENT_ID', '')
 param mitIdClientSecret = readEnvironmentVariable('MITID_CLIENT_SECRET', '')
-param mitIdVerificationEnabled = bool(readEnvironmentVariable('MITID_VERIFICATION_ENABLED', 'false'))
-param mitIdLoginEnabled = bool(readEnvironmentVariable('MITID_LOGIN_ENABLED', 'false'))
+param mitIdVerificationEnabled = readEnvironmentVariable('MITID_VERIFICATION_ENABLED', 'false') == 'true'
+param mitIdLoginEnabled = readEnvironmentVariable('MITID_LOGIN_ENABLED', 'false') == 'true'
 param pushVapidPublicKey = readEnvironmentVariable('PUSH_VAPID_PUBLIC_KEY', '')
 param pushVapidPrivateKey = readEnvironmentVariable('PUSH_VAPID_PRIVATE_KEY', '')
 param pushNotificationSubject = readEnvironmentVariable('PUSH_NOTIFICATION_SUBJECT', '')
