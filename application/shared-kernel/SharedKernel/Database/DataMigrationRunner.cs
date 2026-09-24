@@ -124,16 +124,20 @@ public sealed class DataMigrationRunner<TContext>(TContext dbContext, IServicePr
                           ALTER TABLE __data_migrations_history RENAME COLUMN "Summary" TO summary;
                           ALTER TABLE __data_migrations_history RENAME CONSTRAINT "PK___DataMigrationsHistory" TO pk___data_migrations_history;
                       END IF;
-                  END $$;
 
-                  CREATE TABLE IF NOT EXISTS __data_migrations_history (
-                      migration_id text NOT NULL,
-                      product_version text NOT NULL,
-                      executed_at timestamptz NOT NULL,
-                      execution_time_ms bigint NOT NULL,
-                      summary text NOT NULL,
-                      CONSTRAINT pk___data_migrations_history PRIMARY KEY (migration_id)
-                  );
+                      -- CREATE TABLE IF NOT EXISTS checks the CREATE privilege on the schema before it checks for the table,
+                      -- so a role that may only read and write rows would fail even when the schema migration made the table
+                      IF to_regclass('__data_migrations_history') IS NULL THEN
+                          CREATE TABLE __data_migrations_history (
+                              migration_id text NOT NULL,
+                              product_version text NOT NULL,
+                              executed_at timestamptz NOT NULL,
+                              execution_time_ms bigint NOT NULL,
+                              summary text NOT NULL,
+                              CONSTRAINT pk___data_migrations_history PRIMARY KEY (migration_id)
+                          );
+                      END IF;
+                  END $$;
                   """;
 
         await dbContext.Database.ExecuteSqlRawAsync(sql, cancellationToken);
