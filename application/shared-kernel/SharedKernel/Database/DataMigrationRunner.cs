@@ -145,19 +145,29 @@ public sealed class DataMigrationRunner<TContext>(TContext dbContext, IServicePr
 
     private async Task<HashSet<string>> GetExecutedDataMigrationsAsync(CancellationToken cancellationToken)
     {
-        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
-        command.CommandText = "SELECT migration_id FROM __data_migrations_history";
-        command.Transaction = dbContext.Database.CurrentTransaction?.GetDbTransaction();
-
-        var executedDataMigrations = new HashSet<string>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-
-        while (await reader.ReadAsync(cancellationToken))
+        // The advisory lock may be held on a separate connection from the data source, so the context's own
+        // connection is not necessarily open here; this opens it only when closed and closes only what it opened
+        await dbContext.Database.OpenConnectionAsync(cancellationToken);
+        try
         {
-            executedDataMigrations.Add(reader.GetString(0));
-        }
+            await using var command = dbContext.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "SELECT migration_id FROM __data_migrations_history";
+            command.Transaction = dbContext.Database.CurrentTransaction?.GetDbTransaction();
 
-        return executedDataMigrations;
+            var executedDataMigrations = new HashSet<string>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                executedDataMigrations.Add(reader.GetString(0));
+            }
+
+            return executedDataMigrations;
+        }
+        finally
+        {
+            await dbContext.Database.CloseConnectionAsync();
+        }
     }
 
     private async Task ExecuteMigrationAsync(IDataMigration dataMigration, CancellationToken cancellationToken)

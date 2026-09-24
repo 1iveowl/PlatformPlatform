@@ -13,8 +13,10 @@ namespace Account.Tests.Workers;
 
 public sealed class DataMigrationRunnerPostgreSqlTests
 {
-    [PostgreSqlFact]
-    public async Task RunMigrationsAsync_WhenRoleCannotCreateInSchemaAndHistoryTableExists_ShouldSucceed()
+    [PostgreSqlTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunMigrationsAsync_WhenRoleCannotCreateInSchemaAndHistoryTableExists_ShouldSucceed(bool locksThroughDataSource)
     {
         // Arrange
         var connectionString = Environment.GetEnvironmentVariable("ACCOUNT_TEST_POSTGRES")!;
@@ -49,7 +51,10 @@ public sealed class DataMigrationRunnerPostgreSqlTests
             }.ConnectionString;
             var options = new DbContextOptionsBuilder<AccountDbContext>().UseNpgsql(roleConnectionString).UseSnakeCaseNamingConvention().Options;
             await using var context = new AccountDbContext(options, Substitute.For<IExecutionContext>(), TimeProvider.System);
-            var services = new ServiceCollection().AddLogging().AddSingleton(context).AddSingleton(TimeProvider.System).BuildServiceProvider();
+            var serviceCollection = new ServiceCollection().AddLogging().AddSingleton(context).AddSingleton(TimeProvider.System);
+            await using var dataSource = NpgsqlDataSource.Create(roleConnectionString);
+            if (locksThroughDataSource) serviceCollection.AddSingleton(dataSource);
+            var services = serviceCollection.BuildServiceProvider();
 
             var dataMigrationIds = typeof(AccountDbContext).Assembly.GetTypes()
                 .Where(t => typeof(IDataMigration).IsAssignableFrom(t) && t is { IsClass: true, IsAbstract: false })
@@ -77,9 +82,9 @@ public sealed class DataMigrationRunnerPostgreSqlTests
         }
     }
 
-    private sealed class PostgreSqlFactAttribute : FactAttribute
+    private sealed class PostgreSqlTheoryAttribute : TheoryAttribute
     {
-        public PostgreSqlFactAttribute()
+        public PostgreSqlTheoryAttribute()
         {
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ACCOUNT_TEST_POSTGRES")))
             {
