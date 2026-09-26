@@ -30,7 +30,7 @@ Built to demonstrate seamless flow: backend contracts feed a fully-typed React U
 
 ## About this fork
 
-This is a friendly fork of [PlatformPlatform](https://github.com/platformplatform/PlatformPlatform). It adds Microsoft Entra ID as a login and signup provider, Danish MitID for identity verification and login, and it is heading for a frontend written entirely in C# and Razor with Blazor WebAssembly.
+This is a friendly fork of [PlatformPlatform](https://github.com/platformplatform/PlatformPlatform). It adds Microsoft Entra ID as a login and signup provider, Danish MitID for identity verification and login, and it adds a second frontend written entirely in C# and Razor with Blazor WebAssembly, served beside the React one under `/blazor/`.
 
 That last one is not a verdict on React. Upstream's React frontend is genuinely excellent, and it is the reason this fork had such a good place to start from: fully typed against the backend contracts, localized, accessible, and a pleasure to read. Blazor is not the better framework either. It is the better fit for an all-C# team, where a second language in the stack is a cost somebody has to keep paying. If you have frontend people, or you want the deepest component ecosystem available, upstream is the stronger choice and will stay ahead of this fork. The backend architecture is identical in both, so whichever you pick, you get the part that took the longest to get right.
 
@@ -41,7 +41,7 @@ The sign-in options, including the two this fork adds:
 | **Service** | [Google](https://developers.google.com/identity) | [Microsoft Entra ID](https://www.microsoft.com/en-us/security/business/identity-access/microsoft-entra-id) | [MitID](https://www.mitid.dk) through [Idura](https://idura.eu) | Email one-time password, built in |
 | **What it is** | Google OAuth over OpenID Connect with PKCE. Optional on localhost. | Work, school and personal Microsoft accounts through one multi-tenant app registration, over OpenID Connect with PKCE. An account is only created at signup when the token carries a verified email. | The Danish national electronic ID. A signed-in user proves who they are, and once verified can use it to sign in. It can never be used to sign up. | A code sent to the email address, so there is no password to store. Needs no configuration, and `UNLOCK` stands in for the code on localhost. |
 
-[Advantages and disadvantages of a Blazor frontend](docs/BLAZOR.md) makes the case in full, including the parts that get worse.
+[The Blazor edition](docs/BLAZOR.md) describes what is built, how it is tested, deployed and recovered, and what is still missing. [Advantages and disadvantages of a Blazor frontend](docs/blazor-assessment.md) makes the case in full as it was assessed before the build, including the parts that get worse.
 
 ## What's inside
 
