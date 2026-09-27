@@ -825,4 +825,139 @@
         <value>When</value>
         <comment>React: When</comment>
     </data>
+    <data name="UsersSubtitle" xml:space="preserve">
+        <value>All users across every account, most recently seen first. Search and filter to narrow down.</value>
+        <comment>Subtitle of the back office's users list</comment>
+    </data>
+    <data name="SearchByEmailNameOrAccount" xml:space="preserve">
+        <value>Search by email, name, or account</value>
+    </data>
+    <data name="Activity" xml:space="preserve">
+        <value>Activity</value>
+        <comment>Accessible name of the users list's activity filter</comment>
+    </data>
+    <data name="Activity24Hours" xml:space="preserve">
+        <value>24h</value>
+        <comment>Activity filter: active in the last 24 hours</comment>
+    </data>
+    <data name="Activity7Days" xml:space="preserve">
+        <value>7 days</value>
+        <comment>Activity filter: active in the last 7 days</comment>
+    </data>
+    <data name="Activity30Days" xml:space="preserve">
+        <value>30 days</value>
+        <comment>Activity filter: active in the last 30 days</comment>
+    </data>
+    <data name="ActivityInactive" xml:space="preserve">
+        <value>Inactive</value>
+        <comment>Activity filter: inactive for over 30 days</comment>
+    </data>
+    <data name="NoUsersMatchSearch" xml:space="preserve">
+        <value>No users match your search</value>
+    </data>
+    <data name="NoUsersYet" xml:space="preserve">
+        <value>No users yet</value>
+    </data>
+    <data name="TryDifferentSearchOrClearFilters" xml:space="preserve">
+        <value>Try a different search term or clear the role and activity filters.</value>
+    </data>
+    <data name="UsersAppearWhenAccountsCreated" xml:space="preserve">
+        <value>Users will appear here as accounts are created.</value>
+    </data>
+    <data name="UserSections" xml:space="preserve">
+        <value>User sections</value>
+        <comment>Accessible name of the user detail's tab navigation</comment>
+    </data>
+    <data name="Logins" xml:space="preserve">
+        <value>Logins</value>
+        <comment>The user detail's tab of sign-in attempts</comment>
+    </data>
+    <data name="EmailConfirmed" xml:space="preserve">
+        <value>Email confirmed</value>
+    </data>
+    <data name="EmailPending" xml:space="preserve">
+        <value>Email pending</value>
+    </data>
+    <data name="MembershipsOne" xml:space="preserve">
+        <value>{0} membership</value>
+        <comment>{0} is the number of account memberships, which is 1</comment>
+    </data>
+    <data name="MembershipsOther" xml:space="preserve">
+        <value>{0} memberships</value>
+        <comment>{0} is the number of account memberships</comment>
+    </data>
+    <data name="LoginSucceeded" xml:space="preserve">
+        <value>Succeeded</value>
+        <comment>Outcome of a sign-in attempt</comment>
+    </data>
+    <data name="LoginFailed" xml:space="preserve">
+        <value>Failed</value>
+        <comment>Outcome of a sign-in attempt</comment>
+    </data>
+    <data name="Revoked" xml:space="preserve">
+        <value>Revoked</value>
+        <comment>Status of a revoked session</comment>
+    </data>
+    <data name="CreatedOn" xml:space="preserve">
+        <value>Created {0}</value>
+        <comment>{0} is the date the user was created</comment>
+    </data>
+    <data name="LastLogin" xml:space="preserve">
+        <value>Last log-in</value>
+    </data>
+    <data name="MostRecentActivity" xml:space="preserve">
+        <value>Most recent activity</value>
+    </data>
+    <data name="NeverLoggedIn" xml:space="preserve">
+        <value>Never logged in</value>
+    </data>
+    <data name="AllTime" xml:space="preserve">
+        <value>All-time</value>
+        <comment>Subtitle of the sessions tile: every session the user ever had</comment>
+    </data>
+    <data name="UserAccountsDescription" xml:space="preserve">
+        <value>All accounts this user is a member of, with their plan and role.</value>
+    </data>
+    <data name="NoAccountMemberships" xml:space="preserve">
+        <value>No account memberships</value>
+    </data>
+    <data name="UserNotMemberOfAnyAccount" xml:space="preserve">
+        <value>This user is not a member of any account.</value>
+    </data>
+    <data name="UserLoginsDescription" xml:space="preserve">
+        <value>Every sign-in attempt over the last 30 days, successful or failed, across email and external providers.</value>
+    </data>
+    <data name="LoginHistory" xml:space="preserve">
+        <value>Login history</value>
+    </data>
+    <data name="NoLoginHistory" xml:space="preserve">
+        <value>No login history</value>
+    </data>
+    <data name="NoSignInAttempts" xml:space="preserve">
+        <value>No sign-in attempts in the last 30 days.</value>
+    </data>
+    <data name="Outcome" xml:space="preserve">
+        <value>Outcome</value>
+    </data>
+    <data name="UserSessionsDescription" xml:space="preserve">
+        <value>One row per device or browser the user is signed in from. Revoked sessions cannot sign in again.</value>
+    </data>
+    <data name="NoSessions" xml:space="preserve">
+        <value>No sessions</value>
+    </data>
+    <data name="UserHasNoSessions" xml:space="preserve">
+        <value>This user has no recorded sessions.</value>
+    </data>
+    <data name="Browser" xml:space="preserve">
+        <value>Browser</value>
+    </data>
+    <data name="Device" xml:space="preserve">
+        <value>Device</value>
+    </data>
+    <data name="NoUserFeatureFlags" xml:space="preserve">
+        <value>No user-scoped feature flags are defined.</value>
+    </data>
+    <data name="UserFlagsDescription" xml:space="preserve">
+        <value>Per-user flags and whether each is on for this user.</value>
+    </data>
 </root>

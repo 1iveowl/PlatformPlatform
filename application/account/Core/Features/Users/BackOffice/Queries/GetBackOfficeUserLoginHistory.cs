@@ -16,36 +16,6 @@ public sealed record GetBackOfficeUserLoginHistoryQuery : IRequest<Result<BackOf
     public UserId Id { get; init; } = null!;
 }
 
-[PublicAPI]
-public sealed record BackOfficeUserLoginHistoryResponse(BackOfficeUserLoginEntry[] Entries);
-
-[PublicAPI]
-public sealed record BackOfficeUserLoginEntry(
-    LoginEventKind Kind,
-    LoginMethod Method,
-    LoginEventOutcome Outcome,
-    DateTimeOffset OccurredAt,
-    string? FailureReason,
-    ExternalProviderType? ExternalProvider
-);
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum LoginEventKind
-{
-    Email,
-    External
-}
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum LoginEventOutcome
-{
-    Pending,
-    Succeeded,
-    Failed
-}
-
 public sealed class GetBackOfficeUserLoginHistoryHandler(
     IUserRepository userRepository,
     IEmailLoginRepository emailLoginRepository,

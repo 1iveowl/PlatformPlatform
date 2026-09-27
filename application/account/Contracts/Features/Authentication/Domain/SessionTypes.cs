@@ -21,3 +21,15 @@ public enum LoginMethod
     Entra,
     MitId
 }
+
+// Why a session was revoked, as the Session aggregate stores it. The reasons an unauthorized response names in its header,
+// which add cases such as SessionNotFound, are UnauthorizedReason in the shared kernel.
+[PublicAPI]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum SessionRevokedReason
+{
+    LoggedOut,
+    Revoked,
+    ReplayAttackDetected,
+    SwitchTenant
+}

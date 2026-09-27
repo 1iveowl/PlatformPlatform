@@ -5,7 +5,6 @@ using Account.Features.Users.Domain;
 using FluentValidation;
 using JetBrains.Annotations;
 using SharedKernel.Cqrs;
-using SharedKernel.Domain;
 using SharedKernel.Persistence;
 
 namespace Account.Features.Users.BackOffice.Queries;
@@ -24,49 +23,6 @@ public sealed record GetBackOfficeUsersQuery(
     public string? Search { get; } = Search?.Trim().ToLower();
 
     public UserRole[] Roles { get; } = Roles ?? [];
-}
-
-[PublicAPI]
-public sealed record BackOfficeUsersResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, BackOfficeUserSummary[] Users);
-
-[PublicAPI]
-public sealed record BackOfficeUserSummary(
-    UserId Id,
-    TenantId TenantId,
-    string TenantName,
-    SubscriptionPlan TenantPlan,
-    PlannedSubscriptionChange? TenantPlannedChange,
-    bool TenantHasEverSubscribed,
-    string Email,
-    string? FirstName,
-    string? LastName,
-    string? Title,
-    UserRole Role,
-    bool EmailConfirmed,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? LastSeenAt,
-    string? AvatarUrl
-);
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum UserActivityFilter
-{
-    ActiveLast24Hours,
-    ActiveLast7Days,
-    ActiveLast30Days,
-    InactiveOver30Days
-}
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum SortableBackOfficeUserProperties
-{
-    Name,
-    Email,
-    Role,
-    LastSeenAt,
-    CreatedAt
 }
 
 public sealed class GetBackOfficeUsersQueryValidator : AbstractValidator<GetBackOfficeUsersQuery>

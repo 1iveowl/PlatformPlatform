@@ -1,0 +1,78 @@
+@using Account.Client
+@using Account.Features.Users.BackOffice.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.Sessions
+@using SharedKernel.Domain
+@* The user detail's Sessions tab, the React back office's UserSessionsSection: the person's sessions across every account the
+   person is a member of, from GET /api/back-office/users/{id}/sessions, on DataList with the last activity, the account, the
+   browser and operating system, the device, the sign-in method, the IP address and whether the session is active or revoked.
+   The account API pages the sessions; the page is in the URL under the sessions prefix (UserSessionsListSource). The React
+   section shows the first page only; here every page is reachable. The tab is read-only. *@
+@inject IServiceProvider Services
+
+<p class="accounts-subtitle">@BackOfficeStrings.UserSessionsDescription</p>
+
+<DataList TItem="BackOfficeUserSession" data-testid="user-sessions-grid" ListId="@UserSessionsListSource.ListId(UserId)" CacheScope="@AccountsListSource.CacheScope"
+          Label="@AccountStrings.Sessions" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@UserSessionsListSource.DefaultOrderBy"
+          ParameterPrefix="@UserSessionsListSource.ParameterPrefix">
+    <EmptyContent>
+        <div class="accounts-empty" data-testid="user-sessions-empty">
+            <p class="accounts-empty-title">@BackOfficeStrings.NoSessions</p>
+            <p>@BackOfficeStrings.UserHasNoSessions</p>
+        </div>
+    </EmptyContent>
+</DataList>
+
+@code {
+
+    private IReadOnlyList<DataListColumn<BackOfficeUserSession>> _columns = [];
+
+    [Parameter]
+    [EditorRequired]
+    public UserId UserId { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<BackOfficeUserSession>(UsersStrings.LastSeen, session => @<span data-testid="user-session">@UserDetailFormat.FormatDateTime(UserDetailFormat.GetLastSeen(session))</span>
+            ),
+            new DataListColumn<BackOfficeUserSession>(AccountStrings.Account, session => @<text>@session.TenantName</text>, HideBelow: Breakpoint.Medium
+            ),
+            new DataListColumn<BackOfficeUserSession>(BackOfficeStrings.Browser, BrowserCell, HideBelow: Breakpoint.Medium),
+            new DataListColumn<BackOfficeUserSession>(BackOfficeStrings.Device, session => @<text>@SessionsModel.GetDeviceTypeLabel(session.DeviceType)</text>, HideBelow: Breakpoint.Large
+            ),
+            new DataListColumn<BackOfficeUserSession>(BackOfficeStrings.Method, session => @<text>@SessionsModel.GetLoginMethodLabel(session.LoginMethod)</text>, HideBelow: Breakpoint.Large
+            ),
+            new DataListColumn<BackOfficeUserSession>(AccountStrings.IpAddress, session => @<text>@session.IpAddress</text>, HideBelow: Breakpoint.ExtraLarge
+            ),
+            new DataListColumn<BackOfficeUserSession>(BackOfficeStrings.Status, StatusCell)
+        ];
+    }
+
+    private static RenderFragment BrowserCell(BackOfficeUserSession session)
+    {
+        var userAgent = UserDetailFormat.GetUserAgent(session);
+        return @<span class="account-name-cell">
+                   <span>@(userAgent.Browser ?? AccountStrings.Unknown)</span>
+                   <span class="account-owner">@(userAgent.OperatingSystem ?? AccountStrings.Unknown)</span>
+               </span>;
+    }
+
+    private static RenderFragment StatusCell(BackOfficeUserSession session)
+    {
+        var status = UserDetailFormat.GetSessionStatus(session);
+        return @<span class="@status.Class" data-testid="user-session-status">@status.Label</span>;
+    }
+
+    private static string KeyOf(BackOfficeUserSession session)
+    {
+        return session.Id.Value;
+    }
+
+    private Task<DataListFetchResult<BackOfficeUserSession>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return UserSessionsListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), UserId, request, cancellationToken);
+    }
+
+}

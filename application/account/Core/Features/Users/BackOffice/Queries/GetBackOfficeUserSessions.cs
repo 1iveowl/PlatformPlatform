@@ -3,7 +3,6 @@ using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
 using FluentValidation;
 using JetBrains.Annotations;
-using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Cqrs;
 using SharedKernel.Domain;
 
@@ -15,26 +14,6 @@ public sealed record GetBackOfficeUserSessionsQuery(int PageOffset = 0, int Page
     [JsonIgnore] // Removes from API contract
     public UserId Id { get; init; } = null!;
 }
-
-[PublicAPI]
-public sealed record BackOfficeUserSessionsResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, BackOfficeUserSession[] Sessions);
-
-[PublicAPI]
-public sealed record BackOfficeUserSession(
-    SessionId Id,
-    TenantId TenantId,
-    string TenantName,
-    string? TenantLogoUrl,
-    LoginMethod LoginMethod,
-    DeviceType DeviceType,
-    string UserAgent,
-    string IpAddress,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? LastActiveAt,
-    DateTimeOffset? RevokedAt,
-    SessionRevokedReason? RevokedReason,
-    DateTimeOffset ExpiresAt
-);
 
 public sealed class GetBackOfficeUserSessionsQueryValidator : AbstractValidator<GetBackOfficeUserSessionsQuery>
 {

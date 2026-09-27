@@ -1,0 +1,83 @@
+@using Account.Client
+@using Account.Features.Users.BackOffice.Queries
+@using Account.Features.Users.BackOffice.Requests
+@using Blazor.Client.BackOffice.Dashboard
+@* The user detail's activity tiles, the React back office's UserActivityTiles: the number of accounts the person is a member
+   of, which opens the Accounts tab; the last sign-in, which opens the Logins tab once there is one; and the number of
+   sessions across those accounts from GET /api/back-office/users/{id}/sessions, which opens the Sessions tab once there is
+   one. A tile with nothing to open is not a link. *@
+@inject IServiceProvider Services
+
+<div class="account-detail-tiles" data-testid="user-detail-tiles">
+    <a class="account-detail-tile" href="@UserDetailTabs.ToUrl(User.Id, UserDetailTab.Accounts)" data-testid="user-tile-accounts">
+        <span class="account-detail-tile-label">@BackOfficeStrings.Accounts</span>
+        <span class="account-detail-tile-value" data-testid="user-tile-accounts-count">@DashboardFormat.FormatCount(User.TenantMemberships.Length)</span>
+        <span class="account-detail-tile-subtitle">@UserDetailFormat.GetMembershipsLabel(User.TenantMemberships.Length)</span>
+    </a>
+
+    @if (User.LastSeenAt is { } lastSeenAt)
+    {
+        <a class="account-detail-tile" href="@UserDetailTabs.ToUrl(User.Id, UserDetailTab.Logins)" data-testid="user-tile-last-login">
+            <span class="account-detail-tile-label">@BackOfficeStrings.LastLogin</span>
+            <span class="account-detail-tile-value">@UserDetailFormat.FormatDateTime(lastSeenAt)</span>
+            <span class="account-detail-tile-subtitle">@BackOfficeStrings.MostRecentActivity</span>
+        </a>
+    }
+    else
+    {
+        <div class="account-detail-tile" data-testid="user-tile-last-login">
+            <span class="account-detail-tile-label">@BackOfficeStrings.LastLogin</span>
+            <span class="account-detail-tile-value">@DashboardFormat.Missing</span>
+            <span class="account-detail-tile-subtitle">@BackOfficeStrings.NeverLoggedIn</span>
+        </div>
+    }
+
+    @if (_sessionCount > 0)
+    {
+        <a class="account-detail-tile" href="@UserDetailTabs.ToUrl(User.Id, UserDetailTab.Sessions)" data-testid="user-tile-sessions">
+            <span class="account-detail-tile-label">@AccountStrings.Sessions</span>
+            <span class="account-detail-tile-value" data-testid="user-tile-sessions-count">@DashboardFormat.FormatCount(_sessionCount.Value)</span>
+            <span class="account-detail-tile-subtitle">@BackOfficeStrings.AllTime</span>
+        </a>
+    }
+    else
+    {
+        <div class="account-detail-tile" data-testid="user-tile-sessions">
+            <span class="account-detail-tile-label">@AccountStrings.Sessions</span>
+            <span class="account-detail-tile-value" data-testid="user-tile-sessions-count">@(_sessionCount is { } count ? DashboardFormat.FormatCount(count) : DashboardFormat.Missing)</span>
+            @if (_sessionCount is not null)
+            {
+                <span class="account-detail-tile-subtitle">@BackOfficeStrings.AllTime</span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+
+    // Only the total is needed, so the tile asks for the smallest page
+    private static readonly GetBackOfficeUserSessionsQuery CountQuery = new(0, 1);
+
+    private int? _sessionCount;
+
+    [Parameter]
+    [EditorRequired]
+    public BackOfficeUserDetailResponse User { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserSessionsAsync(User.Id, CountQuery, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _sessionCount = result.Value.TotalCount;
+    }
+
+}

@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { signUpThroughBlazor, test } from "@blazor/e2e/authentication";
-import { blazorBackOfficeUrl, openBlazorBackOffice, readTenantAbInclusionPin } from "@blazor/e2e/back-office";
+import { inviteUsersThroughAccountApi } from "@blazor/e2e/account-api";
+import { blazorBackOfficeUrl, openBlazorBackOffice, readTenantAbInclusionPin, readUserAbInclusionPin } from "@blazor/e2e/back-office";
 import { mockProviderCookieName, readBootstrapUser } from "@blazor/e2e/external-login";
 import { expectNoPolicyViolations, trackPolicyViolations } from "@blazor/e2e/policy";
 import { blazorLocale, blazorTexts } from "@blazor/e2e/texts";
@@ -343,6 +344,225 @@ test.describe("@comprehensive", () => {
         }, tenantId);
 
         expect(statuses).toEqual([403, 403, 403]);
+      })();
+    } finally {
+      await user.context.close();
+    }
+  });
+
+  /**
+   * The Blazor back office's users list and user detail, as an administrator:
+   * - The list searches across every account, pages, and filters by role and activity, with every filter in the URL under the
+   *   React back office's names and restored by a reload
+   * - A row opens the user, whose Accounts, Logins, Sessions and Feature flags tabs read the local data, with the tab in the URL
+   * - The user's A/B inclusion pin is set and cleared through the feature flag rollouts dialog
+   * - The account detail's Users tab opens the same user, and an unknown or malformed user id shows the not-found state
+   */
+  test("should filter and page users, read each tab of a user and set and clear the user's pin", async ({ page, browser }) => {
+    createTestContext(page);
+    const texts = blazorTexts();
+    const email = uniqueBlazorEmail();
+    const accountName = `Users ${Math.random().toString(36).slice(2, 10)}`;
+    const paddingEmails = Array.from({ length: 25 }, (_, index) => `padding-${index}-${uniqueBlazorEmail()}`);
+    let userId = "";
+    let tenantId = "";
+
+    await step("Sign up through Blazor with a unique account name & invite 25 users into the account")(async () => {
+      await signUpThroughBlazor(page, email, accountName);
+      const bootstrapUser = (await readBootstrapUser(page))!;
+      userId = bootstrapUser.id;
+      tenantId = bootstrapUser.tenantId;
+      await inviteUsersThroughAccountApi(page, paddingEmails);
+    })();
+
+    const admin = await openBlazorBackOffice(browser, "admin", "back-office", blazorLocale());
+    await trackPolicyViolations(admin.page);
+    const grid = admin.page.getByTestId("users-grid");
+    try {
+      await step("Open the users list from the side menu, search for the account & see its 26 users on two pages")(async () => {
+        await admin.page.getByTestId("sidebar-nav-users").click();
+        await expect(admin.page.getByRole("heading", { level: 1 })).toHaveText(texts.users);
+
+        await admin.page.getByRole("textbox", { name: texts.search }).fill(accountName);
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("search") === accountName);
+        await expect(grid).toHaveAttribute("data-list-total-count", "26");
+
+        await grid.getByRole("button", { name: texts.nextPage, exact: true }).click();
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("pageOffset") === "1");
+        await expect(grid.getByTestId("users-row")).toHaveCount(1);
+      })();
+
+      await step("Filter to owners & see the owner alone with the roles in the URL")(async () => {
+        await admin.page.getByTestId("users-role-owner").click();
+
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("roles") === '["Owner"]' && !url.searchParams.has("pageOffset"));
+        await expect(grid).toHaveAttribute("data-list-total-count", "1");
+        await expect(grid.getByTestId("users-row-email")).toHaveText(email);
+      })();
+
+      await step("Filter to inactive owners & see no match, then reload and see both filters restored")(async () => {
+        await admin.page.getByTestId("users-activity-inactiveover30days").click();
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("activity") === "InactiveOver30Days");
+        await expect(admin.page.getByTestId("users-empty")).toContainText(texts.backOfficeNoUsersMatchSearch);
+
+        await admin.page.reload();
+        await expect(admin.page.getByTestId("users-role-owner")).toHaveAttribute("aria-pressed", "true");
+        await expect(admin.page.getByTestId("users-activity-inactiveover30days")).toHaveAttribute("aria-pressed", "true");
+        await expect(admin.page.getByTestId("users-empty")).toBeVisible();
+      })();
+
+      await step("Drop the role filter & see the 25 invited users who never signed in")(async () => {
+        await admin.page.getByTestId("users-role-owner").click();
+
+        await expect(admin.page).toHaveURL((url) => !url.searchParams.has("roles"));
+        await expect(grid).toHaveAttribute("data-list-total-count", "25");
+      })();
+
+      await step("Switch to users active in the last 24 hours & open the owner from the list")(async () => {
+        await admin.page.getByTestId("users-activity-activelast24hours").click();
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("activity") === "ActiveLast24Hours");
+        await expect(grid).toHaveAttribute("data-list-total-count", "1");
+
+        await grid.getByRole("row").filter({ hasText: email }).getByRole("cell").first().click();
+        await expect(admin.page).toHaveURL(new RegExp(`/blazor/back-office/users/${userId}$`));
+        await expect(admin.page.getByTestId("back-office-user-detail")).toHaveAttribute("data-state", "loaded");
+        await expect(admin.page.getByRole("heading", { level: 1 })).toHaveText("Blazor User");
+        await expect(admin.page.getByTestId("user-detail-email")).toHaveText(email);
+      })();
+
+      await step("Read the Accounts tab and the activity tiles & see the one account with the owner role")(async () => {
+        const tabs = admin.page.getByRole("navigation", { name: texts.backOfficeUserSections });
+        await expect(tabs.getByRole("link", { name: texts.backOfficeAccounts })).toHaveAttribute("aria-current", "page");
+        await expect(admin.page.getByTestId("user-tile-accounts-count")).toHaveText("1");
+        await expect(admin.page.getByTestId("user-tile-sessions-count")).toHaveText("1");
+        await expect(admin.page.getByTestId("user-accounts-grid")).toHaveAttribute("data-list-total-count", "1");
+        await expect(admin.page.getByTestId("user-account-name")).toHaveText(accountName);
+        await expect(admin.page.getByTestId("user-account-role")).toContainText(texts.backOfficeRoleOwner);
+      })();
+
+      await step("Open the Logins tab & see the signup's successful attempt with the tab in the URL")(async () => {
+        await admin.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link", { name: texts.backOfficeLogins }).click();
+
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("tab") === "logins");
+        await expect(admin.page.getByTestId("user-logins-grid")).toHaveAttribute("data-list-state", "ready");
+        await expect(admin.page.getByTestId("user-login-outcome").first()).toHaveText(texts.backOfficeLoginSucceeded);
+      })();
+
+      await step("Open the Sessions tab & see the signup's active session, then reload and see the tab restored")(async () => {
+        await admin.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link", { name: texts.backOfficeSessions }).click();
+
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("tab") === "sessions");
+        await expect(admin.page.getByTestId("user-sessions-grid")).toHaveAttribute("data-list-total-count", "1");
+        await expect(admin.page.getByTestId("user-session-status")).toHaveText(texts.backOfficeSessionActive);
+
+        await admin.page.reload();
+        const tabs = admin.page.getByRole("navigation", { name: texts.backOfficeUserSections });
+        await expect(tabs.getByRole("link", { name: texts.backOfficeSessions })).toHaveAttribute("aria-current", "page");
+        await expect(admin.page.getByTestId("user-sessions-grid")).toHaveAttribute("data-list-total-count", "1");
+      })();
+
+      await step("Open the Feature flags tab & see the user-scoped flags")(async () => {
+        await admin.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link", { name: texts.backOfficeFeatureFlags }).click();
+
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("tab") === "feature-flags");
+        await expect(admin.page.getByTestId("user-flags-grid")).toHaveAttribute("data-list-state", "ready");
+        await expect(admin.page.locator('[data-testid="user-flag"][data-flag-key="compact-view"]')).toBeVisible();
+      })();
+
+      await step("Pin the user first in feature flag rollouts & see the pin in the header after a reload")(async () => {
+        await admin.page.getByTestId("user-ab-inclusion-pin").click();
+        await admin.page.getByTestId("ab-inclusion-pin-alwayson").check();
+        const pinResponse = admin.page.waitForResponse((response) => response.url().endsWith(`/api/back-office/users/${userId}/ab-inclusion-pin`));
+        await admin.page.getByTestId("ab-inclusion-pin-save").click();
+
+        expect((await pinResponse).ok()).toBe(true);
+        await expect(admin.page.getByTestId("ab-inclusion-pin-saved-toast")).toContainText("Blazor User");
+        await expect(admin.page.getByTestId("user-detail-pin")).toHaveText(texts.backOfficeFirstInRollouts);
+        await admin.page.reload();
+        await expect(admin.page.getByTestId("user-detail-pin")).toHaveText(texts.backOfficeFirstInRollouts);
+        expect(await readUserAbInclusionPin(admin.page, userId)).toBe("AlwaysOn");
+      })();
+
+      await step("Reset feature flag rollouts to Default & see the pin cleared")(async () => {
+        await admin.page.getByTestId("user-ab-inclusion-pin").click();
+        await admin.page.getByTestId("ab-inclusion-pin-default").check();
+        await admin.page.getByTestId("ab-inclusion-pin-save").click();
+
+        await expect(admin.page.getByTestId("user-detail-pin")).toHaveCount(0);
+        expect(await readUserAbInclusionPin(admin.page, userId)).toBeNull();
+      })();
+
+      await step("Open the owner from the account's Users tab & land on the same user")(async () => {
+        await admin.page.goto(blazorBackOfficeUrl(`back-office/accounts/${tenantId}?tab=users&usersRoles=%5B%22Owner%22%5D`));
+        await expect(admin.page.getByTestId("account-users-grid")).toHaveAttribute("data-list-total-count", "1");
+
+        await admin.page.getByTestId("account-users-grid").getByRole("row").filter({ hasText: email }).getByRole("cell").first().click();
+        await expect(admin.page).toHaveURL(new RegExp(`/blazor/back-office/users/${userId}$`));
+        await expect(admin.page.getByTestId("back-office-user-detail")).toHaveAttribute("data-state", "loaded");
+      })();
+
+      await step("Open an unknown and a malformed user id & see the not-found state inside the back office")(async () => {
+        await admin.page.goto(blazorBackOfficeUrl("back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0"));
+        await expect(admin.page.getByTestId("back-office-user-detail")).toHaveAttribute("data-state", "notfound");
+        await expect(admin.page.getByRole("heading", { level: 1 })).toHaveText(texts.pageNotFound);
+
+        await admin.page.goto(blazorBackOfficeUrl("back-office/users/not-a-user"));
+        await expect(admin.page.getByTestId("back-office-user-detail")).toHaveAttribute("data-state", "notfound");
+        await expectNoPolicyViolations(admin.page);
+      })();
+    } finally {
+      await admin.context.close();
+    }
+  });
+
+  /**
+   * A back-office identity outside the admins group on the users pages:
+   * - The users list and a user's tabs are readable
+   * - No pin action is offered, and a direct pin call from that identity is refused by the account API with 403
+   */
+  test("should let a back-office user read users but offer no pin action and refuse the user's direct call", async ({ page, browser }) => {
+    createTestContext(page);
+    const texts = blazorTexts();
+    const email = uniqueBlazorEmail();
+    let userId = "";
+
+    await step("Sign up through Blazor & read the new user's id")(async () => {
+      await signUpThroughBlazor(page, email);
+      userId = (await readBootstrapUser(page))!.id;
+    })();
+
+    const user = await openBlazorBackOffice(browser, "user", "back-office/users", blazorLocale());
+    try {
+      await step("Search the users list as user & find the new user")(async () => {
+        await user.page.getByRole("textbox", { name: texts.search }).fill(email);
+
+        await expect(user.page.getByTestId("users-grid")).toHaveAttribute("data-list-total-count", "1");
+      })();
+
+      await step("Open the user as user & see the tabs but no pin action")(async () => {
+        await user.page.getByTestId("users-grid").getByRole("row").filter({ hasText: email }).getByRole("cell").first().click();
+        await expect(user.page.getByTestId("back-office-user-detail")).toHaveAttribute("data-state", "loaded");
+
+        await expect(user.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link")).toHaveCount(4);
+        await expect(user.page.getByTestId("user-admin-actions")).toHaveCount(0);
+        await expect(user.page.getByTestId("user-ab-inclusion-pin")).toHaveCount(0);
+      })();
+
+      await step("Call the pin directly as user & get 403 from the account API")(async () => {
+        const status = await user.page.evaluate(
+          async (id) =>
+            (
+              await fetch(`/api/back-office/users/${id}/ab-inclusion-pin`, {
+                method: "PUT",
+                body: '{"abInclusionPin":"AlwaysOn"}',
+                headers: { "content-type": "application/json" }
+              })
+            ).status,
+          userId
+        );
+
+        expect(status).toBe(403);
+        expect(await readUserAbInclusionPin(user.page, userId)).toBeNull();
       })();
     } finally {
       await user.context.close();

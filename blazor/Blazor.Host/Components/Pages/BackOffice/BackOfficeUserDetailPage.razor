@@ -1,0 +1,24 @@
+@* The back office's user detail, served only on the back-office host and only for the back-office identity the account API's
+   back-office listener forwards (BackOfficeAuthentication). The route takes one path segment; whether it is a user id, and
+   whether the account API knows that user, is settled in the browser, which shows the back office's not-found state inside
+   the shell for either. The page is server-rendered; the render mode is on the WebAssembly component it hosts, which
+   prerenders the shell and the loading state. *@
+@page "/back-office/users/{UserId}"
+@using Blazor.Client.BackOffice.Users
+@using Blazor.Host.Account
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = BackOfficeAuthentication.PolicyName)]
+@attribute [BackOfficeSurface]
+@inject BackOfficeSettings Settings
+
+<PageTitle>@AccountStrings.User</PageTitle>
+
+<UserDetailSurface UserId="@UserId" IsSubscriptionEnabled="@Settings.IsSubscriptionEnabled" @rendermode="InteractiveWebAssembly"/>
+
+@code {
+
+    [Parameter]
+    public string UserId { get; set; } = "";
+
+}

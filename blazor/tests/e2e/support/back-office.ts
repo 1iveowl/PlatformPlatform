@@ -70,3 +70,15 @@ export function readTenantAbInclusionPin(page: Page, tenantId: string): Promise<
     return ((await response.json()) as { abInclusionPin: string | null }).abInclusionPin;
   }, tenantId);
 }
+
+/**
+ * Read a user's A/B inclusion pin as the account API stores it, through the back-office session of the page
+ * @param page Playwright page instance signed in to the back office
+ * @param userId The id of the user whose pin to read
+ */
+export function readUserAbInclusionPin(page: Page, userId: string): Promise<string | null> {
+  return page.evaluate(async (id) => {
+    const response = await fetch(`/api/back-office/users/${id}`, { credentials: "same-origin" });
+    return ((await response.json()) as { abInclusionPin: string | null }).abInclusionPin;
+  }, userId);
+}

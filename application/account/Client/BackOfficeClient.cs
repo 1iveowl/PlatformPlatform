@@ -6,6 +6,8 @@ using Account.Features.FeatureFlags.Queries;
 using Account.Features.Tenants.BackOffice.Commands;
 using Account.Features.Tenants.BackOffice.Queries;
 using Account.Features.Tenants.BackOffice.Requests;
+using Account.Features.Users.BackOffice.Queries;
+using Account.Features.Users.BackOffice.Requests;
 using SharedKernel.Domain;
 
 namespace Account.Client;
@@ -120,5 +122,35 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult<GetTenantFeatureFlagsResponse>> GetTenantFeatureFlagsAsync(TenantId tenantId, CancellationToken cancellationToken)
     {
         return _transport.GetAsync<GetTenantFeatureFlagsResponse>(AccountApiRoutes.BackOfficeTenantFeatureFlags(tenantId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeUsersResponse>> GetUsersAsync(GetBackOfficeUsersQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeUsersResponse>(AccountApiRoutes.BackOfficeUsers(query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeUserDetailResponse>> GetUserAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeUserDetailResponse>(AccountApiRoutes.BackOfficeUser(userId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeUserSessionsResponse>> GetUserSessionsAsync(UserId userId, GetBackOfficeUserSessionsQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeUserSessionsResponse>(AccountApiRoutes.BackOfficeUserSessions(userId, query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeUserLoginHistoryResponse>> GetUserLoginHistoryAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeUserLoginHistoryResponse>(AccountApiRoutes.BackOfficeUserLoginHistory(userId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<GetUserFeatureFlagsResponse>> GetUserFeatureFlagsAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<GetUserFeatureFlagsResponse>(AccountApiRoutes.BackOfficeUserFeatureFlags(userId), cancellationToken);
+    }
+
+    public Task<ApiCallResult> SetUserAbInclusionPinAsync(UserId userId, SetUserAbInclusionPinCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.SetUserAbInclusionPin(userId), command, cancellationToken);
     }
 }

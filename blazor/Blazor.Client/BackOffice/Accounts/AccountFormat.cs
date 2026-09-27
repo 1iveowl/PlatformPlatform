@@ -33,7 +33,8 @@ public static class AccountFormat
         return tenant.ScheduledPlan is null ? null : PlannedSubscriptionChange.ScheduledPlanChange;
     }
 
-    private static TenantStatusFilter GetStatus(SubscriptionPlan plan, PlannedSubscriptionChange? plannedChange, bool hasEverSubscribed)
+    // The reading from the plan, the planned change and whether the account ever paid, which a user's account membership also carries
+    public static TenantStatusFilter GetStatus(SubscriptionPlan plan, PlannedSubscriptionChange? plannedChange, bool hasEverSubscribed)
     {
         return (plan, plannedChange, hasEverSubscribed) switch
         {
@@ -75,7 +76,7 @@ public static class AccountFormat
         return GetMrr(tenant.MonthlyRecurringRevenue, tenant.Currency, GetPlannedChange(tenant), tenant.ScheduledPriceAmount);
     }
 
-    private static AccountMrr GetMrr(decimal? monthlyRecurringRevenue, string? currency, PlannedSubscriptionChange? plannedChange, decimal? scheduledPriceAmount)
+    public static AccountMrr GetMrr(decimal? monthlyRecurringRevenue, string? currency, PlannedSubscriptionChange? plannedChange, decimal? scheduledPriceAmount)
     {
         var current = monthlyRecurringRevenue is { } amount ? DashboardFormat.FormatMoney(amount, currency) : DashboardFormat.Missing;
         var next = (plannedChange, scheduledPriceAmount, currency) switch

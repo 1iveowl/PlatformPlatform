@@ -5,56 +5,11 @@ using Account.Features.Users.Domain;
 using JetBrains.Annotations;
 using SharedKernel.Cqrs;
 using SharedKernel.Domain;
-using SharedKernel.FeatureFlags;
 
 namespace Account.Features.Users.BackOffice.Queries;
 
 [PublicAPI]
 public sealed record GetBackOfficeUserDetailQuery(UserId Id) : IRequest<Result<BackOfficeUserDetailResponse>>;
-
-[PublicAPI]
-public sealed record BackOfficeUserDetailResponse(
-    UserId Id,
-    TenantId TenantId,
-    string TenantName,
-    string Email,
-    string? FirstName,
-    string? LastName,
-    string? Title,
-    UserRole Role,
-    bool EmailConfirmed,
-    string Locale,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt,
-    DateTimeOffset? LastSeenAt,
-    string? AvatarUrl,
-    BackOfficeUserTenantMembership[] TenantMemberships,
-    AbInclusionPin? AbInclusionPin
-);
-
-// A "tenant membership" is another user record sharing the same email in a different tenant. Each row in the back-office
-// User detail Tenants section corresponds to a single user-record-per-tenant; we expose its UserId so the frontend can
-// link the row to that other user's detail page when needed. We also surface the tenant logo, plan, currency, MRR and
-// country to render a rich tenant card without requiring a per-membership tenant detail fetch from the SPA.
-[PublicAPI]
-public sealed record BackOfficeUserTenantMembership(
-    UserId UserId,
-    TenantId TenantId,
-    string TenantName,
-    string? TenantLogoUrl,
-    SubscriptionPlan Plan,
-    PlannedSubscriptionChange? PlannedChange,
-    bool HasEverSubscribed,
-    decimal? MonthlyRecurringRevenue,
-    decimal? ScheduledPriceAmount,
-    string? Currency,
-    DateTimeOffset? RenewalDate,
-    string? Country,
-    UserRole Role,
-    bool EmailConfirmed,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? LastSeenAt
-);
 
 public sealed class GetBackOfficeUserDetailHandler(
     IUserRepository userRepository,

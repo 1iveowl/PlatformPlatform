@@ -4,6 +4,7 @@ using Account.Client;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
 using Account.Features.Tenants.BackOffice.Commands;
+using Account.Features.Users.BackOffice.Requests;
 using Blazor.Client.BackOffice;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components.Forms;
@@ -143,6 +144,124 @@ public sealed class BackOfficeClientTests
 
         // Assert
         network.Requests.Single().AntiforgeryToken.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(AbInclusionPin.NeverOn, """{"abInclusionPin":"NeverOn"}""")]
+    [InlineData(null, """{"abInclusionPin":null}""")]
+    public async Task SetUserAbInclusionPinAsync_ShouldPutThePinToTheUserRouteWithTheHostIssuedToken(AbInclusionPin? pin, string expectedBody)
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, "");
+        var chain = new AntiforgeryHeaderHandler(new BackOfficeAntiforgeryTokenSource(new FixedAntiforgeryStateProvider("host-issued-token"))) { InnerHandler = network };
+        var client = new BackOfficeClient(new HttpClient(chain) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.SetUserAbInclusionPinAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), new SetUserAbInclusionPinCommand(pin), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        var request = network.Requests.Single();
+        request.Method.Should().Be(HttpMethod.Put);
+        request.Uri.Should().Be(new Uri("https://back-office.dev.localhost:9001/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/ab-inclusion-pin"));
+        request.Body.Should().Be(expectedBody);
+        request.AntiforgeryToken.Should().Be("host-issued-token");
+    }
+
+    [Fact]
+    public async Task SetUserAbInclusionPinAsync_WhenTheAccountApiRefusesANonAdmin_ShouldReportTheForbiddenStatus()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.Forbidden, """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.4","title":"Forbidden","status":403}""");
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.SetUserAbInclusionPinAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), new SetUserAbInclusionPinCommand(AbInclusionPin.AlwaysOn), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.StatusCode.Should().Be(403);
+    }
+
+    [Fact]
+    public async Task GetUserAsync_ShouldReadTheUserWithItsMembershipsAndPin()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, """
+                                                              {"id":"usr_01JMVAW4T4320KJ3A7EJMCG8R0","tenantId":"42","tenantName":"Acme","email":"ann@example.com","firstName":"Ann",
+                                                               "lastName":null,"title":null,"role":"Owner","emailConfirmed":true,"locale":"en-US","createdAt":"2026-01-01T00:00:00+00:00",
+                                                               "modifiedAt":null,"lastSeenAt":null,"avatarUrl":null,"abInclusionPin":"AlwaysOn","tenantMemberships":[{"userId":"usr_01JMVAW4T4320KJ3A7EJMCG8R0",
+                                                               "tenantId":"42","tenantName":"Acme","tenantLogoUrl":null,"plan":"Standard","plannedChange":"Cancellation","hasEverSubscribed":true,
+                                                               "monthlyRecurringRevenue":29,"scheduledPriceAmount":null,"currency":"EUR","renewalDate":null,"country":"DK","role":"Owner",
+                                                               "emailConfirmed":true,"createdAt":"2026-01-01T00:00:00+00:00","lastSeenAt":null}]}
+                                                              """
+        );
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.GetUserAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.AbInclusionPin.Should().Be(AbInclusionPin.AlwaysOn);
+        result.Value.TenantMemberships.Should().ContainSingle().Which.TenantId.Should().Be(new TenantId(42));
+        network.Requests.Single().Uri.Should().Be(new Uri("https://back-office.dev.localhost:9001/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0"));
+    }
+
+    [Theory]
+    [InlineData(0, 1, "/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/sessions?PageSize=1")]
+    [InlineData(2, 25, "/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/sessions?PageOffset=2&PageSize=25")]
+    public async Task GetUserSessionsAsync_ShouldSendThePageToTheSessionsRoute(int pageOffset, int pageSize, string expectedPathAndQuery)
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, """{"totalCount":0,"pageSize":1,"totalPages":0,"currentPageOffset":0,"sessions":[]}""");
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.GetUserSessionsAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), new GetBackOfficeUserSessionsQuery(pageOffset, pageSize), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        network.Requests.Single().Uri.PathAndQuery.Should().Be(expectedPathAndQuery);
+    }
+
+    [Fact]
+    public async Task GetUserLoginHistoryAsync_ShouldReadTheEntriesFromTheLoginHistoryRoute()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, """
+                                                              {"entries":[{"kind":"Email","method":"OneTimePassword","outcome":"Failed","occurredAt":"2026-09-01T10:00:00+00:00",
+                                                               "failureReason":"TooManyRetries","externalProvider":null}]}
+                                                              """
+        );
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.GetUserLoginHistoryAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), CancellationToken.None);
+
+        // Assert
+        result.Value!.Entries.Should().ContainSingle().Which.FailureReason.Should().Be("TooManyRetries");
+        network.Requests.Single().Uri.AbsolutePath.Should().Be("/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/login-history");
+    }
+
+    [Fact]
+    public async Task GetUserFeatureFlagsAsync_ShouldReadTheFlagsFromTheFeatureFlagsRoute()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, """
+                                                              {"flags":[{"flagKey":"beta-features","scope":"User","description":"Beta","isAbTestEligible":true,"bucketStart":null,
+                                                               "bucketEnd":null,"rolloutPercentage":10,"isEnabled":true,"source":"manual_override","isBaseRowActive":true,"rolloutBucket":3,
+                                                               "tenantId":"42","inclusionThresholdPercentage":null,"defaultEnabled":false,"userAbInclusionPin":null}]}
+                                                              """
+        );
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.GetUserFeatureFlagsAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), CancellationToken.None);
+
+        // Assert
+        result.Value!.Flags.Should().ContainSingle().Which.IsEnabled.Should().BeTrue();
+        network.Requests.Single().Uri.AbsolutePath.Should().Be("/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/feature-flags");
     }
 
     private sealed record RecordedRequest(HttpMethod Method, Uri Uri, string? Body, string? AntiforgeryToken);

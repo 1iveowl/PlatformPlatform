@@ -642,4 +642,124 @@
     <data name="When" xml:space="preserve">
         <value>Hvornår</value>
     </data>
+    <data name="UsersSubtitle" xml:space="preserve">
+        <value>Alle brugere på tværs af alle konti, senest sete først. Søg og filtrér for at indsnævre.</value>
+    </data>
+    <data name="SearchByEmailNameOrAccount" xml:space="preserve">
+        <value>Søg på e-mail, navn eller konto</value>
+    </data>
+    <data name="Activity" xml:space="preserve">
+        <value>Aktivitet</value>
+    </data>
+    <data name="Activity24Hours" xml:space="preserve">
+        <value>24t</value>
+    </data>
+    <data name="Activity7Days" xml:space="preserve">
+        <value>7 dage</value>
+    </data>
+    <data name="Activity30Days" xml:space="preserve">
+        <value>30 dage</value>
+    </data>
+    <data name="ActivityInactive" xml:space="preserve">
+        <value>Inaktive</value>
+    </data>
+    <data name="NoUsersMatchSearch" xml:space="preserve">
+        <value>Ingen brugere matcher din søgning</value>
+    </data>
+    <data name="NoUsersYet" xml:space="preserve">
+        <value>Ingen brugere endnu</value>
+    </data>
+    <data name="TryDifferentSearchOrClearFilters" xml:space="preserve">
+        <value>Prøv et andet søgeord, eller ryd rolle- og aktivitetsfiltrene.</value>
+    </data>
+    <data name="UsersAppearWhenAccountsCreated" xml:space="preserve">
+        <value>Brugere vises her efterhånden som konti oprettes.</value>
+    </data>
+    <data name="UserSections" xml:space="preserve">
+        <value>Brugerafsnit</value>
+    </data>
+    <data name="Logins" xml:space="preserve">
+        <value>Logins</value>
+    </data>
+    <data name="EmailConfirmed" xml:space="preserve">
+        <value>E-mail bekræftet</value>
+    </data>
+    <data name="EmailPending" xml:space="preserve">
+        <value>E-mail afventer</value>
+    </data>
+    <data name="MembershipsOne" xml:space="preserve">
+        <value>{0} medlemskab</value>
+    </data>
+    <data name="MembershipsOther" xml:space="preserve">
+        <value>{0} medlemskaber</value>
+    </data>
+    <data name="LoginSucceeded" xml:space="preserve">
+        <value>Gennemført</value>
+    </data>
+    <data name="LoginFailed" xml:space="preserve">
+        <value>Mislykket</value>
+    </data>
+    <data name="Revoked" xml:space="preserve">
+        <value>Tilbagekaldt</value>
+    </data>
+    <data name="CreatedOn" xml:space="preserve">
+        <value>Oprettet {0}</value>
+    </data>
+    <data name="LastLogin" xml:space="preserve">
+        <value>Seneste login</value>
+    </data>
+    <data name="MostRecentActivity" xml:space="preserve">
+        <value>Seneste aktivitet</value>
+    </data>
+    <data name="NeverLoggedIn" xml:space="preserve">
+        <value>Aldrig logget ind</value>
+    </data>
+    <data name="AllTime" xml:space="preserve">
+        <value>Samlet</value>
+    </data>
+    <data name="UserAccountsDescription" xml:space="preserve">
+        <value>Alle konti denne bruger er medlem af, med deres abonnement og rolle.</value>
+    </data>
+    <data name="NoAccountMemberships" xml:space="preserve">
+        <value>Ingen kontomedlemskaber</value>
+    </data>
+    <data name="UserNotMemberOfAnyAccount" xml:space="preserve">
+        <value>Denne bruger er ikke medlem af nogen konto.</value>
+    </data>
+    <data name="UserLoginsDescription" xml:space="preserve">
+        <value>Alle login-forsøg de seneste 30 dage, succesfulde eller mislykkede, på tværs af e-mail og eksterne udbydere.</value>
+    </data>
+    <data name="LoginHistory" xml:space="preserve">
+        <value>Login-historik</value>
+    </data>
+    <data name="NoLoginHistory" xml:space="preserve">
+        <value>Ingen login-historik</value>
+    </data>
+    <data name="NoSignInAttempts" xml:space="preserve">
+        <value>Ingen login-forsøg de seneste 30 dage.</value>
+    </data>
+    <data name="Outcome" xml:space="preserve">
+        <value>Resultat</value>
+    </data>
+    <data name="UserSessionsDescription" xml:space="preserve">
+        <value>En række pr. enhed eller browser brugeren er logget ind fra. Tilbagekaldte sessioner kan ikke logge ind igen.</value>
+    </data>
+    <data name="NoSessions" xml:space="preserve">
+        <value>Ingen sessioner</value>
+    </data>
+    <data name="UserHasNoSessions" xml:space="preserve">
+        <value>Denne bruger har ingen registrerede sessioner.</value>
+    </data>
+    <data name="Browser" xml:space="preserve">
+        <value>Browser</value>
+    </data>
+    <data name="Device" xml:space="preserve">
+        <value>Enhed</value>
+    </data>
+    <data name="NoUserFeatureFlags" xml:space="preserve">
+        <value>Der er ingen brugeromfattede feature flags defineret.</value>
+    </data>
+    <data name="UserFlagsDescription" xml:space="preserve">
+        <value>Per-bruger flags, og om hvert af dem er slået til for denne bruger.</value>
+    </data>
 </root>

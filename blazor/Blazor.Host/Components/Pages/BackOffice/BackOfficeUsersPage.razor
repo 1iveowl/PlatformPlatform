@@ -1,0 +1,15 @@
+@* The back office's users list, served only on the back-office host and only for the back-office identity the account API's
+   back-office listener forwards (BackOfficeAuthentication). The page is server-rendered; the render mode is on the
+   WebAssembly component it hosts, which prerenders the shell and the list's frame and loads the rows in the browser. *@
+@page "/back-office/users"
+@using Blazor.Client.BackOffice.Users
+@using Blazor.Host.Account
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = BackOfficeAuthentication.PolicyName)]
+@attribute [BackOfficeSurface]
+@inject BackOfficeSettings Settings
+
+<PageTitle>@CommonStrings.Users</PageTitle>
+
+<BackOfficeUsersSurface IsSubscriptionEnabled="@Settings.IsSubscriptionEnabled" @rendermode="InteractiveWebAssembly"/>

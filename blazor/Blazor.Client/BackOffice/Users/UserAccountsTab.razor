@@ -1,0 +1,109 @@
+@using Account.Features.Users.BackOffice.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.Users
+@* The user detail's Accounts tab, the React back office's UserTenantsSection: every account the person is a member of, from the
+   user's detail response, on DataList with the account's name and country, the person's role there, the email confirmation,
+   the account's status, plan, monthly recurring revenue and renewal date. A row opens the account's detail page, as the
+   React cards do. The accounts are paged in memory under the accounts prefix (UserMembershipsListSource). *@
+@inject NavigationManager Navigation
+
+<p class="accounts-subtitle">@BackOfficeStrings.UserAccountsDescription</p>
+
+<DataList TItem="BackOfficeUserTenantMembership" data-testid="user-accounts-grid" ListId="@UserMembershipsListSource.ListId(User.Id)" CacheScope="@AccountsListSource.CacheScope"
+          Label="@BackOfficeStrings.Accounts" Columns="_columns" FetchPage="(request, _) => Task.FromResult(UserMembershipsListSource.Page(User.TenantMemberships, request))"
+          KeySelector="KeyOf" DefaultOrderBy="@UserMembershipsListSource.DefaultOrderBy" ParameterPrefix="@UserMembershipsListSource.ParameterPrefix" RowLabel="RowLabel"
+          OnActivated="OpenAccountAsync">
+    <EmptyContent>
+        <div class="accounts-empty" data-testid="user-accounts-empty">
+            <p class="accounts-empty-title">@BackOfficeStrings.NoAccountMemberships</p>
+            <p>@BackOfficeStrings.UserNotMemberOfAnyAccount</p>
+        </div>
+    </EmptyContent>
+</DataList>
+
+@code {
+
+    private IReadOnlyList<DataListColumn<BackOfficeUserTenantMembership>> _columns = [];
+
+    [Parameter]
+    [EditorRequired]
+    public BackOfficeUserDetailResponse User { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<BackOfficeUserTenantMembership>(AccountStrings.Account, AccountCell),
+            new DataListColumn<BackOfficeUserTenantMembership>(UsersStrings.Role, RoleCell, HideBelow: Breakpoint.Medium),
+            new DataListColumn<BackOfficeUserTenantMembership>(BackOfficeStrings.Status, StatusCell, HideBelow: Breakpoint.Medium),
+            new DataListColumn<BackOfficeUserTenantMembership>(BackOfficeStrings.Mrr, MrrCell, Class: "accounts-number", HideBelow: Breakpoint.Large),
+            new DataListColumn<BackOfficeUserTenantMembership>(BackOfficeStrings.RenewalDate, membership => @<text>@AccountFormat.FormatDate(membership.RenewalDate)</text>,
+                HideBelow: Breakpoint.ExtraLarge
+            )
+        ];
+    }
+
+    private static RenderFragment AccountCell(BackOfficeUserTenantMembership membership)
+    {
+        return @<span class="account-name-cell" data-testid="user-account" data-tenant-id="@KeyOf(membership)">
+                   <span class="account-name" data-testid="user-account-name">@membership.TenantName</span>
+                   @if (!string.IsNullOrWhiteSpace(membership.Country))
+                   {
+                       <span class="account-owner">@membership.Country</span>
+                   }
+                   <span class="account-phone-summary data-list-phone-only">
+                       <span class="account-plan">@UserRoleText.Label(membership.Role)</span>
+                       @StatusCell(membership)
+                   </span>
+               </span>;
+    }
+
+    private static RenderFragment RoleCell(BackOfficeUserTenantMembership membership)
+    {
+        return @<span class="account-preview-badges">
+                   <span class="account-plan" data-testid="user-account-role">@UserRoleText.Label(membership.Role)</span>
+                   @if (!membership.EmailConfirmed)
+                   {
+                       <span class="account-plan">@BackOfficeStrings.EmailPending</span>
+                   }
+               </span>;
+    }
+
+    private static RenderFragment StatusCell(BackOfficeUserTenantMembership membership)
+    {
+        var status = UserDetailFormat.GetStatus(membership);
+        return @<span class="account-preview-badges">
+                   <span class="@AccountFormat.GetStatusClass(status)" data-testid="user-account-status">@AccountFormat.GetStatusLabel(status)</span>
+                   <span class="account-plan">@DashboardFormat.GetPlanLabel(membership.Plan)</span>
+               </span>;
+    }
+
+    private static RenderFragment MrrCell(BackOfficeUserTenantMembership membership)
+    {
+        var mrr = UserDetailFormat.GetMrr(membership);
+        return mrr.Next is null
+            ? @<text>@mrr.Current</text>
+            : @<span class="account-mrr-change">
+                  <del>@mrr.Current</del> <ins>@mrr.Next</ins>
+              </span>;
+    }
+
+    private static string KeyOf(BackOfficeUserTenantMembership membership)
+    {
+        return membership.TenantId.Value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string RowLabel(BackOfficeUserTenantMembership membership)
+    {
+        return membership.TenantName;
+    }
+
+    // A row opens the account's page, as the React cards do
+    private Task OpenAccountAsync(BackOfficeUserTenantMembership membership)
+    {
+        Navigation.NavigateTo(AccountDetailTabs.AccountUrl(membership.TenantId));
+        return Task.CompletedTask;
+    }
+
+}

@@ -1,0 +1,155 @@
+@using Account.Client
+@using Account.Features.Users.BackOffice.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.BackOffice.Shell
+@using Blazor.Client.Users
+@using Microsoft.FluentUI.AspNetCore.Components
+@* The back office's users list, the React back office's users page: every local user across every account on DataList with
+   the search by email, name or account, the role toggles and the single activity toggle, and paging, all in the URL under the
+   React back office's parameter names (BackOfficeUsersListSource). A row opens the user's detail page. The list is read-only
+   for every back-office identity. The host prerenders the frame; the rows load in the browser. *@
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="accounts" data-testid="back-office-users">
+        <h1>@CommonStrings.Users</h1>
+        <p class="accounts-subtitle">@BackOfficeStrings.UsersSubtitle</p>
+
+        <div class="accounts-toolbar" data-testid="users-toolbar">
+            <div role="search" class="accounts-search">
+                <FluentTextInput Id="@SearchId" data-testid="users-search" AriaLabel="@CommonStrings.Search" Placeholder="@BackOfficeStrings.SearchByEmailNameOrAccount" Immediate="true"
+                                 ImmediateDelay="500" Value="@_filters.GetValueOrDefault(BackOfficeUsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+            </div>
+
+            <div class="accounts-toggle-group" role="group" aria-label="@UsersStrings.Role" data-testid="users-role-filter">
+                @foreach (var role in BackOfficeUsersListSource.Roles)
+                {
+                    <button type="button" class="accounts-toggle" aria-pressed="@(_roles.Contains(role) ? "true" : "false")" data-testid="@($"users-role-{role.ToString().ToLowerInvariant()}")"
+                            @onclick="() => SetFiltersAsync(BackOfficeUsersListSource.ToggleRole(CurrentFilters, role))">
+                        @UserRoleText.Label(role)
+                    </button>
+                }
+            </div>
+
+            <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.Activity" data-testid="users-activity-filter">
+                @foreach (var activity in BackOfficeUsersListSource.Activities)
+                {
+                    <button type="button" class="accounts-toggle" aria-pressed="@(_activity == activity ? "true" : "false")" data-testid="@($"users-activity-{activity.ToString().ToLowerInvariant()}")"
+                            @onclick="() => SetFiltersAsync(BackOfficeUsersListSource.ToggleActivity(CurrentFilters, activity))">
+                        @UserDetailFormat.GetActivityLabel(activity)
+                    </button>
+                }
+            </div>
+        </div>
+
+        <DataList @ref="_list" TItem="BackOfficeUserSummary" data-testid="users-grid" ListId="@BackOfficeUsersListSource.ListId" CacheScope="@AccountsListSource.CacheScope"
+                  Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@BackOfficeUsersListSource.DefaultOrderBy"
+                  FilterParameters="BackOfficeUsersListSource.FilterParameters" NormalizeFilters="BackOfficeUsersListSource.NormalizeFilters" FocusFallbackId="@SearchId"
+                  RowLabel="UserDetailFormat.GetDisplayName" OnActivated="OpenUserAsync" OnStateChanged="OnListStateChangedAsync">
+            <EmptyContent>
+                <div class="accounts-empty" data-testid="users-empty">
+                    <p class="accounts-empty-title">@(_filters.Count > 0 ? BackOfficeStrings.NoUsersMatchSearch : BackOfficeStrings.NoUsersYet)</p>
+                    <p>@(_filters.Count > 0 ? BackOfficeStrings.TryDifferentSearchOrClearFilters : BackOfficeStrings.UsersAppearWhenAccountsCreated)</p>
+                    @if (_filters.Count > 0)
+                    {
+                        <button type="button" class="button-secondary" data-testid="users-clear-filters" @onclick="() => SetFiltersAsync(BackOfficeUsersListSource.ClearAllFilters())">
+                            @BackOfficeStrings.ClearFilters
+                        </button>
+                    }
+                </div>
+            </EmptyContent>
+        </DataList>
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private const string SearchId = "users-search";
+
+    private UserActivityFilter? _activity;
+    private IReadOnlyList<DataListColumn<BackOfficeUserSummary>> _columns = [];
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private DataList<BackOfficeUserSummary>? _list;
+    private IReadOnlyList<UserRole> _roles = [];
+
+    // The filters the list holds now: the list reports a filter change only after the page loaded, so a toggle pressed while
+    // that load is in flight must not start from the filters of the last report
+    private IReadOnlyDictionary<string, string> CurrentFilters => _list?.State.Filters ?? _filters;
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<BackOfficeUserSummary>(AccountStrings.User, UserCell),
+            new DataListColumn<BackOfficeUserSummary>(AccountStrings.Account, user => @<text>@user.TenantName</text>, HideBelow: Breakpoint.Medium
+            ),
+            new DataListColumn<BackOfficeUserSummary>(UsersStrings.Role, user => @<span class="account-plan">@UserRoleText.Label(user.Role)</span>, HideBelow: Breakpoint.Large
+            ),
+            new DataListColumn<BackOfficeUserSummary>(UsersStrings.LastSeen, user => DateCell(user.LastSeenAt), HideBelow: Breakpoint.Large),
+            new DataListColumn<BackOfficeUserSummary>(UsersStrings.Created, user => DateCell(user.CreatedAt), HideBelow: Breakpoint.ExtraLarge)
+        ];
+    }
+
+    private static RenderFragment UserCell(BackOfficeUserSummary user)
+    {
+        return @<span class="account-name-cell" data-testid="users-row" data-user-id="@KeyOf(user)">
+                   <span class="account-name" data-testid="users-row-name">@UserDetailFormat.GetDisplayName(user)</span>
+                   <span class="account-owner" data-testid="users-row-email">@user.Email</span>
+                   <span class="account-owner data-list-phone-only">@user.TenantName</span>
+               </span>;
+    }
+
+    private static RenderFragment DateCell(DateTimeOffset? date)
+    {
+        return @<span class="account-name-cell">
+                   <span>@(date is { } value ? RelativeTime.Format(value, TimeProvider.System.GetUtcNow()) : DashboardFormat.Missing)</span>
+                   @if (date is { } shown)
+                   {
+                       <span class="account-owner">@UserDetailFormat.FormatDateTime(shown)</span>
+                   }
+               </span>;
+    }
+
+    private static string KeyOf(BackOfficeUserSummary user)
+    {
+        return user.Id.Value;
+    }
+
+    private Task<DataListFetchResult<BackOfficeUserSummary>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return BackOfficeUsersListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), request, cancellationToken);
+    }
+
+    private Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        _roles = BackOfficeUsersListSource.GetRoles(_filters);
+        _activity = BackOfficeUsersListSource.GetActivity(_filters);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchChangedAsync(string? search)
+    {
+        return SetFiltersAsync(new Dictionary<string, string?> { [BackOfficeUsersListSource.SearchParameter] = search });
+    }
+
+    private Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return _list?.SetFiltersAsync(changes) ?? Task.CompletedTask;
+    }
+
+    // A row opens the user's page, as the React rows do
+    private Task OpenUserAsync(BackOfficeUserSummary user)
+    {
+        Navigation.NavigateTo(BackOfficeUsersListSource.UserUrl(user.Id));
+        return Task.CompletedTask;
+    }
+
+}

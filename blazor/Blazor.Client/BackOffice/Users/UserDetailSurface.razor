@@ -1,0 +1,125 @@
+@* The user detail, the React back office's users/$userId page without its Identity tab: the header, the feature flag rollouts
+   action for an identity in the admins group (UserAdminActions), the activity tiles and the Accounts, Logins, Sessions and
+   Feature flags tabs. After the pin is saved the user is read again in place, and a failed read keeps what the page shows.
+   The tab is the URL's tab parameter (UserDetailTabs), and the tab links are plain links, so a reload, the back button and a
+   copied link all land on the same tab. The user loads in the browser; the host prerenders the shell and the loading state. A
+   user id the account API does not know, or a value that is not a user id, shows the back office's not-found state inside
+   the shell. *@
+@using Account.Client
+@using Account.Features.Users.BackOffice.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Shell
+@implements IDisposable
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="account-detail" data-testid="back-office-user-detail" data-state="@_status.ToString().ToLowerInvariant()">
+        @switch (_status)
+        {
+            case AccountDetailStatus.Loaded:
+                <UserDetailHeader User="_user!"/>
+                <UserAdminActions User="_user!" OnChanged="ReloadAsync"/>
+                <UserActivityTiles User="_user!"/>
+
+                <nav class="users-tabs account-detail-tabs" aria-label="@BackOfficeStrings.UserSections" data-testid="user-tabs">
+                    @foreach (var link in UserDetailTabs.Links(_user!.Id, _tab))
+                    {
+                        <a href="@link.Href" class="users-tab" aria-current="@(link.IsCurrent ? "page" : null)" data-testid="@link.TestId">@link.Label</a>
+                    }
+                </nav>
+
+                <section class="account-detail-panel" aria-label="@UserDetailTabs.Label(_tab)" data-testid="@($"user-panel-{UserDetailTabs.ToValue(_tab)}")">
+                    @switch (_tab)
+                    {
+                        case UserDetailTab.Logins:
+                            <UserLoginsTab UserId="_user!.Id"/>
+                            break;
+                        case UserDetailTab.Sessions:
+                            <UserSessionsTab UserId="_user!.Id"/>
+                            break;
+                        case UserDetailTab.FeatureFlags:
+                            <UserFeatureFlagsTab UserId="_user!.Id"/>
+                            break;
+                        default:
+                            <UserAccountsTab User="_user!"/>
+                            break;
+                    }
+                </section>
+                break;
+            case AccountDetailStatus.NotFound:
+                <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>
+                break;
+            case AccountDetailStatus.Loading:
+                <p class="account-detail-loading" role="status" data-testid="user-detail-loading">@CommonStrings.Loading</p>
+                break;
+        }
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private AccountDetailStatus _status = AccountDetailStatus.Loading;
+    private UserDetailTab _tab;
+    private BackOfficeUserDetailResponse? _user;
+
+    // The route value of the host page, as the address bar carries it
+    [Parameter]
+    [EditorRequired]
+    public string UserId { get; set; } = "";
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tab = UserDetailTabs.FromUri(Navigation.Uri);
+        Navigation.LocationChanged += OnLocationChanged;
+        if (!RendererInfo.IsInteractive) return;
+
+        if (BackOfficeUsersListSource.ParseUserId(UserId) is not { } userId)
+        {
+            _status = AccountDetailStatus.NotFound;
+            return;
+        }
+
+        // Resolved lazily: the host does not register the back-office client, so prerendering never constructs it
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserAsync(userId, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        _status = AccountDetailState.FromResult(result);
+        if (_status == AccountDetailStatus.Failed) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+        _user = result.Value;
+    }
+
+    private async Task ReloadAsync()
+    {
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserAsync(_user!.Id, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _user = result.Value;
+    }
+
+    // A tab link is an enhanced navigation that keeps this component alive, so the tab follows the location
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        var tab = UserDetailTabs.FromUri(args.Location);
+        if (tab == _tab) return;
+
+        _tab = tab;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+}

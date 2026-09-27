@@ -1,14 +1,16 @@
 @using Account.Client
 @using Account.Features.Tenants.BackOffice.Queries
 @using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.BackOffice.Users
 @using Blazor.Client.Users
 @using Microsoft.FluentUI.AspNetCore.Components
 @using SharedKernel.Domain
 @* The account detail's Users tab, the React back office's AccountUsersTab: the search by name or email, the role toggles and
    the account's users on DataList with the name, title, email, pending badge, role and last seen date. The search, the roles
-   and the page are in the URL under the users prefix (AccountUsersListSource). The React rows open the back office's user
-   page, which the Blazor back office does not have yet, so here the rows are not activated. *@
+   and the page are in the URL under the users prefix (AccountUsersListSource). A row opens the back office's user page, as
+   the React rows do. *@
 @inject IServiceProvider Services
+@inject NavigationManager Navigation
 
 <div class="accounts-toolbar" data-testid="account-users-toolbar">
     <div role="search" class="accounts-search">
@@ -20,7 +22,7 @@
         @foreach (var role in AccountUsersListSource.Roles)
         {
             <button type="button" class="accounts-toggle" aria-pressed="@(_roles.Contains(role) ? "true" : "false")" data-testid="@($"account-users-role-{role.ToString().ToLowerInvariant()}")"
-                    @onclick="() => SetFiltersAsync(AccountUsersListSource.ToggleRole(_filters, role))">
+                    @onclick="() => SetFiltersAsync(AccountUsersListSource.ToggleRole(CurrentFilters, role))">
                 @UserRoleText.Label(role)
             </button>
         }
@@ -30,7 +32,8 @@
 <DataList @ref="_list" TItem="TenantUserSummary" data-testid="account-users-grid" ListId="@AccountUsersListSource.ListId(TenantId)" CacheScope="@AccountsListSource.CacheScope"
           Label="@BackOfficeStrings.AccountUsers" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@AccountUsersListSource.DefaultOrderBy"
           ParameterPrefix="@AccountUsersListSource.ParameterPrefix" FilterParameters="AccountUsersListSource.FilterParameters"
-          NormalizeFilters="AccountUsersListSource.NormalizeFilters" FocusFallbackId="@SearchId" RowLabel="RowLabel" OnStateChanged="OnListStateChangedAsync">
+          NormalizeFilters="AccountUsersListSource.NormalizeFilters" FocusFallbackId="@SearchId" RowLabel="RowLabel" OnActivated="OpenUserAsync"
+          OnStateChanged="OnListStateChangedAsync">
     <EmptyContent>
         <div class="accounts-empty" data-testid="account-users-empty">
             <p class="accounts-empty-title">@(_filters.Count > 0 ? BackOfficeStrings.NoMatchingUsers : BackOfficeStrings.NoUsers)</p>
@@ -47,6 +50,10 @@
     private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
     private DataList<TenantUserSummary>? _list;
     private IReadOnlyList<UserRole> _roles = [];
+
+    // The filters the list holds now: the list reports a filter change only after the page loaded, so a toggle pressed while
+    // that load is in flight must not start from the filters of the last report
+    private IReadOnlyDictionary<string, string> CurrentFilters => _list?.State.Filters ?? _filters;
 
     [Parameter]
     [EditorRequired]
@@ -102,6 +109,12 @@
         _filters = state.Filters;
         _roles = AccountUsersListSource.GetRoles(_filters);
         StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OpenUserAsync(TenantUserSummary user)
+    {
+        Navigation.NavigateTo(BackOfficeUsersListSource.UserUrl(user.Id));
         return Task.CompletedTask;
     }
 

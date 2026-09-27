@@ -25,7 +25,7 @@
                 @foreach (var plan in AccountsListSource.Plans)
                 {
                     <button type="button" class="accounts-toggle" aria-pressed="@(_plans.Contains(plan) ? "true" : "false")" data-testid="@($"accounts-plan-{plan.ToString().ToLowerInvariant()}")"
-                            @onclick="() => SetFiltersAsync(AccountsListSource.TogglePlan(_filters, plan))">
+                            @onclick="() => SetFiltersAsync(AccountsListSource.TogglePlan(CurrentFilters, plan))">
                         @DashboardFormat.GetPlanLabel(plan)
                     </button>
                 }
@@ -35,7 +35,7 @@
                 @foreach (var status in AccountsListSource.Statuses)
                 {
                     <button type="button" class="accounts-toggle" aria-pressed="@(_statuses.Contains(status) ? "true" : "false")"
-                            data-testid="@($"accounts-status-{status.ToString().ToLowerInvariant()}")" @onclick="() => SetFiltersAsync(AccountsListSource.ToggleStatus(_filters, status))">
+                            data-testid="@($"accounts-status-{status.ToString().ToLowerInvariant()}")" @onclick="() => SetFiltersAsync(AccountsListSource.ToggleStatus(CurrentFilters, status))">
                         @AccountFormat.GetStatusLabel(status)
                     </button>
                 }
@@ -103,6 +103,10 @@
     private IReadOnlyList<SubscriptionPlan> _plans = [];
     private TenantSummary? _preview;
     private IReadOnlyList<TenantStatusFilter> _statuses = [];
+
+    // The filters the list holds now: the list reports a filter change only after the page loaded, so a toggle pressed while
+    // that load is in flight must not start from the filters of the last report
+    private IReadOnlyDictionary<string, string> CurrentFilters => _list?.State.Filters ?? _filters;
 
     // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
     [Parameter]

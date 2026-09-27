@@ -14,28 +14,6 @@ public sealed record GetUserFeatureFlagsQuery : IRequest<Result<GetUserFeatureFl
     public UserId UserId { get; init; } = null!;
 }
 
-[PublicAPI]
-public sealed record GetUserFeatureFlagsResponse(UserFeatureFlagInfo[] Flags);
-
-[PublicAPI]
-public sealed record UserFeatureFlagInfo(
-    string FlagKey,
-    FeatureFlagScope Scope,
-    string Description,
-    bool IsAbTestEligible,
-    int? BucketStart,
-    int? BucketEnd,
-    int? RolloutPercentage,
-    bool IsEnabled,
-    FeatureFlagSource Source,
-    bool IsBaseRowActive,
-    int RolloutBucket,
-    TenantId TenantId,
-    int? InclusionThresholdPercentage,
-    bool DefaultEnabled,
-    AbInclusionPin? UserAbInclusionPin
-);
-
 public sealed class GetUserFeatureFlagsHandler(IFeatureFlagRepository featureFlagRepository, IUserRepository userRepository)
     : IRequestHandler<GetUserFeatureFlagsQuery, Result<GetUserFeatureFlagsResponse>>
 {

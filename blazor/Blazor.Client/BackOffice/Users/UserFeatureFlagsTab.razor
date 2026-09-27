@@ -1,0 +1,102 @@
+@using Account.Client
+@using Account.Features.FeatureFlags.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using SharedKernel.Domain
+@* The user detail's Feature flags tab, the React back office's UserFeatureFlagsSection, read-only: the user-scoped flags from
+   GET /api/back-office/users/{id}/feature-flags on DataList under the flags prefix (UserFeatureFlagsListSource), and the empty
+   state when none is defined. Where the React tab has an override switch this tab states whether the flag is on for the user
+   and whether a manual override decides it; the React rows open the back office's flag page, which the Blazor back office does
+   not have yet, so here the rows are not activated. *@
+@inject IServiceProvider Services
+
+@if (_flags is null)
+{
+    <p class="dashboard-card-loading" role="status" data-testid="user-flags-loading">@CommonStrings.Loading</p>
+}
+else if (_flags.Count == 0)
+{
+    <div class="accounts-empty" data-testid="user-flags-empty">
+        <p class="accounts-empty-title">@BackOfficeStrings.NoFeatureFlags</p>
+        <p>@BackOfficeStrings.NoUserFeatureFlags</p>
+    </div>
+}
+else
+{
+    <p class="accounts-subtitle">@BackOfficeStrings.UserFlagsDescription</p>
+    <DataList TItem="UserFeatureFlagInfo" data-testid="user-flags-grid" ListId="@UserFeatureFlagsListSource.ListId(UserId)" CacheScope="@AccountsListSource.CacheScope"
+              Label="@BackOfficeStrings.FeatureFlags" Columns="_columns" FetchPage="(request, _) => Task.FromResult(UserFeatureFlagsListSource.Page(_flags, request))"
+              KeySelector="KeyOf" DefaultOrderBy="@UserFeatureFlagsListSource.DefaultOrderBy" ParameterPrefix="@UserFeatureFlagsListSource.ParameterPrefix"
+              RowLabel="UserFeatureFlagsListSource.NameOf">
+    </DataList>
+}
+
+@code {
+
+    private IReadOnlyList<DataListColumn<UserFeatureFlagInfo>> _columns = [];
+    private IReadOnlyList<UserFeatureFlagInfo>? _flags;
+
+    [Parameter]
+    [EditorRequired]
+    public UserId UserId { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserFeatureFlagsAsync(UserId, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _flags = result.Value.Flags;
+        _columns = Columns(_flags);
+    }
+
+    // The name with its description, the inclusion threshold when one of the flags is an A/B test, and the state, with a
+    // manual override named beside it
+    private static IReadOnlyList<DataListColumn<UserFeatureFlagInfo>> Columns(IReadOnlyList<UserFeatureFlagInfo> flags)
+    {
+        var columns = new List<DataListColumn<UserFeatureFlagInfo>> { new(BackOfficeStrings.Name, NameCell) };
+        if (UserFeatureFlagsListSource.ShowsInclusionColumn(flags))
+        {
+            columns.Add(new DataListColumn<UserFeatureFlagInfo>(BackOfficeStrings.IncludedAt, flag => @<text>@UserFeatureFlagsListSource.GetInclusionThreshold(flag)</text>, HideBelow: Breakpoint.Small
+                )
+            );
+        }
+
+        columns.Add(new DataListColumn<UserFeatureFlagInfo>(BackOfficeStrings.Status, StateCell));
+        return columns;
+    }
+
+    private static RenderFragment NameCell(UserFeatureFlagInfo flag)
+    {
+        return @<span class="account-name-cell" data-testid="user-flag" data-flag-key="@flag.FlagKey">
+                   <span class="account-name">@UserFeatureFlagsListSource.NameOf(flag)</span>
+                   @if (UserFeatureFlagsListSource.DescriptionOf(flag) is { } description)
+                   {
+                       <span class="account-owner">@description</span>
+                   }
+               </span>;
+    }
+
+    private static RenderFragment StateCell(UserFeatureFlagInfo flag)
+    {
+        return @<span class="account-preview-badges">
+                   <span class="@(flag.IsEnabled ? "account-status account-status-active" : "account-status account-status-free")" data-testid="user-flag-state">@UserFeatureFlagsListSource.GetStateLabel(flag)</span>
+                   @if (UserFeatureFlagsListSource.IsManualOverride(flag))
+                   {
+                       <span class="account-plan" data-testid="user-flag-override">@BackOfficeStrings.Override</span>
+                   }
+               </span>;
+    }
+
+    private static string KeyOf(UserFeatureFlagInfo flag)
+    {
+        return flag.FlagKey;
+    }
+
+}

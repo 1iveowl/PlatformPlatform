@@ -1,0 +1,36 @@
+@using Account.Features.Users.BackOffice.Queries
+@using Blazor.Client.BackOffice.Accounts
+@* The user detail's header, the React back office's UserDetailHeader without its actions menu and avatar: the person's name,
+   whether the email is confirmed, the A/B inclusion pin when one is set, the email, the creation date and the user id. Every
+   badge carries its meaning as text, never by colour alone. *@
+
+<header class="account-detail-header" data-testid="user-detail-header">
+    <h1 class="account-detail-name" data-testid="user-detail-name">@UserDetailFormat.GetDisplayName(User)</h1>
+    <p class="account-preview-badges">
+        <span class="@_emailBadge.Class" data-testid="user-detail-email-status">@_emailBadge.Label</span>
+        @if (AccountDetailFormat.GetAbInclusionPinLabel(User.AbInclusionPin) is { } pinLabel)
+        {
+            <span class="account-plan" data-testid="user-detail-pin">@pinLabel</span>
+        }
+    </p>
+    <p class="account-detail-facts">
+        <span data-testid="user-detail-email">@User.Email</span>
+        <span data-testid="user-detail-created">@AccountDetailFormat.FormatWithDate(BackOfficeStrings.CreatedOn, User.CreatedAt)</span>
+        <span class="account-detail-id" data-testid="user-detail-id"><span class="visually-hidden">@AccountStrings.UserId </span>#@User.Id.Value</span>
+    </p>
+</header>
+
+@code {
+
+    private UserBadge _emailBadge = null!;
+
+    [Parameter]
+    [EditorRequired]
+    public BackOfficeUserDetailResponse User { get; set; } = null!;
+
+    protected override void OnParametersSet()
+    {
+        _emailBadge = UserDetailFormat.GetEmailBadge(User.EmailConfirmed);
+    }
+
+}

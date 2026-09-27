@@ -1,0 +1,57 @@
+@using Account.Client
+@using Account.Features.BackOffice.Queries
+@using Account.Features.Users.BackOffice.Queries
+@using Account.Features.Users.BackOffice.Requests
+@using Blazor.Client.BackOffice.Shared
+@using Blazor.Client.BackOffice.Shell
+@using SharedKernel.FeatureFlags
+@* The user's admin action, the React back office's UserActionsMenu as a button below the header: Feature flag rollouts, the
+   user's A/B inclusion pin through the shared dialog. Only an identity in the admins group sees it
+   (BackOfficeUser.CanRunAdminActions on the identity the shell cascades), and the account API refuses the write for anyone
+   else; hiding is never the only guard. After a save the owner reloads the user, so the header shows what the account API
+   stored. *@
+@inject IServiceProvider Services
+
+@if (BackOfficeUser.CanRunAdminActions(Me))
+{
+    <div class="account-admin-actions" role="group" aria-label="@UsersStrings.UserActions" data-testid="user-admin-actions">
+        <button type="button" class="button-secondary" data-testid="user-ab-inclusion-pin" @onclick="() => _isPinDialogOpen = true">@BackOfficeStrings.FeatureFlagRollouts</button>
+    </div>
+
+    <AbInclusionPinDialog Open="_isPinDialogOpen" OpenChanged="OnPinDialogOpenChanged" EntityLabel="@UserDetailFormat.GetDisplayName(User)" CurrentPin="User.AbInclusionPin"
+                          Save="SavePinAsync" OnSaved="OnPinSavedAsync"/>
+}
+
+@code {
+
+    private bool _isPinDialogOpen;
+
+    [Parameter]
+    [EditorRequired]
+    public BackOfficeUserDetailResponse User { get; set; } = null!;
+
+    // Raised after the pin changed; the owner reloads the user
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    // The back-office identity BackOfficeShell read from GET /api/back-office/me; null until it is loaded
+    [CascadingParameter]
+    public MeResponse? Me { get; set; }
+
+    private Task<ApiCallResult> SavePinAsync(AbInclusionPin? pin, CancellationToken cancellationToken)
+    {
+        return Services.GetRequiredService<BackOfficeClient>().SetUserAbInclusionPinAsync(User.Id, new SetUserAbInclusionPinCommand(pin), cancellationToken);
+    }
+
+    private void OnPinDialogOpenChanged(bool open)
+    {
+        _isPinDialogOpen = open;
+    }
+
+    private async Task OnPinSavedAsync(AbInclusionPin? pin)
+    {
+        _isPinDialogOpen = false;
+        await OnChanged.InvokeAsync();
+    }
+
+}

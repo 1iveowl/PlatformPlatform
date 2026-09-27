@@ -4,6 +4,7 @@ using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.PushNotifications.Domain;
 using Account.Features.Tenants.BackOffice.Requests;
+using Account.Features.Users.BackOffice.Requests;
 using Account.Features.Users.Requests;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
@@ -184,6 +185,50 @@ public static class AccountApiRoutes
     public static string SetTenantAbInclusionPin(TenantId tenantId)
     {
         return $"/api/back-office/tenants/{tenantId.Value.ToString(CultureInfo.InvariantCulture)}/ab-inclusion-pin";
+    }
+
+    // The back office's users list. The endpoint binds the query with [AsParameters]: PascalCase names, enum names, one repeated
+    // Roles parameter per role, and the search and activity only when set. The first page omits its offset.
+    public static string BackOfficeUsers(GetBackOfficeUsersQuery query)
+    {
+        var parameters = new List<KeyValuePair<string, string>>();
+        if (!string.IsNullOrWhiteSpace(query.Search)) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeUsersQuery.Search), query.Search));
+        parameters.AddRange((query.Roles ?? []).Select(role => new KeyValuePair<string, string>(nameof(GetBackOfficeUsersQuery.Roles), role.ToString())));
+        if (query.Activity is { } activity) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeUsersQuery.Activity), activity.ToString()));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeUsersQuery.OrderBy), query.OrderBy.ToString()));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeUsersQuery.SortOrder), query.SortOrder.ToString()));
+        if (query.PageOffset > 0) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeUsersQuery.PageOffset), query.PageOffset.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeUsersQuery.PageSize), query.PageSize.ToString(CultureInfo.InvariantCulture)));
+
+        return $"/api/back-office/users?{string.Join('&', parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"))}";
+    }
+
+    // One user of the back office's users list; the user's sessions, login history, feature flags and pin are below it
+    public static string BackOfficeUser(UserId userId)
+    {
+        return $"/api/back-office/users/{Uri.EscapeDataString(userId.Value)}";
+    }
+
+    // One page of the user's sessions across every account the user is a member of. The first page omits its offset.
+    public static string BackOfficeUserSessions(UserId userId, GetBackOfficeUserSessionsQuery query)
+    {
+        var offset = query.PageOffset > 0 ? $"{nameof(GetBackOfficeUserSessionsQuery.PageOffset)}={query.PageOffset.ToString(CultureInfo.InvariantCulture)}&" : "";
+        return $"{BackOfficeUser(userId)}/sessions?{offset}{nameof(GetBackOfficeUserSessionsQuery.PageSize)}={query.PageSize.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    public static string BackOfficeUserLoginHistory(UserId userId)
+    {
+        return $"{BackOfficeUser(userId)}/login-history";
+    }
+
+    public static string BackOfficeUserFeatureFlags(UserId userId)
+    {
+        return $"{BackOfficeUser(userId)}/feature-flags";
+    }
+
+    public static string SetUserAbInclusionPin(UserId userId)
+    {
+        return $"{BackOfficeUser(userId)}/ab-inclusion-pin";
     }
 
     public static string SetTenantFeatureFlagOverride(string flagKey)

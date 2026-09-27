@@ -1,0 +1,69 @@
+@using Account.Client
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.Sessions
+@using SharedKernel.Domain
+@* The user detail's Logins tab, the React back office's UserLoginHistorySection: every sign-in attempt of the last 30 days
+   from GET /api/back-office/users/{id}/login-history, email and external, on DataList with when it happened, the method and
+   the outcome. The history is read once and paged in memory under the logins prefix (UserLoginsListSource). *@
+@inject IServiceProvider Services
+
+<p class="accounts-subtitle">@BackOfficeStrings.UserLoginsDescription</p>
+
+@if (_rows is null)
+{
+    <p class="dashboard-card-loading" role="status" data-testid="user-logins-loading">@CommonStrings.Loading</p>
+}
+else
+{
+    <DataList TItem="UserLoginRow" data-testid="user-logins-grid" ListId="@UserLoginsListSource.ListId(UserId)" CacheScope="@AccountsListSource.CacheScope"
+              Label="@BackOfficeStrings.LoginHistory" Columns="_columns" FetchPage="(request, _) => Task.FromResult(UserLoginsListSource.Page(_rows, request))"
+              KeySelector="UserLoginsListSource.KeyOf" DefaultOrderBy="@UserLoginsListSource.DefaultOrderBy" ParameterPrefix="@UserLoginsListSource.ParameterPrefix">
+        <EmptyContent>
+            <div class="accounts-empty" data-testid="user-logins-empty">
+                <p class="accounts-empty-title">@BackOfficeStrings.NoLoginHistory</p>
+                <p>@BackOfficeStrings.NoSignInAttempts</p>
+            </div>
+        </EmptyContent>
+    </DataList>
+}
+
+@code {
+
+    private IReadOnlyList<DataListColumn<UserLoginRow>> _columns = [];
+    private IReadOnlyList<UserLoginRow>? _rows;
+
+    [Parameter]
+    [EditorRequired]
+    public UserId UserId { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _columns =
+        [
+            new DataListColumn<UserLoginRow>(BackOfficeStrings.When, row => @<span data-testid="user-login">@UserDetailFormat.FormatDateTime(row.Entry.OccurredAt)</span>
+            ),
+            new DataListColumn<UserLoginRow>(BackOfficeStrings.Method, row => @<text>@SessionsModel.GetLoginMethodLabel(row.Entry.Method)</text>
+            ),
+            new DataListColumn<UserLoginRow>(BackOfficeStrings.Outcome, OutcomeCell)
+        ];
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserLoginHistoryAsync(UserId, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _rows = UserLoginsListSource.ToRows(result.Value.Entries);
+    }
+
+    private static RenderFragment OutcomeCell(UserLoginRow row)
+    {
+        var outcome = UserDetailFormat.GetOutcome(row.Entry);
+        return @<span class="@outcome.Class" data-testid="user-login-outcome" data-outcome="@row.Entry.Outcome">@outcome.Label</span>;
+    }
+
+}
