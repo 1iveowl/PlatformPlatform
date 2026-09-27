@@ -24,11 +24,20 @@
     <data name="AccountApiIdentity" xml:space="preserve">
         <value>Identitet fra konto-API'et</value>
     </data>
+    <data name="AccountGrowth" xml:space="preserve">
+        <value>Kontovækst</value>
+    </data>
     <data name="AccountId" xml:space="preserve">
         <value>Konto-id</value>
     </data>
     <data name="Accounts" xml:space="preserve">
         <value>Konti</value>
+    </data>
+    <data name="AccountsCount" xml:space="preserve">
+        <value>{0} konti</value>
+    </data>
+    <data name="AccountsUnit" xml:space="preserve">
+        <value>konti</value>
     </data>
     <data name="ActiveSessions" xml:space="preserve">
         <value>Aktive sessioner</value>
@@ -56,6 +65,9 @@
     </data>
     <data name="ContactYourAdministrator" xml:space="preserve">
         <value>Kontakt din administrator.</value>
+    </data>
+    <data name="CurrentPeriod" xml:space="preserve">
+        <value>Aktuel periode</value>
     </data>
     <data name="Dashboard" xml:space="preserve">
         <value>Dashboard</value>
@@ -147,11 +159,23 @@
     <data name="LastDays" xml:space="preserve">
         <value>Sidste {0} dage</value>
     </data>
+    <data name="LoginsTotalAndAverage" xml:space="preserve">
+        <value>{0} i alt · gns. {1}/dag</value>
+    </data>
     <data name="Method" xml:space="preserve">
         <value>Metode</value>
     </data>
+    <data name="MrrBlended" xml:space="preserve">
+        <value>{0} samlet</value>
+    </data>
+    <data name="MrrBlendedOverPeriod" xml:space="preserve">
+        <value>{0} blandet · {1} over perioden</value>
+    </data>
     <data name="MrrImpact" xml:space="preserve">
         <value>MRR-effekt</value>
+    </data>
+    <data name="MrrTrend" xml:space="preserve">
+        <value>MRR-tendens</value>
     </data>
     <data name="Name" xml:space="preserve">
         <value>Navn</value>
@@ -161,6 +185,9 @@
     </data>
     <data name="NewInLastDays" xml:space="preserve">
         <value>+{0} nye sidste {1} dage</value>
+    </data>
+    <data name="NewSignupsAgainstPriorPeriod" xml:space="preserve">
+        <value>{0} nye tilmeldinger · {1} forrige periode</value>
     </data>
     <data name="NoBackOfficeAccess" xml:space="preserve">
         <value>Ingen adgang til Back Office</value>
@@ -234,6 +261,9 @@
     <data name="PlanBasis" xml:space="preserve">
         <value>Basis</value>
     </data>
+    <data name="PlanDistribution" xml:space="preserve">
+        <value>Plan-fordeling</value>
+    </data>
     <data name="PlanPremium" xml:space="preserve">
         <value>Premium</value>
     </data>
@@ -242,6 +272,12 @@
     </data>
     <data name="Platform" xml:space="preserve">
         <value>Platform</value>
+    </data>
+    <data name="PriorDate" xml:space="preserve">
+        <value>Forrige dato</value>
+    </data>
+    <data name="PriorPeriod" xml:space="preserve">
+        <value>Forrige periode</value>
     </data>
     <data name="RecentBillingEvents" xml:space="preserve">
         <value>Nylige faktureringshændelser</value>
@@ -254,6 +290,21 @@
     </data>
     <data name="RecentSignups" xml:space="preserve">
         <value>Nylige tilmeldinger</value>
+    </data>
+    <data name="Revenue" xml:space="preserve">
+        <value>Omsætning</value>
+    </data>
+    <data name="RevenueThisPeriodAgainstPriorPeriod" xml:space="preserve">
+        <value>{0} denne periode · {1} mod forrige periode</value>
+    </data>
+    <data name="RevenueThisPeriodExcludingVat" xml:space="preserve">
+        <value>{0} i denne periode, eksklusiv moms</value>
+    </data>
+    <data name="Share" xml:space="preserve">
+        <value>Andel</value>
+    </data>
+    <data name="ShowData" xml:space="preserve">
+        <value>Vis data</value>
     </data>
     <data name="SignedInAs" xml:space="preserve">
         <value>Logget ind som</value>
@@ -272,6 +323,9 @@
     </data>
     <data name="TotalRevenue" xml:space="preserve">
         <value>Omsætning i alt</value>
+    </data>
+    <data name="UserLoginsPerDay" xml:space="preserve">
+        <value>Brugerlogins / dag</value>
     </data>
     <data name="UsersActive" xml:space="preserve">
         <value>Aktive brugere</value>

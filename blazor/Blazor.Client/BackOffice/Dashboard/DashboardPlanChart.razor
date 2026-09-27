@@ -1,0 +1,77 @@
+@using Account.Features.Subscriptions.Domain
+@* The plan distribution as an SVG donut with the number of accounts in its centre, next to a table of each plan's accounts
+   and share that is both the legend and the chart's text alternative. The slices come from DashboardChartGeometry in the
+   React card's order (Premium, Standard, Basis), and a plan's colour is a class; the markup carries no style attribute.
+   The SVG is hidden from assistive technology, which reads the table. *@
+
+<div class="dashboard-plan-chart" data-testid="@TestId" data-chart="donut">
+    <svg class="dashboard-plan-chart-svg" viewBox="@DashboardChartGeometry.DonutViewBox" aria-hidden="true" focusable="false">
+        <path class="dashboard-chart-slice dashboard-chart-track" d="@Track"/>
+        @for (var index = 0; index < Shares.Length; index++)
+        {
+            if (_slices[index].Length > 0)
+            {
+                <path class="@($"dashboard-chart-slice {GetPlanClass(Shares[index].Plan)}")" d="@_slices[index]"/>
+            }
+        }
+        <text class="dashboard-plan-chart-total" x="@Center" y="@Center">@DashboardFormat.FormatCount(Total)</text>
+        <text class="dashboard-plan-chart-unit" x="@Center" y="@Center" dy="1.75em">@BackOfficeStrings.AccountsUnit</text>
+    </svg>
+    <table class="dashboard-table">
+        <caption class="visually-hidden">@Caption</caption>
+        <thead>
+        <tr>
+            <th scope="col">@BackOfficeStrings.Plan</th>
+            <th scope="col" class="dashboard-column-end">@BackOfficeStrings.Accounts</th>
+            <th scope="col" class="dashboard-column-end">@BackOfficeStrings.Share</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var share in Shares)
+        {
+            <tr data-testid="@($"{TestId}-row")">
+                <td>
+                    <span class="@($"dashboard-chart-swatch {GetPlanClass(share.Plan)}")"></span>@DashboardFormat.GetPlanLabel(share.Plan)
+                </td>
+                <td class="dashboard-column-end dashboard-cell-number">@DashboardFormat.FormatCount(share.Count)</td>
+                <td class="dashboard-column-end dashboard-cell-number">@($"{DashboardChartSeries.FormatValue((decimal)share.Percentage)}%")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@code {
+
+    private static readonly string Center = DashboardChartGeometry.ToAttribute(DashboardChartGeometry.DonutSize / 2);
+    private static readonly string Track = DashboardChartGeometry.GetDonutSlices([1])[0];
+
+    private string[] _slices = [];
+
+    [Parameter]
+    [EditorRequired]
+    public string TestId { get; set; } = "";
+
+    // The table's caption, the card's title
+    [Parameter]
+    [EditorRequired]
+    public string Caption { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public DashboardPlanShare[] Shares { get; set; } = [];
+
+    [Parameter]
+    public long Total { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        _slices = DashboardChartGeometry.GetDonutSlices(Shares.Select(share => share.Count).ToArray());
+    }
+
+    private static string GetPlanClass(SubscriptionPlan plan)
+    {
+        return $"dashboard-chart-plan-{plan.ToString().ToLowerInvariant()}";
+    }
+
+}

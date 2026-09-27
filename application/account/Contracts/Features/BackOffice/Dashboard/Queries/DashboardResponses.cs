@@ -5,8 +5,8 @@ using SharedKernel.Domain;
 
 namespace Account.Features.BackOffice.Dashboard.Queries;
 
-// The back-office dashboard's period and the responses of its KPI and recent activity endpoints, as
-// /api/back-office/dashboard returns them. The query records stay with their handlers in the account API.
+// The back-office dashboard's period, its trend metric and the responses of its KPI, recent activity and chart endpoints,
+// as /api/back-office/dashboard returns them. The query records stay with their handlers in the account API.
 
 [PublicAPI]
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -99,3 +99,54 @@ public sealed record BackOfficeDashboardStripeEvent(
     string? Currency,
     DateTimeOffset OccurredAt
 );
+
+[PublicAPI]
+public sealed record BackOfficeDashboardMrrTrendResponse(
+    DashboardTrendPeriod Period,
+    string? Currency,
+    BackOfficeDashboardMrrTrendPoint[] Points,
+    BackOfficeDashboardMrrTrendPoint[] PriorPoints
+);
+
+[PublicAPI]
+public sealed record BackOfficeDashboardMrrTrendPoint(DateOnly Date, decimal MonthlyRecurringRevenue);
+
+[PublicAPI]
+public sealed record BackOfficeDashboardRevenueTrendResponse(
+    DashboardTrendPeriod Period,
+    string? Currency,
+    BackOfficeDashboardRevenueTrendPoint[] Points,
+    BackOfficeDashboardRevenueTrendPoint[] PriorPoints
+);
+
+[PublicAPI]
+public sealed record BackOfficeDashboardRevenueTrendPoint(DateOnly Date, decimal Revenue);
+
+[PublicAPI]
+public sealed record BackOfficeDashboardPlanDistributionResponse(
+    long TotalTenants,
+    BackOfficeDashboardPlanDistributionEntry[] Distribution
+);
+
+[PublicAPI]
+public sealed record BackOfficeDashboardPlanDistributionEntry(SubscriptionPlan Plan, long Count, double Percentage);
+
+[PublicAPI]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum DashboardTrendMetric
+{
+    NewTenants,
+    NewUsers,
+    LoginActivity
+}
+
+[PublicAPI]
+public sealed record BackOfficeDashboardTrendsResponse(
+    DashboardTrendMetric Metric,
+    DashboardTrendPeriod Period,
+    BackOfficeDashboardTrendPoint[] Points,
+    BackOfficeDashboardTrendPoint[] PriorPoints
+);
+
+[PublicAPI]
+public sealed record BackOfficeDashboardTrendPoint(DateOnly Date, long Value);

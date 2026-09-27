@@ -1,0 +1,33 @@
+@using Account.Client
+@* The plan distribution card, a donut of the accounts on each plan with its table, from GET /api/back-
+   office/dashboard/plan-distribution. It does not follow the period. Shown only with the subscription setting on. *@
+@inject IServiceProvider Services
+
+<DashboardCard TestId="plan-distribution" Title="@BackOfficeStrings.PlanDistribution" IsLoading="_shares is null"
+               Subtitle="@(_shares is null ? null : string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.AccountsCount, DashboardFormat.FormatCount(_total)))">
+    <DashboardPlanChart TestId="plan-distribution-chart" Caption="@BackOfficeStrings.PlanDistribution" Shares="_shares!" Total="_total"/>
+</DashboardCard>
+
+@code {
+
+    private DashboardPlanShare[]? _shares;
+    private long _total;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetDashboardPlanDistributionAsync(CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _total = result.Value.TotalTenants;
+        _shares = DashboardChartSeries.FromPlanDistribution(result.Value);
+    }
+
+}

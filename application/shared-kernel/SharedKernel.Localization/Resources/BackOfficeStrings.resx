@@ -28,6 +28,10 @@
         <value>Identity from the account API</value>
         <comment>Heading of the section that shows the result of GET /api/back-office/me</comment>
     </data>
+    <data name="AccountGrowth" xml:space="preserve">
+        <value>Account growth</value>
+        <comment>React: Account growth</comment>
+    </data>
     <data name="AccountId" xml:space="preserve">
         <value>Account ID</value>
         <comment>The id of a tenant, called an account in the user interface</comment>
@@ -35,6 +39,14 @@
     <data name="Accounts" xml:space="preserve">
         <value>Accounts</value>
         <comment>React: Accounts</comment>
+    </data>
+    <data name="AccountsCount" xml:space="preserve">
+        <value>{0} accounts</value>
+        <comment>React: {total} accounts; {0} is the number of accounts</comment>
+    </data>
+    <data name="AccountsUnit" xml:space="preserve">
+        <value>accounts</value>
+        <comment>React: accounts; the unit under the total in the plan distribution card</comment>
     </data>
     <data name="ActiveSessions" xml:space="preserve">
         <value>Active sessions</value>
@@ -71,6 +83,10 @@
     <data name="ContactYourAdministrator" xml:space="preserve">
         <value>Contact your administrator.</value>
         <comment>React: Contact your administrator.</comment>
+    </data>
+    <data name="CurrentPeriod" xml:space="preserve">
+        <value>Current period</value>
+        <comment>React: Current period</comment>
     </data>
     <data name="Dashboard" xml:space="preserve">
         <value>Dashboard</value>
@@ -192,13 +208,29 @@
         <value>Last {0} days</value>
         <comment>React: Last {periodDays} days</comment>
     </data>
+    <data name="LoginsTotalAndAverage" xml:space="preserve">
+        <value>{0} total · avg {1}/day</value>
+        <comment>React: {total} total · avg {average}/day</comment>
+    </data>
     <data name="Method" xml:space="preserve">
         <value>Method</value>
         <comment>React: Method</comment>
     </data>
+    <data name="MrrBlended" xml:space="preserve">
+        <value>{0} blended</value>
+        <comment>React: {0} blended; {0} is the latest MRR</comment>
+    </data>
+    <data name="MrrBlendedOverPeriod" xml:space="preserve">
+        <value>{0} blended · {1} over period</value>
+        <comment>React: {0} blended · {delta} over period, composed of the catalog's blended and over period</comment>
+    </data>
     <data name="MrrImpact" xml:space="preserve">
         <value>MRR impact</value>
         <comment>React: MRR impact</comment>
+    </data>
+    <data name="MrrTrend" xml:space="preserve">
+        <value>MRR trend</value>
+        <comment>React: MRR trend</comment>
     </data>
     <data name="Name" xml:space="preserve">
         <value>Name</value>
@@ -211,6 +243,10 @@
     <data name="NewInLastDays" xml:space="preserve">
         <value>+{0} new in last {1} days</value>
         <comment>React: +{0} new in last {periodDays} days</comment>
+    </data>
+    <data name="NewSignupsAgainstPriorPeriod" xml:space="preserve">
+        <value>{0} new signups · {1} prior period</value>
+        <comment>React: {total} new signups · {priorTotal} prior period</comment>
     </data>
     <data name="NoBackOfficeAccess" xml:space="preserve">
         <value>No back-office access</value>
@@ -308,6 +344,10 @@
         <value>Basis</value>
         <comment>React: Basis</comment>
     </data>
+    <data name="PlanDistribution" xml:space="preserve">
+        <value>Plan distribution</value>
+        <comment>React: Plan distribution</comment>
+    </data>
     <data name="PlanPremium" xml:space="preserve">
         <value>Premium</value>
         <comment>React: Premium</comment>
@@ -319,6 +359,14 @@
     <data name="Platform" xml:space="preserve">
         <value>Platform</value>
         <comment>React: Platform, the side menu group</comment>
+    </data>
+    <data name="PriorDate" xml:space="preserve">
+        <value>Prior date</value>
+        <comment>Column of a chart card's data table: the day at the same position in the prior period</comment>
+    </data>
+    <data name="PriorPeriod" xml:space="preserve">
+        <value>Prior period</value>
+        <comment>React: Prior period</comment>
     </data>
     <data name="RecentBillingEvents" xml:space="preserve">
         <value>Recent billing events</value>
@@ -335,6 +383,26 @@
     <data name="RecentSignups" xml:space="preserve">
         <value>Recent signups</value>
         <comment>React: Recent signups</comment>
+    </data>
+    <data name="Revenue" xml:space="preserve">
+        <value>Revenue</value>
+        <comment>React: Revenue</comment>
+    </data>
+    <data name="RevenueThisPeriodAgainstPriorPeriod" xml:space="preserve">
+        <value>{0} this period · {1} vs prior period</value>
+        <comment>React: {0} this period · {delta} vs prior period, composed of the catalog's this period and vs prior period</comment>
+    </data>
+    <data name="RevenueThisPeriodExcludingVat" xml:space="preserve">
+        <value>{0} this period, excluding VAT</value>
+        <comment>React: {0} this period, excluding VAT</comment>
+    </data>
+    <data name="Share" xml:space="preserve">
+        <value>Share</value>
+        <comment>Column of the plan distribution card's data table: the plan's percentage of all accounts</comment>
+    </data>
+    <data name="ShowData" xml:space="preserve">
+        <value>Show data</value>
+        <comment>Summary of a chart card's disclosure that opens the chart's data table, its text alternative</comment>
     </data>
     <data name="SignedInAs" xml:space="preserve">
         <value>Signed in as</value>
@@ -359,6 +427,10 @@
     <data name="TotalRevenue" xml:space="preserve">
         <value>Total revenue</value>
         <comment>React: Total revenue</comment>
+    </data>
+    <data name="UserLoginsPerDay" xml:space="preserve">
+        <value>User logins / day</value>
+        <comment>React: User logins / day</comment>
     </data>
     <data name="UsersActive" xml:space="preserve">
         <value>Users active</value>

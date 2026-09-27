@@ -69,6 +69,9 @@ public static class AccountApiRoutes
 
     private const string DateFormat = "yyyy-MM-dd";
 
+    // The dashboard's distribution of tenants over subscription plans
+    public const string BackOfficeDashboardPlanDistribution = "/api/back-office/dashboard/plan-distribution";
+
     // The external login and signup starts are document navigations, not typed client calls; the provider is the name of
     // the account API's ExternalProviderType value
     public static string RevokeSession(SessionId sessionId)
@@ -85,6 +88,24 @@ public static class AccountApiRoutes
     public static string BackOfficeDashboardKpis(DashboardTrendPeriod period)
     {
         return $"/api/back-office/dashboard/kpis?Period={period}";
+    }
+
+    // The dashboard's daily trend of one metric (new tenants, new users or login activity) for a period, with the prior period
+    public static string BackOfficeDashboardTrends(DashboardTrendMetric metric, DashboardTrendPeriod period)
+    {
+        return $"/api/back-office/dashboard/trends?Metric={metric}&Period={period}";
+    }
+
+    // The dashboard's monthly recurring revenue trend for a period, with the prior period
+    public static string BackOfficeDashboardMrrTrend(DashboardTrendPeriod period)
+    {
+        return $"/api/back-office/dashboard/mrr-trend?Period={period}";
+    }
+
+    // The dashboard's cumulative revenue trend for a period, with the prior period
+    public static string BackOfficeDashboardRevenueTrend(DashboardTrendPeriod period)
+    {
+        return $"/api/back-office/dashboard/revenue-trend?Period={period}";
     }
 
     // The dashboard's recent activity lists (recent-signups, recent-logins, recent-payments, recent-stripe-events), each

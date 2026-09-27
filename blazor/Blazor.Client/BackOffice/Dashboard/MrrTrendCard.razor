@@ -1,0 +1,49 @@
+@using Account.Client
+@using Account.Features.BackOffice.Dashboard.Queries
+@* The MRR trend card, an area chart of the blended monthly recurring revenue a day in the selected period against the
+   prior period, from GET /api/back-office/dashboard/mrr-trend. Shown only with the subscription setting on. A newer
+   period's answer replaces an older one that arrives late, so the card never shows a period other than the selected
+   one. *@
+@inject IServiceProvider Services
+
+<DashboardCard TestId="mrr-trend" Title="@BackOfficeStrings.MrrTrend" Subtitle="@(_rows is null ? null : DashboardChartSeries.GetMrrSubtitle(_rows, _currency))" IsLoading="_rows is null">
+    <DashboardTrendChart TestId="mrr-trend-chart" Caption="@BackOfficeStrings.MrrTrend" Rows="_rows!" FormatValue="FormatValue"/>
+</DashboardCard>
+
+@code {
+
+    private string? _currency;
+    private DashboardTrendPeriod? _loadedPeriod;
+    private DashboardTrendRow[]? _rows;
+    private int _version;
+
+    [Parameter]
+    public DashboardTrendPeriod Period { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!RendererInfo.IsInteractive || _loadedPeriod == Period) return;
+
+        _loadedPeriod = Period;
+        var version = ++_version;
+        _rows = null;
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetDashboardMrrTrendAsync(Period, CancellationToken.None);
+        if (version != _version || result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _currency = result.Value.Currency;
+        _rows = DashboardChartSeries.FromMrrTrend(result.Value);
+    }
+
+    // An amount in the platform currency, or the bare number when the API knows no currency
+    private string FormatValue(decimal value)
+    {
+        return string.IsNullOrWhiteSpace(_currency) ? DashboardChartSeries.FormatValue(value) : DashboardFormat.FormatMoney(value, _currency);
+    }
+
+}

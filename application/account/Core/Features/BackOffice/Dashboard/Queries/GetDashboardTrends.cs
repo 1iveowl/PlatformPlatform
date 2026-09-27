@@ -12,26 +12,6 @@ namespace Account.Features.BackOffice.Dashboard.Queries;
 public sealed record GetDashboardTrendsQuery(DashboardTrendMetric Metric, DashboardTrendPeriod Period)
     : IRequest<Result<BackOfficeDashboardTrendsResponse>>;
 
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum DashboardTrendMetric
-{
-    NewTenants,
-    NewUsers,
-    LoginActivity
-}
-
-[PublicAPI]
-public sealed record BackOfficeDashboardTrendsResponse(
-    DashboardTrendMetric Metric,
-    DashboardTrendPeriod Period,
-    BackOfficeDashboardTrendPoint[] Points,
-    BackOfficeDashboardTrendPoint[] PriorPoints
-);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardTrendPoint(DateOnly Date, long Value);
-
 public sealed class GetDashboardTrendsQueryValidator : AbstractValidator<GetDashboardTrendsQuery>
 {
     public GetDashboardTrendsQueryValidator()

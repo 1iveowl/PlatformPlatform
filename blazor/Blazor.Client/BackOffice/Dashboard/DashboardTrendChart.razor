@@ -1,0 +1,123 @@
+@* A trend chart of the dashboard in SVG, the current period against the prior one: an area chart (the current period filled,
+   the prior period dashed) or a bar chart (two bars a day), with grid lines, their values beside the plot, the first,
+   middle and last day under it, and a legend. The geometry comes from DashboardChartGeometry. The plot stretches to the
+   card's width at a fixed height, so the labels are HTML rather than SVG text, which would stretch with it. The markup
+   carries only classes and SVG attributes, never a style attribute. The plot and its labels are hidden from assistive
+   technology: the data table in the disclosure below is the chart's text alternative, and stands in for a tooltip. *@
+
+<div class="dashboard-chart" data-testid="@TestId" data-chart="@(IsBarChart ? "bar" : "area")">
+    <div class="dashboard-chart-plot" aria-hidden="true">
+        <div class="dashboard-chart-values">
+            @foreach (var line in _gridLines.Reverse())
+            {
+                <span>@DashboardChartSeries.FormatValue(line.Value)</span>
+            }
+        </div>
+        <svg class="dashboard-chart-svg" viewBox="@DashboardChartGeometry.ViewBox" preserveAspectRatio="none" focusable="false">
+            @foreach (var line in _gridLines)
+            {
+                var y = DashboardChartGeometry.ToAttribute(line.Y);
+                <line class="dashboard-chart-grid" x1="@Left" x2="@Right" y1="@y" y2="@y"/>
+            }
+            @if (IsBarChart)
+            {
+                @foreach (var (prior, current) in DashboardChartGeometry.GetBars(Rows, _axisMaximum))
+                {
+                    @Bar(prior, "dashboard-chart-bar-prior")
+                    @Bar(current, "dashboard-chart-bar-current")
+                }
+            }
+            else
+            {
+                <path class="dashboard-chart-line-prior" d="@DashboardChartGeometry.GetLinePath(_prior, _axisMaximum)"/>
+                <path class="dashboard-chart-area-current" d="@DashboardChartGeometry.GetAreaPath(_current, _axisMaximum)"/>
+                <path class="dashboard-chart-line-current" d="@DashboardChartGeometry.GetLinePath(_current, _axisMaximum)"/>
+            }
+        </svg>
+        <div class="dashboard-chart-dates">
+            @foreach (var index in DashboardChartGeometry.GetDateTickIndexes(Rows.Length))
+            {
+                <span>@DashboardChartSeries.FormatDate(Rows[index].Date)</span>
+            }
+        </div>
+    </div>
+    <div class="dashboard-chart-legend">
+        <span class="dashboard-chart-legend-item">
+            <span class="dashboard-chart-swatch dashboard-chart-swatch-prior"></span>@BackOfficeStrings.PriorPeriod
+        </span>
+        <span class="dashboard-chart-legend-item">
+            <span class="dashboard-chart-swatch dashboard-chart-swatch-current"></span>@BackOfficeStrings.CurrentPeriod
+        </span>
+    </div>
+    <details class="dashboard-chart-data" data-testid="@($"{TestId}-data")">
+        <summary>@BackOfficeStrings.ShowData</summary>
+        <table class="dashboard-table">
+            <caption class="visually-hidden">@Caption</caption>
+            <thead>
+            <tr>
+                <th scope="col">@BackOfficeStrings.Date</th>
+                <th scope="col" class="dashboard-column-secondary">@BackOfficeStrings.PriorDate</th>
+                <th scope="col" class="dashboard-column-end">@BackOfficeStrings.CurrentPeriod</th>
+                <th scope="col" class="dashboard-column-end">@BackOfficeStrings.PriorPeriod</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Rows)
+            {
+                <tr data-testid="@($"{TestId}-row")">
+                    <td class="dashboard-cell-number">@DashboardChartSeries.FormatDate(row.Date)</td>
+                    <td class="dashboard-column-secondary dashboard-cell-number">@(row.PriorDate is { } priorDate ? DashboardChartSeries.FormatDate(priorDate) : DashboardFormat.Missing)</td>
+                    <td class="dashboard-column-end dashboard-cell-number">@FormatValue(row.Current)</td>
+                    <td class="dashboard-column-end dashboard-cell-number">@(row.PriorDate is null ? DashboardFormat.Missing : FormatValue(row.Prior))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </details>
+</div>
+
+@code {
+
+    private static readonly string Left = DashboardChartGeometry.ToAttribute(DashboardChartGeometry.PlotLeft);
+    private static readonly string Right = DashboardChartGeometry.ToAttribute(DashboardChartGeometry.PlotRight);
+
+    private decimal _axisMaximum = 1;
+    private decimal[] _current = [];
+    private DashboardChartGridLine[] _gridLines = [];
+    private decimal[] _prior = [];
+
+    [Parameter]
+    [EditorRequired]
+    public string TestId { get; set; } = "";
+
+    // The table's caption, the card's title
+    [Parameter]
+    [EditorRequired]
+    public string Caption { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public DashboardTrendRow[] Rows { get; set; } = [];
+
+    [Parameter]
+    public bool IsBarChart { get; set; }
+
+    // How the data table writes a value: a count, or an amount in the card's currency
+    [Parameter]
+    public Func<decimal, string> FormatValue { get; set; } = DashboardChartSeries.FormatValue;
+
+    protected override void OnParametersSet()
+    {
+        _current = Rows.Select(row => row.Current).ToArray();
+        _prior = Rows.Select(row => row.Prior).ToArray();
+        _axisMaximum = DashboardChartGeometry.GetAxisMaximum(_current.Concat(_prior));
+        _gridLines = DashboardChartGeometry.GetGridLines(_axisMaximum);
+    }
+
+    private static RenderFragment Bar(DashboardChartBar bar, string className)
+    {
+        return @<rect class="@className" x="@DashboardChartGeometry.ToAttribute(bar.X)" y="@DashboardChartGeometry.ToAttribute(bar.Y)"
+                      width="@DashboardChartGeometry.ToAttribute(bar.Width)" height="@DashboardChartGeometry.ToAttribute(bar.Height)"/>;
+    }
+
+}

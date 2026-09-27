@@ -27,6 +27,26 @@ public sealed class BackOfficeClient(HttpClient httpClient)
         return _transport.GetAsync<BackOfficeDashboardKpisResponse>(AccountApiRoutes.BackOfficeDashboardKpis(period), cancellationToken);
     }
 
+    public Task<ApiCallResult<BackOfficeDashboardTrendsResponse>> GetDashboardTrendsAsync(DashboardTrendMetric metric, DashboardTrendPeriod period, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardTrendsResponse>(AccountApiRoutes.BackOfficeDashboardTrends(metric, period), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardMrrTrendResponse>> GetDashboardMrrTrendAsync(DashboardTrendPeriod period, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardMrrTrendResponse>(AccountApiRoutes.BackOfficeDashboardMrrTrend(period), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardRevenueTrendResponse>> GetDashboardRevenueTrendAsync(DashboardTrendPeriod period, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardRevenueTrendResponse>(AccountApiRoutes.BackOfficeDashboardRevenueTrend(period), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardPlanDistributionResponse>> GetDashboardPlanDistributionAsync(CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardPlanDistributionResponse>(AccountApiRoutes.BackOfficeDashboardPlanDistribution, cancellationToken);
+    }
+
     public Task<ApiCallResult<BackOfficeDashboardRecentSignupsResponse>> GetRecentSignupsAsync(int limit, CancellationToken cancellationToken)
     {
         return _transport.GetAsync<BackOfficeDashboardRecentSignupsResponse>(AccountApiRoutes.BackOfficeDashboardRecent("recent-signups", limit), cancellationToken);

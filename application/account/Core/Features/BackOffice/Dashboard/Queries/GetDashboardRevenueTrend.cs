@@ -10,17 +10,6 @@ namespace Account.Features.BackOffice.Dashboard.Queries;
 public sealed record GetDashboardRevenueTrendQuery(DashboardTrendPeriod Period = DashboardTrendPeriod.Last30Days)
     : IRequest<Result<BackOfficeDashboardRevenueTrendResponse>>;
 
-[PublicAPI]
-public sealed record BackOfficeDashboardRevenueTrendResponse(
-    DashboardTrendPeriod Period,
-    string? Currency,
-    BackOfficeDashboardRevenueTrendPoint[] Points,
-    BackOfficeDashboardRevenueTrendPoint[] PriorPoints
-);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardRevenueTrendPoint(DateOnly Date, decimal Revenue);
-
 public sealed class GetDashboardRevenueTrendQueryValidator : AbstractValidator<GetDashboardRevenueTrendQuery>
 {
     public GetDashboardRevenueTrendQueryValidator()

@@ -8,15 +8,6 @@ namespace Account.Features.BackOffice.Dashboard.Queries;
 [PublicAPI]
 public sealed record GetDashboardPlanDistributionQuery : IRequest<Result<BackOfficeDashboardPlanDistributionResponse>>;
 
-[PublicAPI]
-public sealed record BackOfficeDashboardPlanDistributionResponse(
-    long TotalTenants,
-    BackOfficeDashboardPlanDistributionEntry[] Distribution
-);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardPlanDistributionEntry(SubscriptionPlan Plan, long Count, double Percentage);
-
 public sealed class GetDashboardPlanDistributionHandler(ITenantRepository tenantRepository)
     : IRequestHandler<GetDashboardPlanDistributionQuery, Result<BackOfficeDashboardPlanDistributionResponse>>
 {

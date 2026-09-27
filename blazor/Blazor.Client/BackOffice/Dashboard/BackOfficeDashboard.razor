@@ -1,9 +1,10 @@
 @using Account.Features.BackOffice.Dashboard.Queries
 @using Blazor.Client.BackOffice.Shell
 @* The back-office dashboard's WebAssembly surface, the React back office's DashboardSections: the header with today's date
-   and the period toggle, the KPI tiles for the period, and the recent activity cards. Recent payments and recent billing
-   events show only with the subscription setting on. The period is kept in component state, as in the React back office,
-   for the tiles and the chart cards. Each card loads its own data in the browser; prerendering shows the frame only. *@
+   and the period toggle, the KPI tiles for the period, the chart cards, and the recent activity cards, in the React back
+   office's order. The MRR trend, plan distribution, revenue, recent payments and recent billing events cards show only with
+   the subscription setting on. The period is kept in component state, as in the React back office, for the tiles and the
+   trend cards. Each card loads its own data in the browser; prerendering shows the frame only. *@
 
 <BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
     <div class="dashboard" data-testid="back-office-dashboard">
@@ -24,6 +25,20 @@
         </div>
 
         <DashboardKpiTiles Period="_period" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
+
+        @if (IsSubscriptionEnabled)
+        {
+            <div class="dashboard-card-grid">
+                <MrrTrendCard Period="_period"/>
+                <PlanDistributionCard/>
+            </div>
+            <RevenueTrendCard Period="_period"/>
+        }
+
+        <div class="dashboard-card-grid">
+            <AccountGrowthCard Period="_period"/>
+            <UserLoginsCard Period="_period"/>
+        </div>
 
         <div class="dashboard-card-grid">
             <RecentSignupsCard/>
