@@ -210,6 +210,10 @@ if (!excludeBlazorHost)
         // The back-office origin, whose pages the account API's back-office listener forwards here; the host answers that
         // host name only for back-office pages and only with the identity the listener forwards
         .WithEnvironment("BACK_OFFICE_PUBLIC_URL", backOfficeBaseUrl)
+        // The back office's own subscription setting, the value the account API's back-office listener gets above, so the
+        // Blazor back office shows the billing parts exactly when the React back office does. The app edition's
+        // PUBLIC_SUBSCRIPTION_ENABLED below stays derived from the Stripe configuration.
+        .WithEnvironment("BACK_OFFICE_SUBSCRIPTION_ENABLED", "true")
         .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
         .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
         .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")

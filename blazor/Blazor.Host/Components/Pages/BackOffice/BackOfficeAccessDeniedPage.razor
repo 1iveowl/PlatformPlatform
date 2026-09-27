@@ -1,0 +1,28 @@
+@* The back office's access-denied page, the React back office's AccessDeniedPage without the side menu: the heading, the
+   explanation, Go to home and Log out through the platform's logout. Server-rendered with no WebAssembly component. The
+   account API's back-office listener still sends an identity outside the back-office group to the React back office's
+   /access-denied, because it forwards only identities its back-office policy admits. *@
+@page "/back-office/access-denied"
+@using Blazor.Client.BackOffice
+@using Blazor.Host.Account
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = BackOfficeAuthentication.PolicyName)]
+@attribute [BackOfficeSurface]
+
+<PageTitle>@BackOfficeStrings.NoBackOfficeAccess</PageTitle>
+
+<main id="main-content" class="back-office-status">
+    <p class="back-office-status-brand">@BackOfficeStrings.BackOffice</p>
+    <section class="status-page" data-testid="back-office-access-denied">
+        <h1>@BackOfficeStrings.NoBackOfficeAccess</h1>
+        <p>
+            @BackOfficeStrings.AccessDeniedMessage<br/>
+            @BackOfficeStrings.ContactYourAdministrator
+        </p>
+        <div class="status-page-actions">
+            <a href="@BackOfficeUrls.Home" class="button-primary" data-testid="back-office-access-denied-home">@CommonStrings.GoToHome</a>
+            <a href="@BackOfficeUrls.LogoutUrl" class="button-secondary" data-enhance-nav="false" data-testid="back-office-access-denied-log-out">@AccountStrings.LogOut</a>
+        </div>
+    </section>
+</main>

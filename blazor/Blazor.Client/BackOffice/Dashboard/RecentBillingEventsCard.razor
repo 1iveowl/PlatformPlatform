@@ -1,0 +1,56 @@
+@using Account.Client
+@using Account.Features.BackOffice.Dashboard.Queries
+@* The recent billing events card, shown only with the subscription setting on, from GET /api/back-office/dashboard/recent-stripe-events with the React back office's limit of six rows, and View all to billing-events. *@
+@inject IServiceProvider Services
+
+<DashboardCard TestId="recent-stripe-events" Title="@BackOfficeStrings.RecentBillingEvents" ViewAllHref='@BackOfficeUrls.ToAbsolute("billing-events")' IsLoading="_rows is null" IsEmpty="_rows?.Length == 0"
+               EmptyTitle="@BackOfficeStrings.NoRecentBillingEvents" EmptyDescription="@BackOfficeStrings.NoRecentBillingEventsDescription">
+    <table class="dashboard-table">
+        <caption class="visually-hidden">@BackOfficeStrings.RecentBillingEvents</caption>
+        <thead>
+        <tr>
+            <th scope="col">@AccountStrings.Account</th>
+            <th scope="col">@BackOfficeStrings.Event</th>
+            <th scope="col" class="dashboard-column-secondary">@BackOfficeStrings.Plan</th>
+            <th scope="col" class="dashboard-column-end">@BackOfficeStrings.MrrImpact</th>
+            <th scope="col" class="dashboard-column-secondary dashboard-column-end">@BackOfficeStrings.Occurred</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in _rows!)
+        {
+            <tr data-testid="recent-stripe-events-row">
+                <td class="dashboard-cell-primary">@row.TenantName</td>
+                <td>
+                    <span class="dashboard-badge">@DashboardFormat.GetBillingEventTypeLabel(row.Type)</span>
+                </td>
+                <td class="dashboard-column-secondary">@(row.ToPlan is { } plan ? DashboardFormat.GetPlanLabel(plan) : DashboardFormat.Missing)</td>
+                <td class="dashboard-column-end dashboard-cell-number @(row.AmountDelta < 0 ? DashboardFormat.GetToneClass("dashboard-tone", DashboardTone.Negative) : null)">@(row.AmountDelta is { } delta ? DashboardFormat.FormatMoney(delta, row.Currency) : DashboardFormat.Missing)</td>
+                <td class="dashboard-column-secondary dashboard-column-end dashboard-cell-muted">@RelativeTime.Format(row.OccurredAt, TimeProvider.System.GetUtcNow())</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</DashboardCard>
+
+@code {
+
+    private BackOfficeDashboardStripeEvent[]? _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetRecentStripeEventsAsync(DashboardFormat.RecentLimit, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _rows = result.Value.Events;
+    }
+
+}

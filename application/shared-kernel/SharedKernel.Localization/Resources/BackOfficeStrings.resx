@@ -20,6 +20,10 @@
         <value>The A/B inclusion pin is saved.</value>
         <comment>Development-only check on the back-office placeholder page</comment>
     </data>
+    <data name="AccessDeniedMessage" xml:space="preserve">
+        <value>Your account is not in the required group.</value>
+        <comment>React: Your account is not in the required group.</comment>
+    </data>
     <data name="AccountApiIdentity" xml:space="preserve">
         <value>Identity from the account API</value>
         <comment>Heading of the section that shows the result of GET /api/back-office/me</comment>
@@ -28,17 +32,57 @@
         <value>Account ID</value>
         <comment>The id of a tenant, called an account in the user interface</comment>
     </data>
+    <data name="Accounts" xml:space="preserve">
+        <value>Accounts</value>
+        <comment>React: Accounts</comment>
+    </data>
+    <data name="ActiveSessions" xml:space="preserve">
+        <value>Active sessions</value>
+        <comment>React: Active sessions</comment>
+    </data>
     <data name="Admin" xml:space="preserve">
         <value>Admin</value>
         <comment>React: Admin</comment>
+    </data>
+    <data name="AllTimeExcludingVat" xml:space="preserve">
+        <value>All-time, excluding VAT</value>
+        <comment>React: All-time, excluding VAT</comment>
     </data>
     <data name="BackOffice" xml:space="preserve">
         <value>Back Office</value>
         <comment>React: Back Office</comment>
     </data>
+    <data name="Billing" xml:space="preserve">
+        <value>Billing</value>
+        <comment>React: Billing, the side menu group</comment>
+    </data>
+    <data name="BillingEvents" xml:space="preserve">
+        <value>Billing events</value>
+        <comment>React: Billing events</comment>
+    </data>
+    <data name="BlendedMrr" xml:space="preserve">
+        <value>Blended MRR</value>
+        <comment>React: Blended MRR</comment>
+    </data>
     <data name="ClearAbInclusionPin" xml:space="preserve">
         <value>Clear the A/B inclusion pin</value>
         <comment>Development-only check on the back-office placeholder page</comment>
+    </data>
+    <data name="ContactYourAdministrator" xml:space="preserve">
+        <value>Contact your administrator.</value>
+        <comment>React: Contact your administrator.</comment>
+    </data>
+    <data name="Dashboard" xml:space="preserve">
+        <value>Dashboard</value>
+        <comment>React: Dashboard</comment>
+    </data>
+    <data name="DashboardOverview" xml:space="preserve">
+        <value>Back Office overview · {0}</value>
+        <comment>React: Back Office overview · {today}; {0} is today's date</comment>
+    </data>
+    <data name="Date" xml:space="preserve">
+        <value>Date</value>
+        <comment>React: Date</comment>
     </data>
     <data name="DevelopmentCheck" xml:space="preserve">
         <value>Development check</value>
@@ -48,20 +92,288 @@
         <value>Enter the numeric ID of an account.</value>
         <comment>Shown when the account ID field does not hold a number</comment>
     </data>
+    <data name="Event" xml:space="preserve">
+        <value>Event</value>
+        <comment>React: Event</comment>
+    </data>
+    <data name="EventBillingInfoAdded" xml:space="preserve">
+        <value>Billing info added</value>
+        <comment>React: Billing info added</comment>
+    </data>
+    <data name="EventBillingInfoUpdated" xml:space="preserve">
+        <value>Billing info updated</value>
+        <comment>React: Billing info updated</comment>
+    </data>
+    <data name="EventCancelled" xml:space="preserve">
+        <value>Cancelled</value>
+        <comment>React: Cancelled, the subscription event</comment>
+    </data>
+    <data name="EventCancelledImmediately" xml:space="preserve">
+        <value>Cancelled immediately</value>
+        <comment>React: Cancelled immediately</comment>
+    </data>
+    <data name="EventDowngradeCancelled" xml:space="preserve">
+        <value>Downgrade cancelled</value>
+        <comment>React: Downgrade cancelled</comment>
+    </data>
+    <data name="EventDowngraded" xml:space="preserve">
+        <value>Downgraded</value>
+        <comment>React: Downgraded</comment>
+    </data>
+    <data name="EventDowngradeScheduled" xml:space="preserve">
+        <value>Downgrade scheduled</value>
+        <comment>React: Downgrade scheduled</comment>
+    </data>
+    <data name="EventExpired" xml:space="preserve">
+        <value>Expired</value>
+        <comment>React: Expired</comment>
+    </data>
+    <data name="EventNoChange" xml:space="preserve">
+        <value>No change</value>
+        <comment>React: No change</comment>
+    </data>
+    <data name="EventPastDue" xml:space="preserve">
+        <value>Past due</value>
+        <comment>React: Past due</comment>
+    </data>
+    <data name="EventPaymentFailed" xml:space="preserve">
+        <value>Payment failed</value>
+        <comment>React: Payment failed</comment>
+    </data>
+    <data name="EventPaymentMethodUpdated" xml:space="preserve">
+        <value>Payment method updated</value>
+        <comment>React: Payment method updated</comment>
+    </data>
+    <data name="EventPaymentRecovered" xml:space="preserve">
+        <value>Payment recovered</value>
+        <comment>React: Payment recovered</comment>
+    </data>
+    <data name="EventPaymentRefunded" xml:space="preserve">
+        <value>Payment refunded</value>
+        <comment>React: Payment refunded</comment>
+    </data>
+    <data name="EventReactivated" xml:space="preserve">
+        <value>Reactivated</value>
+        <comment>React: Reactivated</comment>
+    </data>
+    <data name="EventRenewed" xml:space="preserve">
+        <value>Renewed</value>
+        <comment>React: Renewed</comment>
+    </data>
+    <data name="EventSubscribed" xml:space="preserve">
+        <value>Subscribed</value>
+        <comment>React: Subscribed</comment>
+    </data>
+    <data name="EventSuspended" xml:space="preserve">
+        <value>Suspended</value>
+        <comment>React: Suspended</comment>
+    </data>
+    <data name="EventUnclassified" xml:space="preserve">
+        <value>Unclassified</value>
+        <comment>React: Unclassified</comment>
+    </data>
+    <data name="EventUpgraded" xml:space="preserve">
+        <value>Upgraded</value>
+        <comment>React: Upgraded</comment>
+    </data>
+    <data name="FeatureFlags" xml:space="preserve">
+        <value>Feature flags</value>
+        <comment>React: Feature flags</comment>
+    </data>
+    <data name="Invoices" xml:space="preserve">
+        <value>Invoices</value>
+        <comment>React: Invoices</comment>
+    </data>
+    <data name="Last24Hours" xml:space="preserve">
+        <value>Last 24 hours</value>
+        <comment>React: Last 24 hours</comment>
+    </data>
+    <data name="LastDays" xml:space="preserve">
+        <value>Last {0} days</value>
+        <comment>React: Last {periodDays} days</comment>
+    </data>
+    <data name="Method" xml:space="preserve">
+        <value>Method</value>
+        <comment>React: Method</comment>
+    </data>
+    <data name="MrrImpact" xml:space="preserve">
+        <value>MRR impact</value>
+        <comment>React: MRR impact</comment>
+    </data>
     <data name="Name" xml:space="preserve">
         <value>Name</value>
         <comment>React: Name</comment>
+    </data>
+    <data name="Navigation" xml:space="preserve">
+        <value>Navigation</value>
+        <comment>React: Navigation, the side menu group</comment>
+    </data>
+    <data name="NewInLastDays" xml:space="preserve">
+        <value>+{0} new in last {1} days</value>
+        <comment>React: +{0} new in last {periodDays} days</comment>
+    </data>
+    <data name="NoBackOfficeAccess" xml:space="preserve">
+        <value>No back-office access</value>
+        <comment>React: No back-office access</comment>
+    </data>
+    <data name="NoRecentBillingEvents" xml:space="preserve">
+        <value>No recent billing events</value>
+        <comment>React: No recent billing events</comment>
+    </data>
+    <data name="NoRecentBillingEventsDescription" xml:space="preserve">
+        <value>Subscriptions, upgrades, and cancellations will appear here.</value>
+        <comment>React: Subscriptions, upgrades, and cancellations will appear here.</comment>
+    </data>
+    <data name="NoRecentLogins" xml:space="preserve">
+        <value>No recent logins</value>
+        <comment>React: No recent logins</comment>
+    </data>
+    <data name="NoRecentLoginsDescription" xml:space="preserve">
+        <value>Successful logins will appear here as users sign in.</value>
+        <comment>React: Successful logins will appear here as users sign in.</comment>
+    </data>
+    <data name="NoRecentPayments" xml:space="preserve">
+        <value>No recent payments</value>
+        <comment>React: No recent payments</comment>
+    </data>
+    <data name="NoRecentPaymentsDescription" xml:space="preserve">
+        <value>Invoices will appear here as accounts subscribe and Stripe webhooks are processed.</value>
+        <comment>React: Invoices will appear here as accounts subscribe and Stripe webhooks are processed.</comment>
+    </data>
+    <data name="NoRecentSignups" xml:space="preserve">
+        <value>No recent signups</value>
+        <comment>React: No recent signups</comment>
+    </data>
+    <data name="NoRecentSignupsDescription" xml:space="preserve">
+        <value>New accounts will appear here as they sign up.</value>
+        <comment>React: New accounts will appear here as they sign up.</comment>
     </data>
     <data name="NotAdmin" xml:space="preserve">
         <value>Not admin</value>
         <comment>Shown instead of the admin marker</comment>
     </data>
+    <data name="Occurred" xml:space="preserve">
+        <value>Occurred</value>
+        <comment>React: Occurred</comment>
+    </data>
+    <data name="Owner" xml:space="preserve">
+        <value>Owner</value>
+        <comment>React: Owner, the column of the recent signups</comment>
+    </data>
+    <data name="PaymentCancelled" xml:space="preserve">
+        <value>Cancelled</value>
+        <comment>React: Cancelled, the payment status</comment>
+    </data>
+    <data name="PaymentFailed" xml:space="preserve">
+        <value>Failed</value>
+        <comment>React: Failed</comment>
+    </data>
+    <data name="PaymentPaid" xml:space="preserve">
+        <value>Paid</value>
+        <comment>React: Paid</comment>
+    </data>
+    <data name="PaymentPending" xml:space="preserve">
+        <value>Pending</value>
+        <comment>React: Pending</comment>
+    </data>
+    <data name="PaymentRefunded" xml:space="preserve">
+        <value>Refunded</value>
+        <comment>React: Refunded</comment>
+    </data>
+    <data name="Period" xml:space="preserve">
+        <value>Period</value>
+        <comment>React: Period</comment>
+    </data>
+    <data name="Period30Days" xml:space="preserve">
+        <value>30d</value>
+        <comment>React: 30d</comment>
+    </data>
+    <data name="Period7Days" xml:space="preserve">
+        <value>7d</value>
+        <comment>React: 7d</comment>
+    </data>
+    <data name="Period90Days" xml:space="preserve">
+        <value>90d</value>
+        <comment>React: 90d</comment>
+    </data>
     <data name="PinAbInclusionAlwaysOn" xml:space="preserve">
         <value>Pin the A/B inclusion to always on</value>
         <comment>React: Always on (Altid aktiveret)</comment>
     </data>
+    <data name="Plan" xml:space="preserve">
+        <value>Plan</value>
+        <comment>React: Plan</comment>
+    </data>
+    <data name="PlanBasis" xml:space="preserve">
+        <value>Basis</value>
+        <comment>React: Basis</comment>
+    </data>
+    <data name="PlanPremium" xml:space="preserve">
+        <value>Premium</value>
+        <comment>React: Premium</comment>
+    </data>
+    <data name="PlanStandard" xml:space="preserve">
+        <value>Standard</value>
+        <comment>React: Standard</comment>
+    </data>
+    <data name="Platform" xml:space="preserve">
+        <value>Platform</value>
+        <comment>React: Platform, the side menu group</comment>
+    </data>
+    <data name="RecentBillingEvents" xml:space="preserve">
+        <value>Recent billing events</value>
+        <comment>React: Recent billing events</comment>
+    </data>
+    <data name="RecentLogins" xml:space="preserve">
+        <value>Recent logins</value>
+        <comment>React: Recent logins</comment>
+    </data>
+    <data name="RecentPayments" xml:space="preserve">
+        <value>Recent payments</value>
+        <comment>React: Recent payments</comment>
+    </data>
+    <data name="RecentSignups" xml:space="preserve">
+        <value>Recent signups</value>
+        <comment>React: Recent signups</comment>
+    </data>
     <data name="SignedInAs" xml:space="preserve">
         <value>Signed in as</value>
         <comment>Followed by the name of the signed-in back-office identity</comment>
+    </data>
+    <data name="SignedUp" xml:space="preserve">
+        <value>Signed up</value>
+        <comment>React: Signed up</comment>
+    </data>
+    <data name="Status" xml:space="preserve">
+        <value>Status</value>
+        <comment>React: Status</comment>
+    </data>
+    <data name="Total" xml:space="preserve">
+        <value>Total</value>
+        <comment>React: Total</comment>
+    </data>
+    <data name="TotalAccounts" xml:space="preserve">
+        <value>Total accounts</value>
+        <comment>React: Total accounts</comment>
+    </data>
+    <data name="TotalRevenue" xml:space="preserve">
+        <value>Total revenue</value>
+        <comment>React: Total revenue</comment>
+    </data>
+    <data name="UsersActive" xml:space="preserve">
+        <value>Users active</value>
+        <comment>React: Users active</comment>
+    </data>
+    <data name="ViewAll" xml:space="preserve">
+        <value>View all</value>
+        <comment>React: View all</comment>
+    </data>
+    <data name="VsPriorPeriod" xml:space="preserve">
+        <value>vs prior period</value>
+        <comment>React: vs prior period</comment>
+    </data>
+    <data name="When" xml:space="preserve">
+        <value>When</value>
+        <comment>React: When</comment>
     </data>
 </root>

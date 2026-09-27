@@ -1,0 +1,50 @@
+@using Account.Client
+@using Account.Features.BackOffice.Dashboard.Queries
+@* The recent signups card, from GET /api/back-office/dashboard/recent-signups with the React back office's limit of six rows, and View all to accounts?orderBy=CreatedAt. *@
+@inject IServiceProvider Services
+
+<DashboardCard TestId="recent-signups" Title="@BackOfficeStrings.RecentSignups" ViewAllHref='@BackOfficeUrls.ToAbsolute("accounts?orderBy=CreatedAt")' IsLoading="_rows is null" IsEmpty="_rows?.Length == 0"
+               EmptyTitle="@BackOfficeStrings.NoRecentSignups" EmptyDescription="@BackOfficeStrings.NoRecentSignupsDescription">
+    <table class="dashboard-table">
+        <caption class="visually-hidden">@BackOfficeStrings.RecentSignups</caption>
+        <thead>
+        <tr>
+            <th scope="col">@AccountStrings.Account</th>
+            <th scope="col" class="dashboard-column-secondary">@BackOfficeStrings.Owner</th>
+            <th scope="col" class="dashboard-column-end">@BackOfficeStrings.SignedUp</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in _rows!)
+        {
+            <tr data-testid="recent-signups-row">
+                <td class="dashboard-cell-primary">@row.Name</td>
+                <td class="dashboard-column-secondary">@(row.Owner is { } owner ? DashboardFormat.GetPersonName(owner.FirstName, owner.LastName, owner.Email) : DashboardFormat.Missing)</td>
+                <td class="dashboard-column-end dashboard-cell-muted">@RelativeTime.Format(row.CreatedAt, TimeProvider.System.GetUtcNow())</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</DashboardCard>
+
+@code {
+
+    private BackOfficeDashboardRecentSignup[]? _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetRecentSignupsAsync(DashboardFormat.RecentLimit, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _rows = result.Value.Signups;
+    }
+
+}

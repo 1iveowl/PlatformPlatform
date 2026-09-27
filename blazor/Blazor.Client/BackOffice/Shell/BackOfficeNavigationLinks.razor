@@ -1,0 +1,69 @@
+@* The back office's navigation links by group, rendered by the sidebar and by the mobile menu from the same
+   BackOfficeNavigation items, with the app shell's link styles. Group labels are plain text naming each list. *@
+
+@foreach (var group in Items.GroupBy(item => item.Group))
+{
+    var labelId = $"{IdPrefix}-{group.Key.ToString().ToLowerInvariant()}";
+    <div class="shell-nav-group">
+        <p class="shell-nav-group-label" id="@labelId">@GroupLabel(group.Key)</p>
+        <ul class="shell-nav-list" aria-labelledby="@labelId">
+            @foreach (var item in group)
+            {
+                <li>
+                    <a class="shell-nav-link" href="@item.Href" aria-current="@(item.IsCurrent ? "page" : null)" data-testid="@($"{IdPrefix}-{TestIdOf(item.Target)}")"
+                       @onclick="OnNavigate">
+                        @ItemLabel(item.Target)
+                    </a>
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<BackOfficeNavigationItem> Items { get; set; } = [];
+
+    [Parameter]
+    [EditorRequired]
+    public string IdPrefix { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnNavigate { get; set; }
+
+    private static string GroupLabel(BackOfficeNavigationGroup group)
+    {
+        return group switch
+        {
+            BackOfficeNavigationGroup.Navigation => BackOfficeStrings.Navigation,
+            BackOfficeNavigationGroup.Billing => BackOfficeStrings.Billing,
+            _ => BackOfficeStrings.Platform
+        };
+    }
+
+    private static string ItemLabel(BackOfficeNavigationTarget target)
+    {
+        return target switch
+        {
+            BackOfficeNavigationTarget.Dashboard => BackOfficeStrings.Dashboard,
+            BackOfficeNavigationTarget.Accounts => BackOfficeStrings.Accounts,
+            BackOfficeNavigationTarget.Users => CommonStrings.Users,
+            BackOfficeNavigationTarget.Invoices => BackOfficeStrings.Invoices,
+            BackOfficeNavigationTarget.BillingEvents => BackOfficeStrings.BillingEvents,
+            _ => BackOfficeStrings.FeatureFlags
+        };
+    }
+
+    private static string TestIdOf(BackOfficeNavigationTarget target)
+    {
+        return target switch
+        {
+            BackOfficeNavigationTarget.BillingEvents => "billing-events",
+            BackOfficeNavigationTarget.FeatureFlags => "feature-flags",
+            _ => target.ToString().ToLowerInvariant()
+        };
+    }
+
+}

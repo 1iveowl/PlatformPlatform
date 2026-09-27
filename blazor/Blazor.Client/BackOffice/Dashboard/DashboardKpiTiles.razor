@@ -1,0 +1,72 @@
+@using Account.Client
+@using Account.Features.BackOffice.Dashboard.Queries
+@* The dashboard's KPI tiles for the selected period, from GET /api/back-office/dashboard/kpis. The tiles and their texts
+   come from DashboardFormat; a tile with a link opens the list it summarizes. A newer period's answer replaces an older
+   one that arrives late, so the tiles never show a period other than the selected one. *@
+@inject IServiceProvider Services
+
+<div class="dashboard-tiles" data-testid="dashboard-tiles" data-state="@(_kpis is null ? "loading" : "loaded")">
+    @foreach (var tile in DashboardFormat.CreateTiles(_kpis, Period, IsSubscriptionEnabled))
+    {
+        if (tile.Href is not null)
+        {
+            <a class="dashboard-tile dashboard-tile-link" href="@tile.Href" data-testid="@tile.TestId">@TileContent(tile)</a>
+        }
+        else
+        {
+            <div class="dashboard-tile" data-testid="@tile.TestId">@TileContent(tile)</div>
+        }
+    }
+</div>
+
+@code {
+
+    private BackOfficeDashboardKpisResponse? _kpis;
+    private DashboardTrendPeriod? _loadedPeriod;
+    private int _version;
+
+    [Parameter]
+    public DashboardTrendPeriod Period { get; set; }
+
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!RendererInfo.IsInteractive || _loadedPeriod == Period) return;
+
+        _loadedPeriod = Period;
+        var version = ++_version;
+        _kpis = null;
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetDashboardKpisAsync(Period, CancellationToken.None);
+        if (version != _version || result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _kpis = result.Value;
+    }
+
+    private static RenderFragment TileContent(DashboardTile tile)
+    {
+        return @<text>
+                    <span class="dashboard-tile-label">@tile.Label</span>
+                    <span class="dashboard-tile-value" data-testid="@($"{tile.TestId}-value")">@(tile.Value ?? DashboardFormat.Missing)</span>
+                    @if (tile.Delta is not null || tile.Subtitle is not null)
+                    {
+                        <span class="dashboard-tile-subtitle" data-testid="@($"{tile.TestId}-subtitle")">
+                            @if (tile.Delta is not null)
+                            {
+                                <span class="@DashboardFormat.GetToneClass("dashboard-tone", tile.DeltaTone)">@tile.Delta</span>
+                                @(" ")
+                            }
+                            @tile.Subtitle
+                        </span>
+                    }
+                </text>;
+    }
+
+}

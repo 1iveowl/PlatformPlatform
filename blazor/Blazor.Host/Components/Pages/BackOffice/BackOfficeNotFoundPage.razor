@@ -1,0 +1,27 @@
+@* The back office's not-found page for every unknown path below the back office's home, the React back office's NotFoundPage
+   without the side menu, answered with status 404, which BackOfficeSurface sets as the response starts. Server-rendered with no WebAssembly component. Until the list pages
+   exist, the dashboard's view-all links and the menu's list entries land here. *@
+@page "/back-office/{*path}"
+@using Blazor.Client.BackOffice
+@using Blazor.Client.Shell
+@using Blazor.Host.Account
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = BackOfficeAuthentication.PolicyName)]
+@attribute [BackOfficeSurface]
+@attribute [BackOfficeNotFound]
+
+<PageTitle>@CommonStrings.PageNotFound</PageTitle>
+
+<main id="main-content" class="back-office-status" data-testid="back-office-not-found">
+    <p class="back-office-status-brand">@BackOfficeStrings.BackOffice</p>
+    <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>
+</main>
+
+@code {
+
+    // The unknown path below the back office's home; the page shows the same answer for every one
+    [Parameter]
+    public string? Path { get; set; }
+
+}

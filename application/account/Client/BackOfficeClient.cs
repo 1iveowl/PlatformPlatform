@@ -1,3 +1,4 @@
+using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
 using SharedKernel.Domain;
@@ -19,5 +20,30 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult> SetTenantAbInclusionPinAsync(TenantId tenantId, SetTenantAbInclusionPinCommand command, CancellationToken cancellationToken)
     {
         return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.SetTenantAbInclusionPin(tenantId), command, cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardKpisResponse>> GetDashboardKpisAsync(DashboardTrendPeriod period, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardKpisResponse>(AccountApiRoutes.BackOfficeDashboardKpis(period), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardRecentSignupsResponse>> GetRecentSignupsAsync(int limit, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardRecentSignupsResponse>(AccountApiRoutes.BackOfficeDashboardRecent("recent-signups", limit), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardRecentLoginsResponse>> GetRecentLoginsAsync(int limit, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardRecentLoginsResponse>(AccountApiRoutes.BackOfficeDashboardRecent("recent-logins", limit), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardRecentPaymentsResponse>> GetRecentPaymentsAsync(int limit, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardRecentPaymentsResponse>(AccountApiRoutes.BackOfficeDashboardRecent("recent-payments", limit), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeDashboardRecentStripeEventsResponse>> GetRecentStripeEventsAsync(int limit, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeDashboardRecentStripeEventsResponse>(AccountApiRoutes.BackOfficeDashboardRecent("recent-stripe-events", limit), cancellationToken);
     }
 }

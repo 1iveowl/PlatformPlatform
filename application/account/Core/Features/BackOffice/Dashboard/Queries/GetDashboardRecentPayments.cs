@@ -3,29 +3,12 @@ using Account.Features.Tenants.Domain;
 using FluentValidation;
 using JetBrains.Annotations;
 using SharedKernel.Cqrs;
-using SharedKernel.Domain;
 
 namespace Account.Features.BackOffice.Dashboard.Queries;
 
 [PublicAPI]
 public sealed record GetDashboardRecentPaymentsQuery(int Limit = 6)
     : IRequest<Result<BackOfficeDashboardRecentPaymentsResponse>>;
-
-[PublicAPI]
-public sealed record BackOfficeDashboardRecentPaymentsResponse(BackOfficeDashboardPayment[] Payments);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardPayment(
-    PaymentTransactionId Id,
-    TenantId TenantId,
-    string TenantName,
-    string? TenantLogoUrl,
-    DateTimeOffset Date,
-    SubscriptionPlan? Plan,
-    decimal Amount,
-    string Currency,
-    PaymentTransactionStatus Status
-);
 
 public sealed class GetDashboardRecentPaymentsQueryValidator : AbstractValidator<GetDashboardRecentPaymentsQuery>
 {

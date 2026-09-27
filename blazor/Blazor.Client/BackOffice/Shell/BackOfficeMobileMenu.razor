@@ -1,0 +1,72 @@
+@* The back office's navigation below the small breakpoint, where the sidebar and the user menu are hidden: a floating
+   button opens the app shell's full-screen modal dialog with the navigation links, the identity and Log out. Close menu and
+   Escape close it and focus returns to the button. *@
+@using Account.Features.BackOffice.Queries
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+
+<button type="button" id="@OpenButtonId" class="mobile-menu-button" aria-label="@CommonStrings.OpenNavigationMenu" aria-haspopup="dialog" aria-expanded="@(_isOpen ? "true" : "false")"
+        data-testid="back-office-mobile-menu-button" @onclick="Open">
+    <span aria-hidden="true">☰</span>
+</button>
+
+<ModalDialog Open="_isOpen" AriaLabel="@CommonStrings.MobileNavigationMenu" OnDismissRequested="Close" TestId="back-office-mobile-menu">
+    <div class="mobile-menu">
+        <button type="button" class="mobile-menu-close" @onclick="Close">@CommonStrings.CloseMenu</button>
+
+        <nav aria-label="@CommonStrings.MainNavigation">
+            <BackOfficeNavigationLinks Items="Items" IdPrefix="mobile-nav" OnNavigate="Close"/>
+        </nav>
+
+        <div class="mobile-menu-user">
+            <p class="mobile-menu-user-name">@BackOfficeUser.GetDisplayName(Me)</p>
+            @if (!string.IsNullOrEmpty(Me?.Email))
+            {
+                <p class="mobile-menu-user-email">@Me.Email</p>
+            }
+            <a class="mobile-menu-action" href="@BackOfficeUrls.LogoutUrl" data-enhance-nav="false" data-testid="back-office-mobile-log-out">@AccountStrings.LogOut</a>
+        </div>
+    </div>
+</ModalDialog>
+
+@code {
+
+    private const string OpenButtonId = "back-office-mobile-menu-button";
+
+    private ShellInterop? _interop;
+    private bool _isOpen;
+    private bool _returnFocus;
+
+    [Parameter]
+    public MeResponse? Me { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<BackOfficeNavigationItem> Items { get; set; } = [];
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interop is not null) await _interop.DisposeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_returnFocus) return;
+
+        _returnFocus = false;
+        _interop ??= new ShellInterop(JavaScriptRuntime);
+        await _interop.FocusAsync(OpenButtonId);
+    }
+
+    private void Open()
+    {
+        _isOpen = true;
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+        _returnFocus = true;
+    }
+
+}

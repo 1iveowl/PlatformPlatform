@@ -86,6 +86,7 @@ public sealed partial class HostFixture : IAsyncLifetime
         Environment.SetEnvironmentVariable("ACCOUNT_API_URL", GetAddress(_accountApi));
         Environment.SetEnvironmentVariable("PUBLIC_URL", $"https://{PublicHost}");
         Environment.SetEnvironmentVariable("BACK_OFFICE_PUBLIC_URL", $"https://{BackOfficeHost}");
+        Environment.SetEnvironmentVariable("BACK_OFFICE_SUBSCRIPTION_ENABLED", "true");
         _host = HostApplication.Build(["--environment", "Development", "--urls", "http://127.0.0.1:0"], TokenSigningClient);
         await _host.StartAsync();
         Client = CreateClient(new Uri(GetAddress(_host)));
@@ -98,6 +99,16 @@ public sealed partial class HostFixture : IAsyncLifetime
         DirectClient.Dispose();
         if (_host is not null) await _host.DisposeAsync();
         if (_accountApi is not null) await _accountApi.DisposeAsync();
+    }
+
+    // A second host built the way the first is, with extra command-line configuration that overrides the process-wide
+    // variables, for a test of a deployment setting; the caller disposes it. Tests of this collection never run in parallel,
+    // so the variables the first host was built with still hold.
+    public async Task<AdditionalHost> StartAdditionalHostAsync(params string[] configuration)
+    {
+        var host = HostApplication.Build(["--environment", "Development", "--urls", "http://127.0.0.1:0", ..configuration], TokenSigningClient);
+        await host.StartAsync();
+        return new AdditionalHost(host, CreateClient(new Uri(GetAddress(host))));
     }
 
     private static HttpClient CreateClient(Uri hostUrl)
@@ -275,4 +286,13 @@ public sealed partial class HostFixture : IAsyncLifetime
 
     [GeneratedRegex("name=\"__RequestVerificationToken\" value=\"([^\"]+)\"")]
     private static partial Regex FormTokenPattern();
+}
+
+public sealed record AdditionalHost(WebApplication Host, HttpClient Client) : IAsyncDisposable
+{
+    public async ValueTask DisposeAsync()
+    {
+        Client.Dispose();
+        await Host.DisposeAsync();
+    }
 }

@@ -26,16 +26,23 @@ export function blazorBackOfficeUrl(route: string): string {
 }
 
 /**
- * Open the Blazor back-office placeholder page in a context of its own, which lands on the mock login first, sign in as the
- * given identity and wait for the page's WebAssembly island to start. The mock login is the React edition's picker and is
- * English only, so the context is pinned to en-US.
+ * The back-office identity check below the dashboard, the stage G spike's placeholder page
+ */
+export const backOfficeIdentityRoute = "back-office/identity";
+
+/**
+ * Open a Blazor back-office page in a context of its own, which lands on the mock login first, sign in as the given
+ * identity and wait for the page's WebAssembly island to start. The mock login is the React edition's picker and is
+ * English only, whatever the context's locale; the page itself renders in that locale.
  * @param browser The browser the test runs in
  * @param identity The mock identity to sign in as
+ * @param route Route below the path base; the identity check unless given
+ * @param locale The browser locale the page is requested in
  */
-export async function openBlazorBackOffice(browser: Browser, identity: BackOfficeIdentity): Promise<BlazorBackOffice> {
-  const context = await browser.newContext({ baseURL: getBackOfficeBaseUrl(), ignoreHTTPSErrors: true, locale: "en-US" });
+export async function openBlazorBackOffice(browser: Browser, identity: BackOfficeIdentity, route = backOfficeIdentityRoute, locale = "en-US"): Promise<BlazorBackOffice> {
+  const context = await browser.newContext({ baseURL: getBackOfficeBaseUrl(), ignoreHTTPSErrors: true, locale });
   const page = await context.newPage();
-  const backOfficeUrl = blazorBackOfficeUrl("back-office");
+  const backOfficeUrl = blazorBackOfficeUrl(route);
 
   await page.goto(backOfficeUrl);
   await expect(page).toHaveURL(/\/login\?returnPath=/);
@@ -44,7 +51,11 @@ export async function openBlazorBackOffice(browser: Browser, identity: BackOffic
   await page.getByRole("button", { name: "Log in" }).click();
 
   await expect(page).toHaveURL(backOfficeUrl);
-  await expect(page.getByTestId("render-mode")).toHaveText("Interactive: True");
+  if (route === backOfficeIdentityRoute) {
+    await expect(page.getByTestId("render-mode")).toHaveText("Interactive: True");
+  } else {
+    await expect(page.getByTestId("back-office-shell")).toHaveAttribute("data-identity-state", "loaded");
+  }
   return { context, page };
 }
 

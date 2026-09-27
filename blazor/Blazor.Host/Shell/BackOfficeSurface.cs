@@ -8,6 +8,12 @@ namespace Blazor.Host.Shell;
 [AttributeUsage(AttributeTargets.Class)]
 public sealed class BackOfficeSurfaceAttribute : Attribute;
 
+// Marks the back office's not-found page, the answer to every unknown path below the back office's home. Its status becomes
+// 404 only as the response starts: a page that answers 404 while it renders is replaced by the framework's not-found
+// handling, which re-executes the app's not-found page, and that page answers an empty 404 on the back-office host.
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class BackOfficeNotFoundAttribute : Attribute;
+
 // The back-office origin from BACK_OFFICE_PUBLIC_URL, which the account API's back-office listener names in X-Forwarded-Host
 // when it forwards a back-office page here. Unset, the host has no back-office host and serves no back-office page.
 public sealed class BackOfficeOrigin
@@ -47,6 +53,17 @@ public static class BackOfficeSurface
 
         var isComponentPage = endpoint?.Metadata.GetMetadata<ComponentTypeMetadata>() is not null;
         var isAppOnlyFile = context.Request.Path.Equals(new PathString(OfflineShell.WorkerPath)) || context.Request.Path.Equals(new PathString(HostShell.ManifestPath));
+        if (endpoint?.Metadata.GetMetadata<BackOfficeNotFoundAttribute>() is not null)
+        {
+            // The rendered page is the answer, sent with 404 when its headers go out; a challenge's redirect stays as it is
+            context.Response.OnStarting(() =>
+                {
+                    if (context.Response.StatusCode == StatusCodes.Status200OK) context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return Task.CompletedTask;
+                }
+            );
+        }
+
         if (isBackOfficePage || (!isComponentPage && !isAppOnlyFile)) return next(context);
 
         // Plain, without the not-found page, which renders the app's navigation

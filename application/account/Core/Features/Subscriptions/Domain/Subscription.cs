@@ -15,17 +15,6 @@ public sealed record SubscriptionId(string Value) : StronglyTypedUlid<Subscripti
     }
 }
 
-[PublicAPI]
-[IdPrefix("pymnt")]
-[JsonConverter(typeof(StronglyTypedIdJsonConverter<string, PaymentTransactionId>))]
-public sealed record PaymentTransactionId(string Value) : StronglyTypedUlid<PaymentTransactionId>(Value)
-{
-    public override string ToString()
-    {
-        return Value;
-    }
-}
-
 public sealed class Subscription : AggregateRoot<SubscriptionId>, ITenantScopedEntity
 {
     private Subscription(TenantId tenantId) : base(SubscriptionId.NewId())

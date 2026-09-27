@@ -1,0 +1,55 @@
+@using Account.Client
+@using Account.Features.BackOffice.Dashboard.Queries
+@using Blazor.Client.Sessions
+@* The recent logins card, from GET /api/back-office/dashboard/recent-logins with the React back office's limit of six rows, and View all to users. *@
+@inject IServiceProvider Services
+
+<DashboardCard TestId="recent-logins" Title="@BackOfficeStrings.RecentLogins" ViewAllHref='@BackOfficeUrls.ToAbsolute("users")' IsLoading="_rows is null" IsEmpty="_rows?.Length == 0"
+               EmptyTitle="@BackOfficeStrings.NoRecentLogins" EmptyDescription="@BackOfficeStrings.NoRecentLoginsDescription">
+    <table class="dashboard-table">
+        <caption class="visually-hidden">@BackOfficeStrings.RecentLogins</caption>
+        <thead>
+        <tr>
+            <th scope="col">@AccountStrings.User</th>
+            <th scope="col" class="dashboard-column-secondary">@AccountStrings.Account</th>
+            <th scope="col">@BackOfficeStrings.Method</th>
+            <th scope="col" class="dashboard-column-end">@BackOfficeStrings.When</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in _rows!)
+        {
+            <tr data-testid="recent-logins-row">
+                <td class="dashboard-cell-primary">@DashboardFormat.GetPersonName(row.FirstName, row.LastName, row.Email)</td>
+                <td class="dashboard-column-secondary">@(row.TenantName ?? DashboardFormat.Missing)</td>
+                <td>
+                    <span class="dashboard-badge">@SessionsModel.GetLoginMethodLabel(row.Method)</span>
+                </td>
+                <td class="dashboard-column-end dashboard-cell-muted">@RelativeTime.Format(row.OccurredAt, TimeProvider.System.GetUtcNow())</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</DashboardCard>
+
+@code {
+
+    private BackOfficeDashboardLogin[]? _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetRecentLoginsAsync(DashboardFormat.RecentLimit, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _rows = result.Value.Logins;
+    }
+
+}

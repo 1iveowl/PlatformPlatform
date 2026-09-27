@@ -20,11 +20,11 @@ public static class ForwardedBackOfficeIdentity
     // identity it rebuilds so a page can show the marker; the account API still enforces the policy on every admin call
     public const string AdminClaimType = "back_office_admin";
 
+    private const string Purpose = "SharedKernel.Authentication.BackOfficeIdentity.ForwardedBackOfficeIdentity.v1";
+
     // Covers the hop from the back-office listener to the Blazor host; the header is created per request and never leaves the
     // server side, so a longer lifetime would only widen the window for a captured value
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(1);
-
-    private const string Purpose = "SharedKernel.Authentication.BackOfficeIdentity.ForwardedBackOfficeIdentity.v1";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -74,7 +74,8 @@ public static class ForwardedBackOfficeIdentity
 
     private sealed record ForwardedIdentityPayload(
         [property: JsonPropertyName("claims")] ForwardedClaim[] Claims,
-        [property: JsonPropertyName("isAdmin")] bool IsAdmin
+        [property: JsonPropertyName("isAdmin")]
+        bool IsAdmin
     );
 
     private sealed record ForwardedClaim(

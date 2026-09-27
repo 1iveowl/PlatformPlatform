@@ -22,15 +22,6 @@ public enum DashboardTrendMetric
 }
 
 [PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum DashboardTrendPeriod
-{
-    Last7Days,
-    Last30Days,
-    Last90Days
-}
-
-[PublicAPI]
 public sealed record BackOfficeDashboardTrendsResponse(
     DashboardTrendMetric Metric,
     DashboardTrendPeriod Period,

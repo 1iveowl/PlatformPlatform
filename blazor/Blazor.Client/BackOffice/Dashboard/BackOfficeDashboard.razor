@@ -1,0 +1,51 @@
+@using Account.Features.BackOffice.Dashboard.Queries
+@using Blazor.Client.BackOffice.Shell
+@* The back-office dashboard's WebAssembly surface, the React back office's DashboardSections: the header with today's date
+   and the period toggle, the KPI tiles for the period, and the recent activity cards. Recent payments and recent billing
+   events show only with the subscription setting on. The period is kept in component state, as in the React back office,
+   for the tiles and the chart cards. Each card loads its own data in the browser; prerendering shows the frame only. *@
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="dashboard" data-testid="back-office-dashboard">
+        <div class="dashboard-header">
+            <div>
+                <h1>@BackOfficeStrings.Dashboard</h1>
+                <p class="dashboard-subtitle">@string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.DashboardOverview, DashboardFormat.FormatToday(DateTime.Now))</p>
+            </div>
+            <div class="dashboard-period" role="group" aria-label="@BackOfficeStrings.Period" data-testid="dashboard-period">
+                @foreach (var period in DashboardFormat.Periods)
+                {
+                    <button type="button" class="dashboard-period-option" aria-pressed="@(period == _period ? "true" : "false")"
+                            data-testid="@($"dashboard-period-{DashboardFormat.GetDays(period)}")" @onclick="() => _period = period">
+                        @DashboardFormat.GetPeriodLabel(period)
+                    </button>
+                }
+            </div>
+        </div>
+
+        <DashboardKpiTiles Period="_period" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
+
+        <div class="dashboard-card-grid">
+            <RecentSignupsCard/>
+            <RecentLoginsCard/>
+        </div>
+
+        @if (IsSubscriptionEnabled)
+        {
+            <div class="dashboard-card-grid">
+                <RecentPaymentsCard/>
+                <RecentBillingEventsCard/>
+            </div>
+        }
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private DashboardTrendPeriod _period = DashboardTrendPeriod.Last30Days;
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+}

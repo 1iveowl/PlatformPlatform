@@ -3,28 +3,12 @@ using Account.Features.Users.Domain;
 using FluentValidation;
 using JetBrains.Annotations;
 using SharedKernel.Cqrs;
-using SharedKernel.Domain;
 
 namespace Account.Features.BackOffice.Dashboard.Queries;
 
 [PublicAPI]
 public sealed record GetDashboardRecentSignupsQuery(int Limit = 6)
     : IRequest<Result<BackOfficeDashboardRecentSignupsResponse>>;
-
-[PublicAPI]
-public sealed record BackOfficeDashboardRecentSignupsResponse(BackOfficeDashboardRecentSignup[] Signups);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardRecentSignup(
-    TenantId TenantId,
-    string Name,
-    string? TenantLogoUrl,
-    DateTimeOffset CreatedAt,
-    BackOfficeDashboardRecentSignupOwner? Owner
-);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardRecentSignupOwner(UserId UserId, string? FirstName, string? LastName, string Email);
 
 public sealed class GetDashboardRecentSignupsQueryValidator : AbstractValidator<GetDashboardRecentSignupsQuery>
 {

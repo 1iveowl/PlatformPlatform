@@ -131,9 +131,13 @@ function readViolations(page) {
 
 async function waitForInteractive(page) {
   return page
-    .waitForFunction(() => document.querySelector('[data-testid="render-mode"]')?.textContent === "Interactive: True", null, {
-      timeout: interactiveTimeoutMs
-    })
+    .waitForFunction(
+      () =>
+        document.querySelector('[data-testid="render-mode"]')?.textContent === "Interactive: True" ||
+        document.querySelector('[data-testid="back-office-shell"]')?.getAttribute("data-interactive") === "true",
+      null,
+      { timeout: interactiveTimeoutMs }
+    )
     .then(() => true, () => false);
 }
 
@@ -741,7 +745,7 @@ async function runLegalPages() {
   return outcome({ pages }, failures);
 }
 
-// The Blazor back-office placeholder on the back-office host, signed in through the local mock of the platform
+// The Blazor back office's dashboard on the back-office host, signed in through the local mock of the platform
 // authentication: the nonce policy with the back-office origin as its only trusted host, no violation, the runtime starts,
 // and no service worker is registered on the back-office origin
 async function runBackOffice() {

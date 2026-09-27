@@ -11,6 +11,7 @@ namespace Blazor.Tests.Account;
 public sealed partial class HostSecurityTests
 {
     private const string BackOfficePage = "blazor/back-office";
+    private const string BackOfficeIdentityPage = "blazor/back-office/identity";
     private const string BackOfficeLoginRedirect = "/.auth/login/aad?post_login_redirect_uri=%2Fblazor%2Fback-office";
 
     [Fact]
@@ -31,7 +32,7 @@ public sealed partial class HostSecurityTests
     public async Task BackOfficePage_WhenAdminIdentityIsForwarded_ShouldShowTheNameAndTheAdminMarker()
     {
         // Arrange
-        using var request = HostFixture.CreateBackOfficeRequest(BackOfficePage, fixture.ProtectBackOfficeIdentity("Admin", true));
+        using var request = HostFixture.CreateBackOfficeRequest(BackOfficeIdentityPage, fixture.ProtectBackOfficeIdentity("Admin", true));
 
         // Act
         using var response = await fixture.Client.SendAsync(request);
@@ -47,7 +48,7 @@ public sealed partial class HostSecurityTests
     public async Task BackOfficePage_WhenNonAdminIdentityIsForwarded_ShouldServeThePageWithTheAdminMarkerOff()
     {
         // Arrange
-        using var request = HostFixture.CreateBackOfficeRequest(BackOfficePage, fixture.ProtectBackOfficeIdentity("User", false));
+        using var request = HostFixture.CreateBackOfficeRequest(BackOfficeIdentityPage, fixture.ProtectBackOfficeIdentity("User", false));
 
         // Act
         using var response = await fixture.Client.SendAsync(request);

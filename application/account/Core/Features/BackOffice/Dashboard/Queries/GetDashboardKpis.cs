@@ -14,24 +14,6 @@ namespace Account.Features.BackOffice.Dashboard.Queries;
 public sealed record GetDashboardKpisQuery(DashboardTrendPeriod Period = DashboardTrendPeriod.Last30Days)
     : IRequest<Result<BackOfficeDashboardKpisResponse>>;
 
-[PublicAPI]
-public sealed record BackOfficeDashboardKpisResponse(
-    DashboardTrendPeriod Period,
-    long TotalTenants,
-    long ActiveTenants,
-    long TrialTenants,
-    long CanceledTenants,
-    long NewTenantsInPeriod,
-    long? NewTenantsDeltaPercent,
-    long TotalUsers,
-    long ActiveUsersInPeriod,
-    decimal BlendedMonthlyRecurringRevenue,
-    decimal? BlendedMonthlyRecurringRevenueDeltaPercent,
-    decimal TotalRevenue,
-    string? Currency,
-    long ActiveSessionsLast24Hours
-);
-
 public sealed class GetDashboardKpisQueryValidator : AbstractValidator<GetDashboardKpisQuery>
 {
     public GetDashboardKpisQueryValidator()

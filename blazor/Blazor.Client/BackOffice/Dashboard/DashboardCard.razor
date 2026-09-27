@@ -1,0 +1,60 @@
+@* One card of the dashboard's recent activity, the React back office's DashboardCardShell with its view-all link: the title,
+   the link to the full list, and the loading text, the empty state or the table the card supplies. The link names the card
+   it belongs to through aria-describedby, so four "View all" links stay distinguishable. *@
+
+<section class="dashboard-card" aria-labelledby="@TitleId" data-testid="@TestId" data-state="@State">
+    <div class="dashboard-card-header">
+        <h2 id="@TitleId" class="dashboard-card-title">@Title</h2>
+        <a class="dashboard-card-link" href="@ViewAllHref" aria-describedby="@TitleId" data-testid="@($"{TestId}-view-all")">@BackOfficeStrings.ViewAll</a>
+    </div>
+    @switch (State)
+    {
+        case "loading":
+            <p class="dashboard-card-loading" role="status">@CommonStrings.Loading</p>
+            break;
+        case "empty":
+            <div class="dashboard-card-empty" data-testid="@($"{TestId}-empty")">
+                <p class="dashboard-card-empty-title">@EmptyTitle</p>
+                <p>@EmptyDescription</p>
+            </div>
+            break;
+        default:
+            @ChildContent
+            break;
+    }
+</section>
+
+@code {
+
+    private string TitleId => $"{TestId}-title";
+
+    private string State => IsLoading ? "loading" : IsEmpty ? "empty" : "loaded";
+
+    [Parameter]
+    [EditorRequired]
+    public string TestId { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string ViewAllHref { get; set; } = "";
+
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    [Parameter]
+    public bool IsEmpty { get; set; }
+
+    [Parameter]
+    public string EmptyTitle { get; set; } = "";
+
+    [Parameter]
+    public string EmptyDescription { get; set; } = "";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+}

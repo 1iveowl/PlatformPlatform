@@ -1,0 +1,35 @@
+using Account.Features.BackOffice.Queries;
+using Blazor.Client.BackOffice.Shell;
+using FluentAssertions;
+
+namespace Blazor.Tests.Client.BackOffice;
+
+public sealed class BackOfficeUserTests
+{
+    [Theory]
+    [InlineData("Ada Lovelace", "AL")]
+    [InlineData("ada  byron lovelace", "AB")]
+    [InlineData("Admin", "A")]
+    [InlineData("  ", "PP")]
+    public void GetInitials_ShouldTakeTheFirstLetterOfTheFirstTwoWords(string displayName, string expected)
+    {
+        // Arrange
+        var me = new MeResponse(displayName, "ada@example.com", false, []);
+
+        // Act
+        var initials = BackOfficeUser.GetInitials(me);
+
+        // Assert
+        initials.Should().Be(expected);
+    }
+
+    [Fact]
+    public void GetInitials_WhenTheIdentityIsNotLoaded_ShouldFallBack()
+    {
+        // Act
+        var initials = BackOfficeUser.GetInitials(null);
+
+        // Assert
+        initials.Should().Be("PP");
+    }
+}

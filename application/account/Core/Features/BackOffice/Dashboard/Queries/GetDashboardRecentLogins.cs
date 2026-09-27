@@ -15,23 +15,6 @@ namespace Account.Features.BackOffice.Dashboard.Queries;
 public sealed record GetDashboardRecentLoginsQuery(int Limit = 6)
     : IRequest<Result<BackOfficeDashboardRecentLoginsResponse>>;
 
-[PublicAPI]
-public sealed record BackOfficeDashboardRecentLoginsResponse(BackOfficeDashboardLogin[] Logins);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardLogin(
-    UserId? UserId,
-    string Email,
-    string? FirstName,
-    string? LastName,
-    string? AvatarUrl,
-    TenantId? TenantId,
-    string? TenantName,
-    string? TenantLogoUrl,
-    LoginMethod Method,
-    DateTimeOffset OccurredAt
-);
-
 public sealed class GetDashboardRecentLoginsQueryValidator : AbstractValidator<GetDashboardRecentLoginsQuery>
 {
     public GetDashboardRecentLoginsQueryValidator()

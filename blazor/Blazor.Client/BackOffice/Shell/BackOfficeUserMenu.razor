@@ -1,0 +1,104 @@
+@* The back office's user menu, the React back office's avatar menu without its theme, language and zoom choices: a button
+   with the initials that opens the identity (name, email and the admin marker from GET /api/back-office/me) and Log out,
+   which leaves through the platform's logout on the back-office host with a full document navigation. The popover and the
+   keyboard model are the app shell's user menu's: Escape closes the menu and returns focus to the button, Tab and a click
+   outside close it. The identity block sits outside the menu role, which may own menu items only. *@
+@using Account.Features.BackOffice.Queries
+@using Blazor.Client.Users
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScriptRuntime
+
+<div class="user-menu">
+    <button type="button" id="@TriggerId" class="user-menu-trigger" aria-label="@AccountStrings.UserMenu" aria-describedby="@DescribedBy" aria-haspopup="menu"
+            aria-expanded="@(_isOpen ? "true" : "false")" aria-controls="@(_isOpen ? MenuId : null)" data-testid="back-office-user-menu" @onclick="Toggle">
+        <UserAvatar Initials="@BackOfficeUser.GetInitials(Me)"/>
+    </button>
+    @if (_isOpen)
+    {
+        <div class="menu-backdrop" @onclick="Close"></div>
+        <div class="user-menu-list" @onkeydown="OnKeyDown">
+            <div class="back-office-identity" data-testid="back-office-identity">
+                <p class="back-office-identity-name" data-testid="back-office-identity-name">@BackOfficeUser.GetDisplayName(Me)</p>
+                @if (!string.IsNullOrEmpty(Me?.Email))
+                {
+                    <p class="back-office-identity-email">@Me.Email</p>
+                }
+                @if (Me?.IsAdmin == true)
+                {
+                    <span class="menu-item-badge" data-testid="back-office-identity-admin">@BackOfficeStrings.Admin</span>
+                }
+            </div>
+            <div id="@MenuId" role="menu" aria-labelledby="@TriggerId">
+                <a id="@LogOutId" role="menuitem" class="menu-item" tabindex="-1" href="@BackOfficeUrls.LogoutUrl" data-enhance-nav="false"
+                   data-testid="back-office-log-out">
+                    @AccountStrings.LogOut
+                </a>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+
+    private const string LogOutId = "back-office-user-menu-log-out";
+    private const string MenuId = "back-office-user-menu-list";
+    private const string TriggerId = "back-office-user-menu-trigger";
+
+    private ShellInterop? _interop;
+    private bool _isOpen;
+    private string? _pendingFocusId;
+
+    // Null until the account API has answered in the browser
+    [Parameter]
+    public MeResponse? Me { get; set; }
+
+    [Parameter]
+    public string? DescribedBy { get; set; }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_interop is not null) await _interop.DisposeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingFocusId is not { } elementId) return;
+
+        _pendingFocusId = null;
+        _interop ??= new ShellInterop(JavaScriptRuntime);
+        await _interop.FocusAsync(elementId);
+    }
+
+    private void Toggle()
+    {
+        if (_isOpen)
+        {
+            Close();
+            _pendingFocusId = TriggerId;
+            return;
+        }
+
+        _isOpen = true;
+        _pendingFocusId = LogOutId;
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "Escape":
+                Close();
+                _pendingFocusId = TriggerId;
+                return;
+            case "Tab":
+                Close();
+                return;
+        }
+    }
+
+}

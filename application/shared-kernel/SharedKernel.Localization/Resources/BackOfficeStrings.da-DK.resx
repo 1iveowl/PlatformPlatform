@@ -18,20 +18,53 @@
     <data name="AbInclusionPinSaved" xml:space="preserve">
         <value>A/B-inklusionsfastgørelsen er gemt.</value>
     </data>
+    <data name="AccessDeniedMessage" xml:space="preserve">
+        <value>Din konto er ikke i den krævede gruppe.</value>
+    </data>
     <data name="AccountApiIdentity" xml:space="preserve">
         <value>Identitet fra konto-API'et</value>
     </data>
     <data name="AccountId" xml:space="preserve">
         <value>Konto-id</value>
     </data>
+    <data name="Accounts" xml:space="preserve">
+        <value>Konti</value>
+    </data>
+    <data name="ActiveSessions" xml:space="preserve">
+        <value>Aktive sessioner</value>
+    </data>
     <data name="Admin" xml:space="preserve">
         <value>Admin</value>
+    </data>
+    <data name="AllTimeExcludingVat" xml:space="preserve">
+        <value>Hele perioden, eksklusiv moms</value>
     </data>
     <data name="BackOffice" xml:space="preserve">
         <value>Back Office</value>
     </data>
+    <data name="Billing" xml:space="preserve">
+        <value>Fakturering</value>
+    </data>
+    <data name="BillingEvents" xml:space="preserve">
+        <value>Faktureringshændelser</value>
+    </data>
+    <data name="BlendedMrr" xml:space="preserve">
+        <value>Samlet MRR</value>
+    </data>
     <data name="ClearAbInclusionPin" xml:space="preserve">
         <value>Fjern A/B-inklusionsfastgørelsen</value>
+    </data>
+    <data name="ContactYourAdministrator" xml:space="preserve">
+        <value>Kontakt din administrator.</value>
+    </data>
+    <data name="Dashboard" xml:space="preserve">
+        <value>Dashboard</value>
+    </data>
+    <data name="DashboardOverview" xml:space="preserve">
+        <value>Back Office oversigt · {0}</value>
+    </data>
+    <data name="Date" xml:space="preserve">
+        <value>Dato</value>
     </data>
     <data name="DevelopmentCheck" xml:space="preserve">
         <value>Udviklingstjek</value>
@@ -39,16 +72,217 @@
     <data name="EnterAccountId" xml:space="preserve">
         <value>Indtast det numeriske id for en konto.</value>
     </data>
+    <data name="Event" xml:space="preserve">
+        <value>Hændelse</value>
+    </data>
+    <data name="EventBillingInfoAdded" xml:space="preserve">
+        <value>Faktureringsoplysninger tilføjet</value>
+    </data>
+    <data name="EventBillingInfoUpdated" xml:space="preserve">
+        <value>Faktureringsoplysninger opdateret</value>
+    </data>
+    <data name="EventCancelled" xml:space="preserve">
+        <value>Annulleret</value>
+    </data>
+    <data name="EventCancelledImmediately" xml:space="preserve">
+        <value>Annulleret med det samme</value>
+    </data>
+    <data name="EventDowngradeCancelled" xml:space="preserve">
+        <value>Nedgradering annulleret</value>
+    </data>
+    <data name="EventDowngraded" xml:space="preserve">
+        <value>Nedgraderet</value>
+    </data>
+    <data name="EventDowngradeScheduled" xml:space="preserve">
+        <value>Nedgradering planlagt</value>
+    </data>
+    <data name="EventExpired" xml:space="preserve">
+        <value>Udløbet</value>
+    </data>
+    <data name="EventNoChange" xml:space="preserve">
+        <value>Ingen ændring</value>
+    </data>
+    <data name="EventPastDue" xml:space="preserve">
+        <value>Forfalden</value>
+    </data>
+    <data name="EventPaymentFailed" xml:space="preserve">
+        <value>Betaling mislykkedes</value>
+    </data>
+    <data name="EventPaymentMethodUpdated" xml:space="preserve">
+        <value>Betalingsmetode opdateret</value>
+    </data>
+    <data name="EventPaymentRecovered" xml:space="preserve">
+        <value>Betaling gendannet</value>
+    </data>
+    <data name="EventPaymentRefunded" xml:space="preserve">
+        <value>Betaling refunderet</value>
+    </data>
+    <data name="EventReactivated" xml:space="preserve">
+        <value>Genaktiveret</value>
+    </data>
+    <data name="EventRenewed" xml:space="preserve">
+        <value>Fornyet</value>
+    </data>
+    <data name="EventSubscribed" xml:space="preserve">
+        <value>Tilmeldt</value>
+    </data>
+    <data name="EventSuspended" xml:space="preserve">
+        <value>Suspenderet</value>
+    </data>
+    <data name="EventUnclassified" xml:space="preserve">
+        <value>Uklassificeret</value>
+    </data>
+    <data name="EventUpgraded" xml:space="preserve">
+        <value>Opgraderet</value>
+    </data>
+    <data name="FeatureFlags" xml:space="preserve">
+        <value>Feature flags</value>
+    </data>
+    <data name="Invoices" xml:space="preserve">
+        <value>Fakturaer</value>
+    </data>
+    <data name="Last24Hours" xml:space="preserve">
+        <value>Sidste 24 timer</value>
+    </data>
+    <data name="LastDays" xml:space="preserve">
+        <value>Sidste {0} dage</value>
+    </data>
+    <data name="Method" xml:space="preserve">
+        <value>Metode</value>
+    </data>
+    <data name="MrrImpact" xml:space="preserve">
+        <value>MRR-effekt</value>
+    </data>
     <data name="Name" xml:space="preserve">
         <value>Navn</value>
+    </data>
+    <data name="Navigation" xml:space="preserve">
+        <value>Navigation</value>
+    </data>
+    <data name="NewInLastDays" xml:space="preserve">
+        <value>+{0} nye sidste {1} dage</value>
+    </data>
+    <data name="NoBackOfficeAccess" xml:space="preserve">
+        <value>Ingen adgang til Back Office</value>
+    </data>
+    <data name="NoRecentBillingEvents" xml:space="preserve">
+        <value>Ingen nylige faktureringshændelser</value>
+    </data>
+    <data name="NoRecentBillingEventsDescription" xml:space="preserve">
+        <value>Tilmeldinger, opgraderinger og opsigelser vises her.</value>
+    </data>
+    <data name="NoRecentLogins" xml:space="preserve">
+        <value>Ingen nylige logins</value>
+    </data>
+    <data name="NoRecentLoginsDescription" xml:space="preserve">
+        <value>Succesfulde logins vises her, efterhånden som brugere logger ind.</value>
+    </data>
+    <data name="NoRecentPayments" xml:space="preserve">
+        <value>Ingen nylige betalinger</value>
+    </data>
+    <data name="NoRecentPaymentsDescription" xml:space="preserve">
+        <value>Fakturaer vises her efterhånden som konti abonnerer, og Stripe-webhooks behandles.</value>
+    </data>
+    <data name="NoRecentSignups" xml:space="preserve">
+        <value>Ingen nylige tilmeldinger</value>
+    </data>
+    <data name="NoRecentSignupsDescription" xml:space="preserve">
+        <value>Nye konti vises her, når de tilmelder sig.</value>
     </data>
     <data name="NotAdmin" xml:space="preserve">
         <value>Ikke admin</value>
     </data>
+    <data name="Occurred" xml:space="preserve">
+        <value>Forekom</value>
+    </data>
+    <data name="Owner" xml:space="preserve">
+        <value>Ejer</value>
+    </data>
+    <data name="PaymentCancelled" xml:space="preserve">
+        <value>Annulleret</value>
+    </data>
+    <data name="PaymentFailed" xml:space="preserve">
+        <value>Mislykket</value>
+    </data>
+    <data name="PaymentPaid" xml:space="preserve">
+        <value>Betalt</value>
+    </data>
+    <data name="PaymentPending" xml:space="preserve">
+        <value>Afventer</value>
+    </data>
+    <data name="PaymentRefunded" xml:space="preserve">
+        <value>Refunderet</value>
+    </data>
+    <data name="Period" xml:space="preserve">
+        <value>Periode</value>
+    </data>
+    <data name="Period30Days" xml:space="preserve">
+        <value>30d</value>
+    </data>
+    <data name="Period7Days" xml:space="preserve">
+        <value>7d</value>
+    </data>
+    <data name="Period90Days" xml:space="preserve">
+        <value>90d</value>
+    </data>
     <data name="PinAbInclusionAlwaysOn" xml:space="preserve">
         <value>Fastgør A/B-inklusionen til altid aktiveret</value>
     </data>
+    <data name="Plan" xml:space="preserve">
+        <value>Plan</value>
+    </data>
+    <data name="PlanBasis" xml:space="preserve">
+        <value>Basis</value>
+    </data>
+    <data name="PlanPremium" xml:space="preserve">
+        <value>Premium</value>
+    </data>
+    <data name="PlanStandard" xml:space="preserve">
+        <value>Standard</value>
+    </data>
+    <data name="Platform" xml:space="preserve">
+        <value>Platform</value>
+    </data>
+    <data name="RecentBillingEvents" xml:space="preserve">
+        <value>Nylige faktureringshændelser</value>
+    </data>
+    <data name="RecentLogins" xml:space="preserve">
+        <value>Nylige logins</value>
+    </data>
+    <data name="RecentPayments" xml:space="preserve">
+        <value>Nylige betalinger</value>
+    </data>
+    <data name="RecentSignups" xml:space="preserve">
+        <value>Nylige tilmeldinger</value>
+    </data>
     <data name="SignedInAs" xml:space="preserve">
         <value>Logget ind som</value>
+    </data>
+    <data name="SignedUp" xml:space="preserve">
+        <value>Tilmeldt</value>
+    </data>
+    <data name="Status" xml:space="preserve">
+        <value>Status</value>
+    </data>
+    <data name="Total" xml:space="preserve">
+        <value>I alt</value>
+    </data>
+    <data name="TotalAccounts" xml:space="preserve">
+        <value>Konti i alt</value>
+    </data>
+    <data name="TotalRevenue" xml:space="preserve">
+        <value>Omsætning i alt</value>
+    </data>
+    <data name="UsersActive" xml:space="preserve">
+        <value>Aktive brugere</value>
+    </data>
+    <data name="ViewAll" xml:space="preserve">
+        <value>Vis alle</value>
+    </data>
+    <data name="VsPriorPeriod" xml:space="preserve">
+        <value>mod forrige periode</value>
+    </data>
+    <data name="When" xml:space="preserve">
+        <value>Hvornår</value>
     </data>
 </root>

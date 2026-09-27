@@ -50,6 +50,7 @@ public static class HostApplication
         builder.Services.AddSingleton<HostShell>();
         var backOfficeOrigin = new BackOfficeOrigin();
         builder.Services.AddSingleton(backOfficeOrigin);
+        builder.Services.AddSingleton(BackOfficeSettings.From(builder.Configuration));
         // Reads and renders the three legal documents once, so a document outside the renderer's policy stops the host here
         builder.Services.AddSingleton<LegalDocuments>();
         builder.Services.AddHttpContextAccessor();

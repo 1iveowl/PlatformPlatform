@@ -17,7 +17,8 @@ back-office identity travels with the request in a header protected by the share
 (option b of the issue, with a protected identity in place of the raw principal headers).
 
 - The back office is served under the path base `/blazor` on the back-office host, so the React back office keeps the
-  host's root. The placeholder page is `/blazor/back-office`.
+  host's root. The dashboard, the back office's home, is `/blazor/back-office`; the spike's placeholder page moved to
+  `/blazor/back-office/identity` when the dashboard took its path (EP-204).
 - The platform authentication (Easy Auth in Azure, `MockEasyAuthMiddleware` locally, Development only) stays in front of
   the back-office host, unchanged.
 - `application/account/Api/BackOfficeBlazorProxy.cs` maps `/blazor/{**catch-all}` on the back-office host only, with
@@ -122,6 +123,10 @@ Assumptions until G6a verifies them in Azure:
 - The data protection key ring shared by the `back-office` and `blazor-host` container apps. The antiforgery relay already
   assumes this (the comment in `HostApplication`); the protected identity adds no new requirement, but a key ring that is
   not shared fails every back-office page with a redirect to the login.
+- On the `blazor-host` container app: `BACK_OFFICE_SUBSCRIPTION_ENABLED`, the Stripe-derived expression the account API
+  and the `back-office` container app get as `PUBLIC_SUBSCRIPTION_ENABLED`, so the Blazor back office shows the billing
+  parts exactly when the React back office does (added to `main-cluster.bicep` by EP-204; locally the AppHost sets it to
+  `"true"`, the account API's value). Unset or anything but `"true"`, the billing parts are hidden.
 - No new container app and no new authentication configuration: the back-office Easy Auth configuration already covers
   every path of its host.
 

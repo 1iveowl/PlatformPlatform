@@ -3,30 +3,12 @@ using Account.Features.Tenants.Domain;
 using FluentValidation;
 using JetBrains.Annotations;
 using SharedKernel.Cqrs;
-using SharedKernel.Domain;
 
 namespace Account.Features.BackOffice.Dashboard.Queries;
 
 [PublicAPI]
 public sealed record GetDashboardRecentStripeEventsQuery(int Limit = 6)
     : IRequest<Result<BackOfficeDashboardRecentStripeEventsResponse>>;
-
-[PublicAPI]
-public sealed record BackOfficeDashboardRecentStripeEventsResponse(BackOfficeDashboardStripeEvent[] Events);
-
-[PublicAPI]
-public sealed record BackOfficeDashboardStripeEvent(
-    BillingEventId Id,
-    TenantId TenantId,
-    string TenantName,
-    string? TenantLogoUrl,
-    BillingEventType Type,
-    SubscriptionPlan? FromPlan,
-    SubscriptionPlan? ToPlan,
-    decimal? AmountDelta,
-    string? Currency,
-    DateTimeOffset OccurredAt
-);
 
 public sealed class GetDashboardRecentStripeEventsQueryValidator : AbstractValidator<GetDashboardRecentStripeEventsQuery>
 {

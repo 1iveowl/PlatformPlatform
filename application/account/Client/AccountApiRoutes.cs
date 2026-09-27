@@ -1,4 +1,5 @@
 using System.Globalization;
+using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.PushNotifications.Domain;
@@ -78,6 +79,19 @@ public static class AccountApiRoutes
     public static string PushSubscription(PushSubscriptionId pushSubscriptionId)
     {
         return $"{PushSubscriptions}/{Uri.EscapeDataString(pushSubscriptionId.Value)}";
+    }
+
+    // The back-office dashboard's KPI tiles for a period, bound from the query string by the enum member's name
+    public static string BackOfficeDashboardKpis(DashboardTrendPeriod period)
+    {
+        return $"/api/back-office/dashboard/kpis?Period={period}";
+    }
+
+    // The dashboard's recent activity lists (recent-signups, recent-logins, recent-payments, recent-stripe-events), each
+    // limited to the given number of rows
+    public static string BackOfficeDashboardRecent(string list, int limit)
+    {
+        return $"/api/back-office/dashboard/{Uri.EscapeDataString(list)}?Limit={limit.ToString(CultureInfo.InvariantCulture)}";
     }
 
     // The flag key is a registry key (lower case kebab-case), escaped here like every other route value

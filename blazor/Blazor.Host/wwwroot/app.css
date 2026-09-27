@@ -14,6 +14,8 @@
     --border-strong: #bbb;
     --border-subtle: #ddd;
     --border-faint: #eee;
+    --tone-positive: #146c2e;
+    --tone-negative: #b3261e;
 }
 
 :root[data-theme="dark"] {
@@ -28,6 +30,8 @@
     --border-strong: #5c5c66;
     --border-subtle: #3a3a41;
     --border-faint: #2e2e34;
+    --tone-positive: #6fdd8b;
+    --tone-negative: #ff8a80;
 }
 
 /* The zoom level. wwwroot/js/theme.js sets data-zoom-level on <html> before first paint from the stored level (no attribute
@@ -2217,6 +2221,270 @@ h1:focus {
     background: var(--text-disabled);
 }
 
+/* The Blazor back office (Blazor.Client/BackOffice): the dashboard's header and period toggle, the KPI tiles, the recent
+   activity cards with their tables, and the access-denied and not-found pages. The shell is the app shell's. A tone is a
+   class with a text next to it, never colour alone: a delta carries its sign and a badge its label. */
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.dashboard-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+}
+
+.dashboard-subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--text-muted);
+}
+
+.dashboard-period {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+}
+
+.dashboard-period-option {
+    min-inline-size: 3.5rem;
+    padding: 0.375rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.dashboard-period-option + .dashboard-period-option {
+    border-inline-start: 1px solid var(--border);
+}
+
+.dashboard-period-option[aria-pressed="true"] {
+    background: var(--surface-hover);
+    font-weight: 600;
+}
+
+.dashboard-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1rem;
+}
+
+.dashboard-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.dashboard-tile-link:hover {
+    background: var(--surface-hover);
+}
+
+.dashboard-tile-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.dashboard-tile-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-tile-subtitle {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.dashboard-tone-positive {
+    color: var(--tone-positive);
+}
+
+.dashboard-tone-negative {
+    color: var(--tone-negative);
+}
+
+.dashboard-card-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.dashboard-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-inline-size: 0;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+}
+
+.dashboard-card-header {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dashboard-card-title {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.dashboard-card-link {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.dashboard-card-loading,
+.dashboard-card-empty p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.dashboard-card-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1.5rem 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.375rem;
+    text-align: center;
+}
+
+.dashboard-card-empty .dashboard-card-empty-title {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.dashboard-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.dashboard-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+    text-align: start;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+    padding: 0.5rem 0.375rem;
+    border-block-end: 1px solid var(--border-faint);
+}
+
+.dashboard-table .dashboard-column-end {
+    text-align: end;
+}
+
+.dashboard-cell-primary {
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-cell-muted {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.dashboard-cell-number {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.dashboard-cell-refunded {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.dashboard-column-secondary {
+    display: none;
+}
+
+.dashboard-badge {
+    display: inline-block;
+    padding: 0 0.375rem;
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.dashboard-badge-positive {
+    border-color: var(--tone-positive);
+    color: var(--tone-positive);
+}
+
+.dashboard-badge-negative {
+    border-color: var(--tone-negative);
+    color: var(--tone-negative);
+}
+
+.back-office-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-block-end: 1px solid var(--border-faint);
+}
+
+.back-office-identity p {
+    margin: 0;
+}
+
+.back-office-identity-name {
+    font-weight: 600;
+}
+
+.back-office-identity-email {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.back-office-status {
+    max-inline-size: 40rem;
+    margin-inline: auto;
+    padding: 2rem 1rem;
+}
+
+.back-office-status-brand {
+    margin: 0;
+    font-weight: 600;
+}
+
+@media (min-width: 48rem) {
+    .dashboard-column-secondary {
+        display: table-cell;
+    }
+}
+
+@media (min-width: 64rem) {
+    .dashboard-card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 /* Touch targets on phone widths, the last rule in this sheet on purpose. A finger needs about 44 pixels, which is 2.75rem
    at the default root font size, so under the small breakpoint every control a touch user aims at grows to it: every button,
    the elements that act as one, the menu and row menu items, the navigation links of the sidebar, the mobile menu and the
@@ -2236,6 +2504,7 @@ h1:focus {
     .button-destructive,
     .button-primary,
     .button-secondary,
+    .dashboard-card-link,
     .data-list-row-menu-trigger,
     .data-list-row-menu-item,
     .menu-item,
@@ -2253,6 +2522,7 @@ h1:focus {
     }
 
     /* A button centres its own content, a link does not, so the links that grew keep their text on the middle line */
+    .dashboard-card-link,
     .mobile-menu-action,
     .public-footer-links a,
     .public-nav-action,

@@ -754,6 +754,13 @@ module blazorHost '../modules/container-app.bicep' = {
         name: 'PUBLIC_SUBSCRIPTION_ENABLED'
         value: !empty(stripeApiKey) && !empty(stripeWebhookSecret) && !empty(stripePublishableKey) ? 'true' : 'false'
       }
+      {
+        // The back office's subscription setting, the same expression the account API and the back-office container app
+        // get as PUBLIC_SUBSCRIPTION_ENABLED, so the Blazor back office shows the billing parts exactly when the React
+        // back office does
+        name: 'BACK_OFFICE_SUBSCRIPTION_ENABLED'
+        value: !empty(stripeApiKey) && !empty(stripeWebhookSecret) && !empty(stripePublishableKey) ? 'true' : 'false'
+      }
     ]
   }
 }
