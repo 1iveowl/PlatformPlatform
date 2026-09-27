@@ -49,7 +49,7 @@
         <value>Denne kode udløber om få minutter.</value>
     </data>
     <data name="IgnoreEmailIfNoLoginAttempt" xml:space="preserve">
-        <value>Hvis du ikke har forsøgt at logge ind, kan du roligt ignorere denne e-mail — din konto er sikker.</value>
+        <value>Hvis du ikke har forsøgt at logge ind, kan du roligt ignorere denne e-mail. Din konto er sikker.</value>
     </data>
     <data name="IgnoreEmailIfNoSignupRequested" xml:space="preserve">
         <value>Hvis du ikke har anmodet om at oprette en konto, kan du roligt ignorere denne e-mail.</value>
@@ -61,7 +61,7 @@
         <value>Hvis du ikke kender afsenderen, kan du roligt ignorere denne e-mail.</value>
     </data>
     <data name="NoAccountWasCreated" xml:space="preserve">
-        <value>Hvis det ikke var dig, behøver du ikke gøre noget — der blev ikke oprettet en konto.</value>
+        <value>Hvis det ikke var dig, behøver du ikke gøre noget. Der blev ikke oprettet en konto.</value>
     </data>
     <data name="NoAccountTiedToEmail" xml:space="preserve">
         <value>Det ser ud til, at der ikke er en {0}-konto knyttet til {1}.</value>

@@ -61,8 +61,8 @@
         <comment>React: This code will expire in a few minutes.</comment>
     </data>
     <data name="IgnoreEmailIfNoLoginAttempt" xml:space="preserve">
-        <value>If you didn't try to log in, you can safely ignore this email — your account is secure.</value>
-        <comment>React: If you didn't try to log in, you can safely ignore this email — your account is secure.</comment>
+        <value>If you didn't try to log in, you can safely ignore this email. Your account is secure.</value>
+        <comment>React: the same two clauses joined by a dash in one sentence (StartLogin.tsx); split with a full stop here, since these strings carry no dashes.</comment>
     </data>
     <data name="IgnoreEmailIfNoSignupRequested" xml:space="preserve">
         <value>If you didn't request to sign up, you can safely ignore this email.</value>
@@ -77,8 +77,8 @@
         <comment>React: If you don't recognize the sender, you can safely ignore this email.</comment>
     </data>
     <data name="NoAccountWasCreated" xml:space="preserve">
-        <value>If this wasn't you, no action is needed — no account was created.</value>
-        <comment>React: If this wasn't you, no action is needed — no account was created.</comment>
+        <value>If this wasn't you, no action is needed. No account was created.</value>
+        <comment>React: the same two clauses joined by a dash in one sentence (UnknownUser.tsx); split with a full stop here, since these strings carry no dashes.</comment>
     </data>
     <data name="NoAccountTiedToEmail" xml:space="preserve">
         <value>It looks like there isn't a {0} account tied to {1}.</value>

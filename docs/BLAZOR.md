@@ -62,7 +62,7 @@ Four further pieces serve both editions or the Blazor edition only:
 | WebAssembly, WebAssembly.Server, QuickGrid, JwtBearer, Localization | `11.0.0-rc.1.26425.128` | `blazor/Directory.Packages.props` lines 13 to 17 |
 | FluentUI (`Microsoft.FluentUI.AspNetCore.Components`) | `5.0.0-preview.26254.1`, a nightly from the feed in `blazor/nuget.config` | `blazor/Directory.Packages.props` line 26 |
 | Markdig (legal pages, host only) | `1.3.2` | line 12 |
-| xunit, FluentAssertions, Test SDK | `2.9.3`, `7.2.2`, `18.6.0` | lines 9, 27, 28 |
+| xunit, FluentAssertions, Test SDK | `2.9.3`, `7.2.2`, `18.6.0` | lines 28, 9, 27 |
 
 The FluentUI pin must not move. The comment at `blazor/Directory.Packages.props` lines 18 to 25 records that the next preview is broken on RC1. The package upgrade command must exclude it (rule `.claude/rules/blazor/component-library.md`).
 
@@ -76,7 +76,7 @@ Contracts and typed clients are shared C# code, not generated mirrors.
 
 The plan to put the whole tree on one SDK when .NET 11 reaches general availability is in [blazor-tree-unification.md](blazor-tree-unification.md). It has not been executed.
 
-In the local stack the AppHost adds the host as the resource `blazor-host` (`application/AppHost/Program.cs` lines 198 to 214), unless `APPHOST_EXCLUDE_BLAZOR_HOST=true`. The gateway reaches it on its own port, and it is served at `https://app.dev.localhost/blazor/`.
+In the local stack the AppHost adds the host as the resource `blazor-host` (`application/AppHost/Program.cs` lines 198 to 214), unless `APPHOST_EXCLUDE_BLAZOR_HOST=true`. The gateway reaches it on its own port and serves it on the base port (default 9000, `PortAllocation.AppGateway`), at `https://app.dev.localhost:9000/blazor/`.
 
 ## Render modes: the public and the authenticated surface
 
@@ -101,7 +101,7 @@ The binding rule for markup and scripts is `.claude/rules/blazor/content-securit
 
 Every component document is sent with the following (`ApplyPageHeadersAsync`):
 
-* `Cache-Control: no-cache, no-store, must-revalidate`
+* `Cache-Control: no-cache, no-store, must-revalidate`, except the offline shell document (`/blazor/app/offline`), which is sent `no-cache, must-revalidate` with no nonce and no cookie so the service worker may store it (`HostShell.cs` lines 121 to 145)
 * `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and a referrer policy and permissions policy
 
 Observed on staging on 2026-09-26: `/blazor/` answered with this policy and `'wasm-unsafe-eval'`.
@@ -246,7 +246,7 @@ This is why a publish must carry the version it is deployed as (see [Release and
 
 At `9d39b3c61`, `test --blazor` ran 1,372 of 1,372, and the application backend ran 1,609. The push notification tests are in `application/account/Tests/PushNotifications/`, and the email tests are with the account tests.
 
-**Harness scripts.** `blazor/tests/*.mjs` holds 24 browser scripts, run by `blazor-harness <script>`. They cover:
+**Harness scripts.** `blazor/tests/*.mjs` holds 24 scripts, run by `blazor-harness <script>`: 23 drive a browser, and `verify-results.mjs` checks their stored results. They cover:
 
 * policy: `shell-policy`, `antiforgery`, `authentication-state`
 * the trimmed publish: `trimmed-smoke`, `interactive-load`
@@ -267,7 +267,7 @@ The harness builds its URLs from the local stack's port (`blazor/tests/support/s
 * users, profile, sessions and tenant switching
 * feature flags, navigation, the mobile view and the offline shell
 
-**The accessibility bar** is `.claude/rules/blazor/accessibility.md`: eleven criteria, each naming its check and its manual device cells. `blazor-harness accessibility --browser all` passed 36 of 36 per browser with no serious or critical violation, across 19 surfaces per culture at 1280 px and 390 px (`747c65a37`).
+**The accessibility bar** is `.claude/rules/blazor/accessibility.md`: ten criteria, each naming its check and, where one applies, its manual device cells, followed by the instruction to run the bar. `blazor-harness accessibility --browser all` passed 36 of 36 per browser with no serious or critical violation, across 19 surfaces per culture at 1280 px and 390 px (`747c65a37`).
 
 **The device runner** in `blazor/tests/device/` drives real Safari on macOS and writes a verdict with its manual cells. It runs outside the container (`13584c035`). Its iOS Simulator target does not work yet, and Android was not attempted.
 
@@ -331,7 +331,7 @@ Observed on 2026-09-26:
 
 | Environment | State |
 | --- | --- |
-| Local | The Aspire AppHost runs `blazor-host` beside the React edition, at `https://app.dev.localhost/blazor/`. |
+| Local | The Aspire AppHost runs `blazor-host` beside the React edition, at `https://app.dev.localhost:9000/blazor/` with the default base port. |
 | Staging | Runs at `https://staging.ppdemo.etara.dk/blazor/`, revision `blazor-host--2026-09-26-1610-fw`, image tag `2026.09.26.1610`, built from `9d39b3c61`. See the staging proofs below. |
 | Production | Not deployed. `PRODUCTION_CLUSTER1_ENABLED=false` and no production domain is set, deliberately. The production back office app registration will need the configuration staging needed before the first production deploy. |
 
@@ -391,7 +391,7 @@ The repository's hosted workflows were disabled on 2026-09-19 to save hosted min
 
 **Caching.**
 
-* Documents are sent `no-store`.
+* Documents are sent `no-store`, except the offline shell document, which is `no-cache, must-revalidate`.
 * The bootstrap is `no-store`.
 * The manifest and the service worker are `no-cache`.
 * Fingerprinted assets are immutable.
