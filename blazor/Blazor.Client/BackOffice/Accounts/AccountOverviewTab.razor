@@ -1,0 +1,83 @@
+@using Account.Client
+@using Account.Features.Tenants.BackOffice.Queries
+@using Account.Features.Tenants.BackOffice.Requests
+@using Blazor.Client.BackOffice.Dashboard
+@* The account detail's Overview tab, the React back office's AccountOverviewTab and, with the subscription setting on,
+   AccountCurrentPlanCard: the account's owners as cards (up to 100, as in the React back office) and the current plan with
+   its price, dates, billing address, payment method and VAT number. The React owner cards link to the back office's user
+   page, which the Blazor back office does not have yet, so here they are not links. The React card of recent invoices and
+   billing events beside the plan comes with the billing tabs. *@
+@inject IServiceProvider Services
+
+<section class="account-detail-section" aria-labelledby="account-owners-heading" data-testid="account-owners">
+    <h2 id="account-owners-heading" class="account-detail-section-title">@BackOfficeStrings.Owners</h2>
+    @if (_owners is null)
+    {
+        <p class="dashboard-card-loading" role="status">@CommonStrings.Loading</p>
+    }
+    else if (_owners.Length == 0)
+    {
+        <div class="dashboard-card-empty" data-testid="account-owners-empty">
+            <p class="dashboard-card-empty-title">@BackOfficeStrings.NoOwners</p>
+            <p>@BackOfficeStrings.NoOwnersOnAccount</p>
+        </div>
+    }
+    else
+    {
+        <ul class="account-owner-cards">
+            @foreach (var owner in _owners)
+            {
+                <li class="account-owner-card" data-testid="account-owner">
+                    <span class="account-name">@DashboardFormat.GetPersonName(owner.FirstName, owner.LastName, owner.Email)</span>
+                    @if (!string.IsNullOrWhiteSpace(owner.Title))
+                    {
+                        <span class="account-owner">@owner.Title</span>
+                    }
+                    <span class="account-owner">@owner.Email</span>
+                    @if (!owner.EmailConfirmed)
+                    {
+                        <span class="account-plan">@UsersStrings.Pending</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@if (IsSubscriptionEnabled)
+{
+    <AccountCurrentPlanCard Tenant="Tenant"/>
+}
+
+@code {
+
+    // The React back office's page size for the owners it shows
+    private const int OwnersPageSize = 100;
+
+    private TenantUserSummary[]? _owners;
+
+    [Parameter]
+    [EditorRequired]
+    public TenantDetailResponse Tenant { get; set; } = null!;
+
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var query = new GetTenantUsersQuery(Roles: [UserRole.Owner], PageSize: OwnersPageSize);
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantUsersAsync(Tenant.Id, query, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _owners = result.Value.Users;
+    }
+
+}

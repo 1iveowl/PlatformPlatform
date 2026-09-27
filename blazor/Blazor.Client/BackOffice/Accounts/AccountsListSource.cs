@@ -138,7 +138,7 @@ public static class AccountsListSource
 
     // A JSON array of enum names as the React router writes it, or a single bare name; unknown names are dropped, and the
     // values come back distinct in the canonical order
-    private static IReadOnlyList<TEnum> ParseValues<TEnum>(string? value, IReadOnlyList<TEnum> canonicalOrder) where TEnum : struct, Enum
+    public static IReadOnlyList<TEnum> ParseValues<TEnum>(string? value, IReadOnlyList<TEnum> canonicalOrder) where TEnum : struct, Enum
     {
         if (string.IsNullOrWhiteSpace(value)) return [];
 
@@ -150,16 +150,16 @@ public static class AccountsListSource
         return canonicalOrder.Where(parsed.Contains).ToArray();
     }
 
-    private static string? Unquote(string token)
-    {
-        return token is ['"', .., '"'] ? token[1..^1] : null;
-    }
-
-    private static IReadOnlyList<TEnum> Toggle<TEnum>(IReadOnlyList<TEnum> values, TEnum value, IReadOnlyList<TEnum> canonicalOrder) where TEnum : struct, Enum
+    public static IReadOnlyList<TEnum> Toggle<TEnum>(IReadOnlyList<TEnum> values, TEnum value, IReadOnlyList<TEnum> canonicalOrder) where TEnum : struct, Enum
     {
         var selected = values.ToHashSet();
         if (!selected.Remove(value)) selected.Add(value);
         return canonicalOrder.Where(selected.Contains).ToArray();
+    }
+
+    private static string? Unquote(string token)
+    {
+        return token is ['"', .., '"'] ? token[1..^1] : null;
     }
 
     private static bool IsTrue(string? value)

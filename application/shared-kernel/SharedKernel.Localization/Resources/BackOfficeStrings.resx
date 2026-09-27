@@ -24,13 +24,29 @@
         <value>Your account is not in the required group.</value>
         <comment>React: Your account is not in the required group.</comment>
     </data>
+    <data name="Account" xml:space="preserve">
+        <value>Account</value>
+        <comment>React: Account</comment>
+    </data>
     <data name="AccountApiIdentity" xml:space="preserve">
         <value>Identity from the account API</value>
         <comment>Heading of the section that shows the result of GET /api/back-office/me</comment>
     </data>
+    <data name="AccountFlags" xml:space="preserve">
+        <value>Account flags</value>
+        <comment>React: Account flags</comment>
+    </data>
+    <data name="AccountFlagsDescription" xml:space="preserve">
+        <value>Per-account flags and whether an override sets them for this account.</value>
+        <comment>Description of the account detail's account flags group; the React text names an override switch that this read-only tab does not have</comment>
+    </data>
     <data name="AccountGrowth" xml:space="preserve">
         <value>Account growth</value>
         <comment>React: Account growth</comment>
+    </data>
+    <data name="AccountHasNoUsers" xml:space="preserve">
+        <value>This account has no users.</value>
+        <comment>React: This account has no users.</comment>
     </data>
     <data name="AccountId" xml:space="preserve">
         <value>Account ID</value>
@@ -52,6 +68,10 @@
         <value>{0} accounts</value>
         <comment>React: {total} accounts; {0} is the number of accounts</comment>
     </data>
+    <data name="AccountSections" xml:space="preserve">
+        <value>Account sections</value>
+        <comment>Accessible name of the account detail's tab navigation</comment>
+    </data>
     <data name="AccountsSubtitle" xml:space="preserve">
         <value>Search, filter, and review accounts.</value>
         <comment>React: Search, filter, and review accounts.</comment>
@@ -67,6 +87,10 @@
     <data name="AccountsWithDriftOther" xml:space="preserve">
         <value>{0} accounts have billing drift detected.</value>
         <comment>React: {count, plural, other {# accounts have billing drift detected.}}</comment>
+    </data>
+    <data name="AccountUsers" xml:space="preserve">
+        <value>Account users</value>
+        <comment>React: Account users</comment>
     </data>
     <data name="ActiveSessions" xml:space="preserve">
         <value>Active sessions</value>
@@ -87,6 +111,10 @@
     <data name="Billing" xml:space="preserve">
         <value>Billing</value>
         <comment>React: Billing, the side menu group</comment>
+    </data>
+    <data name="BillingAddress" xml:space="preserve">
+        <value>Billing address</value>
+        <comment>React: Billing address</comment>
     </data>
     <data name="BillingEvents" xml:space="preserve">
         <value>Billing events</value>
@@ -124,6 +152,10 @@
         <value>Current period</value>
         <comment>React: Current period</comment>
     </data>
+    <data name="CurrentPlan" xml:space="preserve">
+        <value>Current plan</value>
+        <comment>React: Current plan</comment>
+    </data>
     <data name="Dashboard" xml:space="preserve">
         <value>Dashboard</value>
         <comment>React: Dashboard</comment>
@@ -140,9 +172,17 @@
         <value>Development check</value>
         <comment>Heading of the Development-only section of the back-office placeholder page</comment>
     </data>
+    <data name="Disabled" xml:space="preserve">
+        <value>Disabled</value>
+        <comment>React: Disabled</comment>
+    </data>
     <data name="DriftDetected" xml:space="preserve">
         <value>Drift detected</value>
         <comment>React: Drift detected</comment>
+    </data>
+    <data name="Enabled" xml:space="preserve">
+        <value>Enabled</value>
+        <comment>React: Enabled</comment>
     </data>
     <data name="EnterAccountId" xml:space="preserve">
         <value>Enter the numeric ID of an account.</value>
@@ -244,6 +284,14 @@
         <value>Feature flags</value>
         <comment>React: Feature flags</comment>
     </data>
+    <data name="FirstInRollouts" xml:space="preserve">
+        <value>First in feature flag rollouts</value>
+        <comment>React: First in feature flag rollouts</comment>
+    </data>
+    <data name="IncludedAt" xml:space="preserve">
+        <value>Included at</value>
+        <comment>React: Included at</comment>
+    </data>
     <data name="Invoices" xml:space="preserve">
         <value>Invoices</value>
         <comment>React: Invoices</comment>
@@ -255,6 +303,14 @@
     <data name="LastDays" xml:space="preserve">
         <value>Last {0} days</value>
         <comment>React: Last {periodDays} days</comment>
+    </data>
+    <data name="LastInRollouts" xml:space="preserve">
+        <value>Last in feature flag rollouts</value>
+        <comment>React: Last in feature flag rollouts</comment>
+    </data>
+    <data name="LifetimeValue" xml:space="preserve">
+        <value>Lifetime value</value>
+        <comment>React: Lifetime value</comment>
     </data>
     <data name="LoginsTotalAndAverage" xml:space="preserve">
         <value>{0} total · avg {1}/day</value>
@@ -316,6 +372,34 @@
         <value>No back-office access</value>
         <comment>React: No back-office access</comment>
     </data>
+    <data name="NoBillingAddress" xml:space="preserve">
+        <value>No billing address on file.</value>
+        <comment>React: No billing address on file.</comment>
+    </data>
+    <data name="NoFeatureFlags" xml:space="preserve">
+        <value>No feature flags</value>
+        <comment>React: No feature flags</comment>
+    </data>
+    <data name="NoMatchingUsers" xml:space="preserve">
+        <value>No matching users</value>
+        <comment>React: No matching users</comment>
+    </data>
+    <data name="NoOwners" xml:space="preserve">
+        <value>No owners</value>
+        <comment>React: No owners</comment>
+    </data>
+    <data name="NoOwnersOnAccount" xml:space="preserve">
+        <value>No owners on this account.</value>
+        <comment>React: No owners on this account.</comment>
+    </data>
+    <data name="NoPaidPlanYet" xml:space="preserve">
+        <value>No paid plan yet.</value>
+        <comment>React: No paid plan yet.</comment>
+    </data>
+    <data name="NoPlan" xml:space="preserve">
+        <value>No plan</value>
+        <comment>React: No plan</comment>
+    </data>
     <data name="NoRecentBillingEvents" xml:space="preserve">
         <value>No recent billing events</value>
         <comment>React: No recent billing events</comment>
@@ -352,9 +436,21 @@
         <value>Not admin</value>
         <comment>Shown instead of the admin marker</comment>
     </data>
+    <data name="NoTenantFeatureFlags" xml:space="preserve">
+        <value>No tenant-scoped feature flags are defined for this account.</value>
+        <comment>React: No tenant-scoped feature flags are defined for this account.</comment>
+    </data>
     <data name="NotSyncedYet" xml:space="preserve">
         <value>Not synced yet</value>
         <comment>React: Not synced yet</comment>
+    </data>
+    <data name="NoUsers" xml:space="preserve">
+        <value>No users</value>
+        <comment>React: No users</comment>
+    </data>
+    <data name="NoUsersMatchFilters" xml:space="preserve">
+        <value>No users match your filters.</value>
+        <comment>React: No users match your filters.</comment>
     </data>
     <data name="Occurred" xml:space="preserve">
         <value>Occurred</value>
@@ -364,9 +460,21 @@
         <value>Open account</value>
         <comment>React: Open account</comment>
     </data>
+    <data name="Override" xml:space="preserve">
+        <value>Override</value>
+        <comment>React: Override</comment>
+    </data>
+    <data name="Overview" xml:space="preserve">
+        <value>Overview</value>
+        <comment>React: Overview</comment>
+    </data>
     <data name="Owner" xml:space="preserve">
         <value>Owner</value>
         <comment>React: Owner, the column of the recent signups</comment>
+    </data>
+    <data name="Owners" xml:space="preserve">
+        <value>Owners</value>
+        <comment>React: Owners</comment>
     </data>
     <data name="PaymentCancelled" xml:space="preserve">
         <value>Cancelled</value>
@@ -375,6 +483,10 @@
     <data name="PaymentFailed" xml:space="preserve">
         <value>Failed</value>
         <comment>React: Failed</comment>
+    </data>
+    <data name="PaymentMethod" xml:space="preserve">
+        <value>Payment method</value>
+        <comment>React: Payment method</comment>
     </data>
     <data name="PaymentPaid" xml:space="preserve">
         <value>Paid</value>
@@ -404,6 +516,10 @@
         <value>90d</value>
         <comment>React: 90d</comment>
     </data>
+    <data name="PerMonthBilledMonthly" xml:space="preserve">
+        <value>per month, billed monthly</value>
+        <comment>React: per month, billed monthly</comment>
+    </data>
     <data name="PinAbInclusionAlwaysOn" xml:space="preserve">
         <value>Pin the A/B inclusion to always on</value>
         <comment>React: Always on (Altid aktiveret)</comment>
@@ -419,6 +535,14 @@
     <data name="PlanDistribution" xml:space="preserve">
         <value>Plan distribution</value>
         <comment>React: Plan distribution</comment>
+    </data>
+    <data name="PlanFlags" xml:space="preserve">
+        <value>Plan flags</value>
+        <comment>React: Plan flags</comment>
+    </data>
+    <data name="PlanFlagsDescription" xml:space="preserve">
+        <value>Gated by the account's subscription plan. Read-only.</value>
+        <comment>React: Gated by the account's subscription plan. Read-only.</comment>
     </data>
     <data name="PlanPremium" xml:space="preserve">
         <value>Premium</value>
@@ -464,6 +588,14 @@
         <value>Renewal date</value>
         <comment>React: Renewal date</comment>
     </data>
+    <data name="RenewsOn" xml:space="preserve">
+        <value>Renews {0}</value>
+        <comment>React: Renews {0}</comment>
+    </data>
+    <data name="RequiredPlan" xml:space="preserve">
+        <value>Required plan</value>
+        <comment>React: Required plan</comment>
+    </data>
     <data name="Revenue" xml:space="preserve">
         <value>Revenue</value>
         <comment>React: Revenue</comment>
@@ -480,6 +612,14 @@
         <value>Search by name</value>
         <comment>React: Search by name</comment>
     </data>
+    <data name="SearchByNameOrEmail" xml:space="preserve">
+        <value>Search by name or email</value>
+        <comment>React: Search by name or email</comment>
+    </data>
+    <data name="SearchUsers" xml:space="preserve">
+        <value>Search users</value>
+        <comment>React: Search users</comment>
+    </data>
     <data name="Share" xml:space="preserve">
         <value>Share</value>
         <comment>Column of the plan distribution card's data table: the plan's percentage of all accounts</comment>
@@ -495,6 +635,14 @@
     <data name="SignedUp" xml:space="preserve">
         <value>Signed up</value>
         <comment>React: Signed up</comment>
+    </data>
+    <data name="SignedUpOn" xml:space="preserve">
+        <value>Signed up {0}</value>
+        <comment>React: Signed up {0}</comment>
+    </data>
+    <data name="SinceDate" xml:space="preserve">
+        <value>Since {0}</value>
+        <comment>React: Since {0}</comment>
     </data>
     <data name="Status" xml:space="preserve">
         <value>Status</value>
@@ -519,6 +667,14 @@
     <data name="StatusFree" xml:space="preserve">
         <value>Free</value>
         <comment>React: Free</comment>
+    </data>
+    <data name="SubscribedSince" xml:space="preserve">
+        <value>Subscribed since</value>
+        <comment>React: Subscribed since</comment>
+    </data>
+    <data name="TenantStateSuspended" xml:space="preserve">
+        <value>Suspended</value>
+        <comment>React: Suspended</comment>
     </data>
     <data name="Total" xml:space="preserve">
         <value>Total</value>
@@ -551,6 +707,22 @@
     <data name="UsersActive" xml:space="preserve">
         <value>Users active</value>
         <comment>React: Users active</comment>
+    </data>
+    <data name="UsersActiveCount" xml:space="preserve">
+        <value>{0} active</value>
+        <comment>React: {activeUsers} active</comment>
+    </data>
+    <data name="UsersInactiveCount" xml:space="preserve">
+        <value>{0} inactive</value>
+        <comment>React: {inactiveUsers} inactive</comment>
+    </data>
+    <data name="UsersPendingCount" xml:space="preserve">
+        <value>{0} pending</value>
+        <comment>React: {pendingUsers} pending</comment>
+    </data>
+    <data name="VatNumber" xml:space="preserve">
+        <value>VAT number</value>
+        <comment>React: VAT number</comment>
     </data>
     <data name="ViewAccounts" xml:space="preserve">
         <value>View accounts</value>

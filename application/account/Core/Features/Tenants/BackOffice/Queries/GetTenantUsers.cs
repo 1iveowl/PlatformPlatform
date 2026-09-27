@@ -23,23 +23,6 @@ public sealed record GetTenantUsersQuery(
     public UserRole[] Roles { get; } = Roles ?? [];
 }
 
-[PublicAPI]
-public sealed record TenantUsersResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, TenantUserSummary[] Users);
-
-[PublicAPI]
-public sealed record TenantUserSummary(
-    UserId Id,
-    string Email,
-    string? FirstName,
-    string? LastName,
-    string? Title,
-    UserRole Role,
-    bool EmailConfirmed,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? LastSeenAt,
-    string? AvatarUrl
-);
-
 public sealed class GetTenantUsersQueryValidator : AbstractValidator<GetTenantUsersQuery>
 {
     public GetTenantUsersQueryValidator()

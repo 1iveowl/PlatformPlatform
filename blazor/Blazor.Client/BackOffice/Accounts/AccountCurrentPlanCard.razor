@@ -1,0 +1,122 @@
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Dashboard
+@* The account detail's current plan, the React back office's AccountCurrentPlanCard and CurrentPlanDetails: the empty state
+   for an account that never had a paid plan, otherwise the monthly price with the price a planned change moves it to, the
+   plan and the planned change, the subscription and renewal or expiry dates, the billing address, the payment method and
+   the VAT number. *@
+
+<section class="account-detail-section" aria-labelledby="account-plan-heading" data-testid="account-current-plan">
+    <h2 id="account-plan-heading" class="account-detail-section-title">@BackOfficeStrings.CurrentPlan</h2>
+    @if (AccountDetailFormat.IsFree(Tenant))
+    {
+        <div class="dashboard-card-empty" data-testid="account-current-plan-empty">
+            <p class="dashboard-card-empty-title">@BackOfficeStrings.NoPlan</p>
+            <p>@BackOfficeStrings.NoPaidPlanYet</p>
+        </div>
+    }
+    else
+    {
+        var status = AccountFormat.GetStatus(Tenant);
+        var mrr = AccountFormat.GetMrr(Tenant);
+        var addressLines = AccountDetailFormat.GetBillingAddressLines(Tenant);
+        var country = AccountDetailFormat.GetCountry(Tenant);
+        var paymentMethod = AccountDetailFormat.GetPaymentMethod(Tenant);
+        <div class="dashboard-card account-plan-card">
+            <div class="account-plan-card-price">
+                <p class="account-mrr-change account-detail-tile-value" data-testid="account-current-plan-price">
+                    @if (mrr.Next is null)
+                    {
+                        @mrr.Current
+                    }
+                    else
+                    {
+                        <del>@mrr.Current</del>
+                        <ins>@mrr.Next</ins>
+                    }
+                </p>
+                <p class="account-preview-badges">
+                    <span class="account-plan">@DashboardFormat.GetPlanLabel(Tenant.Plan)</span>
+                    @if (status is TenantStatusFilter.Canceling or TenantStatusFilter.Downgrading)
+                    {
+                        <span class="@AccountFormat.GetStatusClass(status)">@AccountFormat.GetStatusLabel(status)</span>
+                    }
+                </p>
+            </div>
+            <p class="account-detail-tile-subtitle">@BackOfficeStrings.PerMonthBilledMonthly</p>
+
+            <dl class="account-plan-card-fields">
+                <div>
+                    <dt>@BackOfficeStrings.SubscribedSince</dt>
+                    <dd>@AccountFormat.FormatDate(Tenant.SubscribedSince)</dd>
+                </div>
+                <div>
+                    <dt>@AccountFormat.GetRenewalLabel(status)</dt>
+                    <dd>@AccountFormat.FormatDate(Tenant.RenewalDate)</dd>
+                </div>
+                <div>
+                    <dt>@BackOfficeStrings.BillingAddress</dt>
+                    <dd data-testid="account-current-plan-address">
+                        @if (AccountDetailFormat.HasBillingDetails(Tenant))
+                        {
+                            <address>
+                                @if (!string.IsNullOrWhiteSpace(Tenant.BillingName))
+                                {
+                                    <span>@Tenant.BillingName</span>
+                                }
+                                @foreach (var line in addressLines)
+                                {
+                                    <span>@line</span>
+                                }
+                                @if (country is not null)
+                                {
+                                    <span>@country</span>
+                                }
+                            </address>
+                        }
+                        else
+                        {
+                            @BackOfficeStrings.NoBillingAddress
+                        }
+                    </dd>
+                </div>
+                <div>
+                    <dt>@BackOfficeStrings.PaymentMethod</dt>
+                    <dd data-testid="account-current-plan-payment-method">
+                        @if (paymentMethod is null)
+                        {
+                            @DashboardFormat.Missing
+                        }
+                        else
+                        {
+                            <span>@paymentMethod.Brand</span>
+                            @if (paymentMethod.MaskedNumber is not null)
+                            {
+                                <span>@paymentMethod.MaskedNumber</span>
+                            }
+
+                            @if (paymentMethod.Expiry is not null)
+                            {
+                                <span>@paymentMethod.Expiry</span>
+                            }
+                        }
+                    </dd>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Tenant.TaxId))
+                {
+                    <div>
+                        <dt>@BackOfficeStrings.VatNumber</dt>
+                        <dd>@Tenant.TaxId</dd>
+                    </div>
+                }
+            </dl>
+        </div>
+    }
+</section>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public TenantDetailResponse Tenant { get; set; } = null!;
+
+}

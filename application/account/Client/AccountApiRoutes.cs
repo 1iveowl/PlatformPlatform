@@ -141,6 +141,35 @@ public static class AccountApiRoutes
         return $"/api/back-office/tenants?{string.Join('&', parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"))}";
     }
 
+    // One account of the back office's accounts list; its user counts, users and feature flags are below it
+    public static string BackOfficeTenant(TenantId tenantId)
+    {
+        return $"/api/back-office/tenants/{tenantId.Value.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    public static string BackOfficeTenantUserCounts(TenantId tenantId)
+    {
+        return $"{BackOfficeTenant(tenantId)}/user-counts";
+    }
+
+    // One page of an account's users. The endpoint binds the query with [AsParameters]: PascalCase names, one repeated Roles
+    // parameter per role, and the search only when set. The first page omits its offset.
+    public static string BackOfficeTenantUsers(TenantId tenantId, GetTenantUsersQuery query)
+    {
+        var parameters = new List<KeyValuePair<string, string>>();
+        if (!string.IsNullOrWhiteSpace(query.Search)) parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantUsersQuery.Search), query.Search));
+        parameters.AddRange((query.Roles ?? []).Select(role => new KeyValuePair<string, string>(nameof(GetTenantUsersQuery.Roles), role.ToString())));
+        if (query.PageOffset > 0) parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantUsersQuery.PageOffset), query.PageOffset.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantUsersQuery.PageSize), query.PageSize.ToString(CultureInfo.InvariantCulture)));
+
+        return $"{BackOfficeTenant(tenantId)}/users?{string.Join('&', parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"))}";
+    }
+
+    public static string BackOfficeTenantFeatureFlags(TenantId tenantId)
+    {
+        return $"{BackOfficeTenant(tenantId)}/feature-flags";
+    }
+
     // The flag key is a registry key (lower case kebab-case), escaped here like every other route value
     public static string SetTenantAbInclusionPin(TenantId tenantId)
     {

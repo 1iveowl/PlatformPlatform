@@ -21,11 +21,23 @@
     <data name="AccessDeniedMessage" xml:space="preserve">
         <value>Din konto er ikke i den krævede gruppe.</value>
     </data>
+    <data name="Account" xml:space="preserve">
+        <value>Konto</value>
+    </data>
     <data name="AccountApiIdentity" xml:space="preserve">
         <value>Identitet fra konto-API'et</value>
     </data>
+    <data name="AccountFlags" xml:space="preserve">
+        <value>Kontoflag</value>
+    </data>
+    <data name="AccountFlagsDescription" xml:space="preserve">
+        <value>Per-konto flags, og om en tilsidesættelse styrer dem for denne konto.</value>
+    </data>
     <data name="AccountGrowth" xml:space="preserve">
         <value>Kontovækst</value>
+    </data>
+    <data name="AccountHasNoUsers" xml:space="preserve">
+        <value>Denne konto har ingen brugere.</value>
     </data>
     <data name="AccountId" xml:space="preserve">
         <value>Konto-id</value>
@@ -42,6 +54,9 @@
     <data name="AccountsCount" xml:space="preserve">
         <value>{0} konti</value>
     </data>
+    <data name="AccountSections" xml:space="preserve">
+        <value>Kontoafsnit</value>
+    </data>
     <data name="AccountsSubtitle" xml:space="preserve">
         <value>Søg, filtrér og gennemse konti.</value>
     </data>
@@ -53,6 +68,9 @@
     </data>
     <data name="AccountsWithDriftOther" xml:space="preserve">
         <value>{0} konti har faktureringsafvigelser.</value>
+    </data>
+    <data name="AccountUsers" xml:space="preserve">
+        <value>Kontobrugere</value>
     </data>
     <data name="ActiveSessions" xml:space="preserve">
         <value>Aktive sessioner</value>
@@ -68,6 +86,9 @@
     </data>
     <data name="Billing" xml:space="preserve">
         <value>Fakturering</value>
+    </data>
+    <data name="BillingAddress" xml:space="preserve">
+        <value>Faktureringsadresse</value>
     </data>
     <data name="BillingEvents" xml:space="preserve">
         <value>Faktureringshændelser</value>
@@ -96,6 +117,9 @@
     <data name="CurrentPeriod" xml:space="preserve">
         <value>Aktuel periode</value>
     </data>
+    <data name="CurrentPlan" xml:space="preserve">
+        <value>Aktuelt abonnement</value>
+    </data>
     <data name="Dashboard" xml:space="preserve">
         <value>Dashboard</value>
     </data>
@@ -108,8 +132,14 @@
     <data name="DevelopmentCheck" xml:space="preserve">
         <value>Udviklingstjek</value>
     </data>
+    <data name="Disabled" xml:space="preserve">
+        <value>Deaktiveret</value>
+    </data>
     <data name="DriftDetected" xml:space="preserve">
         <value>Afvigelser fundet</value>
+    </data>
+    <data name="Enabled" xml:space="preserve">
+        <value>Aktiveret</value>
     </data>
     <data name="EnterAccountId" xml:space="preserve">
         <value>Indtast det numeriske id for en konto.</value>
@@ -186,6 +216,12 @@
     <data name="FeatureFlags" xml:space="preserve">
         <value>Feature flags</value>
     </data>
+    <data name="FirstInRollouts" xml:space="preserve">
+        <value>Først i feature flag-udrulninger</value>
+    </data>
+    <data name="IncludedAt" xml:space="preserve">
+        <value>Inkluderet ved</value>
+    </data>
     <data name="Invoices" xml:space="preserve">
         <value>Fakturaer</value>
     </data>
@@ -194,6 +230,12 @@
     </data>
     <data name="LastDays" xml:space="preserve">
         <value>Sidste {0} dage</value>
+    </data>
+    <data name="LastInRollouts" xml:space="preserve">
+        <value>Sidst i feature flag-udrulninger</value>
+    </data>
+    <data name="LifetimeValue" xml:space="preserve">
+        <value>Livstidsværdi</value>
     </data>
     <data name="LoginsTotalAndAverage" xml:space="preserve">
         <value>{0} i alt · gns. {1}/dag</value>
@@ -240,6 +282,27 @@
     <data name="NoBackOfficeAccess" xml:space="preserve">
         <value>Ingen adgang til Back Office</value>
     </data>
+    <data name="NoBillingAddress" xml:space="preserve">
+        <value>Ingen faktureringsadresse registreret.</value>
+    </data>
+    <data name="NoFeatureFlags" xml:space="preserve">
+        <value>Ingen feature flags</value>
+    </data>
+    <data name="NoMatchingUsers" xml:space="preserve">
+        <value>Ingen matchende brugere</value>
+    </data>
+    <data name="NoOwners" xml:space="preserve">
+        <value>Ingen ejere</value>
+    </data>
+    <data name="NoOwnersOnAccount" xml:space="preserve">
+        <value>Ingen ejere på denne konto.</value>
+    </data>
+    <data name="NoPaidPlanYet" xml:space="preserve">
+        <value>Intet betalt abonnement endnu.</value>
+    </data>
+    <data name="NoPlan" xml:space="preserve">
+        <value>Intet abonnement</value>
+    </data>
     <data name="NoRecentBillingEvents" xml:space="preserve">
         <value>Ingen nylige faktureringshændelser</value>
     </data>
@@ -267,8 +330,17 @@
     <data name="NotAdmin" xml:space="preserve">
         <value>Ikke admin</value>
     </data>
+    <data name="NoTenantFeatureFlags" xml:space="preserve">
+        <value>Der er ingen feature flags defineret for denne konto.</value>
+    </data>
     <data name="NotSyncedYet" xml:space="preserve">
         <value>Ikke synkroniseret endnu</value>
+    </data>
+    <data name="NoUsers" xml:space="preserve">
+        <value>Ingen brugere</value>
+    </data>
+    <data name="NoUsersMatchFilters" xml:space="preserve">
+        <value>Ingen brugere matcher dine filtre.</value>
     </data>
     <data name="Occurred" xml:space="preserve">
         <value>Forekom</value>
@@ -276,14 +348,26 @@
     <data name="OpenAccount" xml:space="preserve">
         <value>Åbn konto</value>
     </data>
+    <data name="Override" xml:space="preserve">
+        <value>Tilsidesættelse</value>
+    </data>
+    <data name="Overview" xml:space="preserve">
+        <value>Overblik</value>
+    </data>
     <data name="Owner" xml:space="preserve">
         <value>Ejer</value>
+    </data>
+    <data name="Owners" xml:space="preserve">
+        <value>Ejere</value>
     </data>
     <data name="PaymentCancelled" xml:space="preserve">
         <value>Annulleret</value>
     </data>
     <data name="PaymentFailed" xml:space="preserve">
         <value>Mislykket</value>
+    </data>
+    <data name="PaymentMethod" xml:space="preserve">
+        <value>Betalingsmetode</value>
     </data>
     <data name="PaymentPaid" xml:space="preserve">
         <value>Betalt</value>
@@ -306,6 +390,9 @@
     <data name="Period90Days" xml:space="preserve">
         <value>90d</value>
     </data>
+    <data name="PerMonthBilledMonthly" xml:space="preserve">
+        <value>pr. måned, faktureres månedligt</value>
+    </data>
     <data name="PinAbInclusionAlwaysOn" xml:space="preserve">
         <value>Fastgør A/B-inklusionen til altid aktiveret</value>
     </data>
@@ -317,6 +404,12 @@
     </data>
     <data name="PlanDistribution" xml:space="preserve">
         <value>Plan-fordeling</value>
+    </data>
+    <data name="PlanFlags" xml:space="preserve">
+        <value>Abonnementsflag</value>
+    </data>
+    <data name="PlanFlagsDescription" xml:space="preserve">
+        <value>Begrænset af kontoens abonnement. Skrivebeskyttet.</value>
     </data>
     <data name="PlanPremium" xml:space="preserve">
         <value>Premium</value>
@@ -351,6 +444,12 @@
     <data name="RenewalDate" xml:space="preserve">
         <value>Fornyelsesdato</value>
     </data>
+    <data name="RenewsOn" xml:space="preserve">
+        <value>Fornyes {0}</value>
+    </data>
+    <data name="RequiredPlan" xml:space="preserve">
+        <value>Krævet abonnement</value>
+    </data>
     <data name="Revenue" xml:space="preserve">
         <value>Omsætning</value>
     </data>
@@ -363,6 +462,12 @@
     <data name="SearchByName" xml:space="preserve">
         <value>Søg efter navn</value>
     </data>
+    <data name="SearchByNameOrEmail" xml:space="preserve">
+        <value>Søg efter navn eller e-mail</value>
+    </data>
+    <data name="SearchUsers" xml:space="preserve">
+        <value>Søg brugere</value>
+    </data>
     <data name="Share" xml:space="preserve">
         <value>Andel</value>
     </data>
@@ -374,6 +479,12 @@
     </data>
     <data name="SignedUp" xml:space="preserve">
         <value>Tilmeldt</value>
+    </data>
+    <data name="SignedUpOn" xml:space="preserve">
+        <value>Tilmeldt {0}</value>
+    </data>
+    <data name="SinceDate" xml:space="preserve">
+        <value>Siden {0}</value>
     </data>
     <data name="Status" xml:space="preserve">
         <value>Status</value>
@@ -392,6 +503,12 @@
     </data>
     <data name="StatusFree" xml:space="preserve">
         <value>Gratis</value>
+    </data>
+    <data name="SubscribedSince" xml:space="preserve">
+        <value>Abonneret siden</value>
+    </data>
+    <data name="TenantStateSuspended" xml:space="preserve">
+        <value>Suspenderet</value>
     </data>
     <data name="Total" xml:space="preserve">
         <value>I alt</value>
@@ -416,6 +533,18 @@
     </data>
     <data name="UsersActive" xml:space="preserve">
         <value>Aktive brugere</value>
+    </data>
+    <data name="UsersActiveCount" xml:space="preserve">
+        <value>{0} aktive</value>
+    </data>
+    <data name="UsersInactiveCount" xml:space="preserve">
+        <value>{0} inaktive</value>
+    </data>
+    <data name="UsersPendingCount" xml:space="preserve">
+        <value>{0} afventer</value>
+    </data>
+    <data name="VatNumber" xml:space="preserve">
+        <value>Momsnummer</value>
     </data>
     <data name="ViewAccounts" xml:space="preserve">
         <value>Vis konti</value>

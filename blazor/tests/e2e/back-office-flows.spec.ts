@@ -1,7 +1,9 @@
 import { expect } from "@playwright/test";
 import { signUpThroughBlazor, test } from "@blazor/e2e/authentication";
-import { openBlazorBackOffice, readTenantAbInclusionPin } from "@blazor/e2e/back-office";
+import { blazorBackOfficeUrl, openBlazorBackOffice, readTenantAbInclusionPin } from "@blazor/e2e/back-office";
 import { readBootstrapUser } from "@blazor/e2e/external-login";
+import { expectNoPolicyViolations, trackPolicyViolations } from "@blazor/e2e/policy";
+import { blazorLocale, blazorTexts } from "@blazor/e2e/texts";
 import { uniqueBlazorEmail } from "@blazor/e2e/test-data";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
 import { step } from "@shared/e2e/utils/test-step-wrapper";
@@ -75,6 +77,93 @@ test.describe("@smoke", () => {
       })();
     } finally {
       await user.context.close();
+    }
+  });
+
+  /**
+   * The Blazor back office's golden path, the React back office's smoke case on the Blazor edition:
+   * - Sign in to the back-office host through the mock login as admin and see the dashboard with its KPI tiles
+   * - Open the accounts list from the side menu, find a new account and open its detail from the side pane
+   * - The detail shows the account's name and its Overview tab with the owner who signed it up
+   * - The Users and Feature flags tabs load their lists, the tab is in the URL and survives a reload
+   * - A tenant id the account API does not know shows the back office's not-found state inside the shell
+   * - Nothing on the way raises a policy violation or writes a style attribute
+   */
+  test("should sign in to the back office, render the dashboard and read an account's detail", async ({ page, browser }) => {
+    createTestContext(page);
+    const texts = blazorTexts();
+    const email = uniqueBlazorEmail();
+    const accountName = `Detail ${Math.random().toString(36).slice(2, 10)}`;
+
+    await step("Sign up through Blazor with a unique account name & land in the workspace")(async () => {
+      await signUpThroughBlazor(page, email, accountName);
+    })();
+
+    const admin = await openBlazorBackOffice(browser, "admin", "back-office", blazorLocale());
+    await trackPolicyViolations(admin.page);
+    try {
+      await step("Sign in as admin & see the dashboard with its KPI tiles")(async () => {
+        await expect(admin.page.getByRole("heading", { level: 1 })).toHaveText(texts.backOfficeDashboard);
+        await expect(admin.page.getByTestId("kpi-total-accounts")).toContainText(texts.backOfficeTotalAccounts);
+      })();
+
+      await step("Open the accounts list from the side menu & find the new account")(async () => {
+        await admin.page.getByTestId("sidebar-nav-accounts").click();
+        await expect(admin.page.getByRole("heading", { level: 1 })).toHaveText(texts.backOfficeAccounts);
+
+        await admin.page.getByRole("textbox", { name: texts.search }).fill(accountName);
+        await expect(admin.page.getByTestId("accounts-grid")).toHaveAttribute("data-list-total-count", "1");
+      })();
+
+      await step("Open the account from the side pane & see its name, the Overview tab and its owner")(async () => {
+        await admin.page.getByTestId("accounts-grid").getByRole("row").filter({ hasText: accountName }).getByRole("cell").first().click();
+        await admin.page.getByRole("link", { name: texts.backOfficeOpenAccount }).click();
+
+        await expect(admin.page).toHaveURL(/\/blazor\/back-office\/accounts\/\d+$/);
+        await expect(admin.page.getByRole("heading", { level: 1 })).toHaveText(accountName);
+        const tabs = admin.page.getByRole("navigation", { name: texts.backOfficeAccountSections });
+        await expect(tabs.getByRole("link", { name: texts.backOfficeOverview })).toHaveAttribute("aria-current", "page");
+        await expect(admin.page.getByRole("heading", { level: 2, name: texts.backOfficeOwners })).toBeVisible();
+        await expect(admin.page.getByTestId("account-owner")).toContainText(email);
+      })();
+
+      await step("Open the Users tab & see the tab in the URL and the owner in the account's user list")(async () => {
+        await admin.page.getByRole("navigation", { name: texts.backOfficeAccountSections }).getByRole("link", { name: texts.users }).click();
+
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("tab") === "users");
+        await expect(admin.page.getByRole("textbox", { name: texts.backOfficeSearchUsers })).toBeVisible();
+        await expect(admin.page.getByTestId("account-users-grid")).toHaveAttribute("data-list-total-count", "1");
+        await expect(admin.page.getByTestId("account-users-grid")).toContainText(email);
+      })();
+
+      await step("Reload the page & see the Users tab restored from the URL")(async () => {
+        await admin.page.reload();
+
+        await expect(admin.page.getByTestId("back-office-shell")).toHaveAttribute("data-identity-state", "loaded");
+        const tabs = admin.page.getByRole("navigation", { name: texts.backOfficeAccountSections });
+        await expect(tabs.getByRole("link", { name: texts.users })).toHaveAttribute("aria-current", "page");
+        await expect(admin.page.getByTestId("account-users-grid")).toHaveAttribute("data-list-total-count", "1");
+      })();
+
+      await step("Open the Feature flags tab & see the account flags in the URL's tab")(async () => {
+        await admin.page.getByRole("navigation", { name: texts.backOfficeAccountSections }).getByRole("link", { name: texts.backOfficeFeatureFlags }).click();
+
+        await expect(admin.page).toHaveURL((url) => url.searchParams.get("tab") === "feature-flags");
+        await expect(admin.page.getByRole("heading", { level: 2, name: texts.backOfficeAccountFlags })).toBeVisible();
+        await expect(admin.page.getByTestId("account-account-flags-grid")).toHaveAttribute("data-list-state", "ready");
+        await expectNoPolicyViolations(admin.page);
+      })();
+
+      await step("Open a tenant id the account API does not know & see the not-found state inside the back office")(async () => {
+        await admin.page.goto(blazorBackOfficeUrl("back-office/accounts/1"));
+
+        await expect(admin.page.getByTestId("back-office-shell")).toBeVisible();
+        await expect(admin.page.getByTestId("back-office-account-detail")).toHaveAttribute("data-state", "notfound");
+        await expect(admin.page.getByRole("heading", { level: 1 })).toHaveText(texts.pageNotFound);
+        await expectNoPolicyViolations(admin.page);
+      })();
+    } finally {
+      await admin.context.close();
     }
   });
 });

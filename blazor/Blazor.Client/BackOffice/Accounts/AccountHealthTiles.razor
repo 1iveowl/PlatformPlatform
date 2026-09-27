@@ -1,0 +1,87 @@
+@using Account.Client
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Dashboard
+@* The account detail's health tiles, the React back office's AccountHealthTiles: the users tile with the active, inactive and
+   pending counts from GET /api/back-office/tenants/{id}/user-counts, which opens the Users tab, and with the subscription
+   setting on the lifetime value since the first subscription and the monthly recurring revenue with its renewal date. The
+   React tiles of the two billing figures open the Invoices and Billing events tabs, which the Blazor back office does not
+   show yet, so here they are not links. The React users tile's coloured bar is left out: the counts beside it carry the same
+   figures as text. *@
+@inject IServiceProvider Services
+
+<div class="account-detail-tiles" data-testid="account-detail-tiles">
+    <a class="account-detail-tile" href="@AccountDetailTabs.ToUrl(Tenant.Id, AccountDetailTab.Users)" data-testid="account-tile-users">
+        <span class="account-detail-tile-label">@CommonStrings.Users</span>
+        @if (_users is { } users)
+        {
+            <span class="account-detail-tile-value" data-testid="account-tile-users-total">@DashboardFormat.FormatCount(users.Total)</span>
+            <span class="account-detail-tile-subtitle" data-testid="account-tile-users-breakdown">
+                @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersActiveCount, users.Active) · @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersInactiveCount, users.Inactive) · @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersPendingCount, users.Pending)
+            </span>
+        }
+        else
+        {
+            <span class="account-detail-tile-value">@DashboardFormat.Missing</span>
+        }
+    </a>
+
+    @if (IsSubscriptionEnabled)
+    {
+        <div class="account-detail-tile" data-testid="account-tile-lifetime-value">
+            <span class="account-detail-tile-label">@BackOfficeStrings.LifetimeValue</span>
+            <span class="account-detail-tile-value">@AccountDetailFormat.GetLifetimeValue(Tenant)</span>
+            @if (Tenant.SubscribedSince is { } subscribedSince)
+            {
+                <span class="account-detail-tile-subtitle">@AccountDetailFormat.FormatWithDate(BackOfficeStrings.SinceDate, subscribedSince)</span>
+            }
+        </div>
+
+        var mrr = AccountFormat.GetMrr(Tenant);
+        <div class="account-detail-tile" data-testid="account-tile-mrr">
+            <span class="account-detail-tile-label">@BackOfficeStrings.Mrr</span>
+            @if (mrr.Next is null)
+            {
+                <span class="account-detail-tile-value">@mrr.Current</span>
+            }
+            else
+            {
+                <span class="account-mrr-change account-detail-tile-value">
+                    <del>@mrr.Current</del> <ins>@mrr.Next</ins>
+                </span>
+            }
+            @if (Tenant.RenewalDate is { } renewalDate)
+            {
+                <span class="account-detail-tile-subtitle">@AccountDetailFormat.FormatWithDate(BackOfficeStrings.RenewsOn, renewalDate)</span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+
+    private AccountUserBreakdown? _users;
+
+    [Parameter]
+    [EditorRequired]
+    public TenantDetailResponse Tenant { get; set; } = null!;
+
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantUserCountsAsync(Tenant.Id, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _users = AccountDetailFormat.GetUserBreakdown(result.Value);
+    }
+
+}

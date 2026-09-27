@@ -2,6 +2,7 @@ using Account.Features.BackOffice.BillingDrift.Queries;
 using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
+using Account.Features.FeatureFlags.Queries;
 using Account.Features.Tenants.BackOffice.Queries;
 using Account.Features.Tenants.BackOffice.Requests;
 using SharedKernel.Domain;
@@ -88,5 +89,25 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult<DashboardMrrConsistencySummaryResponse>> GetMrrConsistencySummaryAsync(CancellationToken cancellationToken)
     {
         return _transport.GetAsync<DashboardMrrConsistencySummaryResponse>(AccountApiRoutes.BackOfficeMrrConsistencySummary, cancellationToken);
+    }
+
+    public Task<ApiCallResult<TenantDetailResponse>> GetTenantAsync(TenantId tenantId, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<TenantDetailResponse>(AccountApiRoutes.BackOfficeTenant(tenantId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<TenantUserCountsResponse>> GetTenantUserCountsAsync(TenantId tenantId, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<TenantUserCountsResponse>(AccountApiRoutes.BackOfficeTenantUserCounts(tenantId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<TenantUsersResponse>> GetTenantUsersAsync(TenantId tenantId, GetTenantUsersQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<TenantUsersResponse>(AccountApiRoutes.BackOfficeTenantUsers(tenantId, query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<GetTenantFeatureFlagsResponse>> GetTenantFeatureFlagsAsync(TenantId tenantId, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<GetTenantFeatureFlagsResponse>(AccountApiRoutes.BackOfficeTenantFeatureFlags(tenantId), cancellationToken);
     }
 }

@@ -1,5 +1,6 @@
 using Account.Features.Subscriptions.Domain;
 using Account.Features.Tenants.BackOffice.Queries;
+using Account.Features.Users.Domain;
 using JetBrains.Annotations;
 using SharedKernel.Persistence;
 
@@ -20,3 +21,9 @@ public sealed record GetTenantsQuery(
     int PageOffset = 0,
     int PageSize = 25
 );
+
+// The query string of GET /api/back-office/tenants/{id}/users, which binds GetTenantUsersQuery with [AsParameters]: PascalCase
+// property names, one repeated Roles parameter per role, and the server's defaults of the first page and 25 rows. The tenant
+// id is the route value, not a parameter.
+[PublicAPI]
+public sealed record GetTenantUsersQuery(string? Search = null, UserRole[]? Roles = null, int PageOffset = 0, int PageSize = 25);

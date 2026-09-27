@@ -9,9 +9,6 @@ namespace Account.Features.Tenants.BackOffice.Queries;
 [PublicAPI]
 public sealed record GetTenantUserCountsQuery(TenantId Id) : IRequest<Result<TenantUserCountsResponse>>;
 
-[PublicAPI]
-public sealed record TenantUserCountsResponse(int TotalUsers, int ActiveUsers, int PendingUsers);
-
 public sealed class GetTenantUserCountsHandler(ITenantRepository tenantRepository, IUserRepository userRepository, TimeProvider timeProvider)
     : IRequestHandler<GetTenantUserCountsQuery, Result<TenantUserCountsResponse>>
 {

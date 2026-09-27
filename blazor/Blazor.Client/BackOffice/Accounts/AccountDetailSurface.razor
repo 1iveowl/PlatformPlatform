@@ -1,0 +1,98 @@
+@* The account detail, the React back office's accounts/$tenantId page without its actions menu and billing tabs: the header,
+   the health tiles and the Overview, Users and Feature flags tabs, read-only for every back-office identity. The tab is the
+   URL's tab parameter (AccountDetailTabs), and the tab links are plain links, so a reload, the back button and a copied link
+   all land on the same tab. The account loads in the browser; the host prerenders the shell and the loading state. A tenant id
+   the account API does not know shows the back office's not-found state inside the shell. *@
+@using Account.Client
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Shell
+@implements IDisposable
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="account-detail" data-testid="back-office-account-detail" data-state="@_status.ToString().ToLowerInvariant()">
+        @switch (_status)
+        {
+            case AccountDetailStatus.Loaded:
+                <AccountDetailHeader Tenant="_tenant!"/>
+                <AccountHealthTiles Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
+
+                <nav class="users-tabs account-detail-tabs" aria-label="@BackOfficeStrings.AccountSections" data-testid="account-tabs">
+                    @foreach (var link in AccountDetailTabs.Links(_tenant!.Id, _tab))
+                    {
+                        <a href="@link.Href" class="users-tab" aria-current="@(link.IsCurrent ? "page" : null)" data-testid="@link.TestId">@link.Label</a>
+                    }
+                </nav>
+
+                <section class="account-detail-panel" aria-label="@AccountDetailTabs.Label(_tab)" data-testid="@($"account-panel-{AccountDetailTabs.ToValue(_tab)}")">
+                    @switch (_tab)
+                    {
+                        case AccountDetailTab.Users:
+                            <AccountUsersTab TenantId="_tenant!.Id"/>
+                            break;
+                        case AccountDetailTab.FeatureFlags:
+                            <AccountFeatureFlagsTab TenantId="_tenant!.Id"/>
+                            break;
+                        default:
+                            <AccountOverviewTab Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
+                            break;
+                    }
+                </section>
+                break;
+            case AccountDetailStatus.NotFound:
+                <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>
+                break;
+            case AccountDetailStatus.Loading:
+                <p class="account-detail-loading" role="status" data-testid="account-detail-loading">@CommonStrings.Loading</p>
+                break;
+        }
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private AccountDetailStatus _status = AccountDetailStatus.Loading;
+    private AccountDetailTab _tab;
+    private TenantDetailResponse? _tenant;
+
+    // The route value of the host page, which only matches a whole number
+    [Parameter]
+    [EditorRequired]
+    public long TenantId { get; set; }
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tab = AccountDetailTabs.FromUri(Navigation.Uri);
+        Navigation.LocationChanged += OnLocationChanged;
+        if (!RendererInfo.IsInteractive) return;
+
+        // Resolved lazily: the host does not register the back-office client, so prerendering never constructs it
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantAsync(new SharedKernel.Domain.TenantId(TenantId), CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        _status = AccountDetailState.FromResult(result);
+        if (_status == AccountDetailStatus.Failed) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+        _tenant = result.Value;
+    }
+
+    // A tab link is an enhanced navigation that keeps this component alive, so the tab follows the location
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        var tab = AccountDetailTabs.FromUri(args.Location);
+        if (tab == _tab) return;
+
+        _tab = tab;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+}

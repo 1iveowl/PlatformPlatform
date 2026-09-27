@@ -1,0 +1,24 @@
+@* The back office's account detail, served only on the back-office host and only for the back-office identity the account
+   API's back-office listener forwards (BackOfficeAuthentication). The route takes a whole number only, so a malformed tenant
+   id falls through to the back office's not-found page with status 404; a well-formed id the account API does not know shows
+   the same not-found state inside the shell once the account has been read in the browser. The page is server-rendered; the
+   render mode is on the WebAssembly component it hosts, which prerenders the shell and the loading state. *@
+@page "/back-office/accounts/{TenantId:long}"
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Host.Account
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = BackOfficeAuthentication.PolicyName)]
+@attribute [BackOfficeSurface]
+@inject BackOfficeSettings Settings
+
+<PageTitle>@BackOfficeStrings.Account</PageTitle>
+
+<AccountDetailSurface TenantId="TenantId" IsSubscriptionEnabled="@Settings.IsSubscriptionEnabled" @rendermode="InteractiveWebAssembly"/>
+
+@code {
+
+    [Parameter]
+    public long TenantId { get; set; }
+
+}

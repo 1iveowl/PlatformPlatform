@@ -2894,6 +2894,167 @@ h1:focus {
     text-decoration: none;
 }
 
+/* The back office's account detail (Blazor.Client/BackOffice/Accounts/AccountDetail*): the header with its badges and facts,
+   the health tiles, the tab links (the users page's tab classes), the owner cards and the current plan card. Every state is
+   a class; nothing writes a style attribute. */
+.account-detail-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.account-detail-name {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.account-detail-header .account-preview-badges {
+    margin: 0;
+}
+
+.account-detail-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.account-detail-id {
+    font-family: ui-monospace, monospace;
+}
+
+.account-status-suspended {
+    border-color: var(--border-strong);
+    font-weight: 600;
+}
+
+.account-detail-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1rem;
+    margin-block: 1.5rem;
+}
+
+.account-detail-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+a.account-detail-tile:hover {
+    background: var(--surface-hover);
+}
+
+.account-detail-tile-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.account-detail-tile-value {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.account-detail-tile-subtitle {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.account-detail-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.account-detail-section-title {
+    margin-block: 0 0.75rem;
+    font-size: 1rem;
+}
+
+.account-owner-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.account-owner-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow-wrap: anywhere;
+}
+
+.account-owner-card .account-plan {
+    align-self: flex-start;
+}
+
+.account-plan-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.account-plan-card-price {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.account-plan-card-price .account-preview-badges {
+    margin: 0;
+}
+
+.account-plan-card-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 1rem 1.5rem;
+    margin: 0;
+    padding-block-start: 1rem;
+    border-block-start: 1px solid var(--border);
+}
+
+.account-plan-card-fields dt {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.account-plan-card-fields dd {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    margin: 0.25rem 0 0;
+}
+
+.account-plan-card-fields address {
+    display: flex;
+    flex-direction: column;
+    font-style: normal;
+}
+
 @media (min-width: 48rem) {
     .dashboard-column-secondary {
         display: table-cell;

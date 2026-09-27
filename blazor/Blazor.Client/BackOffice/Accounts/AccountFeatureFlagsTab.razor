@@ -1,0 +1,121 @@
+@using Account.Client
+@using Account.Features.FeatureFlags.Queries
+@using SharedKernel.Domain
+@* The account detail's Feature flags tab, the React back office's AccountFeatureFlagsTab, read-only: the account's tenant-scoped
+   flags from GET /api/back-office/tenants/{id}/feature-flags, split into the account flags and the plan flags, each on its own
+   DataList with its own parameter prefix (AccountFeatureFlagsSource), and the empty state when the account has none. Where
+   the React tab has an override switch this tab states whether the flag is on and whether a manual override decides it; the
+   React rows open the back office's flag page, which the Blazor back office does not have yet, so here the rows are not
+   activated. *@
+@inject IServiceProvider Services
+
+@if (_flags is null)
+{
+    <p class="dashboard-card-loading" role="status" data-testid="account-flags-loading">@CommonStrings.Loading</p>
+}
+else if (_flags.Count == 0)
+{
+    <div class="accounts-empty" data-testid="account-flags-empty">
+        <p class="accounts-empty-title">@BackOfficeStrings.NoFeatureFlags</p>
+        <p>@BackOfficeStrings.NoTenantFeatureFlags</p>
+    </div>
+}
+else
+{
+    @foreach (var group in Groups)
+    {
+        var flags = AccountFeatureFlagsSource.GetGroup(_flags, group);
+        if (flags.Count == 0) continue;
+
+        var isPlanGroup = group == AccountFeatureFlagGroup.Plan;
+        var title = isPlanGroup ? BackOfficeStrings.PlanFlags : BackOfficeStrings.AccountFlags;
+        var testId = isPlanGroup ? "account-plan-flags" : "account-account-flags";
+        <section class="account-detail-section" aria-labelledby="@($"{testId}-heading")" data-testid="@testId">
+            <h2 id="@($"{testId}-heading")" class="account-detail-section-title">@title</h2>
+            <p class="accounts-subtitle">@(isPlanGroup ? BackOfficeStrings.PlanFlagsDescription : BackOfficeStrings.AccountFlagsDescription)</p>
+            <DataList TItem="TenantFeatureFlagInfo" data-testid="@($"{testId}-grid")" ListId="@AccountFeatureFlagsSource.ListId(TenantId, group)"
+                      CacheScope="@AccountsListSource.CacheScope" Label="@title" Columns="Columns(group, flags)" FetchPage="(request, _) => Task.FromResult(AccountFeatureFlagsSource.Page(flags, request))"
+                      KeySelector="KeyOf" DefaultOrderBy="@AccountFeatureFlagsSource.DefaultOrderBy"
+                      ParameterPrefix="@(isPlanGroup ? AccountFeatureFlagsSource.PlanFlagsPrefix : AccountFeatureFlagsSource.AccountFlagsPrefix)" RowLabel="AccountFeatureFlagsSource.NameOf">
+            </DataList>
+        </section>
+    }
+}
+
+@code {
+
+    private static readonly AccountFeatureFlagGroup[] Groups = [AccountFeatureFlagGroup.Account, AccountFeatureFlagGroup.Plan];
+
+    private IReadOnlyList<TenantFeatureFlagInfo>? _flags;
+
+    [Parameter]
+    [EditorRequired]
+    public TenantId TenantId { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantFeatureFlagsAsync(TenantId, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _flags = result.Value.Flags;
+    }
+
+    // The name with its description, the required plan of a plan flag, the inclusion threshold of an account group with an A/B
+    // test flag, and the state, with a manual override named beside it
+    private static IReadOnlyList<DataListColumn<TenantFeatureFlagInfo>> Columns(AccountFeatureFlagGroup group, IReadOnlyList<TenantFeatureFlagInfo> flags)
+    {
+        var columns = new List<DataListColumn<TenantFeatureFlagInfo>> { new(BackOfficeStrings.Name, NameCell) };
+        if (group == AccountFeatureFlagGroup.Plan)
+        {
+            columns.Add(new DataListColumn<TenantFeatureFlagInfo>(BackOfficeStrings.RequiredPlan,
+                    flag => @<span class="account-plan">@AccountDetailFormat.GetRequiredPlanLabel(flag.RequiredPlan!)</span>, HideBelow: Breakpoint.Small
+                )
+            );
+        }
+        else if (AccountFeatureFlagsSource.ShowsInclusionColumn(flags))
+        {
+            columns.Add(new DataListColumn<TenantFeatureFlagInfo>(BackOfficeStrings.IncludedAt, flag => @<text>@AccountFeatureFlagsSource.GetInclusionThreshold(flag)</text>, HideBelow: Breakpoint.Small
+                )
+            );
+        }
+
+        columns.Add(new DataListColumn<TenantFeatureFlagInfo>(BackOfficeStrings.Status, StateCell));
+        return columns;
+    }
+
+    private static RenderFragment NameCell(TenantFeatureFlagInfo flag)
+    {
+        return @<span class="account-name-cell" data-testid="account-flag" data-flag-key="@flag.FlagKey">
+                   <span class="account-name">@AccountFeatureFlagsSource.NameOf(flag)</span>
+                   @if (AccountFeatureFlagsSource.DescriptionOf(flag) is { } description)
+                   {
+                       <span class="account-owner">@description</span>
+                   }
+               </span>;
+    }
+
+    private static RenderFragment StateCell(TenantFeatureFlagInfo flag)
+    {
+        return @<span class="account-preview-badges">
+                   <span class="@(flag.IsEnabled ? "account-status account-status-active" : "account-status account-status-free")" data-testid="account-flag-state">@AccountFeatureFlagsSource.GetStateLabel(flag)</span>
+                   @if (AccountFeatureFlagsSource.IsManualOverride(flag))
+                   {
+                       <span class="account-plan" data-testid="account-flag-override">@BackOfficeStrings.Override</span>
+                   }
+               </span>;
+    }
+
+    private static string KeyOf(TenantFeatureFlagInfo flag)
+    {
+        return flag.FlagKey;
+    }
+
+}

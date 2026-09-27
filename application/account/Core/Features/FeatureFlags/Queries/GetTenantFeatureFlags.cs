@@ -14,28 +14,6 @@ public sealed record GetTenantFeatureFlagsQuery : IRequest<Result<GetTenantFeatu
     public TenantId TenantId { get; init; } = null!;
 }
 
-[PublicAPI]
-public sealed record GetTenantFeatureFlagsResponse(TenantFeatureFlagInfo[] Flags);
-
-[PublicAPI]
-public sealed record TenantFeatureFlagInfo(
-    string FlagKey,
-    FeatureFlagScope Scope,
-    string Description,
-    string? RequiredPlan,
-    bool IsAbTestEligible,
-    int? BucketStart,
-    int? BucketEnd,
-    int? RolloutPercentage,
-    bool IsEnabled,
-    FeatureFlagSource Source,
-    bool IsBaseRowActive,
-    int RolloutBucket,
-    int? InclusionThresholdPercentage,
-    bool DefaultEnabled,
-    AbInclusionPin? TenantAbInclusionPin
-);
-
 public sealed class GetTenantFeatureFlagsHandler(IFeatureFlagRepository featureFlagRepository, ITenantRepository tenantRepository)
     : IRequestHandler<GetTenantFeatureFlagsQuery, Result<GetTenantFeatureFlagsResponse>>
 {

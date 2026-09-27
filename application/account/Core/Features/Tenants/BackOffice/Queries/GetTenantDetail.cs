@@ -4,56 +4,11 @@ using Account.Integrations.Stripe;
 using JetBrains.Annotations;
 using SharedKernel.Cqrs;
 using SharedKernel.Domain;
-using SharedKernel.FeatureFlags;
 
 namespace Account.Features.Tenants.BackOffice.Queries;
 
 [PublicAPI]
 public sealed record GetTenantDetailQuery(TenantId Id) : IRequest<Result<TenantDetailResponse>>;
-
-[PublicAPI]
-public sealed record TenantDetailResponse(
-    TenantId Id,
-    string Name,
-    SubscriptionPlan Plan,
-    SubscriptionPlan? ScheduledPlan,
-    decimal? ScheduledPriceAmount,
-    bool CancelAtPeriodEnd,
-    decimal? MonthlyRecurringRevenue,
-    string? Currency,
-    DateTimeOffset? RenewalDate,
-    DateTimeOffset? SubscribedSince,
-    bool HasEverSubscribed,
-    string? BillingName,
-    string? TaxId,
-    BillingAddressResponse? BillingAddress,
-    PaymentMethodResponse? PaymentMethod,
-    decimal? LifetimeValue,
-    TenantState State,
-    SuspensionReason? SuspensionReason,
-    DateTimeOffset? SuspendedAt,
-    string? LogoUrl,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt,
-    bool HasDriftDetected,
-    DateTimeOffset? DriftCheckedAt,
-    DriftDiscrepancy[] DriftDiscrepancies,
-    string? StripeCustomerUrl,
-    AbInclusionPin? AbInclusionPin
-);
-
-[PublicAPI]
-public sealed record BillingAddressResponse(
-    string? Line1,
-    string? Line2,
-    string? PostalCode,
-    string? City,
-    string? State,
-    string? Country
-);
-
-[PublicAPI]
-public sealed record PaymentMethodResponse(string Brand, string Last4, int ExpMonth, int ExpYear);
 
 public sealed class GetTenantDetailHandler(ITenantRepository tenantRepository, ISubscriptionRepository subscriptionRepository, StripeClientFactory stripeClientFactory)
     : IRequestHandler<GetTenantDetailQuery, Result<TenantDetailResponse>>

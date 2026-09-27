@@ -17,12 +17,30 @@ public static class AccountFormat
     // The account API's own reading of the row (GetTenantsHandler.GetStatus), which its status filter and sort use
     public static TenantStatusFilter GetStatus(TenantSummary tenant)
     {
-        return tenant switch
+        return GetStatus(tenant.Plan, tenant.PlannedChange, tenant.HasEverSubscribed);
+    }
+
+    // The same reading of an account's detail, whose planned change the React back office's AccountDetailHeader derives from
+    // the cancellation flag and the scheduled plan
+    public static TenantStatusFilter GetStatus(TenantDetailResponse tenant)
+    {
+        return GetStatus(tenant.Plan, GetPlannedChange(tenant), tenant.HasEverSubscribed);
+    }
+
+    public static PlannedSubscriptionChange? GetPlannedChange(TenantDetailResponse tenant)
+    {
+        if (tenant.CancelAtPeriodEnd) return PlannedSubscriptionChange.Cancellation;
+        return tenant.ScheduledPlan is null ? null : PlannedSubscriptionChange.ScheduledPlanChange;
+    }
+
+    private static TenantStatusFilter GetStatus(SubscriptionPlan plan, PlannedSubscriptionChange? plannedChange, bool hasEverSubscribed)
+    {
+        return (plan, plannedChange, hasEverSubscribed) switch
         {
-            { PlannedChange: PlannedSubscriptionChange.Cancellation } => TenantStatusFilter.Canceling,
-            { PlannedChange: PlannedSubscriptionChange.ScheduledPlanChange } => TenantStatusFilter.Downgrading,
-            { Plan: not SubscriptionPlan.Basis } => TenantStatusFilter.Active,
-            { HasEverSubscribed: true } => TenantStatusFilter.Canceled,
+            (_, PlannedSubscriptionChange.Cancellation, _) => TenantStatusFilter.Canceling,
+            (_, PlannedSubscriptionChange.ScheduledPlanChange, _) => TenantStatusFilter.Downgrading,
+            (not SubscriptionPlan.Basis, _, _) => TenantStatusFilter.Active,
+            (_, _, true) => TenantStatusFilter.Canceled,
             _ => TenantStatusFilter.Free
         };
     }
@@ -49,12 +67,21 @@ public static class AccountFormat
     // A cancellation moves the amount to zero and a scheduled plan change to the scheduled price; "-" without a currency
     public static AccountMrr GetMrr(TenantSummary tenant)
     {
-        var current = tenant.MonthlyRecurringRevenue is { } amount ? DashboardFormat.FormatMoney(amount, tenant.Currency) : DashboardFormat.Missing;
-        var next = tenant switch
+        return GetMrr(tenant.MonthlyRecurringRevenue, tenant.Currency, tenant.PlannedChange, tenant.ScheduledPriceAmount);
+    }
+
+    public static AccountMrr GetMrr(TenantDetailResponse tenant)
+    {
+        return GetMrr(tenant.MonthlyRecurringRevenue, tenant.Currency, GetPlannedChange(tenant), tenant.ScheduledPriceAmount);
+    }
+
+    private static AccountMrr GetMrr(decimal? monthlyRecurringRevenue, string? currency, PlannedSubscriptionChange? plannedChange, decimal? scheduledPriceAmount)
+    {
+        var current = monthlyRecurringRevenue is { } amount ? DashboardFormat.FormatMoney(amount, currency) : DashboardFormat.Missing;
+        var next = (plannedChange, scheduledPriceAmount, currency) switch
         {
-            { PlannedChange: PlannedSubscriptionChange.Cancellation, Currency: not null } => DashboardFormat.FormatMoney(0, tenant.Currency),
-            { PlannedChange: PlannedSubscriptionChange.ScheduledPlanChange, ScheduledPriceAmount: { } scheduled, Currency: not null } =>
-                DashboardFormat.FormatMoney(scheduled, tenant.Currency),
+            (PlannedSubscriptionChange.Cancellation, _, not null) => DashboardFormat.FormatMoney(0, currency),
+            (PlannedSubscriptionChange.ScheduledPlanChange, { } scheduled, not null) => DashboardFormat.FormatMoney(scheduled, currency),
             _ => null
         };
         return new AccountMrr(current, next);
@@ -62,7 +89,12 @@ public static class AccountFormat
 
     public static string GetRenewalLabel(TenantSummary tenant)
     {
-        return GetStatus(tenant) switch
+        return GetRenewalLabel(GetStatus(tenant));
+    }
+
+    public static string GetRenewalLabel(TenantStatusFilter status)
+    {
+        return status switch
         {
             TenantStatusFilter.Canceled => BackOfficeStrings.Expired,
             TenantStatusFilter.Canceling => BackOfficeStrings.Expires,

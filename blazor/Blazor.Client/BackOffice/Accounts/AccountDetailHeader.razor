@@ -1,0 +1,44 @@
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Dashboard
+@* The account detail's header, the React back office's AccountDetailHeader without its actions menu: the account's name, its
+   plan, the state badge while it is not active, the subscription status, the A/B inclusion pin when one is set, the billing
+   country, the signup date and the tenant id. Every badge carries its meaning as text, never by colour alone. *@
+
+<header class="account-detail-header" data-testid="account-detail-header">
+    <h1 class="account-detail-name" data-testid="account-detail-name">@Tenant.Name</h1>
+    <p class="account-preview-badges">
+        <span class="account-plan" data-testid="account-detail-plan">@DashboardFormat.GetPlanLabel(Tenant.Plan)</span>
+        @if (AccountDetailFormat.GetStateLabel(Tenant.State) is { } stateLabel)
+        {
+            <span class="account-status account-status-suspended" data-testid="account-detail-state">@stateLabel</span>
+        }
+        <span class="@AccountFormat.GetStatusClass(_status)" data-testid="account-detail-status">@AccountFormat.GetStatusLabel(_status)</span>
+        @if (AccountDetailFormat.GetAbInclusionPinLabel(Tenant.AbInclusionPin) is { } pinLabel)
+        {
+            <span class="account-plan" data-testid="account-detail-pin">@pinLabel</span>
+        }
+    </p>
+    <p class="account-detail-facts">
+        @if (AccountDetailFormat.GetCountry(Tenant) is { } country)
+        {
+            <span data-testid="account-detail-country">@country</span>
+        }
+        <span data-testid="account-detail-signed-up">@AccountDetailFormat.FormatWithDate(BackOfficeStrings.SignedUpOn, Tenant.CreatedAt)</span>
+        <span class="account-detail-id" data-testid="account-detail-id"><span class="visually-hidden">@BackOfficeStrings.AccountId </span>#@Tenant.Id.Value</span>
+    </p>
+</header>
+
+@code {
+
+    private TenantStatusFilter _status;
+
+    [Parameter]
+    [EditorRequired]
+    public TenantDetailResponse Tenant { get; set; } = null!;
+
+    protected override void OnParametersSet()
+    {
+        _status = AccountFormat.GetStatus(Tenant);
+    }
+
+}

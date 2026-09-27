@@ -1,0 +1,118 @@
+@using Account.Client
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.Users
+@using Microsoft.FluentUI.AspNetCore.Components
+@using SharedKernel.Domain
+@* The account detail's Users tab, the React back office's AccountUsersTab: the search by name or email, the role toggles and
+   the account's users on DataList with the name, title, email, pending badge, role and last seen date. The search, the roles
+   and the page are in the URL under the users prefix (AccountUsersListSource). The React rows open the back office's user
+   page, which the Blazor back office does not have yet, so here the rows are not activated. *@
+@inject IServiceProvider Services
+
+<div class="accounts-toolbar" data-testid="account-users-toolbar">
+    <div role="search" class="accounts-search">
+        <FluentTextInput Id="@SearchId" data-testid="account-users-search" AriaLabel="@BackOfficeStrings.SearchUsers" Placeholder="@BackOfficeStrings.SearchByNameOrEmail"
+                         Immediate="true" ImmediateDelay="500" Value="@_filters.GetValueOrDefault(AccountUsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+    </div>
+
+    <div class="accounts-toggle-group" role="group" aria-label="@UsersStrings.Role" data-testid="account-users-role-filter">
+        @foreach (var role in AccountUsersListSource.Roles)
+        {
+            <button type="button" class="accounts-toggle" aria-pressed="@(_roles.Contains(role) ? "true" : "false")" data-testid="@($"account-users-role-{role.ToString().ToLowerInvariant()}")"
+                    @onclick="() => SetFiltersAsync(AccountUsersListSource.ToggleRole(_filters, role))">
+                @UserRoleText.Label(role)
+            </button>
+        }
+    </div>
+</div>
+
+<DataList @ref="_list" TItem="TenantUserSummary" data-testid="account-users-grid" ListId="@AccountUsersListSource.ListId(TenantId)" CacheScope="@AccountsListSource.CacheScope"
+          Label="@BackOfficeStrings.AccountUsers" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@AccountUsersListSource.DefaultOrderBy"
+          ParameterPrefix="@AccountUsersListSource.ParameterPrefix" FilterParameters="AccountUsersListSource.FilterParameters"
+          NormalizeFilters="AccountUsersListSource.NormalizeFilters" FocusFallbackId="@SearchId" RowLabel="RowLabel" OnStateChanged="OnListStateChangedAsync">
+    <EmptyContent>
+        <div class="accounts-empty" data-testid="account-users-empty">
+            <p class="accounts-empty-title">@(_filters.Count > 0 ? BackOfficeStrings.NoMatchingUsers : BackOfficeStrings.NoUsers)</p>
+            <p>@(_filters.Count > 0 ? BackOfficeStrings.NoUsersMatchFilters : BackOfficeStrings.AccountHasNoUsers)</p>
+        </div>
+    </EmptyContent>
+</DataList>
+
+@code {
+
+    private const string SearchId = "account-users-search";
+
+    private IReadOnlyList<DataListColumn<TenantUserSummary>> _columns = [];
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private DataList<TenantUserSummary>? _list;
+    private IReadOnlyList<UserRole> _roles = [];
+
+    [Parameter]
+    [EditorRequired]
+    public TenantId TenantId { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<TenantUserSummary>(BackOfficeStrings.Name, NameCell),
+            new DataListColumn<TenantUserSummary>(CommonStrings.Email, user => @<text>@user.Email</text>, HideBelow: Breakpoint.Medium
+            ),
+            new DataListColumn<TenantUserSummary>(UsersStrings.Role, user => @<span class="account-plan">@UserRoleText.Label(user.Role)</span>, HideBelow: Breakpoint.Large
+            ),
+            new DataListColumn<TenantUserSummary>(UsersStrings.LastSeen, user => @<text>@AccountFormat.FormatDate(user.LastSeenAt)</text>, HideBelow: Breakpoint.Large
+            )
+        ];
+    }
+
+    private static RenderFragment NameCell(TenantUserSummary user)
+    {
+        return @<span class="account-name-cell" data-testid="account-user">
+                   <span class="account-name">@DashboardFormat.GetPersonName(user.FirstName, user.LastName, user.Email)</span>
+                   @if (!string.IsNullOrWhiteSpace(user.Title))
+                   {
+                       <span class="account-owner">@user.Title</span>
+                   }
+                   <span class="account-owner data-list-phone-only">@user.Email</span>
+                   @if (!user.EmailConfirmed)
+                   {
+                       <span class="account-plan">@UsersStrings.Pending</span>
+                   }
+               </span>;
+    }
+
+    private static string KeyOf(TenantUserSummary user)
+    {
+        return user.Id.Value;
+    }
+
+    private static string RowLabel(TenantUserSummary user)
+    {
+        return DashboardFormat.GetPersonName(user.FirstName, user.LastName, user.Email);
+    }
+
+    private Task<DataListFetchResult<TenantUserSummary>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return AccountUsersListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), TenantId, request, cancellationToken);
+    }
+
+    private Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        _roles = AccountUsersListSource.GetRoles(_filters);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchChangedAsync(string? search)
+    {
+        return SetFiltersAsync(new Dictionary<string, string?> { [AccountUsersListSource.SearchParameter] = search });
+    }
+
+    private Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return _list?.SetFiltersAsync(changes) ?? Task.CompletedTask;
+    }
+
+}
