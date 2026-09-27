@@ -2,7 +2,11 @@
 @inject EmailBrand Brand
 
 @{
-    RenderFragment[] noAccountTiedToEmailArguments = [@<text>@Brand.ProductName</text>, @<strong>@Model.Email</strong>];
+    RenderFragment[] noAccountTiedToEmailArguments =
+    [
+        @<text>@Brand.ProductName</text>,
+        @<strong>@Model.Email</strong>
+    ];
 }
 <EmailLayout Subject="@EmailStrings.NoAccountFoundSubject">
     <EmailHeading>@EmailStrings.RightEmailAddressHeading</EmailHeading>

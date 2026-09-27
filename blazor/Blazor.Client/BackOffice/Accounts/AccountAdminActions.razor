@@ -1,0 +1,190 @@
+@using Account.Client
+@using Account.Features.BackOffice.Queries
+@using Account.Features.BackOffice.Requests
+@using Account.Features.Tenants.BackOffice.Commands
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Shared
+@using Blazor.Client.BackOffice.Shell
+@using SharedKernel.FeatureFlags
+@* The account's admin actions, the React back office's AccountActionsMenu as a group of buttons below the header: Reconcile
+   with Stripe, Run disaster recovery and Feature flag rollouts. Only an identity in the admins group sees them
+   (BackOfficeUser.CanRunAdminActions on the identity the shell cascades), and the account API refuses each call for anyone
+   else; hiding is never the only guard. The two billing actions follow the back office's subscription setting. Every action
+   asks first, reports its outcome in a toast and presents a refusal or failure through ApiFailurePresenter; after a write
+   the owner reloads the account, so the page shows what the account API stored. Reconcile continues into the disaster
+   recovery confirmation when it found archived events older than Stripe's 30-day window, as React does; declining it shows
+   the reconcile outcome, and an outcome with drift left offers disaster recovery from its toast. *@
+@inject IServiceProvider Services
+
+@if (BackOfficeUser.CanRunAdminActions(Me))
+{
+    <div class="account-admin-actions" role="group" aria-label="@BackOfficeStrings.AccountActions" data-testid="account-admin-actions">
+        @if (IsSubscriptionEnabled)
+        {
+            <button type="button" class="button-secondary" disabled="@_isBusy" data-testid="account-reconcile" @onclick="() => OpenDialog(AdminDialog.Reconcile)">
+                @(_isBusy && _dialog == AdminDialog.Reconcile ? BackOfficeStrings.Reconciling : BackOfficeStrings.ReconcileWithStripe)
+            </button>
+            <button type="button" class="button-secondary" disabled="@_isBusy" data-testid="account-disaster-recovery" @onclick="OpenDisasterRecovery">@BackOfficeStrings.RunDisasterRecovery</button>
+        }
+        <button type="button" class="button-secondary" disabled="@_isBusy" data-testid="account-ab-inclusion-pin" @onclick="() => OpenDialog(AdminDialog.Pin)">@BackOfficeStrings.FeatureFlagRollouts</button>
+    </div>
+
+    <ConfirmActionDialog Open="_dialog == AdminDialog.Reconcile" Title="@BackOfficeStrings.ReconcileWithStripeQuestion" Description="@BackOfficeStrings.ReconcileConfirmation"
+                         ConfirmLabel="@BackOfficeStrings.Reconcile" BusyLabel="@BackOfficeStrings.Reconciling" IsBusy="_isBusy" TestId="reconcile-dialog"
+                         OnConfirm="ReconcileAsync" OnCancel="CloseDialog"/>
+
+    <ConfirmActionDialog Open="_dialog == AdminDialog.DisasterRecovery" Title="@BackOfficeStrings.DisasterRecoveryQuestion"
+                         Description="@AccountAdminActionOutcomes.GetReplayConfirmation(_archivedAwaiting)" ConfirmLabel="@BackOfficeStrings.RunDisasterRecovery"
+                         BusyLabel="@BackOfficeStrings.RunningDisasterRecovery" IsDestructive IsBusy="_isBusy" TestId="disaster-recovery-dialog"
+                         OnConfirm="ReplayAsync" OnCancel="SkipDisasterRecovery"/>
+
+    <AbInclusionPinDialog Open="_dialog == AdminDialog.Pin" OpenChanged="OnPinDialogOpenChanged" EntityLabel="@Tenant.Name" CurrentPin="Tenant.AbInclusionPin"
+                          Save="SavePinAsync" OnSaved="OnPinSavedAsync"/>
+}
+
+@code {
+
+    public const string ReconcileToastTestId = "reconcile-toast";
+    public const string DisasterRecoveryToastTestId = "disaster-recovery-toast";
+
+    private ArchivedEventsAwaitingConfirmation? _archivedAwaiting;
+    private AdminDialog _dialog;
+    private bool _isBusy;
+
+    // The reconcile outcome held back while its disaster recovery confirmation is open, shown when that is declined
+    private AccountAdminActionToast? _pendingReconcileToast;
+
+    [Parameter]
+    [EditorRequired]
+    public TenantDetailResponse Tenant { get; set; } = null!;
+
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    // Raised after an action changed the account; the owner reloads it
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    // The back-office identity BackOfficeShell read from GET /api/back-office/me; null until it is loaded
+    [CascadingParameter]
+    public MeResponse? Me { get; set; }
+
+    private BackOfficeClient Client => Services.GetRequiredService<BackOfficeClient>();
+
+    private void OpenDialog(AdminDialog dialog)
+    {
+        _dialog = dialog;
+    }
+
+    private void OpenDisasterRecovery()
+    {
+        _archivedAwaiting = null;
+        _pendingReconcileToast = null;
+        _dialog = AdminDialog.DisasterRecovery;
+    }
+
+    private void CloseDialog()
+    {
+        _dialog = AdminDialog.None;
+    }
+
+    private void SkipDisasterRecovery()
+    {
+        CloseDialog();
+        if (_pendingReconcileToast is { } outcome) ShowReconcileOutcome(outcome);
+        _pendingReconcileToast = null;
+    }
+
+    private async Task ReconcileAsync()
+    {
+        _isBusy = true;
+        var result = await Client.ReconcileTenantWithStripeAsync(Tenant.Id, CancellationToken.None);
+        _isBusy = false;
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            CloseDialog();
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        var outcome = AccountAdminActionOutcomes.FromReconcile(result.Value);
+        if (result.Value.ArchivedEventsAwaitingConfirmation is { } awaiting)
+        {
+            _archivedAwaiting = awaiting;
+            _pendingReconcileToast = outcome;
+            _dialog = AdminDialog.DisasterRecovery;
+        }
+        else
+        {
+            CloseDialog();
+            ShowReconcileOutcome(outcome);
+        }
+
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task ReplayAsync()
+    {
+        _isBusy = true;
+        var result = await Client.ReplayArchivedTenantStripeEventsAsync(Tenant.Id, CancellationToken.None);
+        _isBusy = false;
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        CloseDialog();
+        _pendingReconcileToast = null;
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        var outcome = AccountAdminActionOutcomes.FromReplay(result.Value);
+        Services.GetRequiredService<ToastService>().Show(outcome.Kind, outcome.Title, outcome.Message, DisasterRecoveryToastTestId);
+        await OnChanged.InvokeAsync();
+    }
+
+    private void ShowReconcileOutcome(AccountAdminActionToast outcome)
+    {
+        var toasts = Services.GetRequiredService<ToastService>();
+        if (outcome.OffersDisasterRecovery)
+        {
+            toasts.Show(outcome.Kind, outcome.Title, outcome.Message, ReconcileToastTestId, BackOfficeStrings.RunDisasterRecovery, () => _ = InvokeAsync(() =>
+                    {
+                        OpenDisasterRecovery();
+                        StateHasChanged();
+                    }
+                )
+            );
+            return;
+        }
+
+        toasts.Show(outcome.Kind, outcome.Title, outcome.Message, ReconcileToastTestId);
+    }
+
+    private Task<ApiCallResult> SavePinAsync(AbInclusionPin? pin, CancellationToken cancellationToken)
+    {
+        return Client.SetTenantAbInclusionPinAsync(Tenant.Id, new SetTenantAbInclusionPinCommand(pin), cancellationToken);
+    }
+
+    private void OnPinDialogOpenChanged(bool open)
+    {
+        if (!open) CloseDialog();
+    }
+
+    private async Task OnPinSavedAsync(AbInclusionPin? pin)
+    {
+        CloseDialog();
+        await OnChanged.InvokeAsync();
+    }
+
+    private enum AdminDialog
+    {
+        None,
+        Reconcile,
+        DisasterRecovery,
+        Pin
+    }
+
+}

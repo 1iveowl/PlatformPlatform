@@ -32,4 +32,26 @@ public sealed class BackOfficeUserTests
         // Assert
         initials.Should().Be("PP");
     }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void CanRunAdminActions_ShouldFollowTheAccountApisAdminVerdict(bool isAdmin, bool expected)
+    {
+        // Act
+        var canRun = BackOfficeUser.CanRunAdminActions(new MeResponse("Admin", "admin@dev.localhost", isAdmin, []));
+
+        // Assert
+        canRun.Should().Be(expected);
+    }
+
+    [Fact]
+    public void CanRunAdminActions_WhenTheIdentityIsNotLoaded_ShouldOfferNothing()
+    {
+        // Act
+        var canRun = BackOfficeUser.CanRunAdminActions(null);
+
+        // Assert
+        canRun.Should().BeFalse();
+    }
 }

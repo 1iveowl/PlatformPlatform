@@ -3,6 +3,7 @@ using System.Text;
 using Account.Client;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
+using Account.Features.Tenants.BackOffice.Commands;
 using Blazor.Client.BackOffice;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components.Forms;
@@ -66,6 +67,67 @@ public sealed class BackOfficeClientTests
         request.Uri.Should().Be(new Uri("https://back-office.dev.localhost:9001/api/back-office/tenants/4711/ab-inclusion-pin"));
         request.Body.Should().Be(expectedBody);
         request.AntiforgeryToken.Should().Be("host-issued-token");
+    }
+
+    [Fact]
+    public async Task ReconcileTenantWithStripeAsync_ShouldPostToTheTenantRouteWithTheTokenAndReadTheResult()
+    {
+        // Arrange
+        var network = new RecordingNetwork(
+            HttpStatusCode.OK,
+            """{"billingEventsAppended":2,"hasDriftDetected":false,"driftDiscrepancyCount":0,"reconciledAt":"2026-09-27T12:00:00+00:00","archivedEventsAwaitingConfirmation":{"count":3,"oldestOccurredAt":"2026-05-01T00:00:00+00:00","newestOccurredAt":"2026-06-01T00:00:00+00:00"}}"""
+        );
+        var chain = new AntiforgeryHeaderHandler(new BackOfficeAntiforgeryTokenSource(new FixedAntiforgeryStateProvider("host-issued-token"))) { InnerHandler = network };
+        var client = new BackOfficeClient(new HttpClient(chain) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.ReconcileTenantWithStripeAsync(new TenantId(4711), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.BillingEventsAppended.Should().Be(2);
+        result.Value.ArchivedEventsAwaitingConfirmation.Should().Be(
+            new ArchivedEventsAwaitingConfirmation(3, new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero))
+        );
+        var request = network.Requests.Single();
+        request.Method.Should().Be(HttpMethod.Post);
+        request.Uri.Should().Be(new Uri("https://back-office.dev.localhost:9001/api/back-office/tenants/4711/reconcile-with-stripe"));
+        request.AntiforgeryToken.Should().Be("host-issued-token");
+    }
+
+    [Fact]
+    public async Task ReplayArchivedTenantStripeEventsAsync_ShouldPostToTheTenantRouteWithTheTokenAndReadTheResult()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, """{"billingEventsAppended":4,"replayedAt":"2026-09-27T12:00:00+00:00"}""");
+        var chain = new AntiforgeryHeaderHandler(new BackOfficeAntiforgeryTokenSource(new FixedAntiforgeryStateProvider("host-issued-token"))) { InnerHandler = network };
+        var client = new BackOfficeClient(new HttpClient(chain) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.ReplayArchivedTenantStripeEventsAsync(new TenantId(4711), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(new ReplayArchivedTenantStripeEventsResponse(4, new DateTimeOffset(2026, 9, 27, 12, 0, 0, TimeSpan.Zero)));
+        var request = network.Requests.Single();
+        request.Method.Should().Be(HttpMethod.Post);
+        request.Uri.Should().Be(new Uri("https://back-office.dev.localhost:9001/api/back-office/tenants/4711/replay-archived-stripe-events"));
+        request.AntiforgeryToken.Should().Be("host-issued-token");
+    }
+
+    [Fact]
+    public async Task ReconcileTenantWithStripeAsync_WhenTheAccountApiRefusesANonAdmin_ShouldReportTheForbiddenStatus()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.Forbidden, "");
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.ReconcileTenantWithStripeAsync(new TenantId(4711), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.StatusCode.Should().Be(403);
     }
 
     [Fact]

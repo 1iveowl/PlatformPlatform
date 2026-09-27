@@ -1,5 +1,6 @@
-@* The account detail, the React back office's accounts/$tenantId page without its actions menu and billing tabs: the header,
-   the health tiles and the Overview, Users and Feature flags tabs, read-only for every back-office identity. The tab is the
+@* The account detail, the React back office's accounts/$tenantId page without its billing tabs: the header, the admin actions
+   for an identity in the admins group (AccountAdminActions), the health tiles and the Overview, Users and Feature flags tabs.
+   After an admin action the account is read again in place, and a failed read keeps what the page shows. The tab is the
    URL's tab parameter (AccountDetailTabs), and the tab links are plain links, so a reload, the back button and a copied link
    all land on the same tab. The account loads in the browser; the host prerenders the shell and the loading state. A tenant id
    the account API does not know shows the back office's not-found state inside the shell. *@
@@ -16,6 +17,7 @@
         {
             case AccountDetailStatus.Loaded:
                 <AccountDetailHeader Tenant="_tenant!"/>
+                <AccountAdminActions Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled" OnChanged="ReloadAsync"/>
                 <AccountHealthTiles Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
 
                 <nav class="users-tabs account-detail-tabs" aria-label="@BackOfficeStrings.AccountSections" data-testid="account-tabs">
@@ -82,6 +84,20 @@
 
         _status = AccountDetailState.FromResult(result);
         if (_status == AccountDetailStatus.Failed) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+        _tenant = result.Value;
+    }
+
+    private async Task ReloadAsync()
+    {
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantAsync(new SharedKernel.Domain.TenantId(TenantId), CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
         _tenant = result.Value;
     }
 

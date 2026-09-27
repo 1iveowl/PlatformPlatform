@@ -2925,6 +2925,14 @@ h1:focus {
     font-family: ui-monospace, monospace;
 }
 
+/* The admin actions below the header (Blazor.Client/BackOffice/Accounts/AccountAdminActions.razor), a row that wraps */
+.account-admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
 .account-status-suspended {
     border-color: var(--border-strong);
     font-weight: 600;

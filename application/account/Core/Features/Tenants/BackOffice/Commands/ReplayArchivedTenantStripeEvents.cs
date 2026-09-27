@@ -16,9 +16,6 @@ public sealed record ReplayArchivedTenantStripeEventsCommand : ICommand, IReques
     public TenantId TenantId { get; init; } = null!;
 }
 
-[PublicAPI]
-public sealed record ReplayArchivedTenantStripeEventsResponse(int BillingEventsAppended, DateTimeOffset ReplayedAt);
-
 /// <summary>
 ///     Replays archived stripe_events rows that Stripe's events.list no longer returns for the customer
 ///     into the BillingEvent ledger. This is the cold-backup recovery path explicitly opted into by an

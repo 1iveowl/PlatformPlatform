@@ -1,0 +1,72 @@
+@* The confirmation of a back-office admin action, the React back office's AlertDialog around an action: a title, the text
+   that says what the action does, Cancel and the action's button. It runs nothing itself; the owner runs the call on
+   OnConfirm and passes IsBusy while it is in flight, which disables both buttons and ignores Escape. On the native <dialog>
+   through ModalDialog, so no style attribute is written. *@
+
+<ModalDialog Open="Open" Role="alertdialog" TitleId="@_titleId" DescriptionId="@_descriptionId" OnDismissRequested="CancelAsync" TestId="@TestId">
+    <div class="modal-dialog-header">
+        <h2 id="@_titleId" class="modal-dialog-title">@Title</h2>
+    </div>
+    <p id="@_descriptionId" class="modal-dialog-description">@Description</p>
+
+    <div class="modal-dialog-actions">
+        <button type="button" class="button-secondary" disabled="@IsBusy" data-testid="@($"{TestId}-cancel")" @onclick="CancelAsync">@CommonStrings.Cancel</button>
+        <button type="button" class="@(IsDestructive ? "button-destructive" : "button-primary")" disabled="@IsBusy" data-testid="@($"{TestId}-confirm")" @onclick="ConfirmAsync">
+            @(IsBusy && BusyLabel is not null ? BusyLabel : ConfirmLabel)
+        </button>
+    </div>
+</ModalDialog>
+
+@code {
+
+    private readonly string _descriptionId = $"confirm-action-{Guid.NewGuid():N}-description";
+    private readonly string _titleId = $"confirm-action-{Guid.NewGuid():N}-title";
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string Description { get; set; } = "";
+
+    [Parameter]
+    [EditorRequired]
+    public string ConfirmLabel { get; set; } = "";
+
+    // The confirm button's text while the action runs
+    [Parameter]
+    public string? BusyLabel { get; set; }
+
+    [Parameter]
+    public bool IsDestructive { get; set; }
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public string TestId { get; set; } = "";
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    // Cancel, Escape and the backdrop; the owner closes the dialog
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private Task CancelAsync()
+    {
+        return IsBusy ? Task.CompletedTask : OnCancel.InvokeAsync();
+    }
+
+    private Task ConfirmAsync()
+    {
+        return IsBusy ? Task.CompletedTask : OnConfirm.InvokeAsync();
+    }
+
+}

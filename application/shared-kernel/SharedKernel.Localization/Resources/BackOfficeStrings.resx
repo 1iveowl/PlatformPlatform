@@ -28,6 +28,9 @@
         <value>Account</value>
         <comment>React: Account</comment>
     </data>
+    <data name="AccountActions" xml:space="preserve">
+        <value>Account actions</value>
+    </data>
     <data name="AccountApiIdentity" xml:space="preserve">
         <value>Identity from the account API</value>
         <comment>Heading of the section that shows the result of GET /api/back-office/me</comment>
@@ -168,6 +171,12 @@
         <value>Date</value>
         <comment>React: Date</comment>
     </data>
+    <data name="DefaultInRollouts" xml:space="preserve">
+        <value>Default</value>
+    </data>
+    <data name="DefaultInRolloutsDescription" xml:space="preserve">
+        <value>Included in feature flag rollouts by its assigned rollout bucket.</value>
+    </data>
     <data name="DevelopmentCheck" xml:space="preserve">
         <value>Development check</value>
         <comment>Heading of the Development-only section of the back-office placeholder page</comment>
@@ -175,6 +184,21 @@
     <data name="Disabled" xml:space="preserve">
         <value>Disabled</value>
         <comment>React: Disabled</comment>
+    </data>
+    <data name="DisasterRecoveryArchivedConfirmation" xml:space="preserve">
+        <value>Reconcile found {0} archived events older than Stripe's 30-day window, from {1} to {2}. This is a best-effort recovery from locally stored events and may produce incorrect rows. Only run it when Reconcile with Stripe has been tried and did not clear the drift.</value>
+    </data>
+    <data name="DisasterRecoveryComplete" xml:space="preserve">
+        <value>Disaster recovery complete</value>
+    </data>
+    <data name="DisasterRecoveryConfirmation" xml:space="preserve">
+        <value>This rebuilds the billing event ledger from this account's archived Stripe events. It is a best-effort recovery that may produce incorrect subscription state or billing event rows. Only run it when Reconcile with Stripe has been tried and did not clear the drift.</value>
+    </data>
+    <data name="DisasterRecoveryQuestion" xml:space="preserve">
+        <value>Disaster recovery from archived Stripe events?</value>
+    </data>
+    <data name="DisasterRecoveryReplayed" xml:space="preserve">
+        <value>Replayed {0} archived events into the billing event ledger {1}.</value>
     </data>
     <data name="DriftDetected" xml:space="preserve">
         <value>Drift detected</value>
@@ -280,6 +304,12 @@
         <value>Expires</value>
         <comment>React: Expires</comment>
     </data>
+    <data name="FeatureFlagRollouts" xml:space="preserve">
+        <value>Feature flag rollouts</value>
+    </data>
+    <data name="FeatureFlagRolloutsDescription" xml:space="preserve">
+        <value>Choose how {0} takes part in feature flag rollouts. Manual overrides per flag still take precedence over this setting.</value>
+    </data>
     <data name="FeatureFlags" xml:space="preserve">
         <value>Feature flags</value>
         <comment>React: Feature flags</comment>
@@ -287,6 +317,9 @@
     <data name="FirstInRollouts" xml:space="preserve">
         <value>First in feature flag rollouts</value>
         <comment>React: First in feature flag rollouts</comment>
+    </data>
+    <data name="FirstInRolloutsDescription" xml:space="preserve">
+        <value>Included at 1%, the first to receive any feature flag rollout.</value>
     </data>
     <data name="IncludedAt" xml:space="preserve">
         <value>Included at</value>
@@ -307,6 +340,9 @@
     <data name="LastInRollouts" xml:space="preserve">
         <value>Last in feature flag rollouts</value>
         <comment>React: Last in feature flag rollouts</comment>
+    </data>
+    <data name="LastInRolloutsDescription" xml:space="preserve">
+        <value>Included at 100%, the last to receive any feature flag rollout.</value>
     </data>
     <data name="LifetimeValue" xml:space="preserve">
         <value>Lifetime value</value>
@@ -452,6 +488,12 @@
         <value>No users match your filters.</value>
         <comment>React: No users match your filters.</comment>
     </data>
+    <data name="NowFirstInRollouts" xml:space="preserve">
+        <value>{0} is now first in feature flag rollouts</value>
+    </data>
+    <data name="NowLastInRollouts" xml:space="preserve">
+        <value>{0} is now last in feature flag rollouts</value>
+    </data>
     <data name="Occurred" xml:space="preserve">
         <value>Occurred</value>
         <comment>React: Occurred</comment>
@@ -580,6 +622,36 @@
         <value>Recent signups</value>
         <comment>React: Recent signups</comment>
     </data>
+    <data name="Reconcile" xml:space="preserve">
+        <value>Reconcile</value>
+    </data>
+    <data name="ReconcileAppendedEvents" xml:space="preserve">
+        <value>Appended {0} new billing events. Last reconciled {1}.</value>
+    </data>
+    <data name="ReconcileComplete" xml:space="preserve">
+        <value>Reconcile complete</value>
+    </data>
+    <data name="ReconcileCompleteWithDrift" xml:space="preserve">
+        <value>Reconcile complete with drift detected</value>
+    </data>
+    <data name="ReconcileConfirmation" xml:space="preserve">
+        <value>Reconcile rebuilds this account's subscription and billing events from Stripe's events of the last 30 days. If the drift is not cleared afterwards, disaster recovery from the locally archived Stripe events is available as a last resort.</value>
+    </data>
+    <data name="ReconcileDriftRemains" xml:space="preserve">
+        <value>The account has {0} drift discrepancies. Last reconciled {1}. If reconcile cannot clear the drift, disaster recovery from archived Stripe events is available as a last resort.</value>
+    </data>
+    <data name="ReconcileMatchesStripe" xml:space="preserve">
+        <value>No new billing events were appended. The account matches Stripe.</value>
+    </data>
+    <data name="ReconcileWithStripe" xml:space="preserve">
+        <value>Reconcile with Stripe</value>
+    </data>
+    <data name="ReconcileWithStripeQuestion" xml:space="preserve">
+        <value>Reconcile with Stripe?</value>
+    </data>
+    <data name="Reconciling" xml:space="preserve">
+        <value>Reconciling...</value>
+    </data>
     <data name="Renewal" xml:space="preserve">
         <value>Renewal</value>
         <comment>React: Renewal</comment>
@@ -607,6 +679,15 @@
     <data name="RevenueThisPeriodExcludingVat" xml:space="preserve">
         <value>{0} this period, excluding VAT</value>
         <comment>React: {0} this period, excluding VAT</comment>
+    </data>
+    <data name="RolloutsResetToDefault" xml:space="preserve">
+        <value>Feature flag rollouts reset to default for {0}</value>
+    </data>
+    <data name="RunDisasterRecovery" xml:space="preserve">
+        <value>Run disaster recovery</value>
+    </data>
+    <data name="RunningDisasterRecovery" xml:space="preserve">
+        <value>Running disaster recovery...</value>
     </data>
     <data name="SearchByName" xml:space="preserve">
         <value>Search by name</value>

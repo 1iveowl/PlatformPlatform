@@ -1,8 +1,8 @@
 @* Email signup start, static server-side rendering, enhanced for the same reason as the login start *@
 @page "/signup"
+@layout StaticPageLayout
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Requests
-@layout StaticPageLayout
 @implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation

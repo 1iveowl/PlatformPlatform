@@ -3,7 +3,9 @@ using Account.Features.BackOffice.Queries;
 namespace Blazor.Client.BackOffice.Shell;
 
 // How the back office names its signed-in identity from GET /api/back-office/me, as the React back office's avatar menu
-// does: the display name, and initials from its first two words, "PP" while there is no name.
+// does: the display name, and initials from its first two words, "PP" while there is no name. It also decides who is
+// offered the admin actions: an identity the account API reports in the admins group, never one still loading. The account
+// API refuses those calls for anyone else; the page only follows that verdict.
 public static class BackOfficeUser
 {
     private const string FallbackInitials = "PP";
@@ -19,5 +21,10 @@ public static class BackOfficeUser
     public static string GetDisplayName(MeResponse? me)
     {
         return string.IsNullOrWhiteSpace(me?.DisplayName) ? BackOfficeStrings.BackOffice : me.DisplayName;
+    }
+
+    public static bool CanRunAdminActions(MeResponse? me)
+    {
+        return me?.IsAdmin == true;
     }
 }

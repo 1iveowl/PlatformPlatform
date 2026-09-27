@@ -4,11 +4,11 @@
    its validity and the sanitized return path) travels in the query string, so it survives the form round trips and
    reloads. *@
 @page "/login/verify"
+@layout StaticPageLayout
 @using Blazor.Host.Components.Pages.App
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Domain
 @using global::Account.Features.EmailAuthentication.Requests
-@layout StaticPageLayout
 @implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation

@@ -171,6 +171,16 @@ public static class AccountApiRoutes
     }
 
     // The flag key is a registry key (lower case kebab-case), escaped here like every other route value
+    public static string ReconcileTenantWithStripe(TenantId tenantId)
+    {
+        return $"{BackOfficeTenant(tenantId)}/reconcile-with-stripe";
+    }
+
+    public static string ReplayArchivedTenantStripeEvents(TenantId tenantId)
+    {
+        return $"{BackOfficeTenant(tenantId)}/replay-archived-stripe-events";
+    }
+
     public static string SetTenantAbInclusionPin(TenantId tenantId)
     {
         return $"/api/back-office/tenants/{tenantId.Value.ToString(CultureInfo.InvariantCulture)}/ab-inclusion-pin";

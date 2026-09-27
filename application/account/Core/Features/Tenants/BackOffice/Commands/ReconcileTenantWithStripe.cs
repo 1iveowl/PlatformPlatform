@@ -16,25 +16,6 @@ public sealed record ReconcileTenantWithStripeCommand : ICommand, IRequest<Resul
     public TenantId TenantId { get; init; } = null!;
 }
 
-[PublicAPI]
-public sealed record ReconcileTenantWithStripeResponse(
-    int BillingEventsAppended,
-    bool HasDriftDetected,
-    int DriftDiscrepancyCount,
-    DateTimeOffset ReconciledAt,
-    ArchivedEventsAwaitingConfirmation? ArchivedEventsAwaitingConfirmation
-);
-
-/// <summary>
-///     Set on <see cref="ReconcileTenantWithStripeResponse" /> when the local stripe_events archive contains
-///     events older than Stripe's 30-day events.list retention window that have no matching billing_events
-///     row yet. The reconcile flow never auto-replays archive data — surfacing this block tells the
-///     back-office admin to confirm before <c>ReplayArchivedTenantStripeEventsCommand</c> projects the
-///     cold-backup payloads into the BillingEvent ledger.
-/// </summary>
-[PublicAPI]
-public sealed record ArchivedEventsAwaitingConfirmation(int Count, DateTimeOffset OldestOccurredAt, DateTimeOffset NewestOccurredAt);
-
 /// <summary>
 ///     Reconcile is the admin recovery path for a tenant's BillingEvent ledger. It runs the same
 ///     events.list-driven sync as the webhook hot path, then additionally falls back to the local

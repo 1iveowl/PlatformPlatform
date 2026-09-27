@@ -5,11 +5,11 @@
    final step crosses into the interactive surface. Logo and avatar upload are not part of this page. *@
 @page "/welcome"
 @attribute [Authorize]
+@layout StaticPageLayout
 @using global::Account.Client
 @using global::Account.Features.Tenants.Requests
 @using global::Account.Features.Users.Requests
 @using Microsoft.AspNetCore.Authorization
-@layout StaticPageLayout
 @implements IDisposable
 @inject TenantsClient Tenants
 @inject UsersClient Users

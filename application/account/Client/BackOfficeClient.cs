@@ -3,6 +3,7 @@ using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
 using Account.Features.FeatureFlags.Queries;
+using Account.Features.Tenants.BackOffice.Commands;
 using Account.Features.Tenants.BackOffice.Queries;
 using Account.Features.Tenants.BackOffice.Requests;
 using SharedKernel.Domain;
@@ -24,6 +25,16 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult> SetTenantAbInclusionPinAsync(TenantId tenantId, SetTenantAbInclusionPinCommand command, CancellationToken cancellationToken)
     {
         return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.SetTenantAbInclusionPin(tenantId), command, cancellationToken);
+    }
+
+    public Task<ApiCallResult<ReconcileTenantWithStripeResponse>> ReconcileTenantWithStripeAsync(TenantId tenantId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync<ReconcileTenantWithStripeResponse>(HttpMethod.Post, AccountApiRoutes.ReconcileTenantWithStripe(tenantId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<ReplayArchivedTenantStripeEventsResponse>> ReplayArchivedTenantStripeEventsAsync(TenantId tenantId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync<ReplayArchivedTenantStripeEventsResponse>(HttpMethod.Post, AccountApiRoutes.ReplayArchivedTenantStripeEvents(tenantId), cancellationToken);
     }
 
     public Task<ApiCallResult<BackOfficeDashboardKpisResponse>> GetDashboardKpisAsync(DashboardTrendPeriod period, CancellationToken cancellationToken)

@@ -1,12 +1,12 @@
 @* One-time password verification for signup, static server-side rendering, not enhanced and carrying its flow state
    in the query string for the same reasons as the login verification. A new account continues to welcome. *@
 @page "/signup/verify"
+@layout StaticPageLayout
 @using Blazor.Host.Components.Pages.App
 @using Blazor.Host.Shell
 @using global::Account.Client
 @using global::Account.Features.EmailAuthentication.Domain
 @using global::Account.Features.EmailAuthentication.Requests
-@layout StaticPageLayout
 @implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation

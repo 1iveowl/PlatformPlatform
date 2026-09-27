@@ -4,7 +4,8 @@
    collapsed state and Ctrl+B or Cmd+B, but none of the app's session machinery: the identity is the back-office identity
    the account API reports through BackOfficeClient, read once in the browser, and a 401 leaves through the platform login
    (BackOfficeUnauthorizedHandler). The Billing group and the billing banners follow the back office's subscription setting,
-   which the host page passes in from BACK_OFFICE_SUBSCRIPTION_ENABLED. *@
+   which the host page passes in from BACK_OFFICE_SUBSCRIPTION_ENABLED. The identity cascades to the page, null until it is
+   loaded, so a page offers admin actions from the same read. *@
 @using Account.Client
 @using Account.Features.BackOffice.Queries
 @implements IAsyncDisposable
@@ -50,7 +51,9 @@
     <main id="main-content" class="app-main" aria-label="@CommonStrings.MainContent">
         <ToastRegion/>
 
-        @ChildContent
+        <CascadingValue Value="_me">
+            @ChildContent
+        </CascadingValue>
     </main>
 </div>
 

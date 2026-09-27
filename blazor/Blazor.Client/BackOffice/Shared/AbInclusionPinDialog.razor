@@ -1,0 +1,141 @@
+@* The feature flag rollouts dialog, the React back office's SetAbInclusionPinDialog: Default, first in rollouts (pinned
+   always on) or last in rollouts (pinned never on) for one account or user. A guarded dialog: once another choice is
+   selected, Escape, the close button, the backdrop and Cancel ask before it is discarded. The owner passes the write, so
+   the dialog serves the account's pin and the user's alike; the saved choice is reported in a toast, and a refusal or
+   failure through ApiFailurePresenter, with field errors in the dialog. The choices are native radio inputs, so nothing
+   writes a style attribute. *@
+@using Account.Client
+@using SharedKernel.FeatureFlags
+@implements IDisposable
+@inject IServiceProvider Services
+
+<DirtyDialog @ref="_dialog" Open="Open" OpenChanged="OpenChanged" HasUnsavedChanges="HasUnsavedChanges" Title="@BackOfficeStrings.FeatureFlagRollouts" TestId="ab-inclusion-pin-dialog">
+    @if (Open)
+    {
+        <EditForm EditContext="_editContext" OnValidSubmit="SaveAsync" class="change-role-form" data-testid="ab-inclusion-pin-form">
+            <p class="modal-dialog-description" id="@DescriptionId">@string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.FeatureFlagRolloutsDescription, EntityLabel)</p>
+
+            <FormErrorAlert Errors="_formErrors" Id="@ErrorId"/>
+
+            <InputRadioGroup TValue="AbInclusionPinChoice" @bind-Value="_form.Choice">
+                <fieldset class="change-role-options" aria-describedby="@DescriptionId">
+                    <legend class="data-list-visually-hidden">@BackOfficeStrings.FeatureFlagRollouts</legend>
+                    @foreach (var choice in AbInclusionPins.Choices)
+                    {
+                        <label class="change-role-option">
+                            <InputRadio TValue="AbInclusionPinChoice" Value="choice" aria-label="@AbInclusionPins.GetTitle(choice)" data-testid="@($"ab-inclusion-pin-{choice.ToString().ToLowerInvariant()}")"
+                                        aria-describedby="@FieldAria.DescribedBy(ChoiceDescriptionId(choice), ErrorId)"/>
+                            <span>
+                                <span class="change-role-option-title">@AbInclusionPins.GetTitle(choice)</span>
+                                <span class="change-role-option-description" id="@ChoiceDescriptionId(choice)">@AbInclusionPins.GetDescription(choice)</span>
+                            </span>
+                        </label>
+                    }
+                </fieldset>
+            </InputRadioGroup>
+
+            <div class="modal-dialog-actions">
+                <button type="button" class="button-secondary" disabled="@_isSaving" data-testid="ab-inclusion-pin-cancel" @onclick="() => _dialog.RequestCloseAsync()">@CommonStrings.Cancel</button>
+                <button type="submit" class="button-primary" disabled="@_isSaving" data-testid="ab-inclusion-pin-save">@(_isSaving ? CommonStrings.Saving : CommonStrings.SaveChanges)</button>
+            </div>
+        </EditForm>
+    }
+</DirtyDialog>
+
+@code {
+
+    public const string SavedToastTestId = "ab-inclusion-pin-saved-toast";
+
+    private readonly string _idPrefix = $"ab-inclusion-pin-{Guid.NewGuid():N}";
+    private readonly AbInclusionPinForm _form = new();
+    private DirtyDialog _dialog = null!;
+    private EditContext _editContext = null!;
+    private FormErrorMapper _formErrors = null!;
+    private bool _isSaving;
+    private bool _wasOpen;
+
+    private string DescriptionId => $"{_idPrefix}-description";
+
+    private string ErrorId => $"{_idPrefix}-error";
+
+    [Parameter]
+    [EditorRequired]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    // The account's or user's name as the outcome names it
+    [Parameter]
+    [EditorRequired]
+    public string EntityLabel { get; set; } = "";
+
+    [Parameter]
+    public AbInclusionPin? CurrentPin { get; set; }
+
+    // The write of the chosen pin, null for Default, through the back-office client
+    [Parameter]
+    [EditorRequired]
+    public Func<AbInclusionPin?, CancellationToken, Task<ApiCallResult>> Save { get; set; } = null!;
+
+    // Raised after the account API stored the pin; the owner closes the dialog and reloads what shows the pin
+    [Parameter]
+    public EventCallback<AbInclusionPin?> OnSaved { get; set; }
+
+    private bool HasUnsavedChanges => _form.Choice != AbInclusionPins.ToChoice(CurrentPin);
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_form);
+        _formErrors = new FormErrorMapper(_editContext);
+    }
+
+    // Every opening starts from the current pin with no messages
+    protected override void OnParametersSet()
+    {
+        if (Open && !_wasOpen)
+        {
+            _form.Choice = AbInclusionPins.ToChoice(CurrentPin);
+            _formErrors.Clear();
+        }
+
+        _wasOpen = Open;
+    }
+
+    private string ChoiceDescriptionId(AbInclusionPinChoice choice)
+    {
+        return $"{_idPrefix}-{choice.ToString().ToLowerInvariant()}";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving) return;
+
+        _isSaving = true;
+        _formErrors.Clear();
+        var pin = AbInclusionPins.ToPin(_form.Choice);
+        var result = await Save(pin, CancellationToken.None);
+        _isSaving = false;
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result, _formErrors);
+            return;
+        }
+
+        Services.GetRequiredService<ToastService>().Show(ToastKind.Success, AbInclusionPins.GetSavedMessage(EntityLabel, pin), null, SavedToastTestId);
+        await OnSaved.InvokeAsync(pin);
+    }
+
+    private sealed class AbInclusionPinForm
+    {
+        public AbInclusionPinChoice Choice { get; set; }
+    }
+
+}
