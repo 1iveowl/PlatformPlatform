@@ -1,6 +1,8 @@
 // The URL model of a DataList. The list's state lives only in the query string, so a deep link, a reload and Back or
 // Forward restore it. The wrapper owns the sort, page and selected-row parameters; the page owns its filter parameters,
-// which the wrapper carries without interpreting. Defaults are left out of the URL. QuickGrid's own sort, direction and
+// which the wrapper carries without interpreting. Defaults are left out of the URL: the default sort key, the default sort
+// order (ascending unless the list names another, as the back office's accounts list does to match its server's default),
+// the first page and no selected row. QuickGrid's own sort, direction and
 // page parameters are never written, and are dropped whenever the wrapper writes the URL.
 
 using System.Globalization;
@@ -19,7 +21,8 @@ public sealed class DataListUrlOptions
         IReadOnlyList<string>? filterNames = null,
         string? selectedKeyName = null,
         string parameterPrefix = "",
-        Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? normalizeFilters = null)
+        Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? normalizeFilters = null,
+        SortOrder defaultSortOrder = SortOrder.Ascending)
     {
         // A list without sortable columns (the recycle bin, which the server orders) passes no sort keys; its default order
         // is then never written and an orderBy in the URL is ignored
@@ -29,6 +32,7 @@ public sealed class DataListUrlOptions
         }
 
         DefaultOrderBy = defaultOrderBy;
+        DefaultSortOrder = defaultSortOrder;
         SortKeys = sortKeys;
         FilterNames = filterNames ?? [];
         SelectedKeyName = string.IsNullOrEmpty(selectedKeyName) ? null : selectedKeyName;
@@ -39,6 +43,9 @@ public sealed class DataListUrlOptions
     }
 
     public string DefaultOrderBy { get; }
+
+    // The order without a sortOrder parameter, and the order a newly sorted column starts in
+    public SortOrder DefaultSortOrder { get; }
 
     public IReadOnlyCollection<string> SortKeys { get; }
 
@@ -163,7 +170,12 @@ public sealed record DataListState
         }
 
         var orderBy = options.SortKeys.FirstOrDefault(key => string.Equals(key, Value(options.OrderByName), StringComparison.OrdinalIgnoreCase)) ?? options.DefaultOrderBy;
-        var sortOrder = string.Equals(Value(options.SortOrderName), nameof(SortOrder.Descending), StringComparison.OrdinalIgnoreCase) ? SortOrder.Descending : SortOrder.Ascending;
+        var sortOrder = Value(options.SortOrderName) switch
+        {
+            { } value when string.Equals(value, nameof(SortOrder.Descending), StringComparison.OrdinalIgnoreCase) => SortOrder.Descending,
+            { } value when string.Equals(value, nameof(SortOrder.Ascending), StringComparison.OrdinalIgnoreCase) => SortOrder.Ascending,
+            _ => options.DefaultSortOrder
+        };
         var pageOffset = int.TryParse(Value(options.PageOffsetName), NumberStyles.None, CultureInfo.InvariantCulture, out var parsedOffset) ? parsedOffset : 0;
         var filters = options.FilterNames.Select(name => (name, value: Value(name))).Where(filter => filter.value is not null).ToDictionary(filter => filter.name, filter => filter.value!, StringComparer.Ordinal);
         var normalizedFilters = options.NormalizeFilters is null ? filters : options.NormalizeFilters(filters);
@@ -185,7 +197,7 @@ public sealed record DataListState
         }
 
         if (OrderBy != options.DefaultOrderBy) written.Add(DataListQueryString.Encode(options.OrderByName, OrderBy));
-        if (SortOrder != SortOrder.Ascending) written.Add(DataListQueryString.Encode(options.SortOrderName, SortOrder.ToString()));
+        if (SortOrder != options.DefaultSortOrder) written.Add(DataListQueryString.Encode(options.SortOrderName, SortOrder.ToString()));
         if (PageOffset > 0) written.Add(DataListQueryString.Encode(options.PageOffsetName, PageOffset.ToString(CultureInfo.InvariantCulture)));
         if (options.SelectedKeyName is not null && SelectedKey is not null) written.Add(DataListQueryString.Encode(options.SelectedKeyName, SelectedKey));
 

@@ -1,6 +1,9 @@
+using Account.Features.BackOffice.BillingDrift.Queries;
 using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
+using Account.Features.Tenants.BackOffice.Queries;
+using Account.Features.Tenants.BackOffice.Requests;
 using SharedKernel.Domain;
 
 namespace Account.Client;
@@ -65,5 +68,25 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult<BackOfficeDashboardRecentStripeEventsResponse>> GetRecentStripeEventsAsync(int limit, CancellationToken cancellationToken)
     {
         return _transport.GetAsync<BackOfficeDashboardRecentStripeEventsResponse>(AccountApiRoutes.BackOfficeDashboardRecent("recent-stripe-events", limit), cancellationToken);
+    }
+
+    public Task<ApiCallResult<TenantsResponse>> GetTenantsAsync(GetTenantsQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<TenantsResponse>(AccountApiRoutes.BackOfficeTenants(query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BillingDriftSummaryResponse>> GetBillingDriftSummaryAsync(CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BillingDriftSummaryResponse>(AccountApiRoutes.BackOfficeBillingDriftSummary, cancellationToken);
+    }
+
+    public Task<ApiCallResult<UnsyncedSubscriptionsSummaryResponse>> GetUnsyncedSubscriptionsSummaryAsync(CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<UnsyncedSubscriptionsSummaryResponse>(AccountApiRoutes.BackOfficeUnsyncedSubscriptionsSummary, cancellationToken);
+    }
+
+    public Task<ApiCallResult<DashboardMrrConsistencySummaryResponse>> GetMrrConsistencySummaryAsync(CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<DashboardMrrConsistencySummaryResponse>(AccountApiRoutes.BackOfficeMrrConsistencySummary, cancellationToken);
     }
 }

@@ -6,6 +6,8 @@
 using System.Globalization;
 using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.Subscriptions.Domain;
+using Account.Features.Tenants.BackOffice.Queries;
+using Blazor.Client.BackOffice.Accounts;
 
 namespace Blazor.Client.BackOffice.Dashboard;
 
@@ -78,7 +80,7 @@ public static class DashboardFormat
         {
             var mrrDelta = kpis?.BlendedMonthlyRecurringRevenueDeltaPercent;
             tiles.Add(new DashboardTile("kpi-blended-mrr", BackOfficeStrings.BlendedMrr, kpis is null ? null : FormatMoney(kpis.BlendedMonthlyRecurringRevenue, kpis.Currency),
-                    mrrDelta is null ? null : BackOfficeStrings.VsPriorPeriod, BackOfficeUrls.ToAbsolute("accounts?statuses=Active&statuses=Downgrading"),
+                    mrrDelta is null ? null : BackOfficeStrings.VsPriorPeriod, AccountsListSource.ToUrl([TenantStatusFilter.Active, TenantStatusFilter.Downgrading]),
                     mrrDelta is null ? null : FormatDeltaPercent(mrrDelta.Value), GetTone(mrrDelta)
                 )
             );

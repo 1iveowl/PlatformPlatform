@@ -1,0 +1,220 @@
+@using Account.Client
+@using Account.Features.Subscriptions.Domain
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.BackOffice.Shell
+@using Microsoft.FluentUI.AspNetCore.Components
+@* The back office's accounts list, the React back office's accounts page: the local tenants on DataList with the search, the
+   plan and status toggles, the unsynced and drift filters the billing banners link to, sort and paging, all in the URL under
+   the React back office's parameter names (AccountsListSource), and the side pane that previews a row and opens the account.
+   The list is read-only for every back-office identity. The host prerenders the frame; the rows load in the browser. *@
+@inject IServiceProvider Services
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="accounts" data-testid="back-office-accounts">
+        <h1>@BackOfficeStrings.Accounts</h1>
+        <p class="accounts-subtitle">@BackOfficeStrings.AccountsSubtitle</p>
+
+        <div class="accounts-toolbar" data-testid="accounts-toolbar">
+            <div role="search" class="accounts-search">
+                <FluentTextInput Id="@SearchId" data-testid="accounts-search" AriaLabel="@CommonStrings.Search" Placeholder="@BackOfficeStrings.SearchByName" Immediate="true"
+                                 ImmediateDelay="500" Value="@_filters.GetValueOrDefault(AccountsListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+            </div>
+
+            <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.Plan" data-testid="accounts-plan-filter">
+                @foreach (var plan in AccountsListSource.Plans)
+                {
+                    <button type="button" class="accounts-toggle" aria-pressed="@(_plans.Contains(plan) ? "true" : "false")" data-testid="@($"accounts-plan-{plan.ToString().ToLowerInvariant()}")"
+                            @onclick="() => SetFiltersAsync(AccountsListSource.TogglePlan(_filters, plan))">
+                        @DashboardFormat.GetPlanLabel(plan)
+                    </button>
+                }
+            </div>
+
+            <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.Status" data-testid="accounts-status-filter">
+                @foreach (var status in AccountsListSource.Statuses)
+                {
+                    <button type="button" class="accounts-toggle" aria-pressed="@(_statuses.Contains(status) ? "true" : "false")"
+                            data-testid="@($"accounts-status-{status.ToString().ToLowerInvariant()}")" @onclick="() => SetFiltersAsync(AccountsListSource.ToggleStatus(_filters, status))">
+                        @AccountFormat.GetStatusLabel(status)
+                    </button>
+                }
+            </div>
+
+            @if (AccountsListSource.IsUnsynced(_filters))
+            {
+                <span class="accounts-issue-filter" data-testid="accounts-unsynced-filter">
+                    @BackOfficeStrings.NotSyncedYet
+                    <button type="button" class="accounts-issue-filter-clear" aria-label="@string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.ClearNamedFilter, BackOfficeStrings.NotSyncedYet)"
+                            data-testid="accounts-unsynced-filter-clear" @onclick="() => SetFiltersAsync(AccountsListSource.ClearFilter(AccountsListSource.UnsyncedParameter))">
+                        ×
+                    </button>
+                </span>
+            }
+
+            @if (AccountsListSource.IsDriftDetected(_filters))
+            {
+                <span class="accounts-issue-filter" data-testid="accounts-drift-filter">
+                    @BackOfficeStrings.DriftDetected
+                    <button type="button" class="accounts-issue-filter-clear" aria-label="@string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.ClearNamedFilter, BackOfficeStrings.DriftDetected)"
+                            data-testid="accounts-drift-filter-clear" @onclick="() => SetFiltersAsync(AccountsListSource.ClearFilter(AccountsListSource.DriftDetectedParameter))">
+                        ×
+                    </button>
+                </span>
+            }
+        </div>
+
+        <div class="accounts-layout">
+            <div class="accounts-grid">
+                <DataList @ref="_list" TItem="TenantSummary" data-testid="accounts-grid" ListId="@AccountsListSource.ListId" CacheScope="@AccountsListSource.CacheScope"
+                          Label="@BackOfficeStrings.Accounts" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@AccountsListSource.DefaultOrderBy"
+                          DefaultSortOrder="AccountsListSource.DefaultSortOrder" HiddenSortKeys="AccountsListSource.HiddenSortKeys" SelectionMode="DataListSelectionMode.Single"
+                          SelectedKeyParameter="@AccountsListSource.SelectedKeyParameter" FilterParameters="AccountsListSource.FilterParameters"
+                          NormalizeFilters="AccountsListSource.NormalizeFilters" EscapeScopeId="@PaneId" FocusFallbackId="@SearchId" RowLabel="RowLabel"
+                          OnActivated="OpenPreviewAsync" OnClosed="OnPreviewClosedAsync" OnStateChanged="OnListStateChangedAsync">
+                    <EmptyContent>
+                        <div class="accounts-empty" data-testid="accounts-empty">
+                            <p class="accounts-empty-title">@(_filters.Count > 0 ? BackOfficeStrings.NoAccountsMatchFilters : BackOfficeStrings.NoAccountsYet)</p>
+                            <p>@(_filters.Count > 0 ? BackOfficeStrings.TryClearingFilters : BackOfficeStrings.AccountsAppearWhenCreated)</p>
+                            @if (_filters.Count > 0)
+                            {
+                                <button type="button" class="button-secondary" data-testid="accounts-clear-filters" @onclick="() => SetFiltersAsync(AccountsListSource.ClearAllFilters())">
+                                    @BackOfficeStrings.ClearFilters
+                                </button>
+                            }
+                        </div>
+                    </EmptyContent>
+                </DataList>
+            </div>
+
+            <AccountPreviewPane Id="@PaneId" Tenant="_preview" FocusFallbackId="@SearchId" OnClose="ClosePreviewAsync"/>
+        </div>
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private const string SearchId = "accounts-search";
+    private const string PaneId = "accounts-preview-pane";
+
+    private IReadOnlyList<DataListColumn<TenantSummary>> _columns = [];
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private DataList<TenantSummary>? _list;
+    private IReadOnlyList<SubscriptionPlan> _plans = [];
+    private TenantSummary? _preview;
+    private IReadOnlyList<TenantStatusFilter> _statuses = [];
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<TenantSummary>(BackOfficeStrings.Name, NameCell, nameof(SortableTenantProperties.Name)),
+            new DataListColumn<TenantSummary>(BackOfficeStrings.Plan, tenant => @<span class="account-plan">@DashboardFormat.GetPlanLabel(tenant.Plan)</span>,
+                nameof(SortableTenantProperties.Plan), HideBelow: Breakpoint.Medium
+            ),
+            new DataListColumn<TenantSummary>(BackOfficeStrings.Mrr, MrrCell, nameof(SortableTenantProperties.MonthlyRecurringRevenue), "accounts-number", Breakpoint.Medium),
+            new DataListColumn<TenantSummary>(BackOfficeStrings.Renewal, tenant => @<text>@AccountFormat.FormatDate(tenant.RenewalDate)</text>,
+                nameof(SortableTenantProperties.RenewalDate), HideBelow: Breakpoint.Large
+            ),
+            new DataListColumn<TenantSummary>(BackOfficeStrings.Status, StatusCell, nameof(SortableTenantProperties.Status), HideBelow: Breakpoint.Medium),
+            new DataListColumn<TenantSummary>(BackOfficeStrings.Country, tenant => @<text>@AccountFormat.GetCountry(tenant)</text>,
+                nameof(SortableTenantProperties.Country), HideBelow: Breakpoint.ExtraLarge
+            ),
+            new DataListColumn<TenantSummary>(BackOfficeStrings.SignedUp, tenant => @<text>@AccountFormat.FormatDate(tenant.CreatedAt)</text>,
+                nameof(SortableTenantProperties.CreatedAt), HideBelow: Breakpoint.ExtraLarge
+            )
+        ];
+    }
+
+    private static RenderFragment NameCell(TenantSummary tenant)
+    {
+        return @<span class="account-name-cell" data-account-row data-account-id="@KeyOf(tenant)">
+                   <span class="account-name" data-testid="account-name">@tenant.Name</span>
+                   @if (AccountFormat.GetOwnerName(tenant) is { } owner)
+                   {
+                       <span class="account-owner">@owner</span>
+                   }
+                   <span class="account-phone-summary data-list-phone-only">
+                       <span class="account-plan">@DashboardFormat.GetPlanLabel(tenant.Plan)</span>
+                       @StatusCell(tenant)
+                   </span>
+               </span>;
+    }
+
+    private static RenderFragment MrrCell(TenantSummary tenant)
+    {
+        var mrr = AccountFormat.GetMrr(tenant);
+        return mrr.Next is null
+            ? @<text>@mrr.Current</text>
+            : @<span class="account-mrr-change">
+                  <del>@mrr.Current</del> <ins>@mrr.Next</ins>
+              </span>;
+    }
+
+    private static RenderFragment StatusCell(TenantSummary tenant)
+    {
+        var status = AccountFormat.GetStatus(tenant);
+        return @<span class="@AccountFormat.GetStatusClass(status)" data-testid="account-status" data-status="@status">@AccountFormat.GetStatusLabel(status)</span>;
+    }
+
+    private static string KeyOf(TenantSummary tenant)
+    {
+        return tenant.Id.Value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string RowLabel(TenantSummary tenant)
+    {
+        return tenant.Name;
+    }
+
+    private Task<DataListFetchResult<TenantSummary>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return AccountsListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), request, cancellationToken);
+    }
+
+    // Loads, Back and Forward: the filters drive the toolbar, and ?tenantId= opens the preview of that row when it is on the
+    // loaded page. The preview shows the list's row, so a key that is not on the page shows no preview.
+    private Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        _plans = AccountsListSource.GetPlans(_filters);
+        _statuses = AccountsListSource.GetStatuses(_filters);
+        _preview = state.SelectedKey is { } key ? _list?.Items.FirstOrDefault(tenant => KeyOf(tenant) == key) : null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchChangedAsync(string? search)
+    {
+        return SetFiltersAsync(new Dictionary<string, string?> { [AccountsListSource.SearchParameter] = search });
+    }
+
+    private Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return _list?.SetFiltersAsync(changes) ?? Task.CompletedTask;
+    }
+
+    private Task OpenPreviewAsync(TenantSummary tenant)
+    {
+        _preview = tenant;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPreviewClosedAsync()
+    {
+        _preview = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task ClosePreviewAsync()
+    {
+        return _list?.CloseAsync() ?? Task.CompletedTask;
+    }
+
+}

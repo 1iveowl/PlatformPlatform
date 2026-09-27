@@ -128,6 +128,15 @@
     [EditorRequired]
     public string DefaultOrderBy { get; set; } = null!;
 
+    // The order without a sortOrder parameter and the order a newly sorted column starts in; the server's default order
+    // for a list whose URL parameters another edition shares
+    [Parameter]
+    public SortOrder DefaultSortOrder { get; set; } = SortOrder.Ascending;
+
+    // Sort keys the URL may name that no column sorts by, such as a default order by last modification with no column
+    [Parameter]
+    public IReadOnlyList<string> HiddenSortKeys { get; set; } = [];
+
     [Parameter]
     public DataListSelectionMode SelectionMode { get; set; }
 
@@ -220,9 +229,8 @@
 
     protected override void OnInitialized()
     {
-        var options = new DataListUrlOptions(DefaultOrderBy, Columns.Where(column => column.SortKey is not null).Select(column => column.SortKey!).ToArray(),
-            FilterParameters, SelectedKeyParameter, ParameterPrefix, NormalizeFilters
-        );
+        var sortKeys = Columns.Where(column => column.SortKey is not null).Select(column => column.SortKey!).Concat(HiddenSortKeys).Distinct(StringComparer.Ordinal).ToArray();
+        var options = new DataListUrlOptions(DefaultOrderBy, sortKeys, FilterParameters, SelectedKeyParameter, ParameterPrefix, NormalizeFilters, DefaultSortOrder);
         _controller = new DataListController<TItem>(PageCache, options, SelectionMode, KeySelector, () => Navigation.Uri, NavigateTo)
         {
             ListId = ListId, CacheScope = CacheScope, Fetch = FetchPage, SelectionChanged = SelectionChangedAsync

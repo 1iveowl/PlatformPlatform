@@ -1,0 +1,76 @@
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Dashboard
+@* The accounts list's side pane, the React back office's AccountSidePane: the activated row's name, plan, status, owner,
+   monthly recurring revenue, renewal or expiry date, country and signup date, and the link that opens the account. It shows
+   the list's row; the account's own detail page reads the rest. The shared SidePane gives it the docked and full-screen modes. *@
+
+<SidePane Id="@Id" Open="Tenant is not null" LabelledBy="@TitleId" FocusFallbackId="@FocusFallbackId" OnClose="OnClose" data-testid="account-preview">
+    @if (Tenant is { } tenant)
+    {
+        var status = AccountFormat.GetStatus(tenant);
+        var mrr = AccountFormat.GetMrr(tenant);
+        <div class="account-preview-header">
+            <div>
+                <p class="account-preview-caption">@BackOfficeStrings.AccountPreview</p>
+                <h2 id="@TitleId" class="account-preview-title" data-testid="account-preview-name">@tenant.Name</h2>
+            </div>
+            <button type="button" class="modal-dialog-close" aria-label="@BackOfficeStrings.CloseAccountPreview" data-testid="account-preview-close" @onclick="OnClose">×</button>
+        </div>
+
+        <p class="account-preview-badges">
+            <span class="account-plan" data-testid="account-preview-plan">@DashboardFormat.GetPlanLabel(tenant.Plan)</span>
+            <span class="@AccountFormat.GetStatusClass(status)" data-testid="account-preview-status">@AccountFormat.GetStatusLabel(status)</span>
+        </p>
+
+        <dl class="account-preview-fields">
+            <dt>@BackOfficeStrings.Owner</dt>
+            <dd data-testid="account-preview-owner">@(AccountFormat.GetOwnerName(tenant) ?? DashboardFormat.Missing)</dd>
+            <dt>@BackOfficeStrings.Mrr</dt>
+            <dd data-testid="account-preview-mrr">
+                @if (mrr.Next is null)
+                {
+                    @mrr.Current
+                }
+                else
+                {
+                    <del>@mrr.Current</del>
+                    <ins>@mrr.Next</ins>
+                }
+            </dd>
+            <dt>@AccountFormat.GetRenewalLabel(tenant)</dt>
+            <dd data-testid="account-preview-renewal">@AccountFormat.FormatDate(tenant.RenewalDate)</dd>
+            <dt>@BackOfficeStrings.Country</dt>
+            <dd data-testid="account-preview-country">@AccountFormat.GetCountry(tenant)</dd>
+            <dt>@BackOfficeStrings.SignedUp</dt>
+            <dd data-testid="account-preview-signed-up">@AccountFormat.FormatDate(tenant.CreatedAt)</dd>
+        </dl>
+
+        <a class="button-primary account-preview-open" href="@AccountUrl(tenant)" data-testid="account-preview-open">@BackOfficeStrings.OpenAccount</a>
+    }
+</SidePane>
+
+@code {
+
+    private const string TitleId = "account-preview-title";
+
+    [Parameter]
+    [EditorRequired]
+    public string Id { get; set; } = null!;
+
+    // The activated row; the pane is closed while it is null
+    [Parameter]
+    public TenantSummary? Tenant { get; set; }
+
+    [Parameter]
+    public string? FocusFallbackId { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    // The account's detail page below the back office, keyed by the tenant id as in the React back office
+    public static string AccountUrl(TenantSummary tenant)
+    {
+        return BackOfficeUrls.ToAbsolute($"accounts/{Uri.EscapeDataString(tenant.Id.Value.ToString(CultureInfo.InvariantCulture))}");
+    }
+
+}

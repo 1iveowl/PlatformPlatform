@@ -2676,6 +2676,224 @@ h1:focus {
     font-weight: 600;
 }
 
+/* The back office's billing banners (Blazor.Client/BackOffice/Shell/BillingBannerList) in the shell's banner region: one row
+   each, the message and the link into the list that shows the cause. The warning tone is a background; the message carries
+   the meaning, so the colour is never the only signal. */
+.back-office-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.625rem 1rem;
+    border-block-end: 1px solid var(--border-subtle);
+    background: #fff4d6;
+    color: #1a1a1a;
+    font-size: 0.875rem;
+}
+
+:root[data-theme="dark"] .back-office-banner {
+    background: #4a3b10;
+    color: #ececef;
+}
+
+.back-office-banner-message {
+    flex: 1 1 16rem;
+}
+
+.back-office-banner-link {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid currentColor;
+    border-radius: 0.375rem;
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* The back office's accounts list (Blazor.Client/BackOffice/Accounts): the toolbar with the search, the plan and status
+   toggles and the issue filters, the list beside the preview pane, the row's name, owner, plan and status, and the pane's
+   fields. Every state is a class or an attribute selector; nothing writes a style attribute. */
+.accounts-subtitle {
+    margin-block-start: 0;
+    color: var(--text-muted);
+}
+
+.accounts-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-block: 1rem;
+}
+
+.accounts-search {
+    flex: 1 1 14rem;
+    max-inline-size: 20rem;
+}
+
+.accounts-toggle-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+}
+
+.accounts-toggle {
+    min-inline-size: 5rem;
+    padding: 0.375rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.accounts-toggle + .accounts-toggle {
+    border-inline-start: 1px solid var(--border);
+}
+
+.accounts-toggle[aria-pressed="true"] {
+    background: var(--surface-hover);
+    font-weight: 600;
+}
+
+.accounts-issue-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding-inline: 0.625rem 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+}
+
+.accounts-issue-filter-clear {
+    padding: 0 0.375rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.accounts-layout {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.accounts-grid {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.accounts-number {
+    font-variant-numeric: tabular-nums;
+}
+
+.accounts-empty-title,
+.account-name {
+    margin: 0;
+    font-weight: 600;
+}
+
+.account-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-inline-size: 0;
+}
+
+.account-owner {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.account-phone-summary .account-status {
+    margin-inline-start: 0.375rem;
+}
+
+.account-plan,
+.account-status {
+    display: inline-block;
+    padding: 0 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.account-status-active {
+    border-color: var(--tone-positive);
+    color: var(--tone-positive);
+}
+
+.account-status-canceling {
+    border-color: var(--tone-negative);
+    color: var(--tone-negative);
+}
+
+.account-status-canceled,
+.account-status-free {
+    color: var(--text-muted);
+}
+
+.account-mrr-change del,
+.account-preview-fields del {
+    color: var(--text-muted);
+}
+
+.account-mrr-change ins,
+.account-preview-fields ins {
+    text-decoration: none;
+}
+
+.account-preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.account-preview-caption {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.account-preview-title {
+    margin: 0;
+    font-size: 1.125rem;
+    overflow-wrap: anywhere;
+}
+
+.account-preview-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.account-preview-fields {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+}
+
+.account-preview-fields dd {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    justify-content: flex-end;
+    text-align: end;
+}
+
+.account-preview-open {
+    display: block;
+    margin-block-start: 1rem;
+    text-align: center;
+    text-decoration: none;
+}
+
 @media (min-width: 48rem) {
     .dashboard-column-secondary {
         display: table-cell;
@@ -2707,6 +2925,9 @@ h1:focus {
     .button-destructive,
     .button-primary,
     .button-secondary,
+    .accounts-issue-filter-clear,
+    .accounts-toggle,
+    .back-office-banner-link,
     .dashboard-card-link,
     .data-list-row-menu-trigger,
     .data-list-row-menu-item,
@@ -2725,6 +2946,7 @@ h1:focus {
     }
 
     /* A button centres its own content, a link does not, so the links that grew keep their text on the middle line */
+    .back-office-banner-link,
     .dashboard-card-link,
     .mobile-menu-action,
     .public-footer-links a,

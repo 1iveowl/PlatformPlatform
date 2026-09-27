@@ -3,6 +3,7 @@ using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.PushNotifications.Domain;
+using Account.Features.Tenants.BackOffice.Requests;
 using Account.Features.Users.Requests;
 using SharedKernel.Authentication.TokenGeneration;
 using SharedKernel.Domain;
@@ -69,6 +70,13 @@ public static class AccountApiRoutes
 
     private const string DateFormat = "yyyy-MM-dd";
 
+    // The back office's billing health summaries, which its banners poll
+    public const string BackOfficeBillingDriftSummary = "/api/back-office/billing-drift/summary";
+
+    public const string BackOfficeUnsyncedSubscriptionsSummary = "/api/back-office/billing-drift/unsynced-summary";
+
+    public const string BackOfficeMrrConsistencySummary = "/api/back-office/billing-drift/mrr-consistency-summary";
+
     // The dashboard's distribution of tenants over subscription plans
     public const string BackOfficeDashboardPlanDistribution = "/api/back-office/dashboard/plan-distribution";
 
@@ -113,6 +121,24 @@ public static class AccountApiRoutes
     public static string BackOfficeDashboardRecent(string list, int limit)
     {
         return $"/api/back-office/dashboard/{Uri.EscapeDataString(list)}?Limit={limit.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    // The back office's accounts list. The endpoint binds the query with [AsParameters]: PascalCase names, enum names, one
+    // repeated parameter per plan and status, and the boolean filters only when set. The first page omits its offset.
+    public static string BackOfficeTenants(GetTenantsQuery query)
+    {
+        var parameters = new List<KeyValuePair<string, string>>();
+        if (!string.IsNullOrWhiteSpace(query.Search)) parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantsQuery.Search), query.Search));
+        parameters.AddRange((query.Plans ?? []).Select(plan => new KeyValuePair<string, string>(nameof(GetTenantsQuery.Plans), plan.ToString())));
+        parameters.AddRange((query.Statuses ?? []).Select(status => new KeyValuePair<string, string>(nameof(GetTenantsQuery.Statuses), status.ToString())));
+        if (query.Unsynced) parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantsQuery.Unsynced), "true"));
+        if (query.DriftDetected) parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantsQuery.DriftDetected), "true"));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantsQuery.OrderBy), query.OrderBy.ToString()));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantsQuery.SortOrder), query.SortOrder.ToString()));
+        if (query.PageOffset > 0) parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantsQuery.PageOffset), query.PageOffset.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetTenantsQuery.PageSize), query.PageSize.ToString(CultureInfo.InvariantCulture)));
+
+        return $"/api/back-office/tenants?{string.Join('&', parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"))}";
     }
 
     // The flag key is a registry key (lower case kebab-case), escaped here like every other route value

@@ -7,9 +7,6 @@ namespace Account.Features.BackOffice.BillingDrift.Queries;
 [PublicAPI]
 public sealed record GetBillingDriftSummaryQuery : IRequest<Result<BillingDriftSummaryResponse>>;
 
-[PublicAPI]
-public sealed record BillingDriftSummaryResponse(int SubscriptionsWithDriftCount);
-
 public sealed class GetBillingDriftSummaryHandler(ISubscriptionRepository subscriptionRepository)
     : IRequestHandler<GetBillingDriftSummaryQuery, Result<BillingDriftSummaryResponse>>
 {

@@ -209,13 +209,14 @@ public sealed class DataListController<TItem>(
         return true;
     }
 
-    // A click on the sorted column reverses its direction; another column sorts ascending
+    // A click on a column sorted in the default order reverses it; a click on another column, or on one already reversed,
+    // sorts it in the default order (ascending unless the list names another)
     public async Task SortAsync(string sortKey)
     {
         if (!Options.SortKeys.Contains(sortKey)) return;
-        var sortOrder = State.OrderBy == sortKey && State.SortOrder == SortOrder.Ascending
-            ? SortOrder.Descending
-            : SortOrder.Ascending;
+        var defaultSortOrder = Options.DefaultSortOrder;
+        var reversedSortOrder = defaultSortOrder == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
+        var sortOrder = State.OrderBy == sortKey && State.SortOrder == defaultSortOrder ? reversedSortOrder : defaultSortOrder;
         Navigate(State.WithSort(sortKey, sortOrder), false);
         await ClearSelectionAsync();
         await LoadAsync();

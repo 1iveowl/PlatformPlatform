@@ -1,4 +1,5 @@
 using Blazor.Client.BackOffice;
+using Blazor.Client.BackOffice.Shell;
 using Blazor.Client.Bootstrap;
 using Blazor.Client.Components;
 using Blazor.Client.Components.Lists;
@@ -22,6 +23,9 @@ builder.Services.AddBackOfficeApiClient(new Uri(builder.HostEnvironment.BaseAddr
 
 // The server-page cache of every DataList, one per application
 builder.Services.AddScoped<DataListPageCache>();
+
+// The back office's billing banner summaries, read at most once per poll interval for every back-office page of the runtime
+builder.Services.AddScoped<BillingBannerState>();
 
 // The viewport width for the components that change the DOM with it, such as a side pane; one set of media listeners per runtime
 builder.Services.AddScoped<ViewportState>();

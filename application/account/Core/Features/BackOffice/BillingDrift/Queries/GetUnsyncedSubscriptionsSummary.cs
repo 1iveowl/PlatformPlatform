@@ -7,9 +7,6 @@ namespace Account.Features.BackOffice.BillingDrift.Queries;
 [PublicAPI]
 public sealed record GetUnsyncedSubscriptionsSummaryQuery : IRequest<Result<UnsyncedSubscriptionsSummaryResponse>>;
 
-[PublicAPI]
-public sealed record UnsyncedSubscriptionsSummaryResponse(int UnsyncedSubscriptionsCount);
-
 public sealed class GetUnsyncedSubscriptionsSummaryHandler(ISubscriptionRepository subscriptionRepository)
     : IRequestHandler<GetUnsyncedSubscriptionsSummaryQuery, Result<UnsyncedSubscriptionsSummaryResponse>>
 {

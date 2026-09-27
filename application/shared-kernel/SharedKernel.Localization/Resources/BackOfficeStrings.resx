@@ -36,17 +36,37 @@
         <value>Account ID</value>
         <comment>The id of a tenant, called an account in the user interface</comment>
     </data>
+    <data name="AccountPreview" xml:space="preserve">
+        <value>Account preview</value>
+        <comment>React: Account preview</comment>
+    </data>
     <data name="Accounts" xml:space="preserve">
         <value>Accounts</value>
         <comment>React: Accounts</comment>
+    </data>
+    <data name="AccountsAppearWhenCreated" xml:space="preserve">
+        <value>Accounts will appear here as they are created.</value>
+        <comment>React: Accounts will appear here as they are created.</comment>
     </data>
     <data name="AccountsCount" xml:space="preserve">
         <value>{0} accounts</value>
         <comment>React: {total} accounts; {0} is the number of accounts</comment>
     </data>
+    <data name="AccountsSubtitle" xml:space="preserve">
+        <value>Search, filter, and review accounts.</value>
+        <comment>React: Search, filter, and review accounts.</comment>
+    </data>
     <data name="AccountsUnit" xml:space="preserve">
         <value>accounts</value>
         <comment>React: accounts; the unit under the total in the plan distribution card</comment>
+    </data>
+    <data name="AccountsWithDriftOne" xml:space="preserve">
+        <value>{0} account has billing drift detected.</value>
+        <comment>React: {count, plural, one {# account has billing drift detected.}}</comment>
+    </data>
+    <data name="AccountsWithDriftOther" xml:space="preserve">
+        <value>{0} accounts have billing drift detected.</value>
+        <comment>React: {count, plural, other {# accounts have billing drift detected.}}</comment>
     </data>
     <data name="ActiveSessions" xml:space="preserve">
         <value>Active sessions</value>
@@ -80,9 +100,25 @@
         <value>Clear the A/B inclusion pin</value>
         <comment>Development-only check on the back-office placeholder page</comment>
     </data>
+    <data name="ClearFilters" xml:space="preserve">
+        <value>Clear filters</value>
+        <comment>React: Clear filters</comment>
+    </data>
+    <data name="ClearNamedFilter" xml:space="preserve">
+        <value>Clear filter: {0}</value>
+        <comment>React: Clear filter, with the name of the filter for an accessible name of its own</comment>
+    </data>
+    <data name="CloseAccountPreview" xml:space="preserve">
+        <value>Close account preview</value>
+        <comment>React: Close account preview</comment>
+    </data>
     <data name="ContactYourAdministrator" xml:space="preserve">
         <value>Contact your administrator.</value>
         <comment>React: Contact your administrator.</comment>
+    </data>
+    <data name="Country" xml:space="preserve">
+        <value>Country</value>
+        <comment>React: Country</comment>
     </data>
     <data name="CurrentPeriod" xml:space="preserve">
         <value>Current period</value>
@@ -103,6 +139,10 @@
     <data name="DevelopmentCheck" xml:space="preserve">
         <value>Development check</value>
         <comment>Heading of the Development-only section of the back-office placeholder page</comment>
+    </data>
+    <data name="DriftDetected" xml:space="preserve">
+        <value>Drift detected</value>
+        <comment>React: Drift detected</comment>
     </data>
     <data name="EnterAccountId" xml:space="preserve">
         <value>Enter the numeric ID of an account.</value>
@@ -192,6 +232,14 @@
         <value>Upgraded</value>
         <comment>React: Upgraded</comment>
     </data>
+    <data name="Expired" xml:space="preserve">
+        <value>Expired</value>
+        <comment>React: Expired</comment>
+    </data>
+    <data name="Expires" xml:space="preserve">
+        <value>Expires</value>
+        <comment>React: Expires</comment>
+    </data>
     <data name="FeatureFlags" xml:space="preserve">
         <value>Feature flags</value>
         <comment>React: Feature flags</comment>
@@ -216,6 +264,10 @@
         <value>Method</value>
         <comment>React: Method</comment>
     </data>
+    <data name="Mrr" xml:space="preserve">
+        <value>MRR</value>
+        <comment>React: MRR</comment>
+    </data>
     <data name="MrrBlended" xml:space="preserve">
         <value>{0} blended</value>
         <comment>React: {0} blended; {0} is the latest MRR</comment>
@@ -227,6 +279,10 @@
     <data name="MrrImpact" xml:space="preserve">
         <value>MRR impact</value>
         <comment>React: MRR impact</comment>
+    </data>
+    <data name="MrrMismatch" xml:space="preserve">
+        <value>Dashboard MRR mismatch: KPI shows {0}, trend latest shows {1}.</value>
+        <comment>React: Dashboard MRR mismatch: KPI shows {0}, trend latest shows {1}.</comment>
     </data>
     <data name="MrrTrend" xml:space="preserve">
         <value>MRR trend</value>
@@ -247,6 +303,14 @@
     <data name="NewSignupsAgainstPriorPeriod" xml:space="preserve">
         <value>{0} new signups · {1} prior period</value>
         <comment>React: {total} new signups · {priorTotal} prior period</comment>
+    </data>
+    <data name="NoAccountsMatchFilters" xml:space="preserve">
+        <value>No accounts match your filters</value>
+        <comment>React: No accounts match your filters</comment>
+    </data>
+    <data name="NoAccountsYet" xml:space="preserve">
+        <value>No accounts yet</value>
+        <comment>React: No accounts yet</comment>
     </data>
     <data name="NoBackOfficeAccess" xml:space="preserve">
         <value>No back-office access</value>
@@ -288,9 +352,17 @@
         <value>Not admin</value>
         <comment>Shown instead of the admin marker</comment>
     </data>
+    <data name="NotSyncedYet" xml:space="preserve">
+        <value>Not synced yet</value>
+        <comment>React: Not synced yet</comment>
+    </data>
     <data name="Occurred" xml:space="preserve">
         <value>Occurred</value>
         <comment>React: Occurred</comment>
+    </data>
+    <data name="OpenAccount" xml:space="preserve">
+        <value>Open account</value>
+        <comment>React: Open account</comment>
     </data>
     <data name="Owner" xml:space="preserve">
         <value>Owner</value>
@@ -384,6 +456,14 @@
         <value>Recent signups</value>
         <comment>React: Recent signups</comment>
     </data>
+    <data name="Renewal" xml:space="preserve">
+        <value>Renewal</value>
+        <comment>React: Renewal</comment>
+    </data>
+    <data name="RenewalDate" xml:space="preserve">
+        <value>Renewal date</value>
+        <comment>React: Renewal date</comment>
+    </data>
     <data name="Revenue" xml:space="preserve">
         <value>Revenue</value>
         <comment>React: Revenue</comment>
@@ -395,6 +475,10 @@
     <data name="RevenueThisPeriodExcludingVat" xml:space="preserve">
         <value>{0} this period, excluding VAT</value>
         <comment>React: {0} this period, excluding VAT</comment>
+    </data>
+    <data name="SearchByName" xml:space="preserve">
+        <value>Search by name</value>
+        <comment>React: Search by name</comment>
     </data>
     <data name="Share" xml:space="preserve">
         <value>Share</value>
@@ -416,6 +500,26 @@
         <value>Status</value>
         <comment>React: Status</comment>
     </data>
+    <data name="StatusActive" xml:space="preserve">
+        <value>Active</value>
+        <comment>React: Active</comment>
+    </data>
+    <data name="StatusCanceled" xml:space="preserve">
+        <value>Canceled</value>
+        <comment>React: Canceled</comment>
+    </data>
+    <data name="StatusCanceling" xml:space="preserve">
+        <value>Canceling</value>
+        <comment>React: Canceling</comment>
+    </data>
+    <data name="StatusDowngrading" xml:space="preserve">
+        <value>Downgrading</value>
+        <comment>React: Downgrading</comment>
+    </data>
+    <data name="StatusFree" xml:space="preserve">
+        <value>Free</value>
+        <comment>React: Free</comment>
+    </data>
     <data name="Total" xml:space="preserve">
         <value>Total</value>
         <comment>React: Total</comment>
@@ -428,6 +532,18 @@
         <value>Total revenue</value>
         <comment>React: Total revenue</comment>
     </data>
+    <data name="TryClearingFilters" xml:space="preserve">
+        <value>Try clearing the search or filters to see more results.</value>
+        <comment>React: Try clearing the search or filters to see more results.</comment>
+    </data>
+    <data name="UnsyncedAccountsOne" xml:space="preserve">
+        <value>{0} account has not been synced yet. The MRR trend is incomplete.</value>
+        <comment>React: {count, plural, one {# account has not been synced yet, MRR trend is incomplete.}}, reworded without the dash</comment>
+    </data>
+    <data name="UnsyncedAccountsOther" xml:space="preserve">
+        <value>{0} accounts have not been synced yet. The MRR trend is incomplete.</value>
+        <comment>React: {count, plural, other {# accounts have not been synced yet, MRR trend is incomplete.}}, reworded without the dash</comment>
+    </data>
     <data name="UserLoginsPerDay" xml:space="preserve">
         <value>User logins / day</value>
         <comment>React: User logins / day</comment>
@@ -436,9 +552,17 @@
         <value>Users active</value>
         <comment>React: Users active</comment>
     </data>
+    <data name="ViewAccounts" xml:space="preserve">
+        <value>View accounts</value>
+        <comment>React: View accounts</comment>
+    </data>
     <data name="ViewAll" xml:space="preserve">
         <value>View all</value>
         <comment>React: View all</comment>
+    </data>
+    <data name="ViewBillingEvents" xml:space="preserve">
+        <value>View billing events</value>
+        <comment>React: View billing events</comment>
     </data>
     <data name="VsPriorPeriod" xml:space="preserve">
         <value>vs prior period</value>

@@ -29,96 +29,45 @@ public sealed record GetTenantsQuery(
     public TenantStatusFilter[] Statuses { get; } = Statuses ?? [];
 }
 
-[PublicAPI]
-public sealed record TenantsResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, TenantSummary[] Tenants);
-
-[PublicAPI]
-public sealed record TenantSummary(
-    TenantId Id,
-    string Name,
-    string? LogoUrl,
-    SubscriptionPlan Plan,
-    decimal? MonthlyRecurringRevenue,
-    decimal? ScheduledPriceAmount,
-    string? Currency,
-    DateTimeOffset? RenewalDate,
-    PlannedSubscriptionChange? PlannedChange,
-    bool HasEverSubscribed,
-    string? Country,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt,
-    TenantOwnerSummary? Owner
-)
+// The rich tenant row every back-office view renders (the accounts list and the feature flag override views) is built here,
+// beside the query, so the call sites cannot drift apart. The row itself is a contract in Account.Contracts; the factory reads
+// the aggregates, so it stays in the account API as a static extension of the row type.
+public static class TenantSummaryFactory
 {
-    // Shared factory used by every back-office view that renders the rich tenant row (accounts list + feature-flag
-    // override views). Keeping construction co-located with the record avoids drift between call sites.
-    public static TenantSummary FromAggregate(Tenant tenant, Subscription? subscription, User? owner)
+    extension(TenantSummary)
     {
-        var plannedChange = subscription switch
+        public static TenantSummary FromAggregate(Tenant tenant, Subscription? subscription, User? owner)
         {
-            { CancelAtPeriodEnd: true } => PlannedSubscriptionChange.Cancellation,
-            { ScheduledPlan: not null } => PlannedSubscriptionChange.ScheduledPlanChange,
-            _ => (PlannedSubscriptionChange?)null
-        };
+            var plannedChange = subscription switch
+            {
+                { CancelAtPeriodEnd: true } => PlannedSubscriptionChange.Cancellation,
+                { ScheduledPlan: not null } => PlannedSubscriptionChange.ScheduledPlanChange,
+                _ => (PlannedSubscriptionChange?)null
+            };
 
-        // Refunded counts as "ever subscribed" — money flowed in before being credited back, so the tenant did pay at
-        // some point. Distinguishes a refunded customer (Canceled) from never having paid at all (Free).
-        var hasEverSubscribed = subscription?.PaymentTransactions
-            .Any(transaction => transaction.Status is PaymentTransactionStatus.Succeeded or PaymentTransactionStatus.Refunded) == true;
+            // Refunded counts as "ever subscribed": money flowed in before being credited back, so the tenant did pay at some
+            // point. Distinguishes a refunded customer (Canceled) from never having paid at all (Free).
+            var hasEverSubscribed = subscription?.PaymentTransactions
+                .Any(transaction => transaction.Status is PaymentTransactionStatus.Succeeded or PaymentTransactionStatus.Refunded) == true;
 
-        return new TenantSummary(
-            tenant.Id,
-            tenant.Name,
-            tenant.Logo.Url,
-            tenant.Plan,
-            subscription?.CurrentPriceAmount,
-            subscription?.ScheduledPriceAmount,
-            subscription?.CurrentPriceCurrency,
-            subscription?.CurrentPeriodEnd,
-            plannedChange,
-            hasEverSubscribed,
-            subscription?.BillingInfo?.Address?.Country,
-            tenant.CreatedAt,
-            tenant.ModifiedAt,
-            owner is null ? null : new TenantOwnerSummary(owner.Id, owner.FirstName, owner.LastName, owner.Email)
-        );
+            return new TenantSummary(
+                tenant.Id,
+                tenant.Name,
+                tenant.Logo.Url,
+                tenant.Plan,
+                subscription?.CurrentPriceAmount,
+                subscription?.ScheduledPriceAmount,
+                subscription?.CurrentPriceCurrency,
+                subscription?.CurrentPeriodEnd,
+                plannedChange,
+                hasEverSubscribed,
+                subscription?.BillingInfo?.Address?.Country,
+                tenant.CreatedAt,
+                tenant.ModifiedAt,
+                owner is null ? null : new TenantOwnerSummary(owner.Id, owner.FirstName, owner.LastName, owner.Email)
+            );
+        }
     }
-}
-
-[PublicAPI]
-public sealed record TenantOwnerSummary(UserId UserId, string? FirstName, string? LastName, string Email);
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum PlannedSubscriptionChange
-{
-    Cancellation,
-    ScheduledPlanChange
-}
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum TenantStatusFilter
-{
-    Active,
-    Downgrading,
-    Canceling,
-    Canceled,
-    Free
-}
-
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum SortableTenantProperties
-{
-    Name,
-    Plan,
-    MonthlyRecurringRevenue,
-    RenewalDate,
-    Status,
-    Country,
-    CreatedAt,
-    ModifiedAt
 }
 
 public sealed class GetTenantsQueryValidator : AbstractValidator<GetTenantsQuery>

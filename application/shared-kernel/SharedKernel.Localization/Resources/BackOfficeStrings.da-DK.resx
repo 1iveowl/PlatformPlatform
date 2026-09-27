@@ -30,14 +30,29 @@
     <data name="AccountId" xml:space="preserve">
         <value>Konto-id</value>
     </data>
+    <data name="AccountPreview" xml:space="preserve">
+        <value>Kontoforhåndsvisning</value>
+    </data>
     <data name="Accounts" xml:space="preserve">
         <value>Konti</value>
+    </data>
+    <data name="AccountsAppearWhenCreated" xml:space="preserve">
+        <value>Konti vises her, når de oprettes.</value>
     </data>
     <data name="AccountsCount" xml:space="preserve">
         <value>{0} konti</value>
     </data>
+    <data name="AccountsSubtitle" xml:space="preserve">
+        <value>Søg, filtrér og gennemse konti.</value>
+    </data>
     <data name="AccountsUnit" xml:space="preserve">
         <value>konti</value>
+    </data>
+    <data name="AccountsWithDriftOne" xml:space="preserve">
+        <value>{0} konto har faktureringsafvigelser.</value>
+    </data>
+    <data name="AccountsWithDriftOther" xml:space="preserve">
+        <value>{0} konti har faktureringsafvigelser.</value>
     </data>
     <data name="ActiveSessions" xml:space="preserve">
         <value>Aktive sessioner</value>
@@ -63,8 +78,20 @@
     <data name="ClearAbInclusionPin" xml:space="preserve">
         <value>Fjern A/B-inklusionsfastgørelsen</value>
     </data>
+    <data name="ClearFilters" xml:space="preserve">
+        <value>Ryd filtre</value>
+    </data>
+    <data name="ClearNamedFilter" xml:space="preserve">
+        <value>Ryd filter: {0}</value>
+    </data>
+    <data name="CloseAccountPreview" xml:space="preserve">
+        <value>Luk kontoforhåndsvisning</value>
+    </data>
     <data name="ContactYourAdministrator" xml:space="preserve">
         <value>Kontakt din administrator.</value>
+    </data>
+    <data name="Country" xml:space="preserve">
+        <value>Land</value>
     </data>
     <data name="CurrentPeriod" xml:space="preserve">
         <value>Aktuel periode</value>
@@ -80,6 +107,9 @@
     </data>
     <data name="DevelopmentCheck" xml:space="preserve">
         <value>Udviklingstjek</value>
+    </data>
+    <data name="DriftDetected" xml:space="preserve">
+        <value>Afvigelser fundet</value>
     </data>
     <data name="EnterAccountId" xml:space="preserve">
         <value>Indtast det numeriske id for en konto.</value>
@@ -147,6 +177,12 @@
     <data name="EventUpgraded" xml:space="preserve">
         <value>Opgraderet</value>
     </data>
+    <data name="Expired" xml:space="preserve">
+        <value>Udløbet</value>
+    </data>
+    <data name="Expires" xml:space="preserve">
+        <value>Udløber</value>
+    </data>
     <data name="FeatureFlags" xml:space="preserve">
         <value>Feature flags</value>
     </data>
@@ -165,6 +201,9 @@
     <data name="Method" xml:space="preserve">
         <value>Metode</value>
     </data>
+    <data name="Mrr" xml:space="preserve">
+        <value>MRR</value>
+    </data>
     <data name="MrrBlended" xml:space="preserve">
         <value>{0} samlet</value>
     </data>
@@ -173,6 +212,9 @@
     </data>
     <data name="MrrImpact" xml:space="preserve">
         <value>MRR-effekt</value>
+    </data>
+    <data name="MrrMismatch" xml:space="preserve">
+        <value>Dashboard MRR uoverensstemmelse: KPI viser {0}, tendens viser senest {1}.</value>
     </data>
     <data name="MrrTrend" xml:space="preserve">
         <value>MRR-tendens</value>
@@ -188,6 +230,12 @@
     </data>
     <data name="NewSignupsAgainstPriorPeriod" xml:space="preserve">
         <value>{0} nye tilmeldinger · {1} forrige periode</value>
+    </data>
+    <data name="NoAccountsMatchFilters" xml:space="preserve">
+        <value>Ingen konti matcher dine filtre</value>
+    </data>
+    <data name="NoAccountsYet" xml:space="preserve">
+        <value>Ingen konti endnu</value>
     </data>
     <data name="NoBackOfficeAccess" xml:space="preserve">
         <value>Ingen adgang til Back Office</value>
@@ -219,8 +267,14 @@
     <data name="NotAdmin" xml:space="preserve">
         <value>Ikke admin</value>
     </data>
+    <data name="NotSyncedYet" xml:space="preserve">
+        <value>Ikke synkroniseret endnu</value>
+    </data>
     <data name="Occurred" xml:space="preserve">
         <value>Forekom</value>
+    </data>
+    <data name="OpenAccount" xml:space="preserve">
+        <value>Åbn konto</value>
     </data>
     <data name="Owner" xml:space="preserve">
         <value>Ejer</value>
@@ -291,6 +345,12 @@
     <data name="RecentSignups" xml:space="preserve">
         <value>Nylige tilmeldinger</value>
     </data>
+    <data name="Renewal" xml:space="preserve">
+        <value>Fornyelse</value>
+    </data>
+    <data name="RenewalDate" xml:space="preserve">
+        <value>Fornyelsesdato</value>
+    </data>
     <data name="Revenue" xml:space="preserve">
         <value>Omsætning</value>
     </data>
@@ -299,6 +359,9 @@
     </data>
     <data name="RevenueThisPeriodExcludingVat" xml:space="preserve">
         <value>{0} i denne periode, eksklusiv moms</value>
+    </data>
+    <data name="SearchByName" xml:space="preserve">
+        <value>Søg efter navn</value>
     </data>
     <data name="Share" xml:space="preserve">
         <value>Andel</value>
@@ -315,6 +378,21 @@
     <data name="Status" xml:space="preserve">
         <value>Status</value>
     </data>
+    <data name="StatusActive" xml:space="preserve">
+        <value>Aktiv</value>
+    </data>
+    <data name="StatusCanceled" xml:space="preserve">
+        <value>Opsagt</value>
+    </data>
+    <data name="StatusCanceling" xml:space="preserve">
+        <value>Opsiges</value>
+    </data>
+    <data name="StatusDowngrading" xml:space="preserve">
+        <value>Nedgraderer</value>
+    </data>
+    <data name="StatusFree" xml:space="preserve">
+        <value>Gratis</value>
+    </data>
     <data name="Total" xml:space="preserve">
         <value>I alt</value>
     </data>
@@ -324,14 +402,29 @@
     <data name="TotalRevenue" xml:space="preserve">
         <value>Omsætning i alt</value>
     </data>
+    <data name="TryClearingFilters" xml:space="preserve">
+        <value>Prøv at rydde søgningen eller filtrene for at se flere resultater.</value>
+    </data>
+    <data name="UnsyncedAccountsOne" xml:space="preserve">
+        <value>{0} konto er endnu ikke synkroniseret. MRR-tendensen er ufuldstændig.</value>
+    </data>
+    <data name="UnsyncedAccountsOther" xml:space="preserve">
+        <value>{0} konti er endnu ikke synkroniseret. MRR-tendensen er ufuldstændig.</value>
+    </data>
     <data name="UserLoginsPerDay" xml:space="preserve">
         <value>Brugerlogins / dag</value>
     </data>
     <data name="UsersActive" xml:space="preserve">
         <value>Aktive brugere</value>
     </data>
+    <data name="ViewAccounts" xml:space="preserve">
+        <value>Vis konti</value>
+    </data>
     <data name="ViewAll" xml:space="preserve">
         <value>Vis alle</value>
+    </data>
+    <data name="ViewBillingEvents" xml:space="preserve">
+        <value>Vis faktureringshændelser</value>
     </data>
     <data name="VsPriorPeriod" xml:space="preserve">
         <value>mod forrige periode</value>

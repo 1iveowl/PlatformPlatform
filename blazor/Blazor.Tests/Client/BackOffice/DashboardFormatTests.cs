@@ -24,7 +24,7 @@ public sealed class DashboardFormatTests
         // Assert
         tiles.Select(tile => (tile.TestId, tile.Label, tile.Value, tile.Subtitle, tile.Href)).Should().Equal(
             ("kpi-total-accounts", "Total accounts", "1,234", "+5 new in last 7 days", "/blazor/back-office/accounts"),
-            ("kpi-blended-mrr", "Blended MRR", "USD 1,234.50", "vs prior period", "/blazor/back-office/accounts?statuses=Active&statuses=Downgrading"),
+            ("kpi-blended-mrr", "Blended MRR", "USD 1,234.50", "vs prior period", "/blazor/back-office/accounts?statuses=%5B%22Active%22%2C%22Downgrading%22%5D"),
             ("kpi-total-revenue", "Total revenue", "USD 98,765.40", "All-time, excluding VAT", "/blazor/back-office/invoices"),
             ("kpi-users-active", "Users active", "37", "Last 7 days", "/blazor/back-office/users"),
             ("kpi-active-sessions", "Active sessions", "9", "Last 24 hours", null)

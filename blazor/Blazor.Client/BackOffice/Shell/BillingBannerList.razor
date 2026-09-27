@@ -1,0 +1,60 @@
+@* The back office's billing banners in the shell's banner region (see BillingBanners.cs). Nothing renders during prerender
+   or with the subscription setting off, and no summary is read then; in the browser the poller runs while this page is shown
+   and stops when the page is left. *@
+@using Account.Client
+@implements IDisposable
+@inject IServiceProvider Services
+
+@if (_banners.Count > 0)
+{
+    <div class="back-office-banners" data-testid="billing-banners">
+        @foreach (var banner in _banners)
+        {
+            <div @key="banner.Kind" class="back-office-banner" role="@(banner.IsAlert ? "alert" : "status")" data-testid="@banner.TestId">
+                <span class="back-office-banner-message" data-testid="@($"{banner.TestId}-message")">@banner.Message</span>
+                <a class="back-office-banner-link" href="@banner.Href" data-testid="@($"{banner.TestId}-link")">@banner.LinkText</a>
+            </div>
+        }
+    </div>
+}
+
+@code {
+
+    private IReadOnlyList<BillingBanner> _banners = [];
+    private BillingBannerPoller? _poller;
+    private BillingBannerState? _state;
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page through the shell
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    public void Dispose()
+    {
+        if (_state is not null) _state.Changed -= OnSummaryChanged;
+        _poller?.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        if (!RendererInfo.IsInteractive || !IsSubscriptionEnabled) return;
+
+        // Resolved lazily: the host registers neither, so prerendering never constructs them
+        _state = Services.GetRequiredService<BillingBannerState>();
+        var backOfficeClient = Services.GetRequiredService<BackOfficeClient>();
+        _state.Changed += OnSummaryChanged;
+        _banners = BillingBannerModel.Create(IsSubscriptionEnabled, _state.Summary);
+        _poller = new BillingBannerPoller(_state, TimeProvider.System, Task.Delay, previous => BillingBannerSummary.ReadAsync(backOfficeClient, previous));
+        _ = _poller.RunAsync();
+    }
+
+    private void OnSummaryChanged()
+    {
+        _ = InvokeAsync(() =>
+            {
+                _banners = BillingBannerModel.Create(IsSubscriptionEnabled, _state?.Summary ?? BillingBannerSummary.Empty);
+                StateHasChanged();
+            }
+        );
+    }
+
+}
