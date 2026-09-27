@@ -3,6 +3,8 @@ using System.Text;
 using Account.Client;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
+using Account.Features.ExternalAuthentication.BackOffice.Queries;
+using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.Tenants.BackOffice.Commands;
 using Account.Features.Users.BackOffice.Requests;
 using Blazor.Client.BackOffice;
@@ -13,8 +15,8 @@ using SharedKernel.FeatureFlags;
 
 namespace Blazor.Tests.Client.BackOffice;
 
-// The back-office typed client reads the signed-in identity and sends the admin write the account API maps under
-// /api/back-office, and its chain adds the host-issued antiforgery token to the write only
+// The back-office typed client reads the signed-in identity and sends the admin writes the account API maps under
+// /api/back-office, and its chain adds the host-issued antiforgery token to the writes only
 public sealed class BackOfficeClientTests
 {
     [Fact]
@@ -262,6 +264,67 @@ public sealed class BackOfficeClientTests
         // Assert
         result.Value!.Flags.Should().ContainSingle().Which.IsEnabled.Should().BeTrue();
         network.Requests.Single().Uri.AbsolutePath.Should().Be("/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/feature-flags");
+    }
+
+    [Fact]
+    public async Task GetUserIdentityVerificationAsync_ShouldReadTheVerificationFromTheIdentityVerificationRoute()
+    {
+        // Arrange
+        var network = new RecordingNetwork(
+            HttpStatusCode.OK,
+            """{"isVerified":true,"provider":"MitId","assuranceLevel":"Substantial","verifiedAt":"2026-09-20T10:00:00+00:00","authenticatedAt":"2026-09-20T09:59:00+00:00"}"""
+        );
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.GetUserIdentityVerificationAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(new BackOfficeUserIdentityVerificationResponse(
+                true, ExternalProviderType.MitId, IdentityAssuranceLevel.Substantial, new DateTimeOffset(2026, 9, 20, 10, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 9, 20, 9, 59, 0, TimeSpan.Zero)
+            )
+        );
+        var request = network.Requests.Single();
+        request.Method.Should().Be(HttpMethod.Get);
+        request.Uri.Should().Be(new Uri("https://back-office.dev.localhost:9001/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/identity-verification"));
+        request.AntiforgeryToken.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RevokeUserIdentityVerificationAsync_ShouldDeleteTheIdentityVerificationWithTheHostIssuedToken()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, "");
+        var chain = new AntiforgeryHeaderHandler(new BackOfficeAntiforgeryTokenSource(new FixedAntiforgeryStateProvider("host-issued-token"))) { InnerHandler = network };
+        var client = new BackOfficeClient(new HttpClient(chain) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.RevokeUserIdentityVerificationAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        var request = network.Requests.Single();
+        request.Method.Should().Be(HttpMethod.Delete);
+        request.Uri.Should().Be(new Uri("https://back-office.dev.localhost:9001/api/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0/identity-verification"));
+        request.Body.Should().BeNull();
+        request.AntiforgeryToken.Should().Be("host-issued-token");
+    }
+
+    [Fact]
+    public async Task RevokeUserIdentityVerificationAsync_WhenTheAccountApiRefusesANonAdmin_ShouldReportTheForbiddenStatus()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.Forbidden, """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.4","title":"Forbidden","status":403}""");
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.RevokeUserIdentityVerificationAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.StatusCode.Should().Be(403);
     }
 
     private sealed record RecordedRequest(HttpMethod Method, Uri Uri, string? Body, string? AntiforgeryToken);

@@ -9,21 +9,6 @@ namespace Account.Features.ExternalAuthentication.BackOffice.Queries;
 public sealed record GetBackOfficeUserIdentityVerificationQuery(UserId Id)
     : IRequest<Result<BackOfficeUserIdentityVerificationResponse>>;
 
-/// <summary>
-///     Carries no provider user id, for the same reason the self-service verification status does not: a MitID
-///     Person-ID identifies a real person, and an administrator needs to know that a verification exists and how
-///     strong it is, never the identifier itself. Everything here is evidence about the verification rather than
-///     about the person.
-/// </summary>
-[PublicAPI]
-public sealed record BackOfficeUserIdentityVerificationResponse(
-    bool IsVerified,
-    ExternalProviderType? Provider,
-    IdentityAssuranceLevel? AssuranceLevel,
-    DateTimeOffset? VerifiedAt,
-    DateTimeOffset? AuthenticatedAt
-);
-
 public sealed class GetBackOfficeUserIdentityVerificationHandler(IExternalIdentityRepository externalIdentityRepository)
     : IRequestHandler<GetBackOfficeUserIdentityVerificationQuery, Result<BackOfficeUserIdentityVerificationResponse>>
 {

@@ -17,8 +17,8 @@ using SharedKernel.Persistence;
 namespace Blazor.Tests.Client.BackOffice;
 
 // The user detail's tab model and the texts of its tabs. The tab is the React back office's tab parameter with its values,
-// Accounts when absent or unknown, including the identity tab the Blazor back office does not show yet. The in-memory lists
-// page the response they were given, and the badges read as the React back office's do.
+// Accounts when absent or unknown. The in-memory lists page the response they were given, and the badges read as the React
+// back office's do.
 public sealed class UserDetailTests
 {
     private const string UserUrl = "https://back-office.dev.localhost:9001/blazor/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0";
@@ -32,7 +32,8 @@ public sealed class UserDetailTests
     [InlineData("?tab=sessions", UserDetailTab.Sessions)]
     [InlineData("?tab=feature-flags", UserDetailTab.FeatureFlags)]
     [InlineData("?sessionsPageOffset=1&tab=sessions", UserDetailTab.Sessions)]
-    [InlineData("?tab=identity", UserDetailTab.Accounts)]
+    [InlineData("?tab=identity", UserDetailTab.Identity)]
+    [InlineData("?tab=Identity", UserDetailTab.Accounts)]
     [InlineData("?tab=Logins", UserDetailTab.Accounts)]
     [InlineData("?tab=", UserDetailTab.Accounts)]
     [InlineData("?tab=logins&tab=feature-flags", UserDetailTab.FeatureFlags)]
@@ -46,21 +47,22 @@ public sealed class UserDetailTests
     }
 
     [Fact]
-    public void Links_ShouldListTheFourTabsInTheReactOrderWithAccountsLeftOutOfTheUrl()
+    public void Links_ShouldListTheFiveTabsInTheReactOrderWithAccountsLeftOutOfTheUrl()
     {
         // Act
         var links = UserDetailTabs.Links(SampleUserId, UserDetailTab.Sessions);
 
         // Assert
-        links.Select(link => link.Tab).Should().Equal(UserDetailTab.Accounts, UserDetailTab.Logins, UserDetailTab.Sessions, UserDetailTab.FeatureFlags);
+        links.Select(link => link.Tab).Should().Equal(UserDetailTab.Accounts, UserDetailTab.Logins, UserDetailTab.Sessions, UserDetailTab.Identity, UserDetailTab.FeatureFlags);
         links.Select(link => link.Href).Should().Equal(
             "/blazor/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0",
             "/blazor/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0?tab=logins",
             "/blazor/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0?tab=sessions",
+            "/blazor/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0?tab=identity",
             "/blazor/back-office/users/usr_01JMVAW4T4320KJ3A7EJMCG8R0?tab=feature-flags"
         );
         links.Single(link => link.IsCurrent).Tab.Should().Be(UserDetailTab.Sessions);
-        links.Select(link => link.TestId).Should().Equal("user-tab-overview", "user-tab-logins", "user-tab-sessions", "user-tab-feature-flags");
+        links.Select(link => link.TestId).Should().Equal("user-tab-overview", "user-tab-logins", "user-tab-sessions", "user-tab-identity", "user-tab-feature-flags");
     }
 
     [Fact]
@@ -80,6 +82,8 @@ public sealed class UserDetailTests
     [InlineData("en-US", UserDetailTab.Logins, "Logins")]
     [InlineData("da-DK", UserDetailTab.Sessions, "Sessioner")]
     [InlineData("da-DK", UserDetailTab.Accounts, "Konti")]
+    [InlineData("en-US", UserDetailTab.Identity, "Identity")]
+    [InlineData("da-DK", UserDetailTab.Identity, "Identitet")]
     public void Label_ShouldNameTheTabInTheCurrentCulture(string culture, UserDetailTab tab, string expected)
     {
         // Arrange

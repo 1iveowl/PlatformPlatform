@@ -960,4 +960,72 @@
     <data name="UserFlagsDescription" xml:space="preserve">
         <value>Per-user flags and whether each is on for this user.</value>
     </data>
+    <data name="IdentityTab" xml:space="preserve">
+        <value>Identity</value>
+        <comment>React: Identity</comment>
+    </data>
+    <data name="VerificationStatusUnavailable" xml:space="preserve">
+        <value>Verification status unavailable</value>
+        <comment>React: Verification status unavailable</comment>
+    </data>
+    <data name="VerificationStatusCouldNotBeLoaded" xml:space="preserve">
+        <value>The verification status could not be loaded. Try again.</value>
+        <comment>React: The verification status could not be loaded. Try again.</comment>
+    </data>
+    <data name="NotVerified" xml:space="preserve">
+        <value>Not verified</value>
+        <comment>React: Not verified</comment>
+    </data>
+    <data name="NotVerifiedDescription" xml:space="preserve">
+        <value>This person has not proven their identity with an electronic ID.</value>
+        <comment>React: This person has not proven their identity with an electronic ID.</comment>
+    </data>
+    <data name="VerifiedWithMitId" xml:space="preserve">
+        <value>Verified with MitID</value>
+        <comment>React: Verified with MitID</comment>
+    </data>
+    <data name="VerifiedWithGoogle" xml:space="preserve">
+        <value>Verified with Google</value>
+        <comment>React: Verified with Google</comment>
+    </data>
+    <data name="VerifiedWithMicrosoft" xml:space="preserve">
+        <value>Verified with Microsoft</value>
+        <comment>React: Verified with Microsoft</comment>
+    </data>
+    <data name="VerifiedNoProvider" xml:space="preserve">
+        <value>Verified</value>
+        <comment>React: Verified, the provider label when the provider is not known</comment>
+    </data>
+    <data name="VerifiedOnLabel" xml:space="preserve">
+        <value>Verified on</value>
+        <comment>React: Verified on</comment>
+    </data>
+    <data name="AuthenticatedOn" xml:space="preserve">
+        <value>Authenticated on</value>
+        <comment>React: Authenticated on</comment>
+    </data>
+    <data name="RevokeVerification" xml:space="preserve">
+        <value>Revoke verification</value>
+        <comment>React: Revoke verification</comment>
+    </data>
+    <data name="RevokingVerification" xml:space="preserve">
+        <value>Revoking verification...</value>
+        <comment>Blazor only: the confirm button while the revoke is sent</comment>
+    </data>
+    <data name="RevokeIdentityVerification" xml:space="preserve">
+        <value>Revoke identity verification</value>
+        <comment>React: Revoke identity verification</comment>
+    </data>
+    <data name="RevokeIdentityVerificationConfirmation" xml:space="preserve">
+        <value>This clears the proof that {0} verified their identity. {0} must verify again, and can then verify with a different identity. Do this when the wrong identity was bound, for example on a shared device. It cannot be undone.</value>
+        <comment>Blazor only: the React text, naming the user ({0}) and saying the user must verify again</comment>
+    </data>
+    <data name="IdentityVerificationRevoked" xml:space="preserve">
+        <value>Identity verification revoked</value>
+        <comment>React: Identity verification revoked</comment>
+    </data>
+    <data name="IdentityVerificationActions" xml:space="preserve">
+        <value>Identity verification actions</value>
+        <comment>Blazor only: the accessible name of the Identity tab's action group</comment>
+    </data>
 </root>

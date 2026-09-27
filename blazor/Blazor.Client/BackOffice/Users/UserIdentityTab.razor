@@ -1,0 +1,134 @@
+@using Account.Client
+@using Account.Features.BackOffice.Queries
+@using Account.Features.ExternalAuthentication.BackOffice.Queries
+@using Account.Features.Users.BackOffice.Queries
+@using Blazor.Client.BackOffice.Shared
+@* The user detail's Identity tab, the React back office's UserIdentityVerificationSection: the user's identity verification from
+   GET /api/back-office/users/{id}/identity-verification, with the provider, the assurance level, the date it was bound and the
+   date the person authenticated, or the not-verified state, or the unavailable state when the read failed. Every back-office
+   identity sees it. Revoke verification is offered only to an identity in the admins group (UserIdentityVerification.CanRevoke
+   on the identity the shell cascades), and the account API refuses the DELETE for anyone else. The revoke asks first in a
+   confirmation that names the user, reports its outcome, and then reads the verification again whatever the answer, so the
+   tab shows the account API's state and never one the page assumed. UserIdentityVerification makes every decision. *@
+@inject IServiceProvider Services
+
+<section class="account-detail-section" aria-labelledby="user-identity-heading" data-testid="user-identity-verification" data-state="@_view.ToString().ToLowerInvariant()">
+    <h2 id="user-identity-heading" class="account-detail-section-title">@AccountStrings.IdentityVerification</h2>
+    @switch (_view)
+    {
+        case UserIdentityVerificationView.Loading:
+            <p class="dashboard-card-loading" role="status">@CommonStrings.Loading</p>
+            break;
+        case UserIdentityVerificationView.Unavailable:
+            <div class="dashboard-card-empty" data-testid="user-identity-unavailable">
+                <p class="dashboard-card-empty-title">@BackOfficeStrings.VerificationStatusUnavailable</p>
+                <p>@BackOfficeStrings.VerificationStatusCouldNotBeLoaded</p>
+            </div>
+            break;
+        case UserIdentityVerificationView.Unverified:
+            <div class="dashboard-card-empty" data-testid="user-identity-unverified">
+                <p class="dashboard-card-empty-title">@BackOfficeStrings.NotVerified</p>
+                <p>@BackOfficeStrings.NotVerifiedDescription</p>
+            </div>
+            break;
+        case UserIdentityVerificationView.Verified:
+            <div class="dashboard-card account-plan-card" data-testid="user-identity-verified">
+                <p class="account-preview-badges">
+                    <span class="account-name" data-testid="user-identity-provider">@UserIdentityVerification.GetProviderLabel(_verification!.Provider)</span>
+                    <span class="account-plan" data-testid="user-identity-assurance">@UserIdentityVerification.GetAssuranceLevelLabel(_verification.AssuranceLevel)</span>
+                </p>
+                <dl class="account-plan-card-fields">
+                    <div>
+                        <dt>@BackOfficeStrings.VerifiedOnLabel</dt>
+                        <dd data-testid="user-identity-verified-at">@UserIdentityVerification.FormatDate(_verification.VerifiedAt)</dd>
+                    </div>
+                    <div>
+                        <dt>@BackOfficeStrings.AuthenticatedOn</dt>
+                        <dd data-testid="user-identity-authenticated-at">@UserIdentityVerification.FormatDate(_verification.AuthenticatedAt)</dd>
+                    </div>
+                </dl>
+                @if (UserIdentityVerification.CanRevoke(Me, _view))
+                {
+                    <div class="account-admin-actions" role="group" aria-label="@BackOfficeStrings.IdentityVerificationActions">
+                        <button type="button" class="button-destructive" disabled="@_isRevoking" data-testid="user-identity-revoke" @onclick="() => _isDialogOpen = true">
+                            @BackOfficeStrings.RevokeVerification
+                        </button>
+                    </div>
+                }
+            </div>
+            break;
+    }
+</section>
+
+@if (UserIdentityVerification.CanRevoke(Me, _view))
+{
+    <ConfirmActionDialog Open="_isDialogOpen" Title="@BackOfficeStrings.RevokeIdentityVerification" Description="@UserIdentityVerification.GetRevokeConfirmation(UserName)"
+                         ConfirmLabel="@BackOfficeStrings.RevokeVerification" BusyLabel="@BackOfficeStrings.RevokingVerification" IsDestructive IsBusy="_isRevoking"
+                         TestId="revoke-identity-verification-dialog" OnConfirm="RevokeAsync" OnCancel="CloseDialog"/>
+}
+
+@code {
+
+    private bool _isDialogOpen;
+    private bool _isRevoking;
+    private BackOfficeUserIdentityVerificationResponse? _verification;
+    private UserIdentityVerificationView _view = UserIdentityVerificationView.Loading;
+
+    [Parameter]
+    [EditorRequired]
+    public BackOfficeUserDetailResponse User { get; set; } = null!;
+
+    // The back-office identity BackOfficeShell read from GET /api/back-office/me; null until it is loaded
+    [CascadingParameter]
+    public MeResponse? Me { get; set; }
+
+    private string UserName => UserDetailFormat.GetDisplayName(User);
+
+    private BackOfficeClient Client => Services.GetRequiredService<BackOfficeClient>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await Client.GetUserIdentityVerificationAsync(User.Id, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        _view = UserIdentityVerification.GetView(result);
+        _verification = _view == UserIdentityVerificationView.Verified ? result.Value : null;
+    }
+
+    private void CloseDialog()
+    {
+        _isDialogOpen = false;
+    }
+
+    private async Task RevokeAsync()
+    {
+        _isRevoking = true;
+        var result = await Client.RevokeUserIdentityVerificationAsync(User.Id, CancellationToken.None);
+        _isRevoking = false;
+
+        var outcome = UserIdentityVerification.FromRevoke(result);
+        if (outcome == UserIdentityVerificationRevokeOutcome.Leaving) return;
+
+        CloseDialog();
+        if (outcome == UserIdentityVerificationRevokeOutcome.Revoked)
+        {
+            Services.GetRequiredService<ToastService>().Show(ToastKind.Success, BackOfficeStrings.IdentityVerificationRevoked, null, UserIdentityVerification.RevokedToastTestId);
+        }
+        else
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+        }
+
+        _view = UserIdentityVerificationView.Loading;
+        _verification = null;
+        await LoadAsync();
+    }
+
+}

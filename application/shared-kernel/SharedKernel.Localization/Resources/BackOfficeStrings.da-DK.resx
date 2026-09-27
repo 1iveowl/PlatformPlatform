@@ -762,4 +762,55 @@
     <data name="UserFlagsDescription" xml:space="preserve">
         <value>Per-bruger flags, og om hvert af dem er slået til for denne bruger.</value>
     </data>
+    <data name="IdentityTab" xml:space="preserve">
+        <value>Identitet</value>
+    </data>
+    <data name="VerificationStatusUnavailable" xml:space="preserve">
+        <value>Bekræftelsesstatus utilgængelig</value>
+    </data>
+    <data name="VerificationStatusCouldNotBeLoaded" xml:space="preserve">
+        <value>Bekræftelsesstatus kunne ikke indlæses. Prøv igen.</value>
+    </data>
+    <data name="NotVerified" xml:space="preserve">
+        <value>Ikke bekræftet</value>
+    </data>
+    <data name="NotVerifiedDescription" xml:space="preserve">
+        <value>Denne person har ikke bekræftet sin identitet med et elektronisk ID.</value>
+    </data>
+    <data name="VerifiedWithMitId" xml:space="preserve">
+        <value>Bekræftet med MitID</value>
+    </data>
+    <data name="VerifiedWithGoogle" xml:space="preserve">
+        <value>Bekræftet med Google</value>
+    </data>
+    <data name="VerifiedWithMicrosoft" xml:space="preserve">
+        <value>Bekræftet med Microsoft</value>
+    </data>
+    <data name="VerifiedNoProvider" xml:space="preserve">
+        <value>Bekræftet</value>
+    </data>
+    <data name="VerifiedOnLabel" xml:space="preserve">
+        <value>Bekræftet den</value>
+    </data>
+    <data name="AuthenticatedOn" xml:space="preserve">
+        <value>Godkendt den</value>
+    </data>
+    <data name="RevokeVerification" xml:space="preserve">
+        <value>Tilbagekald bekræftelse</value>
+    </data>
+    <data name="RevokingVerification" xml:space="preserve">
+        <value>Tilbagekalder bekræftelse...</value>
+    </data>
+    <data name="RevokeIdentityVerification" xml:space="preserve">
+        <value>Tilbagekald identitetsbekræftelse</value>
+    </data>
+    <data name="RevokeIdentityVerificationConfirmation" xml:space="preserve">
+        <value>Dette fjerner beviset for, at {0} har bekræftet sin identitet. {0} skal bekræfte igen og kan derefter bekræfte med en anden identitet. Gør dette, når den forkerte identitet er blevet knyttet, for eksempel på en delt enhed. Det kan ikke fortrydes.</value>
+    </data>
+    <data name="IdentityVerificationRevoked" xml:space="preserve">
+        <value>Identitetsbekræftelse tilbagekaldt</value>
+    </data>
+    <data name="IdentityVerificationActions" xml:space="preserve">
+        <value>Handlinger for identitetsbekræftelse</value>
+    </data>
 </root>

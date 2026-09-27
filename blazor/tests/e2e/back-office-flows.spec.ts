@@ -519,8 +519,10 @@ test.describe("@comprehensive", () => {
    * A back-office identity outside the admins group on the users pages:
    * - The users list and a user's tabs are readable
    * - No pin action is offered, and a direct pin call from that identity is refused by the account API with 403
+   * - The Identity tab shows a never-verified user as not verified with no revoke offered, and a direct revoke from that
+   *   identity is refused by the account API with 403
    */
-  test("should let a back-office user read users but offer no pin action and refuse the user's direct call", async ({ page, browser }) => {
+  test("should let a back-office user read users but offer no pin action or revoke and refuse the user's direct calls", async ({ page, browser }) => {
     createTestContext(page);
     const texts = blazorTexts();
     const email = uniqueBlazorEmail();
@@ -543,7 +545,7 @@ test.describe("@comprehensive", () => {
         await user.page.getByTestId("users-grid").getByRole("row").filter({ hasText: email }).getByRole("cell").first().click();
         await expect(user.page.getByTestId("back-office-user-detail")).toHaveAttribute("data-state", "loaded");
 
-        await expect(user.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link")).toHaveCount(4);
+        await expect(user.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link")).toHaveCount(5);
         await expect(user.page.getByTestId("user-admin-actions")).toHaveCount(0);
         await expect(user.page.getByTestId("user-ab-inclusion-pin")).toHaveCount(0);
       })();
@@ -563,6 +565,20 @@ test.describe("@comprehensive", () => {
 
         expect(status).toBe(403);
         expect(await readUserAbInclusionPin(user.page, userId)).toBeNull();
+      })();
+
+      await step("Open the Identity tab as user & see the user not verified with no revoke offered")(async () => {
+        await user.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link", { name: texts.backOfficeIdentityTab, exact: true }).click();
+
+        await expect(user.page.getByTestId("user-identity-verification")).toHaveAttribute("data-state", "unverified");
+        await expect(user.page.getByText(texts.backOfficeNotVerified, { exact: true })).toBeVisible();
+        await expect(user.page.getByRole("button", { name: texts.backOfficeRevokeVerification, exact: true })).toHaveCount(0);
+      })();
+
+      await step("Call the revoke directly as user & get 403 from the account API")(async () => {
+        const status = await user.page.evaluate(async (id) => (await fetch(`/api/back-office/users/${id}/identity-verification`, { method: "DELETE" })).status, userId);
+
+        expect(status).toBe(403);
       })();
     } finally {
       await user.context.close();

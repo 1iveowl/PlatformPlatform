@@ -231,6 +231,12 @@ public static class AccountApiRoutes
         return $"{BackOfficeUser(userId)}/ab-inclusion-pin";
     }
 
+    // The user's identity verification: GET reads it, DELETE revokes it
+    public static string BackOfficeUserIdentityVerification(UserId userId)
+    {
+        return $"{BackOfficeUser(userId)}/identity-verification";
+    }
+
     public static string SetTenantFeatureFlagOverride(string flagKey)
     {
         return $"/api/account/feature-flags/{Uri.EscapeDataString(flagKey)}/tenant-override";

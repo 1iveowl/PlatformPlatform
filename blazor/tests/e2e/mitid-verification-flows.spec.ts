@@ -4,6 +4,7 @@ import { logInInvitedUserThroughBlazor, logInThroughBlazor, logOutThroughBlazor,
 import { expectBlazorErrorPage, expectRedirectsInsideBlazor, readBootstrapUser, setMockProviderCookie, trackRedirects, verifyWithMitIdFromBlazorProfile } from "@blazor/e2e/external-login";
 import {
   getVerificationStatusThroughAccountApi,
+  expectVerificationReadOnlyInBackOffice,
   holdVerificationCallback,
   mockVerificationValues,
   requireMitIdVerificationOrExpectUnavailable,
@@ -111,8 +112,10 @@ test.describe("@comprehensive", () => {
    *   identity to the user who started it or to the user who presented the callback
    * - A successful verification's callback replayed afterwards is refused on the account API's fallback error page, since
    *   the consumed flow no longer names its edition, and leaves the verification as it was
-   * - An administrator revokes the verification in the back office, which stays the React edition until stage G, and the
-   *   profile offers the button again
+   * - The back office's user identity sees the verification in the Blazor back office's Identity tab with no revoke offered,
+   *   and its direct revoke is refused with 403
+   * - An administrator revokes the verification in the Blazor back office's Identity tab, and the profile offers the button
+   *   again
    * - The identity already in use page renders its title, message, action and reference id when opened directly
    */
   test("should refuse a stale or weak authentication, render the refusal pages, and let an administrator revoke", async ({ page, browser }) => {
@@ -245,6 +248,15 @@ test.describe("@comprehensive", () => {
     })();
 
     // === WITHDRAWAL ===
+
+    await step("Open the verified user in the back office as user & verify the verification is read-only and a direct revoke is refused")(async () => {
+      await expectVerificationReadOnlyInBackOffice(browser, invitedUserId);
+
+      await gotoBlazor(page, "user/profile");
+
+      await expect(page.getByText(texts.verifiedWith)).toBeVisible();
+      expect((await getVerificationStatusThroughAccountApi(page)).isVerified).toBe(true);
+    })();
 
     await step("Revoke the verification in the back office & verify the profile offers the MitID button again")(async () => {
       await revokeVerificationInBackOffice(browser, invitedUserId);

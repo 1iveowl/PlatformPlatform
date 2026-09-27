@@ -1,6 +1,6 @@
 // The user detail's tabs and their place in the URL. The tab is the React back office's search parameter tab with its values
-// (overview for Accounts, logins, sessions, feature-flags), Accounts is the default and is left out of the URL, and any other
-// value falls back to Accounts: identity included, whose tab the Blazor back office does not show yet.
+// (overview for Accounts, logins, sessions, identity, feature-flags), Accounts is the default and is left out of the URL, and
+// any other value falls back to Accounts.
 
 using Blazor.Client.Components.Lists;
 using SharedKernel.Domain;
@@ -12,6 +12,7 @@ public enum UserDetailTab
     Accounts,
     Logins,
     Sessions,
+    Identity,
     FeatureFlags
 }
 
@@ -22,7 +23,7 @@ public static class UserDetailTabs
     public const string TabParameter = "tab";
 
     // The React tab strip's order
-    public static readonly IReadOnlyList<UserDetailTab> Tabs = [UserDetailTab.Accounts, UserDetailTab.Logins, UserDetailTab.Sessions, UserDetailTab.FeatureFlags];
+    public static readonly IReadOnlyList<UserDetailTab> Tabs = [UserDetailTab.Accounts, UserDetailTab.Logins, UserDetailTab.Sessions, UserDetailTab.Identity, UserDetailTab.FeatureFlags];
 
     public static string ToValue(UserDetailTab tab)
     {
@@ -30,6 +31,7 @@ public static class UserDetailTabs
         {
             UserDetailTab.Logins => "logins",
             UserDetailTab.Sessions => "sessions",
+            UserDetailTab.Identity => "identity",
             UserDetailTab.FeatureFlags => "feature-flags",
             _ => "overview"
         };
@@ -66,6 +68,7 @@ public static class UserDetailTabs
         {
             UserDetailTab.Logins => BackOfficeStrings.Logins,
             UserDetailTab.Sessions => AccountStrings.Sessions,
+            UserDetailTab.Identity => BackOfficeStrings.IdentityTab,
             UserDetailTab.FeatureFlags => BackOfficeStrings.FeatureFlags,
             _ => BackOfficeStrings.Accounts
         };

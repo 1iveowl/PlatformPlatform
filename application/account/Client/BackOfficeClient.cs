@@ -2,6 +2,7 @@ using Account.Features.BackOffice.BillingDrift.Queries;
 using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
+using Account.Features.ExternalAuthentication.BackOffice.Queries;
 using Account.Features.FeatureFlags.Queries;
 using Account.Features.Tenants.BackOffice.Commands;
 using Account.Features.Tenants.BackOffice.Queries;
@@ -152,5 +153,15 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult> SetUserAbInclusionPinAsync(UserId userId, SetUserAbInclusionPinCommand command, CancellationToken cancellationToken)
     {
         return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.SetUserAbInclusionPin(userId), command, cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeUserIdentityVerificationResponse>> GetUserIdentityVerificationAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeUserIdentityVerificationResponse>(AccountApiRoutes.BackOfficeUserIdentityVerification(userId), cancellationToken);
+    }
+
+    public Task<ApiCallResult> RevokeUserIdentityVerificationAsync(UserId userId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.BackOfficeUserIdentityVerification(userId), cancellationToken);
     }
 }

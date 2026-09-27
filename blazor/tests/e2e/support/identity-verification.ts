@@ -1,13 +1,12 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { getBackOfficeBaseUrl } from "@shared/e2e/utils/constants";
 import { createTestContext } from "@shared/e2e/utils/test-assertions";
-import { logInAsAdmin } from "@shared/e2e/utils/test-data";
 import { sendAccountApiRequest } from "./account-api";
 import { signUpThroughBlazor } from "./authentication";
+import { openBlazorBackOffice, type BackOfficeIdentity, type BlazorBackOffice } from "./back-office";
 import { mockProviderEvidenceAnnotation, providerDisabledAnnotation, readSystemFeatureFlags, uniqueIdentifier } from "./external-login";
 import { blazorPath, gotoBlazor } from "./routes";
 import { uniqueBlazorEmail } from "./test-data";
-import { accountApiMessages, blazorTexts } from "./texts";
+import { accountApiMessages, blazorLocale, blazorTexts } from "./texts";
 
 /**
  * The values of the mock provider cookie a MitID verification specification selects: a successful identity, an
@@ -113,30 +112,62 @@ export function trackVerificationCallbacks(page: Page): string[] {
 }
 
 /**
- * Revoke a user's identity verification the way an administrator does, in the back office in a second browser context.
- * The back office stays the React edition until stage G moves it, so this step drives the React pages in English.
+ * Open a user's Identity tab in the Blazor back office as the given mock identity, in a browser context of its own and in the
+ * running test's culture, and wait for the tab to finish reading the verification
+ * @param browser The browser the test runs in
+ * @param identity The mock back-office identity to sign in as
+ * @param userId The id of the user
+ */
+async function openIdentityTabInBackOffice(browser: Browser, identity: BackOfficeIdentity, userId: string): Promise<BlazorBackOffice> {
+  const texts = blazorTexts();
+  const backOffice = await openBlazorBackOffice(browser, identity, `back-office/users/${userId}`, blazorLocale());
+  await expect(backOffice.page.getByTestId("back-office-user-detail")).toHaveAttribute("data-state", "loaded");
+  await backOffice.page.getByRole("navigation", { name: texts.backOfficeUserSections }).getByRole("link", { name: texts.backOfficeIdentityTab, exact: true }).click();
+  await expect(backOffice.page.getByTestId("user-identity-verification")).not.toHaveAttribute("data-state", "loading");
+  return backOffice;
+}
+
+/**
+ * Revoke a user's identity verification the way an administrator does, in the Blazor back office in a second browser context
  * @param browser The browser the test runs in
  * @param userId The id of the verified user
  */
 export async function revokeVerificationInBackOffice(browser: Browser, userId: string): Promise<void> {
-  const backOfficeBaseUrl = getBackOfficeBaseUrl();
-  const backOfficeContext = await browser.newContext({ baseURL: backOfficeBaseUrl, ignoreHTTPSErrors: true, locale: "en-US" });
-  const backOfficePage = await backOfficeContext.newPage();
-  await backOfficePage.goto(`${backOfficeBaseUrl}/`);
-  await logInAsAdmin(backOfficePage, `${backOfficeBaseUrl}/`);
-  await backOfficePage.goto(`${backOfficeBaseUrl}/users/${userId}`);
-  await backOfficePage.getByRole("tab", { name: "Identity" }).click();
-  await expect(backOfficePage.getByText("Verified with MitID")).toBeVisible();
-  await backOfficePage.getByRole("button", { name: "Revoke verification" }).click();
-  const revokeDialog = backOfficePage.getByRole("alertdialog", { name: "Revoke identity verification" });
+  const texts = blazorTexts();
+  const { context, page } = await openIdentityTabInBackOffice(browser, "admin", userId);
+  await expect(page.getByText(texts.backOfficeVerifiedWithMitId, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: texts.backOfficeRevokeVerification, exact: true }).click();
+  const revokeDialog = page.getByRole("alertdialog", { name: texts.backOfficeRevokeIdentityVerification });
   await expect(revokeDialog).toBeVisible();
-  const revokeResponse = backOfficePage.waitForResponse(
+  const revokeResponse = page.waitForResponse(
     (response) => response.request().method() === "DELETE" && new URL(response.url()).pathname === `/api/back-office/users/${userId}/identity-verification`
   );
 
-  await revokeDialog.getByRole("button", { name: "Revoke verification" }).click();
+  await revokeDialog.getByRole("button", { name: texts.backOfficeRevokeVerification, exact: true }).click();
 
   expect((await revokeResponse).status()).toBe(200);
-  await expect(backOfficePage.getByText("Not verified")).toBeVisible();
-  await backOfficeContext.close();
+  await expect(page.getByText(texts.backOfficeNotVerified, { exact: true })).toBeVisible();
+  await context.close();
+}
+
+/**
+ * Open a verified user's Identity tab in the Blazor back office as the non-admin mock identity and verify it is read-only:
+ * the verification shows, no revoke is offered, a direct revoke is refused by the account API with 403, and the verification
+ * is still there after a reload
+ * @param browser The browser the test runs in
+ * @param userId The id of the verified user
+ */
+export async function expectVerificationReadOnlyInBackOffice(browser: Browser, userId: string): Promise<void> {
+  const texts = blazorTexts();
+  const { context, page } = await openIdentityTabInBackOffice(browser, "user", userId);
+  await expect(page.getByText(texts.backOfficeVerifiedWithMitId, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: texts.backOfficeRevokeVerification, exact: true })).toHaveCount(0);
+
+  const status = await page.evaluate(async (id) => (await fetch(`/api/back-office/users/${id}/identity-verification`, { method: "DELETE" })).status, userId);
+
+  expect(status).toBe(403);
+  await page.reload();
+  await expect(page.getByTestId("user-identity-verification")).toHaveAttribute("data-state", "verified");
+  await expect(page.getByText(texts.backOfficeVerifiedWithMitId, { exact: true })).toBeVisible();
+  await context.close();
 }

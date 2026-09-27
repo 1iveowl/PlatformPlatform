@@ -104,7 +104,7 @@ test.describe("@comprehensive", () => {
    * The refusal and withdrawal paths of MitID login:
    * - An identity that was never verified is refused with the localized identity not verified page, its hint and reference id, rather than told no account exists
    * - The login start carries the return path of the login page
-   * - Revoking the verification in the back office ends MitID login for that identity; the identity is verified from the Blazor profile, and the back office stays the React edition until stage G
+   * - Revoking the verification in the back office ends MitID login for that identity; the identity is verified from the Blazor profile and revoked in the Blazor back office's Identity tab
    * - The identity not verified page renders its title, message, hint and reference id when opened directly
    */
   test("should refuse an unverified identity, carry the return path, and stop working once revoked", async ({ page, browser }) => {
