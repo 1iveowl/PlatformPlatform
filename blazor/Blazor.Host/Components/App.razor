@@ -10,8 +10,9 @@
 @* no-fuib-style: FluentUI's initializer otherwise fetches "./_content/.../css/default-fuib.css" with the native fetch, which
    resolves against the document URL and returns 404 below the path base; the host links the same file absolutely instead *@
 @* data-interactive-surface: wwwroot/js/Blazor.Host.lib.module.js imports the component library's browser bundle only on a
-   document that carries it, so a static public page never downloads it *@
-<html lang="@_locale" no-fuib-style data-interactive-surface="@(_isInteractiveSurface ? "" : null)">
+   document that carries it, so a static public page never downloads it. data-back-office: wwwroot/js/service-worker-registration.js
+   registers the app's offline shell worker on no document that carries it, so the back-office origin never installs one. *@
+<html lang="@_locale" no-fuib-style data-interactive-surface="@(_isInteractiveSurface ? "" : null)" data-back-office="@(_isBackOffice ? "" : null)">
 
 <head>
     <meta charset="utf-8"/>
@@ -21,7 +22,11 @@
     @* No title element here: every page renders its own <PageTitle>, which <HeadOutlet/> below turns into the document's
        title. A title here would be the first one in the document and the browser would use it for every page, so a route
        change would announce nothing new. *@
-    <link rel="manifest" href="@AppUrls.ToAbsolute(HostShell.ManifestPath)"/>
+    @* The app's manifest; a back-office page is not an installable application and the back-office host does not serve it *@
+    @if (!_isBackOffice)
+    {
+        <link rel="manifest" href="@AppUrls.ToAbsolute(HostShell.ManifestPath)"/>
+    }
     @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce.
        data-permanent keyed by the href: enhanced navigation otherwise treats any two <link> elements as the same node and
        copies the new one's attributes onto the old one by one, so leaving an interactive page turned a runtime preload into
@@ -64,6 +69,7 @@
     private string? _nonce;
     private PreloadLink[] _preloadLinks = [];
     private bool _isInteractiveSurface;
+    private bool _isBackOffice;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
@@ -78,7 +84,9 @@
         _importMap = Shell.GetAbsoluteImportMap(importMap);
         // The import map is on every page so enhanced navigation can still start the runtime, but only pages that host a
         // WebAssembly component preload it; a static server-rendered public page therefore downloads no runtime
-        _isInteractiveSurface = HttpContext.GetEndpoint()?.Metadata.GetMetadata<InteractiveSurfaceAttribute>() is not null;
+        var metadata = HttpContext.GetEndpoint()?.Metadata;
+        _isBackOffice = metadata?.GetMetadata<BackOfficeSurfaceAttribute>() is not null;
+        _isInteractiveSurface = _isBackOffice || metadata?.GetMetadata<InteractiveSurfaceAttribute>() is not null;
         _preloadLinks = _isInteractiveSurface ? HostShell.GetPreloadLinks(Assets, _importMap).OrderBy(link => link.Order).ToArray() : [];
     }
 

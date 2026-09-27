@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Account.Client;
 using Blazor.Host;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using NUlid;
+using SharedKernel.Authentication.BackOfficeIdentity;
 using SharedKernel.Authentication.TokenSigning;
 
 namespace Blazor.Tests.Account;
@@ -48,6 +50,8 @@ public sealed class HostCollection : ICollectionFixture<HostFixture>
 public sealed partial class HostFixture : IAsyncLifetime
 {
     public const string PublicHost = "app.dev.localhost:9000";
+    public const string BackOfficeHost = "back-office.dev.localhost:9001";
+    public const string BackOfficeAdminsGroupId = "BackOfficeAdmins";
     public const string TenantIdClaimValue = "4711";
     public const string FailingEmailPrefix = "fail-";
     public const string FailingFirstName = "fail";
@@ -69,6 +73,9 @@ public sealed partial class HostFixture : IAsyncLifetime
     // Shared by all tests; every per-user value is set on the request message, never on the client
     public HttpClient Client { get; private set; } = null!;
 
+    // Without the gateway's forwarded headers, for a caller that reaches the host's port directly
+    public HttpClient DirectClient { get; private set; } = null!;
+
     public IServiceProvider HostServices => _host!.Services;
 
     public async Task InitializeAsync()
@@ -78,14 +85,17 @@ public sealed partial class HostFixture : IAsyncLifetime
 
         Environment.SetEnvironmentVariable("ACCOUNT_API_URL", GetAddress(_accountApi));
         Environment.SetEnvironmentVariable("PUBLIC_URL", $"https://{PublicHost}");
+        Environment.SetEnvironmentVariable("BACK_OFFICE_PUBLIC_URL", $"https://{BackOfficeHost}");
         _host = HostApplication.Build(["--environment", "Development", "--urls", "http://127.0.0.1:0"], TokenSigningClient);
         await _host.StartAsync();
         Client = CreateClient(new Uri(GetAddress(_host)));
+        DirectClient = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false }) { BaseAddress = new Uri(GetAddress(_host)) };
     }
 
     public async Task DisposeAsync()
     {
         Client.Dispose();
+        DirectClient.Dispose();
         if (_host is not null) await _host.DisposeAsync();
         if (_accountApi is not null) await _accountApi.DisposeAsync();
     }
@@ -97,6 +107,43 @@ public sealed partial class HostFixture : IAsyncLifetime
         client.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
         client.DefaultRequestHeaders.Add("X-Forwarded-Host", PublicHost);
         return client;
+    }
+
+    // The request the account API's back-office listener sends when it forwards a back-office page: the back-office host in
+    // X-Forwarded-Host and, for a signed-in identity, the protected identity it authenticated
+    public static HttpRequestMessage CreateBackOfficeRequest(string path, string? protectedIdentity)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("X-Forwarded-Host", BackOfficeHost);
+        request.Headers.Accept.ParseAdd("text/html");
+        if (protectedIdentity is not null) request.Headers.Add(ForwardedBackOfficeIdentity.HeaderName, protectedIdentity);
+        return request;
+    }
+
+    // The identity the account API's back-office handler builds from the mock's principal headers, protected the way its
+    // back-office listener protects it, with the host's own key ring unless another provider is given
+    public string ProtectBackOfficeIdentity(string name, bool isAdmin, IDataProtectionProvider? dataProtectionProvider = null)
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.Name, name), new Claim(ClaimTypes.NameIdentifier, $"oid-{name}"), new Claim(ClaimTypes.Email, $"{name}@dev.localhost"),
+                    ..isAdmin ? [new Claim("groups", BackOfficeAdminsGroupId)] : Array.Empty<Claim>()
+                ], "BackOfficeIdentity"
+            )
+        );
+        return ForwardedBackOfficeIdentity.Protect(dataProtectionProvider ?? HostServices.GetRequiredService<IDataProtectionProvider>(), principal, isAdmin);
+    }
+
+    // The principal headers the platform authentication injects, as a caller that bypasses it would forge them
+    public static void AddPrincipalHeaders(HttpRequestMessage request, string name)
+    {
+        var payload = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(
+                $$"""{"auth_typ":"aad","claims":[{"typ":"name","val":"{{name}}"},{"typ":"groups","val":"{{BackOfficeAdminsGroupId}}"}]}"""
+            )
+        );
+        request.Headers.Add("X-MS-CLIENT-PRINCIPAL-NAME", name);
+        request.Headers.Add("X-MS-CLIENT-PRINCIPAL-ID", $"oid-{name}");
+        request.Headers.Add("X-MS-CLIENT-PRINCIPAL", payload);
     }
 
     public string CreateToken(string email, string? issuer = null, string? audience = null, SigningCredentials? signingCredentials = null, DateTime? expires = null, string? locale = null, string? firstName = "Ann")

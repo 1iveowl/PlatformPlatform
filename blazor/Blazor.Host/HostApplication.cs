@@ -48,6 +48,8 @@ public static class HostApplication
         builder.Services.AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer());
 
         builder.Services.AddSingleton<HostShell>();
+        var backOfficeOrigin = new BackOfficeOrigin();
+        builder.Services.AddSingleton(backOfficeOrigin);
         // Reads and renders the three legal documents once, so a document outside the renderer's policy stops the host here
         builder.Services.AddSingleton<LegalDocuments>();
         builder.Services.AddHttpContextAccessor();
@@ -96,6 +98,7 @@ public static class HostApplication
         );
 
         builder.Services.AddHostAuthentication(tokenSigningClient);
+        builder.Services.AddBackOfficeAuthentication();
 
         // The same single liveness check the other systems register (SharedKernel's AddDefaultHealthChecks): the container
         // platform's readiness probe decides whether this replica takes traffic, so it states only that this process is
@@ -116,7 +119,7 @@ public static class HostApplication
             app.UseHsts();
         }
 
-        app.UseForwardedHeaders(CreateForwardedHeadersOptions(publicUrl));
+        app.UseForwardedHeaders(CreateForwardedHeadersOptions(publicUrl, backOfficeOrigin.PublicUrl));
 
         app.UsePathBase(AppUrls.PathBase);
 
@@ -136,6 +139,7 @@ public static class HostApplication
 
         // After routing, so the page headers and nonce apply to Razor component endpoints only, including a re-executed not-found page
         var hostShell = app.Services.GetRequiredService<HostShell>();
+        app.Use((context, next) => BackOfficeSurface.RestrictToSurfaceHostAsync(context, next, backOfficeOrigin));
         app.Use((context, next) => DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, next, app.Environment));
         app.Use(hostShell.ApplyPageHeadersAsync);
 
@@ -194,13 +198,16 @@ public static class HostApplication
     // envoy (100.64.0.0/10) only. X-Forwarded-Host is also honored, because redirects built by the framework would otherwise
     // point at this host's own origin, which the browser cannot reach under the policy's connect-src; it is accepted only
     // when it names the PUBLIC_URL host, so a forged host never becomes the request host or appears in a redirect.
-    public static ForwardedHeadersOptions CreateForwardedHeadersOptions(Uri publicUrl)
+    // The BACK_OFFICE_PUBLIC_URL host is accepted too, because the account API's back-office listener names it when it
+    // forwards a back-office page. Naming it grants nothing: back-office pages authenticate only the protected identity that
+    // listener forwards (BackOfficeAuthentication), and every other page answers 404 on that host (BackOfficeSurface).
+    public static ForwardedHeadersOptions CreateForwardedHeadersOptions(Uri publicUrl, Uri? backOfficePublicUrl = null)
     {
         var options = new ForwardedHeadersOptions
         {
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
             ForwardLimit = 1,
-            AllowedHosts = [publicUrl.IdnHost]
+            AllowedHosts = backOfficePublicUrl is null ? [publicUrl.IdnHost] : [publicUrl.IdnHost, backOfficePublicUrl.IdnHost]
         };
         options.KnownIPNetworks.Clear();
         options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("127.0.0.0"), 8));

@@ -1,0 +1,92 @@
+@using Account.Client
+@using Account.Features.BackOffice.Queries
+@using Account.Features.BackOffice.Requests
+@using SharedKernel.Domain
+@using SharedKernel.FeatureFlags
+@* The back-office placeholder's WebAssembly island. In the browser it reads the signed-in identity from the account API
+   through BackOfficeClient, and, in Development only, sets and clears one account's A/B inclusion pin, the admin write that
+   proves the back-office antiforgery path end to end. The account API decides who may write; this component only shows
+   its answer. *@
+@inject IServiceProvider Services
+
+<section aria-labelledby="back-office-api-heading">
+    <h2 id="back-office-api-heading">@BackOfficeStrings.AccountApiIdentity</h2>
+    <p data-testid="render-mode">@string.Format(CultureInfo.InvariantCulture, AccountStrings.InteractiveState, RendererInfo.IsInteractive)</p>
+
+    @if (_me is { } me)
+    {
+        <dl>
+            <dt>@BackOfficeStrings.Name</dt>
+            <dd data-testid="back-office-api-name">@me.DisplayName</dd>
+            <dt>@BackOfficeStrings.Admin</dt>
+            <dd data-testid="back-office-api-admin">@(me.IsAdmin ? BackOfficeStrings.Admin : BackOfficeStrings.NotAdmin)</dd>
+        </dl>
+    }
+</section>
+
+@if (ShowDevelopmentCheck && RendererInfo.IsInteractive)
+{
+    <section aria-labelledby="back-office-development-heading">
+        <h2 id="back-office-development-heading">@BackOfficeStrings.DevelopmentCheck</h2>
+        <label for="back-office-account-id">@BackOfficeStrings.AccountId</label>
+        <input id="back-office-account-id" type="text" inputmode="numeric" autocomplete="off" @bind="_accountId" data-testid="back-office-account-id"/>
+        <p>
+            <button type="button" disabled="@_isSaving" data-testid="back-office-pin" @onclick="() => SetPinAsync(AbInclusionPin.AlwaysOn)">@BackOfficeStrings.PinAbInclusionAlwaysOn</button>
+            <button type="button" disabled="@_isSaving" data-testid="back-office-clear-pin" @onclick="() => SetPinAsync(null)">@BackOfficeStrings.ClearAbInclusionPin</button>
+        </p>
+        <p role="status" data-testid="back-office-pin-result">@_pinResult</p>
+    </section>
+}
+
+<ToastRegion/>
+
+@code {
+
+    private string _accountId = "";
+    private bool _isSaving;
+    private MeResponse? _me;
+    private string _pinResult = "";
+
+    [Parameter]
+    public bool ShowDevelopmentCheck { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetMeAsync(CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _me = result.Value;
+    }
+
+    private async Task SetPinAsync(AbInclusionPin? pin)
+    {
+        _pinResult = "";
+        if (!long.TryParse(_accountId, NumberStyles.None, CultureInfo.InvariantCulture, out var accountId))
+        {
+            _pinResult = BackOfficeStrings.EnterAccountId;
+            return;
+        }
+
+        _isSaving = true;
+        var result = await Services.GetRequiredService<BackOfficeClient>().SetTenantAbInclusionPinAsync(new TenantId(accountId), new SetTenantAbInclusionPinCommand(pin), CancellationToken.None);
+        _isSaving = false;
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _pinResult = pin is null ? BackOfficeStrings.AbInclusionPinCleared : BackOfficeStrings.AbInclusionPinSaved;
+    }
+
+}

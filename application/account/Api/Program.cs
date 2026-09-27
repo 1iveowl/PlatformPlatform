@@ -87,6 +87,10 @@ app.UseApiServices(); // Add common configuration for all APIs like Swagger, HST
 // that AppGateway proxies on the user-facing host must be served here directly from blob storage.
 app.MapBackOfficeBlobProxy(backOfficeHostname);
 
+// The Blazor edition's back-office pages under /blazor on the back-office host, forwarded to the internal Blazor host with
+// the authenticated back-office identity. Mapped only where BACK_OFFICE_BLAZOR_HOST_URL is set.
+app.MapBackOfficeBlazorProxy(backOfficeHostname);
+
 if (SharedInfrastructureConfiguration.IsRunningInAzure)
 {
     // Production: same image runs in two ACA container apps. The back-office one carries an explicit

@@ -127,6 +127,10 @@ var accountApi = builder
     // Back-office bundle URLs target the dedicated Kestrel port directly (no AppGateway).
     .WithEnvironment("BACK_OFFICE_PUBLIC_URL", backOfficeBaseUrl)
     .WithEnvironment("BACK_OFFICE_CDN_URL", backOfficeBaseUrl)
+    // The back-office listener forwards /blazor/* to the Blazor host with the back-office identity, as the back-office
+    // container app will forward to the internal blazor-host container app in Azure. Set also when the blazor-host resource
+    // is excluded, because a Release publish served by blazor-serve listens on the same port.
+    .WithEnvironment("BACK_OFFICE_BLAZOR_HOST_URL", "https://localhost:" + ports.BlazorHost)
     .WithUrlConfiguration(appHostname, ports.AppGateway, "/account")
     // Google OAuth's redirect_uri whitelist requires literal 'localhost', not subdomains like
     // 'app.dev.localhost'. The callback then 301's via LocalhostRedirectMiddleware back to the
@@ -203,6 +207,9 @@ if (!excludeBlazorHost)
         .AddProject("blazor-host", "../../blazor/Blazor.Host/Blazor.Host.csproj")
         .WithEnvironment("ASPNETCORE_URLS", "https://localhost:" + ports.BlazorHost)
         .WithEnvironment("ACCOUNT_API_URL", "https://localhost:" + ports.AccountApi)
+        // The back-office origin, whose pages the account API's back-office listener forwards here; the host answers that
+        // host name only for back-office pages and only with the identity the listener forwards
+        .WithEnvironment("BACK_OFFICE_PUBLIC_URL", backOfficeBaseUrl)
         .WithEnvironment("PUBLIC_GOOGLE_OAUTH_ENABLED", googleOAuthConfigured ? "true" : "false")
         .WithEnvironment("PUBLIC_ENTRA_OAUTH_ENABLED", entraOAuthConfigured ? "true" : "false")
         .WithEnvironment("PUBLIC_MITID_VERIFICATION_ENABLED", mitIdVerificationConfigured ? "true" : "false")

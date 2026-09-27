@@ -1,3 +1,4 @@
+using Blazor.Client.BackOffice;
 using Blazor.Client.Bootstrap;
 using Blazor.Client.Components;
 using Blazor.Client.Components.Lists;
@@ -15,6 +16,9 @@ builder.Services.AddLocalization();
 builder.Services.AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer());
 
 builder.Services.AddAccountApiClients(new Uri(builder.HostEnvironment.BaseAddress), () => new HttpClientHandler());
+
+// The back-office client on its own chain, used only by the back-office pages the host serves on the back-office host
+builder.Services.AddBackOfficeApiClient(new Uri(builder.HostEnvironment.BaseAddress), () => new HttpClientHandler());
 
 // The server-page cache of every DataList, one per application
 builder.Services.AddScoped<DataListPageCache>();

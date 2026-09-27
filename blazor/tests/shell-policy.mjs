@@ -17,6 +17,8 @@ const requireFromApplication = createRequire(path.join(repositoryRoot, "applicat
 const playwright = requireFromApplication("playwright");
 const basePort = readFileSync(path.join(repositoryRoot, ".workspace/port.txt"), "utf8").trim();
 const baseUrl = `https://app.dev.localhost:${basePort}`;
+// The account API's back-office listener, which forwards the path base to the Blazor host (PortAllocation: base port + 1)
+const backOfficeUrl = `https://back-office.dev.localhost:${Number(basePort) + 1}`;
 const pathBase = "/blazor";
 const verificationCode = "UNLOCK";
 const interactiveTimeoutMs = 60_000;
@@ -66,6 +68,7 @@ try {
     result.cases.formAction = await runFormAction(account);
     result.cases.legalPages = await runLegalPages();
     result.cases.manifest = await runManifest();
+    result.cases.backOffice = await runBackOffice();
     result.cases.identityVerification = await runIdentityVerification();
     // Last, because it logs the account out
     result.cases.theme = await runTheme(account);
@@ -79,7 +82,7 @@ result.finishedAt = new Date().toISOString();
 // The Development run drives the Development-only fixture pages and signs up with the development verification code, so it
 // is a fixture check and never Production evidence; the Production run checks that those pages are not reachable
 result.hostConfiguration = options.environment === "production" ? "Production host, expected to be the trimmed publish served by blazor-serve" : "Development host run by the AppHost (fixture check)";
-const expectedCaseCount = options.environment === "production" ? 1 : 12;
+const expectedCaseCount = options.environment === "production" ? 1 : 13;
 const verdict = writeResult(`shell-policy-${options.browser}-${options.environment}.json`, result, expectedCaseCount);
 console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name, passed: value.passed, failures: redact(value.failures.join(" ; ")) })));
 console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
@@ -736,6 +739,36 @@ async function runLegalPages() {
   }
 
   return outcome({ pages }, failures);
+}
+
+// The Blazor back-office placeholder on the back-office host, signed in through the local mock of the platform
+// authentication: the nonce policy with the back-office origin as its only trusted host, no violation, the runtime starts,
+// and no service worker is registered on the back-office origin
+async function runBackOffice() {
+  const context = await newContext();
+  const pageUrl = `${backOfficeUrl}${pathBase}/back-office`;
+  const signIn = await context.newPage();
+  await signIn.goto(`${backOfficeUrl}/.auth/login/aad/callback?identity=admin&post_login_redirect_uri=${encodeURIComponent(`${pathBase}/back-office`)}`, { waitUntil: "load" });
+  await signIn.close();
+
+  const checked = await loadAndCheck(context, pageUrl, { interactive: true });
+  const failures = [...checked.failures];
+  const policy = checked.details.contentSecurityPolicy ?? "";
+  if (!/script-src-elem [^;]*'nonce-/.test(policy)) failures.push(`${pageUrl}: policy without a nonce source`);
+  if (!policy.includes(`connect-src ${backOfficeUrl}`)) failures.push(`${pageUrl}: policy does not trust the back-office origin`);
+  if (policy.includes("app.dev.localhost")) failures.push(`${pageUrl}: policy trusts the app origin`);
+
+  const page = await context.newPage();
+  await page.goto(pageUrl, { waitUntil: "load" });
+  await waitForInteractive(page);
+  await settle(page);
+  const workerRegistrations = await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).map((registration) => registration.scope));
+  const workerStatus = (await context.request.get(`${backOfficeUrl}${pathBase}/service-worker.js`)).status();
+  await context.close();
+
+  if (workerRegistrations.length > 0) failures.push(`${pageUrl}: service worker registered for ${workerRegistrations.join(", ")}`);
+  if (workerStatus !== 404) failures.push(`${pathBase}/service-worker.js on the back-office host: status ${workerStatus}`);
+  return outcome({ page: checked.details, workerRegistrations, workerStatus }, failures);
 }
 
 async function runManifest() {

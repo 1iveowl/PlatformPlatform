@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AbInclusionPinCleared" xml:space="preserve">
+        <value>The A/B inclusion pin is cleared.</value>
+        <comment>Development-only check on the back-office placeholder page</comment>
+    </data>
+    <data name="AbInclusionPinSaved" xml:space="preserve">
+        <value>The A/B inclusion pin is saved.</value>
+        <comment>Development-only check on the back-office placeholder page</comment>
+    </data>
+    <data name="AccountApiIdentity" xml:space="preserve">
+        <value>Identity from the account API</value>
+        <comment>Heading of the section that shows the result of GET /api/back-office/me</comment>
+    </data>
+    <data name="AccountId" xml:space="preserve">
+        <value>Account ID</value>
+        <comment>The id of a tenant, called an account in the user interface</comment>
+    </data>
+    <data name="Admin" xml:space="preserve">
+        <value>Admin</value>
+        <comment>React: Admin</comment>
+    </data>
+    <data name="BackOffice" xml:space="preserve">
+        <value>Back Office</value>
+        <comment>React: Back Office</comment>
+    </data>
+    <data name="ClearAbInclusionPin" xml:space="preserve">
+        <value>Clear the A/B inclusion pin</value>
+        <comment>Development-only check on the back-office placeholder page</comment>
+    </data>
+    <data name="DevelopmentCheck" xml:space="preserve">
+        <value>Development check</value>
+        <comment>Heading of the Development-only section of the back-office placeholder page</comment>
+    </data>
+    <data name="EnterAccountId" xml:space="preserve">
+        <value>Enter the numeric ID of an account.</value>
+        <comment>Shown when the account ID field does not hold a number</comment>
+    </data>
+    <data name="Name" xml:space="preserve">
+        <value>Name</value>
+        <comment>React: Name</comment>
+    </data>
+    <data name="NotAdmin" xml:space="preserve">
+        <value>Not admin</value>
+        <comment>Shown instead of the admin marker</comment>
+    </data>
+    <data name="PinAbInclusionAlwaysOn" xml:space="preserve">
+        <value>Pin the A/B inclusion to always on</value>
+        <comment>React: Always on (Altid aktiveret)</comment>
+    </data>
+    <data name="SignedInAs" xml:space="preserve">
+        <value>Signed in as</value>
+        <comment>Followed by the name of the signed-in back-office identity</comment>
+    </data>
+</root>

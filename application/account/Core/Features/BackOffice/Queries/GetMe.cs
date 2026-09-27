@@ -10,9 +10,6 @@ namespace Account.Features.BackOffice.Queries;
 [PublicAPI]
 public sealed record GetMeQuery : IRequest<Result<MeResponse>>;
 
-[PublicAPI]
-public sealed record MeResponse(string DisplayName, string Email, bool IsAdmin, string[] Groups);
-
 // Reaches into HttpContext.User directly rather than going through IExecutionContext because back-office
 // principals (Easy Auth / mock easy auth) carry no UserId, TenantId, or SessionId — IExecutionContext.UserInfo
 // is shaped for tenant-scoped account users and would lose the BackOfficeIdentity claim shape we need here.

@@ -64,6 +64,7 @@ public sealed class HostShell
     private const int NonceByteCount = 16;
 
     private readonly ConditionalWeakTable<ImportMapDefinition, ImportMapDefinition> _absoluteImportMaps = new();
+    private readonly string _backOfficeTrustedHosts;
     private readonly string _trustedHosts;
 
     public HostShell(IWebHostEnvironment environment)
@@ -75,6 +76,15 @@ public sealed class HostShell
         if (environment.IsDevelopment() && Uri.TryCreate(publicUrl, UriKind.Absolute, out var publicUri))
         {
             _trustedHosts += $" wss://{publicUri.Host}:* https://{publicUri.Host}:*";
+        }
+
+        // A back-office page is served on its own origin, so its policy trusts that origin in place of the app's, with the
+        // same directives; neither policy gains the other's origin
+        var backOfficeUrl = Environment.GetEnvironmentVariable(BackOfficeOrigin.PublicUrlKey) ?? string.Empty;
+        _backOfficeTrustedHosts = backOfficeUrl;
+        if (environment.IsDevelopment() && Uri.TryCreate(backOfficeUrl, UriKind.Absolute, out var backOfficeUri))
+        {
+            _backOfficeTrustedHosts += $" wss://{backOfficeUri.Host}:* https://{backOfficeUri.Host}:*";
         }
 
         Brand = LoadBrandTokens();
@@ -150,7 +160,8 @@ public sealed class HostShell
         headers["Referrer-Policy"] = "no-referrer, strict-origin-when-cross-origin";
         headers["Permissions-Policy"] =
             "geolocation=(), microphone=(), camera=(), picture-in-picture=(), display-capture=(), fullscreen=(self), web-share=(), identity-credentials-get=()";
-        headers.ContentSecurityPolicy = BuildContentSecurityPolicy(nonce);
+        var isBackOfficePage = context.GetEndpoint()?.Metadata.GetMetadata<BackOfficeSurfaceAttribute>() is not null;
+        headers.ContentSecurityPolicy = BuildContentSecurityPolicy(nonce, isBackOfficePage);
 
         return next(context);
     }
@@ -163,20 +174,22 @@ public sealed class HostShell
     // A null nonce is the offline shell document, which is stored and replayed: it renders no inline element, so it needs no
     // nonce source, and one frozen into a cached document would name a request that is long over. Its scripts and stylesheets
     // are the same same-origin files every page loads, allowed by the trusted host list on script-src-elem and style-src-elem.
-    // No directive gains a source either way.
-    public string BuildContentSecurityPolicy(string? nonce)
+    // No directive gains a source either way. A back-office page gets the same directives with the back-office origin as its
+    // trusted host instead of the app's public and CDN URLs.
+    public string BuildContentSecurityPolicy(string? nonce, bool isBackOfficePage = false)
     {
         var noncePart = nonce is null ? "" : $" 'nonce-{nonce}'";
+        var trustedHosts = isBackOfficePage ? _backOfficeTrustedHosts : _trustedHosts;
         var directives = new[]
         {
-            $"script-src {_trustedHosts}{noncePart} 'strict-dynamic' 'wasm-unsafe-eval' https:",
-            $"script-src-elem {_trustedHosts}{noncePart}",
-            $"style-src {_trustedHosts}{noncePart}",
-            $"style-src-elem {_trustedHosts}{noncePart}",
-            $"default-src {_trustedHosts}",
-            $"connect-src {_trustedHosts}",
+            $"script-src {trustedHosts}{noncePart} 'strict-dynamic' 'wasm-unsafe-eval' https:",
+            $"script-src-elem {trustedHosts}{noncePart}",
+            $"style-src {trustedHosts}{noncePart}",
+            $"style-src-elem {trustedHosts}{noncePart}",
+            $"default-src {trustedHosts}",
+            $"connect-src {trustedHosts}",
             "frame-src 'none'",
-            $"img-src {_trustedHosts} data: blob:",
+            $"img-src {trustedHosts} data: blob:",
             "object-src 'none'",
             "base-uri 'none'",
             "worker-src 'self'"

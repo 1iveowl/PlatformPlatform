@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AbInclusionPinCleared" xml:space="preserve">
+        <value>A/B-inklusionsfastgørelsen er fjernet.</value>
+    </data>
+    <data name="AbInclusionPinSaved" xml:space="preserve">
+        <value>A/B-inklusionsfastgørelsen er gemt.</value>
+    </data>
+    <data name="AccountApiIdentity" xml:space="preserve">
+        <value>Identitet fra konto-API'et</value>
+    </data>
+    <data name="AccountId" xml:space="preserve">
+        <value>Konto-id</value>
+    </data>
+    <data name="Admin" xml:space="preserve">
+        <value>Admin</value>
+    </data>
+    <data name="BackOffice" xml:space="preserve">
+        <value>Back Office</value>
+    </data>
+    <data name="ClearAbInclusionPin" xml:space="preserve">
+        <value>Fjern A/B-inklusionsfastgørelsen</value>
+    </data>
+    <data name="DevelopmentCheck" xml:space="preserve">
+        <value>Udviklingstjek</value>
+    </data>
+    <data name="EnterAccountId" xml:space="preserve">
+        <value>Indtast det numeriske id for en konto.</value>
+    </data>
+    <data name="Name" xml:space="preserve">
+        <value>Navn</value>
+    </data>
+    <data name="NotAdmin" xml:space="preserve">
+        <value>Ikke admin</value>
+    </data>
+    <data name="PinAbInclusionAlwaysOn" xml:space="preserve">
+        <value>Fastgør A/B-inklusionen til altid aktiveret</value>
+    </data>
+    <data name="SignedInAs" xml:space="preserve">
+        <value>Logget ind som</value>
+    </data>
+</root>

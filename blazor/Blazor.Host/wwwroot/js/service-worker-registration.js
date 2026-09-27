@@ -4,12 +4,16 @@
 // The worker's address and its scope are the path base, which this module derives from its own URL rather than from the
 // document: base-uri 'none' makes the browser ignore <base href>, and this file is served at <path base>/js/. Registration
 // failures are swallowed: the offline shell is an addition, and an application that cannot install one still works.
+//
+// A back-office page (data-back-office, set by Components/App.razor) registers nothing: the offline shell replays the app's
+// document, which has no place on the back-office origin, and the back-office host does not serve the worker either.
 
 const scope = new URL("../", import.meta.url).pathname;
 const workerUrl = `${scope}service-worker.js`;
 
 export async function register() {
   if (!("serviceWorker" in navigator)) return null;
+  if (document.documentElement.hasAttribute("data-back-office")) return null;
 
   try {
     return await navigator.serviceWorker.register(workerUrl, { scope, updateViaCache: "none" });

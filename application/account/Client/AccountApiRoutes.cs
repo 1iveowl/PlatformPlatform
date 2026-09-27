@@ -14,6 +14,8 @@ public static class AccountApiRoutes
 {
     public const string Bootstrap = "/api/account/bootstrap";
 
+    public const string BackOfficeMe = "/api/back-office/me";
+
     public const string Logout = "/api/account/authentication/logout";
 
     public const string SwitchTenant = "/api/account/authentication/switch-tenant";
@@ -79,6 +81,11 @@ public static class AccountApiRoutes
     }
 
     // The flag key is a registry key (lower case kebab-case), escaped here like every other route value
+    public static string SetTenantAbInclusionPin(TenantId tenantId)
+    {
+        return $"/api/back-office/tenants/{tenantId.Value.ToString(CultureInfo.InvariantCulture)}/ab-inclusion-pin";
+    }
+
     public static string SetTenantFeatureFlagOverride(string flagKey)
     {
         return $"/api/account/feature-flags/{Uri.EscapeDataString(flagKey)}/tenant-override";
