@@ -813,4 +813,118 @@
     <data name="IdentityVerificationActions" xml:space="preserve">
         <value>Handlinger for identitetsbekræftelse</value>
     </data>
+    <data name="All" xml:space="preserve">
+        <value>Alle</value>
+    </data>
+    <data name="RefundsAndCreditNotes" xml:space="preserve">
+        <value>Refusioner og kreditnotaer</value>
+    </data>
+    <data name="InvoiceView" xml:space="preserve">
+        <value>Fakturavisning</value>
+    </data>
+    <data name="EventView" xml:space="preserve">
+        <value>Hændelsesvisning</value>
+    </data>
+    <data name="SubscriptionState" xml:space="preserve">
+        <value>Abonnementstilstand</value>
+    </data>
+    <data name="OtherEvents" xml:space="preserve">
+        <value>Andet</value>
+    </data>
+    <data name="SearchByAccountName" xml:space="preserve">
+        <value>Søg efter kontonavn</value>
+    </data>
+    <data name="InvoicesSubtitleAll" xml:space="preserve">
+        <value>Alle fakturaer, refusioner og kreditnotaer på tværs af alle konti.</value>
+    </data>
+    <data name="InvoicesSubtitleInvoices" xml:space="preserve">
+        <value>Betalte, afventende og fejlede fakturaer på tværs af alle konti.</value>
+    </data>
+    <data name="InvoicesSubtitleRefunds" xml:space="preserve">
+        <value>Refusioner og kreditnotaer på tværs af alle konti.</value>
+    </data>
+    <data name="NoResultsMatchSearch" xml:space="preserve">
+        <value>Ingen resultater matcher din søgning</value>
+    </data>
+    <data name="NoRefundsYet" xml:space="preserve">
+        <value>Ingen refusioner eller kreditnotaer endnu</value>
+    </data>
+    <data name="NoInvoicesYet" xml:space="preserve">
+        <value>Ingen fakturaer endnu</value>
+    </data>
+    <data name="NoRecordsYet" xml:space="preserve">
+        <value>Ingen poster endnu</value>
+    </data>
+    <data name="TryClearingSearch" xml:space="preserve">
+        <value>Prøv at rydde søgningen for at se flere resultater.</value>
+    </data>
+    <data name="InvoicesAppearDescription" xml:space="preserve">
+        <value>Poster vises her, når konti tegner abonnement, og Stripe-webhooks bliver behandlet.</value>
+    </data>
+    <data name="Amount" xml:space="preserve">
+        <value>Beløb</value>
+    </data>
+    <data name="Vat" xml:space="preserve">
+        <value>Moms</value>
+    </data>
+    <data name="CreditNote" xml:space="preserve">
+        <value>Kreditnota</value>
+    </data>
+    <data name="Invoice" xml:space="preserve">
+        <value>Faktura</value>
+    </data>
+    <data name="OpenInvoice" xml:space="preserve">
+        <value>Åbn faktura</value>
+    </data>
+    <data name="OpenCreditNote" xml:space="preserve">
+        <value>Åbn kreditnota</value>
+    </data>
+    <data name="Actions" xml:space="preserve">
+        <value>Handlinger</value>
+    </data>
+    <data name="BillingEventsSubtitle" xml:space="preserve">
+        <value>Den autoritative log over ændringer i abonnementer, betalinger og fakturering på tværs af alle konti.</value>
+    </data>
+    <data name="NoBillingEventsMatchFilters" xml:space="preserve">
+        <value>Ingen faktureringshændelser matcher dine filtre</value>
+    </data>
+    <data name="NoBillingEventsYet" xml:space="preserve">
+        <value>Ingen faktureringshændelser endnu</value>
+    </data>
+    <data name="BillingEventsAppearDescription" xml:space="preserve">
+        <value>Ændringer i abonnementer, betalinger og fakturering vises her, når Stripe-webhooks bliver behandlet.</value>
+    </data>
+    <data name="PlanTransition" xml:space="preserve">
+        <value>Planskift</value>
+    </data>
+    <data name="PlanTransitionTo" xml:space="preserve">
+        <value>til</value>
+    </data>
+    <data name="MrrAfter" xml:space="preserve">
+        <value>MRR efter</value>
+    </data>
+    <data name="AccountInvoicesDescription" xml:space="preserve">
+        <value>Alle fakturaer, refusioner og kreditnotaer: pengene ind og ud for dette abonnement.</value>
+    </data>
+    <data name="NoTransactions" xml:space="preserve">
+        <value>Ingen transaktioner</value>
+    </data>
+    <data name="NoTransactionsDescription" xml:space="preserve">
+        <value>Ingen fakturaer, refusioner eller kreditnotaer endnu.</value>
+    </data>
+    <data name="AccountBillingEventsDescription" xml:space="preserve">
+        <value>Planskift, fornyelser, opsigelser og betalingsresultater: abonnementets livsforløb og dets MRR-påvirkning over tid.</value>
+    </data>
+    <data name="NoBillingEvents" xml:space="preserve">
+        <value>Ingen faktureringshændelser</value>
+    </data>
+    <data name="NoBillingEventsDescription" xml:space="preserve">
+        <value>Ændringer i abonnementer, betalinger og fakturering vises her.</value>
+    </data>
+    <data name="AccountInvoices" xml:space="preserve">
+        <value>Kontoens fakturaer</value>
+    </data>
+    <data name="AccountBillingEvents" xml:space="preserve">
+        <value>Kontoens faktureringshændelser</value>
+    </data>
 </root>

@@ -15,27 +15,6 @@ public sealed record GetTenantPaymentHistoryQuery(int PageOffset = 0, int PageSi
     public TenantId Id { get; init; } = null!;
 }
 
-[PublicAPI]
-public sealed record TenantPaymentHistoryResponse(int TotalCount, int PageSize, int TotalPages, int CurrentPageOffset, TenantPaymentTransaction[] Transactions);
-
-[PublicAPI]
-public sealed record TenantPaymentTransaction(
-    PaymentTransactionId Id,
-    BackOfficeInvoiceRowKind RowKind,
-    decimal Amount,
-    decimal AmountExcludingTax,
-    decimal TaxAmount,
-    string Currency,
-    PaymentTransactionStatus Status,
-    DateTimeOffset Date,
-    DateTimeOffset? RefundedAt,
-    string? FailureReason,
-    string? InvoiceUrl,
-    string? CreditNoteUrl,
-    DateTimeOffset? CreditNotedAt,
-    SubscriptionPlan? Plan
-);
-
 public sealed class GetTenantPaymentHistoryQueryValidator : AbstractValidator<GetTenantPaymentHistoryQuery>
 {
     public GetTenantPaymentHistoryQueryValidator()

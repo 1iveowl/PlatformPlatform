@@ -1,0 +1,146 @@
+@using Account.Client
+@using Account.Features.BackOffice.Invoices.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Shell
+@using Microsoft.FluentUI.AspNetCore.Components
+@* The back office's invoices list, the React back office's invoices page: every invoice, refund and credit note row across
+   all accounts on DataList, with the search by account name, the all, invoices and refunds view, the sort by account, date,
+   total and status, and paging, all in the URL under the React back office's parameter names (InvoicesListSource). A row
+   opens its account's Invoices tab. Read-only for every back-office identity. The host serves the page only with the
+   subscription setting on, prerenders the frame and the rows load in the browser. *@
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="accounts" data-testid="back-office-invoices">
+        <h1>@BackOfficeStrings.Invoices</h1>
+        <p class="accounts-subtitle" data-testid="invoices-subtitle">@Subtitle</p>
+
+        <div class="accounts-toolbar" data-testid="invoices-toolbar">
+            <div role="search" class="accounts-search">
+                <FluentTextInput Id="@SearchId" data-testid="invoices-search" AriaLabel="@CommonStrings.Search" Placeholder="@BackOfficeStrings.SearchByAccountName" Immediate="true"
+                                 ImmediateDelay="500" Value="@_filters.GetValueOrDefault(InvoicesListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+            </div>
+
+            <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.InvoiceView" data-testid="invoices-view">
+                @foreach (var view in InvoicesListSource.Views)
+                {
+                    <button type="button" class="accounts-toggle" aria-pressed="@(_view == view ? "true" : "false")" data-testid="@($"invoices-view-{InvoicesListSource.ToValue(view)}")"
+                            @onclick="() => SetFiltersAsync(InvoicesListSource.SetView(view))">
+                        @ViewLabel(view)
+                    </button>
+                }
+            </div>
+        </div>
+
+        <DataList @ref="_list" TItem="BackOfficeInvoiceSummary" data-testid="invoices-grid" ListId="@InvoicesListSource.ListId" CacheScope="@AccountsListSource.CacheScope"
+                  Label="@BackOfficeStrings.Invoices" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="InvoicesListSource.KeyOf" DefaultOrderBy="@InvoicesListSource.DefaultOrderBy"
+                  DefaultSortOrder="InvoicesListSource.DefaultSortOrder" FilterParameters="InvoicesListSource.FilterParameters" NormalizeFilters="InvoicesListSource.NormalizeFilters"
+                  FocusFallbackId="@SearchId" RowLabel="RowLabel" OnActivated="OpenAccountAsync" OnStateChanged="OnListStateChangedAsync">
+            <EmptyContent>
+                <div class="accounts-empty" data-testid="invoices-empty">
+                    <p class="accounts-empty-title">@EmptyTitle</p>
+                    <p>@(HasSearch ? BackOfficeStrings.TryClearingSearch : BackOfficeStrings.InvoicesAppearDescription)</p>
+                    @if (HasSearch)
+                    {
+                        <button type="button" class="button-secondary" data-testid="invoices-clear-filters" @onclick="() => SetFiltersAsync(InvoicesListSource.ClearAllFilters())">
+                            @BackOfficeStrings.ClearFilters
+                        </button>
+                    }
+                </div>
+            </EmptyContent>
+        </DataList>
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private const string SearchId = "invoices-search";
+
+    private IReadOnlyList<DataListColumn<BackOfficeInvoiceSummary>> _columns = [];
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private DataList<BackOfficeInvoiceSummary>? _list;
+    private InvoicesView _view;
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    private bool HasSearch => _filters.ContainsKey(InvoicesListSource.SearchParameter);
+
+    private string Subtitle => _view switch
+    {
+        InvoicesView.Refunds => BackOfficeStrings.InvoicesSubtitleRefunds,
+        InvoicesView.Invoices => BackOfficeStrings.InvoicesSubtitleInvoices,
+        _ => BackOfficeStrings.InvoicesSubtitleAll
+    };
+
+    private string EmptyTitle => HasSearch
+        ? BackOfficeStrings.NoResultsMatchSearch
+        : _view switch
+        {
+            InvoicesView.Refunds => BackOfficeStrings.NoRefundsYet,
+            InvoicesView.Invoices => BackOfficeStrings.NoInvoicesYet,
+            _ => BackOfficeStrings.NoRecordsYet
+        };
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<BackOfficeInvoiceSummary>(AccountStrings.Account, invoice => @<span class="account-name" data-testid="invoices-row">@invoice.TenantName</span>, nameof(SortableBackOfficeInvoiceProperties.TenantName)
+            ),
+            new DataListColumn<BackOfficeInvoiceSummary>(BackOfficeStrings.Date, invoice => BillingCells.DateCell(invoice.Date), nameof(SortableBackOfficeInvoiceProperties.Date)),
+            new DataListColumn<BackOfficeInvoiceSummary>(BackOfficeStrings.Plan, invoice => BillingCells.PlanCell(invoice.Plan), HideBelow: Breakpoint.Medium),
+            new DataListColumn<BackOfficeInvoiceSummary>(BackOfficeStrings.Amount, invoice => BillingCells.MoneyCell(invoice.AmountExcludingTax, invoice.Currency, BillingFormat.IsReversal(invoice.RowKind)), HideBelow: Breakpoint.Medium),
+            new DataListColumn<BackOfficeInvoiceSummary>(BackOfficeStrings.Vat, invoice => BillingCells.MoneyCell(invoice.TaxAmount, invoice.Currency, BillingFormat.IsReversal(invoice.RowKind)), HideBelow: Breakpoint.ExtraLarge),
+            new DataListColumn<BackOfficeInvoiceSummary>(BackOfficeStrings.Total, invoice => BillingCells.MoneyCell(invoice.Amount, invoice.Currency, BillingFormat.IsReversal(invoice.RowKind)), nameof(SortableBackOfficeInvoiceProperties.Total)),
+            new DataListColumn<BackOfficeInvoiceSummary>(BackOfficeStrings.Status, invoice => BillingCells.InvoiceStatusCell(invoice.RowKind, invoice.Status, invoice.FailureReason), nameof(SortableBackOfficeInvoiceProperties.Status))
+        ];
+    }
+
+    private static string ViewLabel(InvoicesView view)
+    {
+        return view switch
+        {
+            InvoicesView.Invoices => BackOfficeStrings.Invoices,
+            InvoicesView.Refunds => BackOfficeStrings.RefundsAndCreditNotes,
+            _ => BackOfficeStrings.All
+        };
+    }
+
+    private static string RowLabel(BackOfficeInvoiceSummary invoice)
+    {
+        return $"{invoice.TenantName}, {BillingFormat.GetRowLabel(invoice.RowKind, invoice.Status)}";
+    }
+
+    private Task<DataListFetchResult<BackOfficeInvoiceSummary>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return InvoicesListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), request, cancellationToken);
+    }
+
+    private Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        _view = InvoicesListSource.GetView(_filters);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchChangedAsync(string? search)
+    {
+        return SetFiltersAsync(new Dictionary<string, string?> { [InvoicesListSource.SearchParameter] = search });
+    }
+
+    private Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return _list?.SetFiltersAsync(changes) ?? Task.CompletedTask;
+    }
+
+    private Task OpenAccountAsync(BackOfficeInvoiceSummary invoice)
+    {
+        Navigation.NavigateTo(InvoicesListSource.AccountUrl(invoice.TenantId));
+        return Task.CompletedTask;
+    }
+
+}

@@ -140,7 +140,7 @@ public static class HostApplication
 
         // After routing, so the page headers and nonce apply to Razor component endpoints only, including a re-executed not-found page
         var hostShell = app.Services.GetRequiredService<HostShell>();
-        app.Use((context, next) => BackOfficeSurface.RestrictToSurfaceHostAsync(context, next, backOfficeOrigin));
+        app.Use((context, next) => BackOfficeSurface.RestrictToSurfaceHostAsync(context, next, backOfficeOrigin, context.RequestServices.GetRequiredService<BackOfficeSettings>()));
         app.Use((context, next) => DevelopmentOnlyPages.RejectOutsideDevelopmentAsync(context, next, app.Environment));
         app.Use(hostShell.ApplyPageHeadersAsync);
 

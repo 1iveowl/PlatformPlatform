@@ -1,0 +1,57 @@
+@using Account.Client
+@using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Billing
+@using Blazor.Client.BackOffice.Users
+@using SharedKernel.Domain
+@* The account detail's Invoices tab, the React back office's AccountBillingTab in its history-full variant: the account's
+   invoice, refund and credit note rows on DataList with the date, plan, amount, VAT, total, status and a link to the invoice
+   or credit note document, paged under the invoices prefix (AccountInvoicesListSource). Shown only with the subscription
+   setting on. The rows are not links: the documents are, and the account is this one. *@
+@inject IServiceProvider Services
+
+<p class="accounts-subtitle">@BackOfficeStrings.AccountInvoicesDescription</p>
+
+<DataList TItem="TenantPaymentTransaction" data-testid="account-invoices-grid" ListId="@AccountInvoicesListSource.ListId(TenantId)" CacheScope="@AccountsListSource.CacheScope"
+          Label="@BackOfficeStrings.AccountInvoices" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="AccountInvoicesListSource.KeyOf"
+          DefaultOrderBy="@AccountInvoicesListSource.DefaultOrderBy" ParameterPrefix="@AccountInvoicesListSource.ParameterPrefix" RowLabel="RowLabel">
+    <EmptyContent>
+        <div class="accounts-empty" data-testid="account-invoices-empty">
+            <p class="accounts-empty-title">@BackOfficeStrings.NoTransactions</p>
+            <p>@BackOfficeStrings.NoTransactionsDescription</p>
+        </div>
+    </EmptyContent>
+</DataList>
+
+@code {
+
+    private IReadOnlyList<DataListColumn<TenantPaymentTransaction>> _columns = [];
+
+    [Parameter]
+    [EditorRequired]
+    public TenantId TenantId { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<TenantPaymentTransaction>(BackOfficeStrings.Date, transaction => BillingCells.DateCell(transaction.Date)),
+            new DataListColumn<TenantPaymentTransaction>(BackOfficeStrings.Plan, transaction => BillingCells.PlanCell(transaction.Plan), HideBelow: Breakpoint.Medium),
+            new DataListColumn<TenantPaymentTransaction>(BackOfficeStrings.Amount, transaction => BillingCells.MoneyCell(transaction.AmountExcludingTax, transaction.Currency, BillingFormat.IsReversal(transaction.RowKind)), HideBelow: Breakpoint.Medium),
+            new DataListColumn<TenantPaymentTransaction>(BackOfficeStrings.Vat, transaction => BillingCells.MoneyCell(transaction.TaxAmount, transaction.Currency, BillingFormat.IsReversal(transaction.RowKind)), HideBelow: Breakpoint.Medium),
+            new DataListColumn<TenantPaymentTransaction>(BackOfficeStrings.Total, transaction => BillingCells.MoneyCell(transaction.Amount, transaction.Currency, BillingFormat.IsReversal(transaction.RowKind))),
+            new DataListColumn<TenantPaymentTransaction>(BackOfficeStrings.Status, transaction => BillingCells.InvoiceStatusCell(transaction.RowKind, transaction.Status, transaction.FailureReason)),
+            new DataListColumn<TenantPaymentTransaction>(BackOfficeStrings.Actions, transaction => BillingCells.DocumentCell(transaction.RowKind, transaction.InvoiceUrl, transaction.CreditNoteUrl))
+        ];
+    }
+
+    private static string RowLabel(TenantPaymentTransaction transaction)
+    {
+        return $"{UserDetailFormat.FormatDateTime(transaction.Date)}, {BillingFormat.GetRowLabel(transaction.RowKind, transaction.Status)}";
+    }
+
+    private Task<DataListFetchResult<TenantPaymentTransaction>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return AccountInvoicesListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), TenantId, request, cancellationToken);
+    }
+
+}

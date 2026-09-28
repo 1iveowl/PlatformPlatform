@@ -27,3 +27,8 @@ public sealed record GetTenantsQuery(
 // id is the route value, not a parameter.
 [PublicAPI]
 public sealed record GetTenantUsersQuery(string? Search = null, UserRole[]? Roles = null, int PageOffset = 0, int PageSize = 25);
+
+// The query string of GET /api/back-office/tenants/{id}/payment-history, which binds GetTenantPaymentHistoryQuery with
+// [AsParameters]: the server's defaults of the first page and 25 rows. The tenant id is the route value, not a parameter.
+[PublicAPI]
+public sealed record GetTenantPaymentHistoryQuery(int PageOffset = 0, int PageSize = 25);

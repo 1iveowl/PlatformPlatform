@@ -13,7 +13,7 @@ using SharedKernel.Localization;
 namespace Blazor.Tests.Client.BackOffice;
 
 // The account detail's tab model and its not-found state. The tab is the React back office's tab parameter with its values,
-// Overview when absent or unknown, including the billing tabs the Blazor back office does not show yet. A tenant id the
+// Overview when absent or unknown, and for the billing tabs while the subscription setting is off. A tenant id the
 // account API answers 404 for is the not-found state; any other failure is a failure.
 public sealed class AccountDetailTests
 {
@@ -25,8 +25,9 @@ public sealed class AccountDetailTests
     [InlineData("?tab=users", AccountDetailTab.Users)]
     [InlineData("?tab=feature-flags", AccountDetailTab.FeatureFlags)]
     [InlineData("?usersSearch=ann&tab=users&usersPageOffset=1", AccountDetailTab.Users)]
-    [InlineData("?tab=invoices", AccountDetailTab.Overview)]
-    [InlineData("?tab=billing-events", AccountDetailTab.Overview)]
+    [InlineData("?tab=invoices", AccountDetailTab.Invoices)]
+    [InlineData("?tab=billing-events", AccountDetailTab.BillingEvents)]
+    [InlineData("?invoicesPageOffset=2&tab=invoices", AccountDetailTab.Invoices)]
     [InlineData("?tab=Users", AccountDetailTab.Overview)]
     [InlineData("?tab=unknown", AccountDetailTab.Overview)]
     [InlineData("?tab=", AccountDetailTab.Overview)]
@@ -34,17 +35,29 @@ public sealed class AccountDetailTests
     public void FromUri_ShouldReadTheTabParameterWithOverviewAsTheFallback(string query, AccountDetailTab expected)
     {
         // Act
-        var tab = AccountDetailTabs.FromUri($"{AccountUrl}{query}");
+        var tab = AccountDetailTabs.FromUri($"{AccountUrl}{query}", true);
 
         // Assert
         tab.Should().Be(expected);
     }
 
-    [Fact]
-    public void Links_ShouldOfferTheThreeTabsWithTheCurrentOneMarkedAndOverviewWithoutAParameter()
+    [Theory]
+    [InlineData("?tab=invoices")]
+    [InlineData("?tab=billing-events")]
+    public void FromUri_WhenTheSubscriptionSettingIsOff_ShouldFallBackToOverviewForTheBillingTabs(string query)
     {
         // Act
-        var links = AccountDetailTabs.Links(new TenantId(42), AccountDetailTab.Users);
+        var tab = AccountDetailTabs.FromUri($"{AccountUrl}{query}", false);
+
+        // Assert
+        tab.Should().Be(AccountDetailTab.Overview);
+    }
+
+    [Fact]
+    public void Links_WhenTheSubscriptionSettingIsOff_ShouldOfferTheThreeTabsWithTheCurrentOneMarkedAndOverviewWithoutAParameter()
+    {
+        // Act
+        var links = AccountDetailTabs.Links(new TenantId(42), AccountDetailTab.Users, false);
 
         // Assert
         links.Select(link => link.Href).Should().Equal(
@@ -55,10 +68,24 @@ public sealed class AccountDetailTests
     }
 
     [Fact]
+    public void Links_WhenTheSubscriptionSettingIsOn_ShouldAddTheInvoicesAndBillingEventsTabsInTheReactOrder()
+    {
+        // Act
+        var links = AccountDetailTabs.Links(new TenantId(42), AccountDetailTab.Invoices, true);
+
+        // Assert
+        links.Select(link => link.Href).Should().Equal(
+            "/blazor/back-office/accounts/42", "/blazor/back-office/accounts/42?tab=users", "/blazor/back-office/accounts/42?tab=invoices",
+            "/blazor/back-office/accounts/42?tab=billing-events", "/blazor/back-office/accounts/42?tab=feature-flags"
+        );
+        links.Select(link => link.IsCurrent).Should().Equal(false, false, true, false, false);
+    }
+
+    [Fact]
     public void Links_ShouldRoundTripThroughFromUri()
     {
         // Act
-        var tabs = AccountDetailTabs.Links(new TenantId(42), AccountDetailTab.Overview).Select(link => AccountDetailTabs.FromUri($"https://back-office.dev.localhost:9001{link.Href}"));
+        var tabs = AccountDetailTabs.Links(new TenantId(42), AccountDetailTab.Overview, true).Select(link => AccountDetailTabs.FromUri($"https://back-office.dev.localhost:9001{link.Href}", true));
 
         // Assert
         tabs.Should().Equal(AccountDetailTabs.Tabs);

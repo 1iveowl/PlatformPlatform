@@ -1,5 +1,6 @@
 using System.Globalization;
 using Account.Features.BackOffice.Dashboard.Queries;
+using Account.Features.BackOffice.Requests;
 using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
 using Account.Features.PushNotifications.Domain;
@@ -166,6 +167,42 @@ public static class AccountApiRoutes
         return $"{BackOfficeTenant(tenantId)}/users?{string.Join('&', parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"))}";
     }
 
+    public static string BackOfficeTenantPaymentHistory(TenantId tenantId, GetTenantPaymentHistoryQuery query)
+    {
+        var offset = query.PageOffset > 0 ? $"{nameof(GetTenantPaymentHistoryQuery.PageOffset)}={query.PageOffset.ToString(CultureInfo.InvariantCulture)}&" : "";
+        return $"{BackOfficeTenant(tenantId)}/payment-history?{offset}{nameof(GetTenantPaymentHistoryQuery.PageSize)}={query.PageSize.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    // GET /api/back-office/invoices: repeated Statuses, the sort always, PageOffset only past the first page
+    public static string BackOfficeInvoices(GetBackOfficeInvoicesQuery query)
+    {
+        var parameters = new List<KeyValuePair<string, string>>();
+        if (!string.IsNullOrWhiteSpace(query.Search)) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeInvoicesQuery.Search), query.Search));
+        parameters.AddRange((query.Statuses ?? []).Select(status => new KeyValuePair<string, string>(nameof(GetBackOfficeInvoicesQuery.Statuses), status.ToString())));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeInvoicesQuery.OrderBy), query.OrderBy.ToString()));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeInvoicesQuery.SortOrder), query.SortOrder.ToString()));
+        if (query.PageOffset > 0) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeInvoicesQuery.PageOffset), query.PageOffset.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeInvoicesQuery.PageSize), query.PageSize.ToString(CultureInfo.InvariantCulture)));
+
+        return $"/api/back-office/invoices?{ToQueryString(parameters)}";
+    }
+
+    // GET /api/back-office/billing-events: repeated EventTypes, TenantId for one account, the sort always, PageOffset only past
+    // the first page
+    public static string BackOfficeBillingEvents(GetBackOfficeBillingEventsQuery query)
+    {
+        var parameters = new List<KeyValuePair<string, string>>();
+        if (!string.IsNullOrWhiteSpace(query.Search)) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeBillingEventsQuery.Search), query.Search));
+        parameters.AddRange((query.EventTypes ?? []).Select(type => new KeyValuePair<string, string>(nameof(GetBackOfficeBillingEventsQuery.EventTypes), type.ToString())));
+        if (query.TenantId is { } tenantId) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeBillingEventsQuery.TenantId), tenantId.Value.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeBillingEventsQuery.OrderBy), query.OrderBy.ToString()));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeBillingEventsQuery.SortOrder), query.SortOrder.ToString()));
+        if (query.PageOffset > 0) parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeBillingEventsQuery.PageOffset), query.PageOffset.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetBackOfficeBillingEventsQuery.PageSize), query.PageSize.ToString(CultureInfo.InvariantCulture)));
+
+        return $"/api/back-office/billing-events?{ToQueryString(parameters)}";
+    }
+
     public static string BackOfficeTenantFeatureFlags(TenantId tenantId)
     {
         return $"{BackOfficeTenant(tenantId)}/feature-flags";
@@ -330,5 +367,10 @@ public static class AccountApiRoutes
 
         var queryString = string.Join('&', parameters.Where(parameter => parameter.Value is not null).Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value!)}"));
         return $"{Users}?{queryString}";
+    }
+
+    private static string ToQueryString(IEnumerable<KeyValuePair<string, string>> parameters)
+    {
+        return string.Join('&', parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"));
     }
 }

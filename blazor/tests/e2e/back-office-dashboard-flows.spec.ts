@@ -13,7 +13,8 @@ test.describe("@smoke", () => {
    * - The menu shows the Billing group, and the billing tiles and cards are present
    * - The five chart cards draw from the local stack's data, each with its data table, and the period toggle changes the
    *   four trend cards but not the plan distribution
-   * - A view-all link whose list is not built yet lands on the back office's not-found page
+   * - The recent payments card's view-all link lands on the invoices list, and an unknown path shows the back office's
+   *   not-found page
    * - The access-denied page renders inside the back office
    * - Log out in the user menu leaves through the platform's logout, after which the dashboard asks for a login again
    */
@@ -82,10 +83,16 @@ test.describe("@smoke", () => {
         await expect(admin.page.getByTestId("plan-distribution-chart-row")).toHaveCount(3);
       })();
 
-      await step("Follow View all on recent payments & verify the back office's not-found page")(async () => {
+      await step("Follow View all on recent payments & verify it lands on the invoices list")(async () => {
         await admin.page.getByTestId("recent-payments-view-all").click();
 
         await expect(admin.page).toHaveURL(blazorBackOfficeUrl("back-office/invoices"));
+        await expect(admin.page.getByTestId("back-office-invoices").getByRole("heading", { level: 1 })).toHaveText(texts.backOfficeInvoices);
+      })();
+
+      await step("Open an unknown back-office path & verify the back office's not-found page")(async () => {
+        await admin.page.goto(blazorBackOfficeUrl("back-office/unknown-page"));
+
         await expect(admin.page.getByTestId("back-office-not-found")).toContainText(texts.pageNotFound);
       })();
 

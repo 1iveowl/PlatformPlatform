@@ -1028,4 +1028,125 @@
         <value>Identity verification actions</value>
         <comment>Blazor only: the accessible name of the Identity tab's action group</comment>
     </data>
+    <data name="All" xml:space="preserve">
+        <value>All</value>
+        <comment>A view toggle of the invoices and billing events lists that shows every row</comment>
+    </data>
+    <data name="RefundsAndCreditNotes" xml:space="preserve">
+        <value>Refunds and credit notes</value>
+    </data>
+    <data name="InvoiceView" xml:space="preserve">
+        <value>Invoice view</value>
+        <comment>The accessible name of the invoices list's view toggles</comment>
+    </data>
+    <data name="EventView" xml:space="preserve">
+        <value>Event view</value>
+        <comment>The accessible name of the billing events list's view toggles</comment>
+    </data>
+    <data name="SubscriptionState" xml:space="preserve">
+        <value>Subscription state</value>
+    </data>
+    <data name="OtherEvents" xml:space="preserve">
+        <value>Other</value>
+        <comment>The billing events view of events that change neither MRR nor the plan</comment>
+    </data>
+    <data name="SearchByAccountName" xml:space="preserve">
+        <value>Search by account name</value>
+    </data>
+    <data name="InvoicesSubtitleAll" xml:space="preserve">
+        <value>Every invoice, refund, and credit note across all accounts.</value>
+    </data>
+    <data name="InvoicesSubtitleInvoices" xml:space="preserve">
+        <value>Successful, pending, and failed invoices across all accounts.</value>
+    </data>
+    <data name="InvoicesSubtitleRefunds" xml:space="preserve">
+        <value>Refunds and credit notes across all accounts.</value>
+    </data>
+    <data name="NoResultsMatchSearch" xml:space="preserve">
+        <value>No results match your search</value>
+    </data>
+    <data name="NoRefundsYet" xml:space="preserve">
+        <value>No refunds or credit notes yet</value>
+    </data>
+    <data name="NoInvoicesYet" xml:space="preserve">
+        <value>No invoices yet</value>
+    </data>
+    <data name="NoRecordsYet" xml:space="preserve">
+        <value>No records yet</value>
+    </data>
+    <data name="TryClearingSearch" xml:space="preserve">
+        <value>Try clearing the search to see more results.</value>
+    </data>
+    <data name="InvoicesAppearDescription" xml:space="preserve">
+        <value>Records will appear here as accounts subscribe and Stripe webhooks are processed.</value>
+    </data>
+    <data name="Amount" xml:space="preserve">
+        <value>Amount</value>
+    </data>
+    <data name="Vat" xml:space="preserve">
+        <value>VAT</value>
+    </data>
+    <data name="CreditNote" xml:space="preserve">
+        <value>Credit note</value>
+    </data>
+    <data name="Invoice" xml:space="preserve">
+        <value>Invoice</value>
+    </data>
+    <data name="OpenInvoice" xml:space="preserve">
+        <value>Open invoice</value>
+    </data>
+    <data name="OpenCreditNote" xml:space="preserve">
+        <value>Open credit note</value>
+    </data>
+    <data name="Actions" xml:space="preserve">
+        <value>Actions</value>
+    </data>
+    <data name="BillingEventsSubtitle" xml:space="preserve">
+        <value>Authoritative log of subscription, payment, and billing transitions across all accounts.</value>
+    </data>
+    <data name="NoBillingEventsMatchFilters" xml:space="preserve">
+        <value>No billing events match your filters</value>
+    </data>
+    <data name="NoBillingEventsYet" xml:space="preserve">
+        <value>No billing events yet</value>
+    </data>
+    <data name="BillingEventsAppearDescription" xml:space="preserve">
+        <value>Subscription, payment, and billing transitions will appear here as Stripe webhooks are processed.</value>
+    </data>
+    <data name="PlanTransition" xml:space="preserve">
+        <value>Plan transition</value>
+    </data>
+    <data name="PlanTransitionTo" xml:space="preserve">
+        <value>to</value>
+        <comment>Blazor only: read between the two plans of a plan transition, whose arrow is hidden from assistive technology</comment>
+    </data>
+    <data name="MrrAfter" xml:space="preserve">
+        <value>MRR after</value>
+    </data>
+    <data name="AccountInvoicesDescription" xml:space="preserve">
+        <value>Every invoice, refund, and credit note: the money in and out for this subscription.</value>
+    </data>
+    <data name="NoTransactions" xml:space="preserve">
+        <value>No transactions</value>
+    </data>
+    <data name="NoTransactionsDescription" xml:space="preserve">
+        <value>No invoices, refunds, or credit notes yet.</value>
+    </data>
+    <data name="AccountBillingEventsDescription" xml:space="preserve">
+        <value>Plan changes, renewals, cancellations, and payment outcomes: the subscription lifecycle and its MRR impact over time.</value>
+    </data>
+    <data name="NoBillingEvents" xml:space="preserve">
+        <value>No billing events</value>
+    </data>
+    <data name="NoBillingEventsDescription" xml:space="preserve">
+        <value>Subscription, payment, and billing transitions will appear here.</value>
+    </data>
+    <data name="AccountInvoices" xml:space="preserve">
+        <value>Account invoices</value>
+        <comment>Blazor only: the accessible name of the account detail's invoices list</comment>
+    </data>
+    <data name="AccountBillingEvents" xml:space="preserve">
+        <value>Account billing events</value>
+        <comment>Blazor only: the accessible name of the account detail's billing events list</comment>
+    </data>
 </root>

@@ -1,5 +1,6 @@
-@* The account detail, the React back office's accounts/$tenantId page without its billing tabs: the header, the admin actions
-   for an identity in the admins group (AccountAdminActions), the health tiles and the Overview, Users and Feature flags tabs.
+@* The account detail, the React back office's accounts/$tenantId page: the header, the admin actions
+   for an identity in the admins group (AccountAdminActions), the health tiles and the Overview, Users, Invoices, Billing events and Feature flags tabs, the two billing tabs only with the
+   subscription setting on.
    After an admin action the account is read again in place, and a failed read keeps what the page shows. The tab is the
    URL's tab parameter (AccountDetailTabs), and the tab links are plain links, so a reload, the back button and a copied link
    all land on the same tab. The account loads in the browser; the host prerenders the shell and the loading state. A tenant id
@@ -21,7 +22,7 @@
                 <AccountHealthTiles Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
 
                 <nav class="users-tabs account-detail-tabs" aria-label="@BackOfficeStrings.AccountSections" data-testid="account-tabs">
-                    @foreach (var link in AccountDetailTabs.Links(_tenant!.Id, _tab))
+                    @foreach (var link in AccountDetailTabs.Links(_tenant!.Id, _tab, IsSubscriptionEnabled))
                     {
                         <a href="@link.Href" class="users-tab" aria-current="@(link.IsCurrent ? "page" : null)" data-testid="@link.TestId">@link.Label</a>
                     }
@@ -32,6 +33,12 @@
                     {
                         case AccountDetailTab.Users:
                             <AccountUsersTab TenantId="_tenant!.Id"/>
+                            break;
+                        case AccountDetailTab.Invoices:
+                            <AccountInvoicesTab TenantId="_tenant!.Id"/>
+                            break;
+                        case AccountDetailTab.BillingEvents:
+                            <AccountBillingEventsTab TenantId="_tenant!.Id"/>
                             break;
                         case AccountDetailTab.FeatureFlags:
                             <AccountFeatureFlagsTab TenantId="_tenant!.Id"/>
@@ -74,7 +81,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _tab = AccountDetailTabs.FromUri(Navigation.Uri);
+        _tab = AccountDetailTabs.FromUri(Navigation.Uri, IsSubscriptionEnabled);
         Navigation.LocationChanged += OnLocationChanged;
         if (!RendererInfo.IsInteractive) return;
 
@@ -104,7 +111,7 @@
     // A tab link is an enhanced navigation that keeps this component alive, so the tab follows the location
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
     {
-        var tab = AccountDetailTabs.FromUri(args.Location);
+        var tab = AccountDetailTabs.FromUri(args.Location, IsSubscriptionEnabled);
         if (tab == _tab) return;
 
         _tab = tab;

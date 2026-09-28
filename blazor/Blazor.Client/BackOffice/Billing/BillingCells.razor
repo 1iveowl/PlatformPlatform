@@ -1,0 +1,85 @@
+@using Account.Features.BackOffice.Invoices.Queries
+@using Account.Features.Subscriptions.Domain
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.BackOffice.Users
+@* The cells the back office's invoices and billing events lists and the account's two billing tabs share, as the React back
+   office's InvoicesTableRow, AccountPaymentRow, BillingEventsTableRow and AccountBillingEventRow draw them: a reversal row's
+   amounts struck through, a failed invoice's reason under its badge, a plan transition as two plans with a hidden arrow and a
+   negative amount in the negative tone. The component renders nothing itself. *@
+
+@code {
+
+    public static RenderFragment TextCell(string text)
+    {
+        return @<text>@text</text>;
+    }
+
+    public static RenderFragment DateCell(DateTimeOffset date)
+    {
+        return @<span class="account-name-cell">
+                   <span>@RelativeTime.Format(date, TimeProvider.System.GetUtcNow())</span>
+                   <span class="account-owner">@UserDetailFormat.FormatDateTime(date)</span>
+               </span>;
+    }
+
+    public static RenderFragment PlanCell(SubscriptionPlan? plan)
+    {
+        return plan is { } value
+            ? @<span class="account-plan">@DashboardFormat.GetPlanLabel(value)</span>
+            : TextCell(DashboardFormat.Missing);
+    }
+
+    public static RenderFragment MoneyCell(decimal amount, string currency, bool isStruckThrough)
+    {
+        return @<span class="@(isStruckThrough ? "dashboard-cell-refunded" : null)">@DashboardFormat.FormatMoney(amount, currency)</span>;
+    }
+
+    public static RenderFragment InvoiceStatusCell(BackOfficeInvoiceRowKind rowKind, PaymentTransactionStatus status, string? failureReason)
+    {
+        return @<span class="account-name-cell" data-testid="invoice-status">
+                   <span class="@BillingFormat.GetRowBadgeClass(rowKind, status)">@BillingFormat.GetRowLabel(rowKind, status)</span>
+                   @if (!BillingFormat.IsReversal(rowKind) && status == PaymentTransactionStatus.Failed && !string.IsNullOrWhiteSpace(failureReason))
+                   {
+                       <span class="account-owner">@failureReason</span>
+                   }
+               </span>;
+    }
+
+    public static RenderFragment EventTypeCell(BillingEventType type)
+    {
+        return @<span class="dashboard-badge" data-testid="billing-event-type">@DashboardFormat.GetBillingEventTypeLabel(type)</span>;
+    }
+
+    public static RenderFragment PlanTransitionCell(BillingEventType type, SubscriptionPlan? fromPlan, SubscriptionPlan? toPlan)
+    {
+        var transition = BillingFormat.GetPlanTransition(type, fromPlan, toPlan);
+        if (transition is null) return TextCell("");
+
+        return @<span class="billing-plan-transition">
+                   <span class="account-plan">@DashboardFormat.GetPlanLabel(transition.From)</span>
+                   <span aria-hidden="true">&rarr;</span>
+                   <span class="visually-hidden">@BackOfficeStrings.PlanTransitionTo</span>
+                   <span class="account-plan">@DashboardFormat.GetPlanLabel(transition.To)</span>
+               </span>;
+    }
+
+    public static RenderFragment AmountDeltaCell(decimal? amountDelta, string? currency)
+    {
+        return @<span class="@(amountDelta < 0 ? DashboardFormat.GetToneClass("dashboard-tone", DashboardTone.Negative) : null)">@BillingFormat.FormatOptionalMoney(amountDelta, currency)</span>;
+    }
+
+    // The invoice's or credit note's document at Stripe, in a new tab; a refund row and a row without a document have none
+    public static RenderFragment DocumentCell(BackOfficeInvoiceRowKind rowKind, string? invoiceUrl, string? creditNoteUrl)
+    {
+        var (url, label, name) = rowKind switch
+        {
+            BackOfficeInvoiceRowKind.CreditNote => (creditNoteUrl, BackOfficeStrings.OpenCreditNote, BackOfficeStrings.CreditNote),
+            BackOfficeInvoiceRowKind.Invoice => (invoiceUrl, BackOfficeStrings.OpenInvoice, BackOfficeStrings.Invoice),
+            _ => (null, "", "")
+        };
+        if (string.IsNullOrWhiteSpace(url)) return TextCell("");
+
+        return @<a class="button-secondary" href="@url" target="_blank" rel="noopener noreferrer" aria-label="@label" data-testid="invoice-document">@name</a>;
+    }
+
+}

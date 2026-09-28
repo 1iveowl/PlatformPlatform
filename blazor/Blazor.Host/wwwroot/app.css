@@ -2412,6 +2412,13 @@ h1:focus {
     white-space: nowrap;
 }
 
+.billing-plan-transition {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+}
+
 .dashboard-cell-refunded {
     color: var(--text-muted);
     text-decoration: line-through;

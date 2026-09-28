@@ -1,0 +1,136 @@
+@using Account.Client
+@using Account.Features.BackOffice.BillingEvents.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.BackOffice.Shell
+@using Microsoft.FluentUI.AspNetCore.Components
+@* The back office's billing events list, the React back office's billing-events page: every account's billing events on
+   DataList, with the search by account name, the all, MRR impact, subscription state and other view, the sort by account,
+   event and occurrence, and paging, all in the URL under the React back office's parameter names (BillingEventsListSource).
+   A row opens its account's Billing events tab. Read-only for every back-office identity. The host serves the page only with
+   the subscription setting on, prerenders the frame and the rows load in the browser. *@
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="accounts" data-testid="back-office-billing-events">
+        <h1>@BackOfficeStrings.BillingEvents</h1>
+        <p class="accounts-subtitle">@BackOfficeStrings.BillingEventsSubtitle</p>
+
+        <div class="accounts-toolbar" data-testid="billing-events-toolbar">
+            <div role="search" class="accounts-search">
+                <FluentTextInput Id="@SearchId" data-testid="billing-events-search" AriaLabel="@CommonStrings.Search" Placeholder="@BackOfficeStrings.SearchByAccountName" Immediate="true"
+                                 ImmediateDelay="500" Value="@_filters.GetValueOrDefault(BillingEventsListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+            </div>
+
+            <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.EventView" data-testid="billing-events-view">
+                @foreach (var view in BillingEventsListSource.Views)
+                {
+                    <button type="button" class="accounts-toggle" aria-pressed="@(_view == view ? "true" : "false")" data-testid="@($"billing-events-view-{BillingEventsListSource.ToValue(view)}")"
+                            @onclick="() => SetFiltersAsync(BillingEventsListSource.SetView(view))">
+                        @ViewLabel(view)
+                    </button>
+                }
+            </div>
+        </div>
+
+        <DataList @ref="_list" TItem="BillingEventSummary" data-testid="billing-events-grid" ListId="@BillingEventsListSource.ListId" CacheScope="@AccountsListSource.CacheScope"
+                  Label="@BackOfficeStrings.BillingEvents" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf" DefaultOrderBy="@BillingEventsListSource.DefaultOrderBy"
+                  DefaultSortOrder="BillingEventsListSource.DefaultSortOrder" FilterParameters="BillingEventsListSource.FilterParameters" NormalizeFilters="BillingEventsListSource.NormalizeFilters"
+                  FocusFallbackId="@SearchId" RowLabel="RowLabel" OnActivated="OpenAccountAsync" OnStateChanged="OnListStateChangedAsync">
+            <EmptyContent>
+                <div class="accounts-empty" data-testid="billing-events-empty">
+                    <p class="accounts-empty-title">@(HasFilters ? BackOfficeStrings.NoBillingEventsMatchFilters : BackOfficeStrings.NoBillingEventsYet)</p>
+                    <p>@(HasFilters ? BackOfficeStrings.TryClearingFilters : BackOfficeStrings.BillingEventsAppearDescription)</p>
+                    @if (HasFilters)
+                    {
+                        <button type="button" class="button-secondary" data-testid="billing-events-clear-filters" @onclick="() => SetFiltersAsync(BillingEventsListSource.ClearAllFilters())">
+                            @BackOfficeStrings.ClearFilters
+                        </button>
+                    }
+                </div>
+            </EmptyContent>
+        </DataList>
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private const string SearchId = "billing-events-search";
+
+    private IReadOnlyList<DataListColumn<BillingEventSummary>> _columns = [];
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private DataList<BillingEventSummary>? _list;
+    private BillingEventsView _view;
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    private bool HasFilters => _filters.Count > 0;
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<BillingEventSummary>(AccountStrings.Account, billingEvent => @<span class="account-name" data-testid="billing-events-row">@billingEvent.TenantName</span>, nameof(SortableBillingEventProperties.TenantName)
+            ),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.Event, billingEvent => BillingCells.EventTypeCell(billingEvent.EventType), nameof(SortableBillingEventProperties.EventType)),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.PlanTransition, billingEvent => BillingCells.PlanTransitionCell(billingEvent.EventType, billingEvent.FromPlan, billingEvent.ToPlan), HideBelow: Breakpoint.Medium),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.Amount, billingEvent => BillingCells.AmountDeltaCell(billingEvent.AmountDelta, billingEvent.Currency), HideBelow: Breakpoint.Medium),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.Country, billingEvent => BillingCells.TextCell(string.IsNullOrWhiteSpace(billingEvent.Country) ? DashboardFormat.Missing : billingEvent.Country), HideBelow: Breakpoint.ExtraLarge),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.Occurred, billingEvent => BillingCells.DateCell(billingEvent.OccurredAt), nameof(SortableBillingEventProperties.OccurredAt))
+        ];
+    }
+
+    private static string ViewLabel(BillingEventsView view)
+    {
+        return view switch
+        {
+            BillingEventsView.Mrr => BackOfficeStrings.MrrImpact,
+            BillingEventsView.State => BackOfficeStrings.SubscriptionState,
+            BillingEventsView.Other => BackOfficeStrings.OtherEvents,
+            _ => BackOfficeStrings.All
+        };
+    }
+
+    private static string KeyOf(BillingEventSummary billingEvent)
+    {
+        return billingEvent.Id.Value;
+    }
+
+    private static string RowLabel(BillingEventSummary billingEvent)
+    {
+        return $"{billingEvent.TenantName}, {DashboardFormat.GetBillingEventTypeLabel(billingEvent.EventType)}";
+    }
+
+    private Task<DataListFetchResult<BillingEventSummary>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return BillingEventsListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), BillingEventsListSource.ToQuery(request), cancellationToken);
+    }
+
+    private Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        _view = BillingEventsListSource.GetView(_filters);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchChangedAsync(string? search)
+    {
+        return SetFiltersAsync(new Dictionary<string, string?> { [BillingEventsListSource.SearchParameter] = search });
+    }
+
+    private Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return _list?.SetFiltersAsync(changes) ?? Task.CompletedTask;
+    }
+
+    private Task OpenAccountAsync(BillingEventSummary billingEvent)
+    {
+        Navigation.NavigateTo(BillingEventsListSource.AccountUrl(billingEvent.TenantId));
+        return Task.CompletedTask;
+    }
+
+}

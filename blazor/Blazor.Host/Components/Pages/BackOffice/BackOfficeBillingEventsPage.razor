@@ -1,0 +1,32 @@
+@* The back office's billing events list, served only on the back-office host and only for the back-office identity the account API's
+   back-office listener forwards (BackOfficeAuthentication), and only with the subscription setting on. With it off the page
+   is the back office's not-found page, sent with status 404 (BackOfficeSubscriptionPage), as the React back office's
+   requireSubscriptionEnabled guard answers. The page is server-rendered; the render mode is on the WebAssembly component it
+   hosts, which prerenders the shell and the list's frame and loads the rows in the browser. *@
+@page "/back-office/billing-events"
+@using Blazor.Client.BackOffice
+@using Blazor.Client.BackOffice.Billing
+@using Blazor.Client.Shell
+@using Blazor.Host.Account
+@using Blazor.Host.Shell
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = BackOfficeAuthentication.PolicyName)]
+@attribute [BackOfficeSurface]
+@attribute [BackOfficeSubscriptionPage]
+@inject BackOfficeSettings Settings
+
+@if (Settings.IsSubscriptionEnabled)
+{
+    <PageTitle>@BackOfficeStrings.BillingEvents</PageTitle>
+
+    <BillingEventsSurface IsSubscriptionEnabled="true" @rendermode="InteractiveWebAssembly"/>
+}
+else
+{
+    <PageTitle>@CommonStrings.PageNotFound</PageTitle>
+
+    <main id="main-content" class="back-office-status" data-testid="back-office-not-found">
+        <p class="back-office-status-brand">@BackOfficeStrings.BackOffice</p>
+        <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>
+    </main>
+}

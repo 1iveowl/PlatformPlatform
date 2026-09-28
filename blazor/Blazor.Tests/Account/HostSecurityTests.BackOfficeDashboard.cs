@@ -65,7 +65,7 @@ public sealed partial class HostSecurityTests
     public async Task BackOfficeNotFound_WhenAnUnknownBackOfficePathIsRequested_ShouldAnswer404InsideTheBackOffice()
     {
         // Arrange
-        using var request = HostFixture.CreateBackOfficeRequest($"{BackOfficePage}/invoices", fixture.ProtectBackOfficeIdentity("Admin", true));
+        using var request = HostFixture.CreateBackOfficeRequest($"{BackOfficePage}/unknown-page", fixture.ProtectBackOfficeIdentity("Admin", true));
 
         // Act
         using var response = await fixture.Client.SendAsync(request);

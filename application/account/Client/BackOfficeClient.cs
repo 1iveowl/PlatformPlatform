@@ -1,5 +1,7 @@
 using Account.Features.BackOffice.BillingDrift.Queries;
+using Account.Features.BackOffice.BillingEvents.Queries;
 using Account.Features.BackOffice.Dashboard.Queries;
+using Account.Features.BackOffice.Invoices.Queries;
 using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
 using Account.Features.ExternalAuthentication.BackOffice.Queries;
@@ -118,6 +120,21 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult<TenantUsersResponse>> GetTenantUsersAsync(TenantId tenantId, GetTenantUsersQuery query, CancellationToken cancellationToken)
     {
         return _transport.GetAsync<TenantUsersResponse>(AccountApiRoutes.BackOfficeTenantUsers(tenantId, query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<TenantPaymentHistoryResponse>> GetTenantPaymentHistoryAsync(TenantId tenantId, GetTenantPaymentHistoryQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<TenantPaymentHistoryResponse>(AccountApiRoutes.BackOfficeTenantPaymentHistory(tenantId, query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BackOfficeInvoicesResponse>> GetInvoicesAsync(GetBackOfficeInvoicesQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BackOfficeInvoicesResponse>(AccountApiRoutes.BackOfficeInvoices(query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<BillingEventsResponse>> GetBillingEventsAsync(GetBackOfficeBillingEventsQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<BillingEventsResponse>(AccountApiRoutes.BackOfficeBillingEvents(query), cancellationToken);
     }
 
     public Task<ApiCallResult<GetTenantFeatureFlagsResponse>> GetTenantFeatureFlagsAsync(TenantId tenantId, CancellationToken cancellationToken)

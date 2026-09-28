@@ -1,0 +1,60 @@
+@using Account.Client
+@using Account.Features.BackOffice.BillingEvents.Queries
+@using Blazor.Client.BackOffice.Billing
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.BackOffice.Users
+@using SharedKernel.Domain
+@* The account detail's Billing events tab, the React back office's AccountBillingTab in its events-full variant: this account's
+   billing events on DataList with the occurrence, event, plan transition, MRR impact and MRR after, paged under the
+   billingEvents prefix (AccountBillingEventsListSource). Shown only with the subscription setting on. *@
+@inject IServiceProvider Services
+
+<p class="accounts-subtitle">@BackOfficeStrings.AccountBillingEventsDescription</p>
+
+<DataList TItem="BillingEventSummary" data-testid="account-billing-events-grid" ListId="@AccountBillingEventsListSource.ListId(TenantId)" CacheScope="@AccountsListSource.CacheScope"
+          Label="@BackOfficeStrings.AccountBillingEvents" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf"
+          DefaultOrderBy="@AccountBillingEventsListSource.DefaultOrderBy" ParameterPrefix="@AccountBillingEventsListSource.ParameterPrefix" RowLabel="RowLabel">
+    <EmptyContent>
+        <div class="accounts-empty" data-testid="account-billing-events-empty">
+            <p class="accounts-empty-title">@BackOfficeStrings.NoBillingEvents</p>
+            <p>@BackOfficeStrings.NoBillingEventsDescription</p>
+        </div>
+    </EmptyContent>
+</DataList>
+
+@code {
+
+    private IReadOnlyList<DataListColumn<BillingEventSummary>> _columns = [];
+
+    [Parameter]
+    [EditorRequired]
+    public TenantId TenantId { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        _columns =
+        [
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.Occurred, billingEvent => BillingCells.DateCell(billingEvent.OccurredAt)),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.Event, billingEvent => BillingCells.EventTypeCell(billingEvent.EventType)),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.Plan, billingEvent => BillingCells.PlanTransitionCell(billingEvent.EventType, billingEvent.FromPlan, billingEvent.ToPlan), HideBelow: Breakpoint.Medium),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.MrrImpact, billingEvent => BillingCells.AmountDeltaCell(billingEvent.AmountDelta, billingEvent.Currency)),
+            new DataListColumn<BillingEventSummary>(BackOfficeStrings.MrrAfter, billingEvent => BillingCells.TextCell(BillingFormat.FormatOptionalMoney(billingEvent.NewAmount, billingEvent.Currency)), HideBelow: Breakpoint.Medium)
+        ];
+    }
+
+    private static string KeyOf(BillingEventSummary billingEvent)
+    {
+        return billingEvent.Id.Value;
+    }
+
+    private static string RowLabel(BillingEventSummary billingEvent)
+    {
+        return $"{UserDetailFormat.FormatDateTime(billingEvent.OccurredAt)}, {DashboardFormat.GetBillingEventTypeLabel(billingEvent.EventType)}";
+    }
+
+    private Task<DataListFetchResult<BillingEventSummary>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return BillingEventsListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), AccountBillingEventsListSource.ToQuery(TenantId, request), cancellationToken);
+    }
+
+}
