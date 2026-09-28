@@ -80,6 +80,7 @@ public class BackOfficeWebApplicationFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureLogging(logging => logging.AddFilter(_ => false));
+        builder.SimulateBackOfficeListener(BackOfficeHost);
 
         builder.ConfigureAppConfiguration((_, configuration) =>
             {

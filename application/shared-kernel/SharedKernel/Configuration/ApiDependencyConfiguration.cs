@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NJsonSchema.Generation;
@@ -97,7 +98,7 @@ public static class ApiDependencyConfiguration
                     serverOptions.ConfigureEndpointDefaults(listenOptions => listenOptions.UseHttps());
                     serverOptions.ListenLocalhost(port, listenOptions => listenOptions.UseHttps());
 
-                    if (int.TryParse(Environment.GetEnvironmentVariable("BACK_OFFICE_KESTREL_PORT"), out var backOfficePort) && backOfficePort > 0)
+                    if (int.TryParse(Environment.GetEnvironmentVariable(BackOfficeListener.LocalPortKey), out var backOfficePort) && backOfficePort > 0)
                     {
                         serverOptions.ListenLocalhost(backOfficePort, listenOptions => listenOptions.UseHttps());
                     }
@@ -297,6 +298,7 @@ public static class ApiDependencyConfiguration
                 .AddScheme<AuthenticationSchemeOptions, BackOfficeIdentityHandler>(BackOfficeIdentityDefaults.AuthenticationScheme, _ => { });
 
             services.AddSingleton<IAuthorizationHandler, BackOfficeAdminAuthorizationHandler>();
+            services.AddSingleton(serviceProvider => BackOfficeListener.FromConfiguration(serviceProvider.GetRequiredService<IConfiguration>()));
 
             return services.AddAuthorization(authOptions =>
                 {

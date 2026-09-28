@@ -96,7 +96,7 @@ if (SharedInfrastructureConfiguration.IsRunningInAzure)
     // Production: same image runs in two ACA container apps. The back-office one carries an explicit
     // env var; account-api does not. Each registers only the SPA it serves, so endpoint matching does
     // not depend on Request.Host being correctly rewritten from X-Forwarded-Host through the ACA mesh.
-    var isBackOfficeContainer = app.Configuration.GetValue("BackOffice:IsBackOfficeContainer", false);
+    var isBackOfficeContainer = app.Configuration.GetValue(BackOfficeListener.IsBackOfficeContainerKey, false);
 
     // Email previews are reachable only on the back-office container -- the email preview page that renders them is
     // back-office-only and Easy Auth gates the whole host.

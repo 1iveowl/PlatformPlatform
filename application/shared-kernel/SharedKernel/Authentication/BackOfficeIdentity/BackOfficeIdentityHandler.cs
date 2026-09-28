@@ -12,7 +12,8 @@ namespace SharedKernel.Authentication.BackOfficeIdentity;
 public sealed class BackOfficeIdentityHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
-    UrlEncoder encoder
+    UrlEncoder encoder,
+    BackOfficeListener backOfficeListener
 ) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -45,6 +46,12 @@ public sealed class BackOfficeIdentityHandler(
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // NoResult rather than Fail: a request elsewhere that carries the headers is simply not a back-office identity.
+        if (!backOfficeListener.Received(Context))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
         var headerName = Context.Request.Headers[BackOfficeIdentityDefaults.PrincipalNameHeader].ToString();
         if (string.IsNullOrWhiteSpace(headerName))
         {

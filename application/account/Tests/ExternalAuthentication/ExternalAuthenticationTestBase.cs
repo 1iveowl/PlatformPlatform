@@ -10,6 +10,7 @@ using Account.Features.Subscriptions.Domain;
 using Account.Features.Tenants.Domain;
 using Account.Features.Users.Domain;
 using Account.Integrations.OAuth;
+using Account.Tests.BackOffice;
 using Bogus;
 using FluentAssertions;
 using JetBrains.Annotations;
@@ -92,6 +93,7 @@ public abstract class ExternalAuthenticationTestBase : IDisposable
         _webApplicationFactory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             {
                 builder.ConfigureLogging(logging => { logging.AddFilter(_ => false); });
+                builder.SimulateBackOfficeListener("back-office.test.localhost");
 
                 builder.ConfigureAppConfiguration((_, config) =>
                     {
