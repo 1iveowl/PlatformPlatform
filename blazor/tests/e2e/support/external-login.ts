@@ -306,7 +306,8 @@ export async function runOAuthSignupAndLoginJourney(page: Page, provider: "Googl
 
     await expectBlazorUrl(page, "app");
     await expect(userMenuButton(page)).toBeVisible();
-    expect(await readBootstrapUser(page)).toMatchObject(account);
+    // Any flag list: the back-office feature flag specification rolls a flag out globally while this runs
+    expect(await readBootstrapUser(page)).toMatchObject({ ...account, featureFlags: expect.any(Array) });
     expectRedirectsInsideBlazor(redirects);
   })();
 
@@ -349,7 +350,8 @@ export async function runOAuthSignupAndLoginJourney(page: Page, provider: "Googl
 
     await expectBlazorUrl(page, "app");
     await expect(userMenuButton(page)).toBeVisible();
-    expect(await readBootstrapUser(page)).toMatchObject(account);
+    // Any flag list: the back-office feature flag specification rolls a flag out globally while this runs
+    expect(await readBootstrapUser(page)).toMatchObject({ ...account, featureFlags: expect.any(Array) });
     expectRedirectsInsideBlazor(redirects);
   })();
 }

@@ -35,7 +35,22 @@
 #   cloud-infrastructure/cluster/deploy-container.sh pp stage blazor-host <VERSION> \
 #     --context blazor --dockerfile ./Blazor.Host/Dockerfile
 # Publish with the same version the image is tagged with: the version a client compares against the
-# server's is the assembly version of that publish, not the image tag.
+# server's is the assembly version of that publish, not the image tag. Delete blazor/Blazor.Host/publish
+# after the deploy, or the next blazor-publish fails with BLAZOR106.
+#
+# The account-api image runs in two container apps, account-api and back-office. It copies
+# application/account/Api/publish, which the steps of the build-and-test job in
+# .github/workflows/account.yml produce (frontend build, the WebApp and BackOffice publishes, then the
+# API publish with /p:Version=<VERSION>). Deploy the same tag to both apps, and the account-workers
+# image, published to application/account/Workers/publish the same way, with that tag too, because
+# deploy-cluster.sh runs the workers on the tag it reads from account-api:
+#   cloud-infrastructure/cluster/deploy-container.sh pp stage account-workers <VERSION> \
+#     --context application/account --dockerfile ./Workers/Dockerfile
+#   cloud-infrastructure/cluster/deploy-container.sh pp stage account-api <VERSION> \
+#     --context application/account --dockerfile ./Api/Dockerfile
+#   cloud-infrastructure/cluster/deploy-container.sh pp stage account-api <VERSION> \
+#     --context application/account --dockerfile ./Api/Dockerfile --container-app back-office
+# Apply any new database migration before the new image serves traffic, as the workflow does.
 
 set -eo pipefail
 

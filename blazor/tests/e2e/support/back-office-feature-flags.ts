@@ -7,7 +7,9 @@ import { confirmFeatureFlagActionInBackOffice, openFeatureFlagDetailInBackOffice
 
 /**
  * The flag the back-office feature flag specification activates, re-targets and deactivates: a kill-switch A/B test on the
- * user scope that no other specification, React or Blazor, depends on. The reconciler creates it inactive at 0 %.
+ * user scope that no other specification, React or Blazor, asserts. Its rollout reaches every user while that
+ * specification runs, so a journey that compares a user's bootstrap accepts any flag list. The reconciler creates it
+ * inactive at 0 %.
  */
 export const administeredFeatureFlagKey = "experimental-ui";
 

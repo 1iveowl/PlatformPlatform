@@ -489,6 +489,13 @@ module backOffice '../modules/container-app.bicep' = {
         name: 'BackOffice__IsBackOfficeContainer'
         value: 'true'
       }
+      {
+        // The Blazor edition's back-office pages: this container forwards /blazor/* on the back-office host, after the
+        // platform authentication and the back-office policy, to the internal Blazor host with the protected back-office
+        // identity. Only this container app gets it; unset, account-api maps no such route.
+        name: 'BACK_OFFICE_BLAZOR_HOST_URL'
+        value: blazorHostInternalUrl
+      }
     ])
   }
   dependsOn: [accountApi]
@@ -681,6 +688,7 @@ module blazorHostIdentity '../modules/user-assigned-managed-identity.bicep' = {
 }
 
 var blazorHostContainerAppName = 'blazor-host'
+var blazorHostInternalUrl = 'https://${blazorHostContainerAppName}.internal.${containerAppsEnvironment.outputs.defaultDomainName}'
 module blazorHost '../modules/container-app.bicep' = {
   name: '${clusterResourceGroupName}-blazor-host-container-app'
   scope: clusterResourceGroup
@@ -761,6 +769,13 @@ module blazorHost '../modules/container-app.bicep' = {
         name: 'BACK_OFFICE_SUBSCRIPTION_ENABLED'
         value: !empty(stripeApiKey) && !empty(stripeWebhookSecret) && !empty(stripePublishableKey) ? 'true' : 'false'
       }
+      {
+        // The back-office origin, the host the back-office container app receives and names in X-Forwarded-Host when it
+        // forwards a back-office page here. The host answers that host name only for back-office pages and only with the
+        // identity that container forwards; unset, it serves no back-office page.
+        name: 'BACK_OFFICE_PUBLIC_URL'
+        value: 'https://${backOfficeHost}'
+      }
     ]
   }
 }
@@ -832,7 +847,7 @@ module appGateway '../modules/container-app.bicep' = {
       }
       {
         name: 'BLAZOR_HOST_URL'
-        value: 'https://${blazorHostContainerAppName}.internal.${containerAppsEnvironment.outputs.defaultDomainName}'
+        value: blazorHostInternalUrl
       }
       {
         name: 'Hostnames__App'

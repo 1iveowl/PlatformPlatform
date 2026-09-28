@@ -131,3 +131,65 @@ Assumptions until G6a verifies them in Azure:
   every path of its host.
 
 Local development needs nothing beyond the AppHost, which sets both variables.
+
+## As built by G6a
+
+Written by G6a (EP-216), 2026-09-28. Nothing was sent to Azure; every Azure statement below remains an assumption until
+G6b's checks confirm it.
+
+- `cloud-infrastructure/cluster/main-cluster.bicep` gives the `back-office` container app `BACK_OFFICE_BLAZOR_HOST_URL`
+  (the variable `blazorHostInternalUrl`, `https://blazor-host.internal.<environment domain>`, which the gateway's
+  `BLAZOR_HOST_URL` now shares) and the `blazor-host` container app `BACK_OFFICE_PUBLIC_URL` (`https://<backOfficeHost>`,
+  the same host the account API gets as `BackOffice__Host`, so the route's `RequireHost` and `BackOfficeOrigin` compare
+  the same name). `account-api` and `account-workers` do not get `BACK_OFFICE_BLAZOR_HOST_URL`.
+- `BACK_OFFICE_SUBSCRIPTION_ENABLED` on `blazor-host` was already the Stripe-derived expression the `back-office`
+  container app gets as `PUBLIC_SUBSCRIPTION_ENABLED` (EP-204); unchanged.
+- Network, key ring and authentication: no change. Both apps are in the same environment, the `blazor-host` ingress stays
+  internal, every container app has `runtime.dotnet.autoConfigureDataProtection: true`
+  (`cloud-infrastructure/modules/container-app.bicep`), and the back-office Easy Auth configuration
+  (`container-app-auth-config.bicep`) already covers `/blazor/*`. No app registration change, no new ingress, no gateway
+  route change.
+- `cloud-infrastructure/cluster/deploy-container.sh` needed no code change. Its usage text now names the account images
+  G6b must deploy (the proxy lives in the account API image) and the BLAZOR106 clean-up after a Blazor deploy.
+- Local proof, 2026-09-28: the image built from the Dockerfile (from a scratch build context holding the publish, so
+  nothing was copied into `blazor/Blazor.Host/publish`) ran under `ASPNETCORE_ENVIRONMENT=Production` on the Blazor host
+  port, behind the account API's back-office listener and the gateway of `start-stack --without-blazor-host`. It
+  answered its health endpoints, served back-office pages to the mocked admin and user only through the listener, and
+  answered the same forged headers on the app host and on its own port with 404 or the login redirect.
+
+## Deployment procedure for G6b
+
+Staging only. Production waits for its back-office app registration (EP-192). `<bo>` is the back-office host,
+`<app>` the app host, `<rg>` the cluster resource group (`<prefix>-stage-<acronym>`).
+
+1. Record the state before: the image of `account-api`, `back-office`, `account-workers` and `blazor-host`
+   (`az containerapp show -n <app> -g <rg> --query "properties.template.containers[0].image"`), and the host names
+   bound to `back-office` (`--query "properties.configuration.ingress.[fqdn, customDomains[].name]"`). If the running
+   account image predates the newest file under `application/account/Core/Database/Migrations/`, apply the migrations
+   first.
+2. Account images, one tag for all three apps, as the usage text of `deploy-container.sh` says: `account-workers`,
+   `account-api`, then `back-office` (`--container-app back-office`).
+3. Blazor image: `blazor-publish --version <tag>`, copy the publish to `blazor/Blazor.Host/publish`,
+   `deploy-container.sh <prefix> stage blazor-host <tag> --context blazor --dockerfile ./Blazor.Host/Dockerfile
+   --cluster-location-acronym <acronym>`, then delete `blazor/Blazor.Host/publish` (EP-194).
+4. The two settings: `deploy-cluster.sh` without `--apply` first, whose what-if must show the two new environment
+   variables and no other change beyond the new revisions, then with `--apply`. Without the cluster parameters at hand,
+   `az containerapp update -n back-office -g <rg> --set-env-vars BACK_OFFICE_BLAZOR_HOST_URL=https://blazor-host.internal.<environment domain>`
+   and `az containerapp update -n blazor-host -g <rg> --set-env-vars BACK_OFFICE_PUBLIC_URL=https://<bo>` set the same
+   values the Bicep holds, so the next cluster deploy changes nothing.
+5. The checks below, in order; stop at the first failure and keep the React back office as it is.
+
+| # | Check | Request | Expected answer |
+| --- | --- | --- | --- |
+| 1 | Host (G0 item 3) | Compare the host in step 1 with `BACK_OFFICE_PUBLIC_URL` on `blazor-host` and `BackOffice__Host` on `back-office`; then `GET https://<bo>/api/back-office/me` signed in | All three name the same host; 200 with the session's identity. A mismatch answers every back-office page with 404 |
+| 2 | Shared key ring (G0 item 1) | Signed in as an admin, open `https://<bo>/blazor/back-office/identity` | 200 with the signed-in name and the admin marker. A loop between `/blazor/back-office` and `/.auth/login/aad`, or "The forwarded back-office identity is not valid" in the `blazor-host` log, means the ring is not shared: stop, the fallback (an explicit shared key store with `SetApplicationName` on both apps) is an owner decision |
+| 3 | Principal header overwrite (G0 item 2) | With the admin session, send `X-MS-CLIENT-PRINCIPAL-NAME`, `X-MS-CLIENT-PRINCIPAL-ID` and `X-MS-CLIENT-PRINCIPAL` naming another identity to `GET /api/back-office/me` and `GET /blazor/back-office/identity`; repeat with a non-admin session and the headers claiming the admins group; repeat with no session | The session's own identity and admin verdict on both; the non-admin stays without the admin marker and its write (for example the rollout of a flag) answers 403; no session answers 302 to `/.auth/login/aad`, never 200 |
+| 4 | App path refuses | `GET https://<app>/blazor/back-office` with the forged principal headers, with `X-Forwarded-Host: <bo>` added, and with a made-up `X-Back-Office-Identity` | 404 each time |
+| 5 | Internal ingress stays internal | `az containerapp show -n blazor-host -g <rg> --query properties.configuration.ingress.external`; `GET https://blazor-host.<environment domain>/` from outside | `false`; no answer from the app |
+| 6 | Content security policy | Response headers of `GET https://<bo>/blazor/back-office` | One `Content-Security-Policy`, nonce based, naming `https://<bo>` and not `<app>` |
+| 7 | Offline shell, push, version policy | `GET https://<bo>/blazor/service-worker.js` and `/blazor/manifest.webmanifest`; the page's `<html>` element; the browser's list of service workers for `<bo>` | 404 and 404; `data-back-office` present; no worker registered, so no push subscription; the only WebAssembly component is the back-office one, which does not start the app shell's stale-asset probe |
+| 8 | Antiforgery write | As an admin, one write from the Blazor back office, then the same write as a non-admin | 2xx, then 403 |
+| 9 | Subscription setting | `BACK_OFFICE_SUBSCRIPTION_ENABLED` on `blazor-host` against `PUBLIC_SUBSCRIPTION_ENABLED` on `back-office`; the account tabs in both back offices | Equal values; the billing tabs show in the Blazor back office exactly when they show in the React one |
+| 10 | Nothing else moved | `GET https://<bo>/` signed in, and `GET https://<app>/blazor/` | The React back office at the root; the app edition's landing page, 200 |
+
+The first request after idle can take 20 to 46 s while a container app scales from zero; retry before judging a timeout.
