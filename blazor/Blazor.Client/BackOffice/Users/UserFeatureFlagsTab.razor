@@ -5,8 +5,8 @@
 @* The user detail's Feature flags tab, the React back office's UserFeatureFlagsSection, read-only: the user-scoped flags from
    GET /api/back-office/users/{id}/feature-flags on DataList under the flags prefix (UserFeatureFlagsListSource), and the empty
    state when none is defined. Where the React tab has an override switch this tab states whether the flag is on for the user
-   and whether a manual override decides it; the React rows open the back office's flag page, which the Blazor back office does
-   not have yet, so here the rows are not activated. *@
+   and whether a manual override decides it; the React rows open the back office's flag page, while here the rows are not
+   activated and the flag page is reached from the feature flag list. *@
 @inject IServiceProvider Services
 
 @if (_flags is null)

@@ -927,4 +927,169 @@
     <data name="AccountBillingEvents" xml:space="preserve">
         <value>Kontoens faktureringshændelser</value>
     </data>
+    <data name="FeatureFlagsSubtitle" xml:space="preserve">
+        <value>Feature flags er defineret i koden. Denne visning styrer deres aktivering og udrulning. Det tager op til 5 minutter, før ændringer når alle brugere.</value>
+    </data>
+    <data name="ShowDeleted" xml:space="preserve">
+        <value>Vis slettede</value>
+    </data>
+    <data name="UserFlags" xml:space="preserve">
+        <value>Brugerflag</value>
+    </data>
+    <data name="SystemFlags" xml:space="preserve">
+        <value>Systemflag</value>
+    </data>
+    <data name="AccountFlagsListDescription" xml:space="preserve">
+        <value>Konto-specifikke flag. Ejere kan slå konfigurerbare flag til og fra. Admins styrer A/B-udrulninger.</value>
+    </data>
+    <data name="PlanFlagsListDescription" xml:space="preserve">
+        <value>Begrænset af abonnementet og genberegnet når abonnementet ændres. Konfigureres kun i koden.</value>
+    </data>
+    <data name="UserFlagsListDescription" xml:space="preserve">
+        <value>Brugerspecifikke flag. Brugere kan slå konfigurerbare flag til og fra. Admins styrer A/B-udrulninger.</value>
+    </data>
+    <data name="SystemFlagsListDescription" xml:space="preserve">
+        <value>Platformomspændende funktioner sat ved udrulning via miljøvariabler. Konfigureres kun i koden.</value>
+    </data>
+    <data name="Rollout" xml:space="preserve">
+        <value>Udrulning</value>
+    </data>
+    <data name="FlagActive" xml:space="preserve">
+        <value>Aktiv</value>
+    </data>
+    <data name="FlagInactive" xml:space="preserve">
+        <value>Inaktiv</value>
+    </data>
+    <data name="FlagAlwaysOn" xml:space="preserve">
+        <value>Altid aktiveret</value>
+    </data>
+    <data name="FlagRemoved" xml:space="preserve">
+        <value>Fjernet</value>
+    </data>
+    <data name="FlagDeleted" xml:space="preserve">
+        <value>Slettet</value>
+    </data>
+    <data name="AccountFlagScope" xml:space="preserve">
+        <value>Kontoflag</value>
+    </data>
+    <data name="PlanFlagScope" xml:space="preserve">
+        <value>Abonnementsflag</value>
+    </data>
+    <data name="UserFlagScope" xml:space="preserve">
+        <value>Brugerflag</value>
+    </data>
+    <data name="SystemFlagScope" xml:space="preserve">
+        <value>Systemflag</value>
+    </data>
+    <data name="BackToFeatureFlags" xml:space="preserve">
+        <value>Tilbage til feature flags</value>
+    </data>
+    <data name="FlagInformation" xml:space="preserve">
+        <value>Flagoplysninger</value>
+    </data>
+    <data name="FlagKey" xml:space="preserve">
+        <value>Nøgle</value>
+    </data>
+    <data name="FlagScope" xml:space="preserve">
+        <value>Omfang</value>
+    </data>
+    <data name="EnabledSince" xml:space="preserve">
+        <value>Aktiveret</value>
+    </data>
+    <data name="EnabledPeriod" xml:space="preserve">
+        <value>Aktiveret periode</value>
+    </data>
+    <data name="DatePeriod" xml:space="preserve">
+        <value>{0} til {1}</value>
+    </data>
+    <data name="DeletedOn" xml:space="preserve">
+        <value>Slettet</value>
+    </data>
+    <data name="RolloutBuckets" xml:space="preserve">
+        <value>Udrulningsbuckets</value>
+    </data>
+    <data name="RolloutBucketRange" xml:space="preserve">
+        <value>{0}-{1} ({2}%)</value>
+    </data>
+    <data name="RolloutBucketWrappedRange" xml:space="preserve">
+        <value>{0}-99 og 0-{1} ({2}%)</value>
+    </data>
+    <data name="StableModuleNote" xml:space="preserve">
+        <value>Dette er et stabilt modul. Det er altid aktiveret og kan ikke slås fra.</value>
+    </data>
+    <data name="PlanFlagManagedNote" xml:space="preserve">
+        <value>Dette flag styres af abonnementet. Det aktiveres automatisk for konti på det krævede abonnement eller højere.</value>
+    </data>
+    <data name="DeletedFlagNote" xml:space="preserve">
+        <value>Dette feature flag er blevet slettet. Det bevares til historisk telemetri. Tilføjelse af et nyt feature flag med samme navn vil få deployment til at fejle.</value>
+    </data>
+    <data name="OrphanedFlagNote" xml:space="preserve">
+        <value>Dette feature flag findes ikke længere i koden. Slet det for at fjerne alle konto- og brugertilsidesættelser.</value>
+    </data>
+    <data name="FeatureFlagActions" xml:space="preserve">
+        <value>Handlinger for feature flag</value>
+    </data>
+    <data name="ActivateFlag" xml:space="preserve">
+        <value>Aktivér</value>
+    </data>
+    <data name="ActivatingFlag" xml:space="preserve">
+        <value>Aktiverer...</value>
+    </data>
+    <data name="DeactivateFlag" xml:space="preserve">
+        <value>Deaktivér</value>
+    </data>
+    <data name="DeactivatingFlag" xml:space="preserve">
+        <value>Deaktiverer...</value>
+    </data>
+    <data name="DeleteFlagAndOverrides" xml:space="preserve">
+        <value>Slet flag og alle tilsidesættelser</value>
+    </data>
+    <data name="DeletingFlag" xml:space="preserve">
+        <value>Sletter...</value>
+    </data>
+    <data name="ActivateFeatureFlagQuestion" xml:space="preserve">
+        <value>Aktivér feature flag</value>
+    </data>
+    <data name="ActivateFeatureFlagConfirmation" xml:space="preserve">
+        <value>Aktivér {0} ({1})? Konti og brugere får det derefter efter deres tilsidesættelser og udrulningen. Det tager op til 5 minutter, før ændringer når alle brugere.</value>
+    </data>
+    <data name="DeactivateFeatureFlagQuestion" xml:space="preserve">
+        <value>Deaktivér feature flag</value>
+    </data>
+    <data name="DeactivateFeatureFlagConfirmation" xml:space="preserve">
+        <value>Deaktivér {0} ({1})? Konti og brugere får derefter den deaktiverede tilstand uanset tilsidesættelser. Det tager op til 5 minutter, før ændringer når alle brugere.</value>
+    </data>
+    <data name="DeleteFeatureFlagQuestion" xml:space="preserve">
+        <value>Slet feature flag</value>
+    </data>
+    <data name="DeleteFeatureFlagConfirmation" xml:space="preserve">
+        <value>Slet {0} ({1}, {2}) og alle konto- og brugertilsidesættelser permanent. Dette kan ikke fortrydes.</value>
+    </data>
+    <data name="FeatureFlagActivated" xml:space="preserve">
+        <value>Feature flag aktiveret</value>
+    </data>
+    <data name="FeatureFlagDeactivated" xml:space="preserve">
+        <value>Feature flag deaktiveret</value>
+    </data>
+    <data name="RolloutPercentageUpdated" xml:space="preserve">
+        <value>Udrulningsprocent opdateret</value>
+    </data>
+    <data name="FeatureFlagDeleted" xml:space="preserve">
+        <value>Feature flag slettet: {0}</value>
+    </data>
+    <data name="ChangesReachUsersWithinFiveMinutes" xml:space="preserve">
+        <value>Det tager op til 5 minutter, før ændringer når alle brugere.</value>
+    </data>
+    <data name="RolloutPercentage" xml:space="preserve">
+        <value>Udrulning %</value>
+    </data>
+    <data name="RolloutPercentageDescription" xml:space="preserve">
+        <value>Procentdel af konti eller brugere inkluderet i A/B-udrulningen. Buckets tildeles konsekvent pr. konto eller bruger.</value>
+    </data>
+    <data name="RolloutPercentageInvalid" xml:space="preserve">
+        <value>Indtast et helt tal fra 0 til 100.</value>
+    </data>
+    <data name="SaveRolloutPercentage" xml:space="preserve">
+        <value>Gem udrulning</value>
+    </data>
 </root>

@@ -1149,4 +1149,204 @@
         <value>Account billing events</value>
         <comment>Blazor only: the accessible name of the account detail's billing events list</comment>
     </data>
+    <data name="FeatureFlagsSubtitle" xml:space="preserve">
+        <value>Feature flags are defined in code. This view controls their activation and rollout. It takes up to 5 minutes for changes to reach all users.</value>
+        <comment>Blazor only: the subtitle of the back office's feature flag list</comment>
+    </data>
+    <data name="ShowDeleted" xml:space="preserve">
+        <value>Show deleted</value>
+        <comment>Blazor only: the toggle that adds the deleted flags to the feature flag list</comment>
+    </data>
+    <data name="UserFlags" xml:space="preserve">
+        <value>User flags</value>
+    </data>
+    <data name="SystemFlags" xml:space="preserve">
+        <value>System flags</value>
+    </data>
+    <data name="AccountFlagsListDescription" xml:space="preserve">
+        <value>Per-account flags. Owners can toggle configurable flags. Admins control A/B rollouts.</value>
+    </data>
+    <data name="PlanFlagsListDescription" xml:space="preserve">
+        <value>Gated by subscription plan and recomputed when the plan changes. Configured only in code.</value>
+    </data>
+    <data name="UserFlagsListDescription" xml:space="preserve">
+        <value>Per-user flags. Users can toggle configurable flags. Admins control A/B rollouts.</value>
+    </data>
+    <data name="SystemFlagsListDescription" xml:space="preserve">
+        <value>Platform-wide capabilities set at deployment via environment variables. Configured only in code.</value>
+    </data>
+    <data name="Rollout" xml:space="preserve">
+        <value>Rollout</value>
+    </data>
+    <data name="FlagActive" xml:space="preserve">
+        <value>Active</value>
+        <comment>Blazor only: the status of a feature flag that is active</comment>
+    </data>
+    <data name="FlagInactive" xml:space="preserve">
+        <value>Inactive</value>
+        <comment>Blazor only: the status of a feature flag that is inactive</comment>
+    </data>
+    <data name="FlagAlwaysOn" xml:space="preserve">
+        <value>Always on</value>
+        <comment>Blazor only: the status of a feature flag that is a stable module</comment>
+    </data>
+    <data name="FlagRemoved" xml:space="preserve">
+        <value>Removed</value>
+        <comment>Blazor only: the status of a feature flag the code no longer declares</comment>
+    </data>
+    <data name="FlagDeleted" xml:space="preserve">
+        <value>Deleted</value>
+        <comment>Blazor only: the status of a deleted feature flag</comment>
+    </data>
+    <data name="AccountFlagScope" xml:space="preserve">
+        <value>Account flag</value>
+        <comment>Blazor only: the scope of a per-account feature flag</comment>
+    </data>
+    <data name="PlanFlagScope" xml:space="preserve">
+        <value>Plan flag</value>
+        <comment>Blazor only: the scope of a feature flag gated by the subscription plan</comment>
+    </data>
+    <data name="UserFlagScope" xml:space="preserve">
+        <value>User flag</value>
+        <comment>Blazor only: the scope of a per-user feature flag</comment>
+    </data>
+    <data name="SystemFlagScope" xml:space="preserve">
+        <value>System flag</value>
+        <comment>Blazor only: the scope of a platform-wide feature flag</comment>
+    </data>
+    <data name="BackToFeatureFlags" xml:space="preserve">
+        <value>Back to feature flags</value>
+    </data>
+    <data name="FlagInformation" xml:space="preserve">
+        <value>Flag information</value>
+        <comment>Blazor only: the heading of the feature flag detail's information section</comment>
+    </data>
+    <data name="FlagKey" xml:space="preserve">
+        <value>Key</value>
+        <comment>Blazor only: the label of a feature flag's key, the name it has in the code</comment>
+    </data>
+    <data name="FlagScope" xml:space="preserve">
+        <value>Scope</value>
+        <comment>Blazor only: the label of a feature flag's scope</comment>
+    </data>
+    <data name="EnabledSince" xml:space="preserve">
+        <value>Enabled</value>
+        <comment>Blazor only: the label of the date a feature flag was enabled</comment>
+    </data>
+    <data name="EnabledPeriod" xml:space="preserve">
+        <value>Enabled period</value>
+        <comment>Blazor only: the label of the period a feature flag was enabled for</comment>
+    </data>
+    <data name="DatePeriod" xml:space="preserve">
+        <value>{0} to {1}</value>
+        <comment>Blazor only: a period between two dates; {0} is the first date and {1} the last</comment>
+    </data>
+    <data name="DeletedOn" xml:space="preserve">
+        <value>Deleted</value>
+        <comment>Blazor only: the label of the date a feature flag was deleted</comment>
+    </data>
+    <data name="RolloutBuckets" xml:space="preserve">
+        <value>Rollout buckets</value>
+        <comment>Blazor only: the label of the bucket range an A/B rollout targets</comment>
+    </data>
+    <data name="RolloutBucketRange" xml:space="preserve">
+        <value>{0}-{1} ({2}%)</value>
+        <comment>Blazor only: {0} is the first bucket, {1} the last and {2} the rollout percentage</comment>
+    </data>
+    <data name="RolloutBucketWrappedRange" xml:space="preserve">
+        <value>{0}-99 and 0-{1} ({2}%)</value>
+        <comment>Blazor only: a bucket range that wraps past the highest bucket, 99; {0} is the first bucket, {1} the last and {2} the rollout percentage</comment>
+    </data>
+    <data name="StableModuleNote" xml:space="preserve">
+        <value>This is a stable module. It is always on and cannot be deactivated.</value>
+    </data>
+    <data name="PlanFlagManagedNote" xml:space="preserve">
+        <value>This flag is managed by the subscription plan. It is automatically enabled for accounts on the required plan or higher.</value>
+    </data>
+    <data name="DeletedFlagNote" xml:space="preserve">
+        <value>This flag has been deleted. It is retained for historical telemetry. Adding a new feature flag with the same name will fail deployment.</value>
+    </data>
+    <data name="OrphanedFlagNote" xml:space="preserve">
+        <value>This flag no longer exists in code. Delete it to remove all account and user overrides.</value>
+    </data>
+    <data name="FeatureFlagActions" xml:space="preserve">
+        <value>Feature flag actions</value>
+        <comment>Blazor only: the accessible name of the group of a feature flag's admin actions</comment>
+    </data>
+    <data name="ActivateFlag" xml:space="preserve">
+        <value>Activate</value>
+        <comment>Blazor only: the button that activates a feature flag</comment>
+    </data>
+    <data name="ActivatingFlag" xml:space="preserve">
+        <value>Activating...</value>
+        <comment>Blazor only: the activate button while the activation runs</comment>
+    </data>
+    <data name="DeactivateFlag" xml:space="preserve">
+        <value>Deactivate</value>
+        <comment>Blazor only: the button that deactivates a feature flag</comment>
+    </data>
+    <data name="DeactivatingFlag" xml:space="preserve">
+        <value>Deactivating...</value>
+        <comment>Blazor only: the deactivate button while the deactivation runs</comment>
+    </data>
+    <data name="DeleteFlagAndOverrides" xml:space="preserve">
+        <value>Delete flag and all overrides</value>
+    </data>
+    <data name="DeletingFlag" xml:space="preserve">
+        <value>Deleting...</value>
+        <comment>Blazor only: the delete button while the deletion runs</comment>
+    </data>
+    <data name="ActivateFeatureFlagQuestion" xml:space="preserve">
+        <value>Activate feature flag</value>
+        <comment>Blazor only: the title of the activation confirmation</comment>
+    </data>
+    <data name="ActivateFeatureFlagConfirmation" xml:space="preserve">
+        <value>Activate {0} ({1})? Accounts and users then receive it according to their overrides and the rollout. It takes up to 5 minutes for changes to reach all users.</value>
+        <comment>Blazor only: {0} is the flag's name and {1} its scope</comment>
+    </data>
+    <data name="DeactivateFeatureFlagQuestion" xml:space="preserve">
+        <value>Deactivate feature flag</value>
+        <comment>Blazor only: the title of the deactivation confirmation</comment>
+    </data>
+    <data name="DeactivateFeatureFlagConfirmation" xml:space="preserve">
+        <value>Deactivate {0} ({1})? Accounts and users then receive the disabled state regardless of overrides. It takes up to 5 minutes for changes to reach all users.</value>
+        <comment>Blazor only: {0} is the flag's name and {1} its scope</comment>
+    </data>
+    <data name="DeleteFeatureFlagQuestion" xml:space="preserve">
+        <value>Delete feature flag</value>
+    </data>
+    <data name="DeleteFeatureFlagConfirmation" xml:space="preserve">
+        <value>Permanently delete {0} ({1}, {2}) and all account and user overrides. This cannot be undone.</value>
+        <comment>Blazor only: {0} is the flag's name, {1} its key and {2} its scope</comment>
+    </data>
+    <data name="FeatureFlagActivated" xml:space="preserve">
+        <value>Feature flag activated</value>
+    </data>
+    <data name="FeatureFlagDeactivated" xml:space="preserve">
+        <value>Feature flag deactivated</value>
+    </data>
+    <data name="RolloutPercentageUpdated" xml:space="preserve">
+        <value>Rollout percentage updated</value>
+    </data>
+    <data name="FeatureFlagDeleted" xml:space="preserve">
+        <value>Feature flag deleted: {0}</value>
+        <comment>{0} is the flag's name</comment>
+    </data>
+    <data name="ChangesReachUsersWithinFiveMinutes" xml:space="preserve">
+        <value>It takes up to 5 minutes for changes to reach all users.</value>
+    </data>
+    <data name="RolloutPercentage" xml:space="preserve">
+        <value>Rollout %</value>
+    </data>
+    <data name="RolloutPercentageDescription" xml:space="preserve">
+        <value>Percentage of accounts or users included in the A/B rollout. Buckets are assigned consistently per account or user.</value>
+    </data>
+    <data name="RolloutPercentageInvalid" xml:space="preserve">
+        <value>Enter a whole number from 0 to 100.</value>
+        <comment>Blazor only: the message of a rollout percentage that is not a whole number from 0 to 100</comment>
+    </data>
+    <data name="SaveRolloutPercentage" xml:space="preserve">
+        <value>Save rollout</value>
+        <comment>Blazor only: the button that saves a feature flag's rollout percentage</comment>
+    </data>
 </root>

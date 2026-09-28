@@ -181,7 +181,7 @@ async function activateFeatureFlagThroughBackOffice(page: Page, flagKey: string,
  * The antiforgery token the back office puts in its document head once the administrator session has started
  * @param page Playwright page instance of a signed-in back-office administrator
  */
-async function readBackOfficeAntiforgeryToken(page: Page): Promise<string> {
+export async function readBackOfficeAntiforgeryToken(page: Page): Promise<string> {
   const token = page.locator('head meta[name="antiforgeryToken"]');
 
   await expect.poll(async () => ((await token.getAttribute("content")) ?? "").length > 0).toBe(true);

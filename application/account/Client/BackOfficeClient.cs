@@ -6,6 +6,7 @@ using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
 using Account.Features.ExternalAuthentication.BackOffice.Queries;
 using Account.Features.FeatureFlags.Queries;
+using Account.Features.FeatureFlags.Requests;
 using Account.Features.Tenants.BackOffice.Commands;
 using Account.Features.Tenants.BackOffice.Queries;
 using Account.Features.Tenants.BackOffice.Requests;
@@ -180,5 +181,30 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     public Task<ApiCallResult> RevokeUserIdentityVerificationAsync(UserId userId, CancellationToken cancellationToken)
     {
         return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.BackOfficeUserIdentityVerification(userId), cancellationToken);
+    }
+
+    public Task<ApiCallResult<GetFeatureFlagsResponse>> GetFeatureFlagsAsync(bool includeDeleted, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<GetFeatureFlagsResponse>(AccountApiRoutes.BackOfficeFeatureFlags(includeDeleted), cancellationToken);
+    }
+
+    public Task<ApiCallResult> ActivateFeatureFlagAsync(string flagKey, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.ActivateFeatureFlag(flagKey), cancellationToken);
+    }
+
+    public Task<ApiCallResult> DeactivateFeatureFlagAsync(string flagKey, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.DeactivateFeatureFlag(flagKey), cancellationToken);
+    }
+
+    public Task<ApiCallResult> SetFeatureFlagRolloutPercentageAsync(string flagKey, SetFeatureFlagRolloutPercentageCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.SetFeatureFlagRolloutPercentage(flagKey), command, cancellationToken);
+    }
+
+    public Task<ApiCallResult> DeleteFeatureFlagAsync(string flagKey, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.BackOfficeFeatureFlag(flagKey), cancellationToken);
     }
 }

@@ -9,32 +9,6 @@ namespace Account.Features.FeatureFlags.Queries;
 [PublicAPI]
 public sealed record GetFeatureFlagsQuery(bool IncludeDeleted = false) : IRequest<Result<GetFeatureFlagsResponse>>;
 
-[PublicAPI]
-public sealed record GetFeatureFlagsResponse(FeatureFlagInfo[] Flags);
-
-[PublicAPI]
-public sealed record FeatureFlagInfo(
-    string Key,
-    FeatureFlagScope Scope,
-    FeatureFlagAdminLevel AdminLevel,
-    string Description,
-    bool IsAbTestEligible,
-    bool ConfigurableByTenant,
-    bool ConfigurableByUser,
-    string? RequiredPlan,
-    DateTimeOffset? CreatedAt,
-    DateTimeOffset? EnabledAt,
-    DateTimeOffset? DisabledAt,
-    int? RolloutBucketStart,
-    int? RolloutBucketEnd,
-    int? RolloutPercentage,
-    bool IsActive,
-    bool IsKillSwitchEnabled,
-    bool IsStableModule,
-    DateTimeOffset? OrphanedAt,
-    DateTimeOffset? DeletedAt
-);
-
 public sealed class GetFeatureFlagsHandler(IFeatureFlagRepository featureFlagRepository, IConfiguration configuration)
     : IRequestHandler<GetFeatureFlagsQuery, Result<GetFeatureFlagsResponse>>
 {

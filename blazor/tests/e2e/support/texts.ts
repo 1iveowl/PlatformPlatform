@@ -326,7 +326,23 @@ export const blazorCultures = [
     accountOverviewFlagName: "Account overview page",
     accountOverviewFlagDescription: "Show the account overview dashboard with user statistics at /account. When disabled, signed-in users go straight to the users list.",
     compactViewFlagName: "Compact view",
-    compactViewFlagDescription: "Reduce spacing between UI elements for a denser layout"
+    compactViewFlagDescription: "Reduce spacing between UI elements for a denser layout",
+    featureFlagActivated: "Feature flag activated",
+    featureFlagDeactivated: "Feature flag deactivated",
+    rolloutPercentageUpdated: "Rollout percentage updated",
+    featureFlagChangesReachUsers: "It takes up to 5 minutes for changes to reach all users.",
+    rolloutPercentageInvalid: "Enter a whole number from 0 to 100.",
+    userFlagScope: "User flag",
+    backOfficeUserFlags: "User flags",
+    showDeletedFlags: "Show deleted",
+    activateFlag: "Activate",
+    deactivateFlag: "Deactivate",
+    activateFeatureFlag: "Activate feature flag",
+    deactivateFeatureFlag: "Deactivate feature flag",
+    rolloutPercentageLabel: "Rollout %",
+    saveRolloutPercentage: "Save rollout",
+    backToFeatureFlags: "Back to feature flags",
+    experimentalUiFlagName: "Experimental UI"
   },
   {
     locale: "da-DK",
@@ -645,7 +661,23 @@ export const blazorCultures = [
     accountOverviewFlagName: "Kontooversigtsside",
     accountOverviewFlagDescription: "Vis kontooversigten med brugerstatistik på /account. Når deaktiveret, sendes loggede brugere direkte til brugerlisten.",
     compactViewFlagName: "Kompakt visning",
-    compactViewFlagDescription: "Reducér afstanden mellem UI-elementer for et tættere layout"
+    compactViewFlagDescription: "Reducér afstanden mellem UI-elementer for et tættere layout",
+    featureFlagActivated: "Feature flag aktiveret",
+    featureFlagDeactivated: "Feature flag deaktiveret",
+    rolloutPercentageUpdated: "Udrulningsprocent opdateret",
+    featureFlagChangesReachUsers: "Det tager op til 5 minutter, før ændringer når alle brugere.",
+    rolloutPercentageInvalid: "Indtast et helt tal fra 0 til 100.",
+    userFlagScope: "Brugerflag",
+    backOfficeUserFlags: "Brugerflag",
+    showDeletedFlags: "Vis slettede",
+    activateFlag: "Aktivér",
+    deactivateFlag: "Deaktivér",
+    activateFeatureFlag: "Aktivér feature flag",
+    deactivateFeatureFlag: "Deaktivér feature flag",
+    rolloutPercentageLabel: "Udrulning %",
+    saveRolloutPercentage: "Gem udrulning",
+    backToFeatureFlags: "Tilbage til feature flags",
+    experimentalUiFlagName: "Experimental UI"
   }
 ] as const;
 

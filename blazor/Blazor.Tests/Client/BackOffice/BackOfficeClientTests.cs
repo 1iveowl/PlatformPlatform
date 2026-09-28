@@ -5,6 +5,7 @@ using Account.Features.BackOffice.Queries;
 using Account.Features.BackOffice.Requests;
 using Account.Features.ExternalAuthentication.BackOffice.Queries;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.FeatureFlags.Requests;
 using Account.Features.Tenants.BackOffice.Commands;
 using Account.Features.Users.BackOffice.Requests;
 using Blazor.Client.BackOffice;
@@ -321,6 +322,69 @@ public sealed class BackOfficeClientTests
 
         // Act
         var result = await client.RevokeUserIdentityVerificationAsync(new UserId("usr_01JMVAW4T4320KJ3A7EJMCG8R0"), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.StatusCode.Should().Be(403);
+    }
+
+    [Theory]
+    [InlineData("activate", "PUT", "/api/back-office/feature-flags/experimental-ui/activate", null)]
+    [InlineData("deactivate", "PUT", "/api/back-office/feature-flags/experimental-ui/deactivate", null)]
+    [InlineData("rollout", "PUT", "/api/back-office/feature-flags/experimental-ui/rollout-percentage", """{"rolloutPercentage":42}""")]
+    [InlineData("delete", "DELETE", "/api/back-office/feature-flags/experimental-ui", null)]
+    public async Task FeatureFlagActions_ShouldSendEachWriteToTheFlagsRouteWithTheHostIssuedToken(string action, string method, string path, string? expectedBody)
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.OK, "");
+        var chain = new AntiforgeryHeaderHandler(new BackOfficeAntiforgeryTokenSource(new FixedAntiforgeryStateProvider("host-issued-token"))) { InnerHandler = network };
+        var client = new BackOfficeClient(new HttpClient(chain) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = action switch
+        {
+            "activate" => await client.ActivateFeatureFlagAsync("experimental-ui", CancellationToken.None),
+            "deactivate" => await client.DeactivateFeatureFlagAsync("experimental-ui", CancellationToken.None),
+            "rollout" => await client.SetFeatureFlagRolloutPercentageAsync("experimental-ui", new SetFeatureFlagRolloutPercentageCommand { RolloutPercentage = 42 }, CancellationToken.None),
+            _ => await client.DeleteFeatureFlagAsync("experimental-ui", CancellationToken.None)
+        };
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        var request = network.Requests.Single();
+        request.Method.Method.Should().Be(method);
+        request.Uri.Should().Be(new Uri($"https://back-office.dev.localhost:9001{path}"));
+        request.Body.Should().Be(expectedBody);
+        request.AntiforgeryToken.Should().Be("host-issued-token");
+    }
+
+    [Fact]
+    public async Task SetFeatureFlagRolloutPercentageAsync_WhenTheAccountApiRefusesThePercentage_ShouldCarryTheFieldError()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.BadRequest,
+            """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"rolloutPercentage":["Rollout percentage must be between 0 and 100."]}}"""
+        );
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.SetFeatureFlagRolloutPercentageAsync("experimental-ui", new SetFeatureFlagRolloutPercentageCommand { RolloutPercentage = 101 }, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Problem!.StatusCode.Should().Be(400);
+        result.Problem.Errors.Should().ContainKey("rolloutPercentage");
+    }
+
+    [Fact]
+    public async Task ActivateFeatureFlagAsync_WhenTheAccountApiRefusesANonAdmin_ShouldReportTheForbiddenStatus()
+    {
+        // Arrange
+        var network = new RecordingNetwork(HttpStatusCode.Forbidden, """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.4","title":"Forbidden","status":403}""");
+        var client = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
+
+        // Act
+        var result = await client.ActivateFeatureFlagAsync("experimental-ui", CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeFalse();

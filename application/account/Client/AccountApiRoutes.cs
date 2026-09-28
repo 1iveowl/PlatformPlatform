@@ -274,6 +274,33 @@ public static class AccountApiRoutes
         return $"{BackOfficeUser(userId)}/identity-verification";
     }
 
+    // Every feature flag of the back office; IncludeDeleted adds the soft-deleted rows, as the endpoint's [AsParameters] binds it
+    public static string BackOfficeFeatureFlags(bool includeDeleted)
+    {
+        return $"/api/back-office/feature-flags?IncludeDeleted={(includeDeleted ? "true" : "false")}";
+    }
+
+    // One flag by its registry key, which is also the route of its DELETE
+    public static string BackOfficeFeatureFlag(string flagKey)
+    {
+        return $"/api/back-office/feature-flags/{Uri.EscapeDataString(flagKey)}";
+    }
+
+    public static string ActivateFeatureFlag(string flagKey)
+    {
+        return $"{BackOfficeFeatureFlag(flagKey)}/activate";
+    }
+
+    public static string DeactivateFeatureFlag(string flagKey)
+    {
+        return $"{BackOfficeFeatureFlag(flagKey)}/deactivate";
+    }
+
+    public static string SetFeatureFlagRolloutPercentage(string flagKey)
+    {
+        return $"{BackOfficeFeatureFlag(flagKey)}/rollout-percentage";
+    }
+
     public static string SetTenantFeatureFlagOverride(string flagKey)
     {
         return $"/api/account/feature-flags/{Uri.EscapeDataString(flagKey)}/tenant-override";

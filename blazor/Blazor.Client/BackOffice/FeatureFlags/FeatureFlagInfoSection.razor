@@ -1,0 +1,243 @@
+@using Account.Client
+@using Account.Features.BackOffice.Queries
+@using Account.Features.FeatureFlags.Queries
+@using Account.Features.FeatureFlags.Requests
+@using Blazor.Client.BackOffice.Shared
+@implements IDisposable
+@* The feature flag detail's information section, the React back office's FeatureFlagInfoSection, PlanFeatureFlagInfoSection
+   and the orphaned and deleted notices of the detail page: the flag's key, scope, required plan, enabled dates, deleted date
+   and rollout, and the admin actions on the flag itself. An identity in the admins group is offered Activate or Deactivate on
+   a kill-switch flag, the rollout percentage on such a flag that is an A/B test, and Delete on an orphaned flag
+   (FeatureFlagDetail.IsOffered); the account API refuses each for anyone else. Activate, Deactivate and Delete ask first in a
+   confirmation that names the flag and its scope. The percentage is a whole number from 0 to 100, checked before the call,
+   and a refusal the account API still sends lands on the field. Every action reports its outcome and then has the owner read
+   the flags again, whatever the answer, so the section shows the account API's state and never one the page assumed. *@
+@inject IServiceProvider Services
+
+<section class="account-detail-section" aria-labelledby="feature-flag-info-heading" data-testid="feature-flag-info" data-active="@(Flag.IsActive ? "true" : "false")">
+    <h2 id="feature-flag-info-heading" class="account-detail-section-title">@BackOfficeStrings.FlagInformation</h2>
+    <div class="dashboard-card account-plan-card">
+        <dl class="account-plan-card-fields">
+            @foreach (var fact in FeatureFlagDetail.GetFacts(Flag))
+            {
+                <div>
+                    <dt>@fact.Label</dt>
+                    <dd data-testid="@fact.TestId">@fact.Value</dd>
+                </div>
+            }
+        </dl>
+
+        @if (FeatureFlagDetail.IsPlanFlag(Flag))
+        {
+            <p class="field-description" data-testid="feature-flag-plan-note">@BackOfficeStrings.PlanFlagManagedNote</p>
+        }
+        else if (Flag is { IsStableModule: true, OrphanedAt: null })
+        {
+            <p class="field-description" data-testid="feature-flag-stable-note">@BackOfficeStrings.StableModuleNote</p>
+        }
+
+        @if (IsOffered(FeatureFlagAction.Activate) || IsOffered(FeatureFlagAction.Deactivate))
+        {
+            <div class="account-admin-actions" role="group" aria-label="@BackOfficeStrings.FeatureFlagActions" data-testid="feature-flag-actions">
+                @if (Flag.IsActive)
+                {
+                    <button type="button" class="button-secondary" disabled="@IsBusy" data-testid="feature-flag-deactivate" @onclick="() => _dialog = FeatureFlagAction.Deactivate">
+                        @BackOfficeStrings.DeactivateFlag
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="button-primary" disabled="@IsBusy" data-testid="feature-flag-activate" @onclick="() => _dialog = FeatureFlagAction.Activate">
+                        @BackOfficeStrings.ActivateFlag
+                    </button>
+                }
+            </div>
+        }
+
+        @if (IsOffered(FeatureFlagAction.SetRolloutPercentage))
+        {
+            <EditForm EditContext="_editContext" OnValidSubmit="SaveRolloutPercentageAsync" novalidate data-testid="feature-flag-rollout-form">
+                <DataAnnotationsValidator/>
+                <p>
+                    <label>
+                        @BackOfficeStrings.RolloutPercentage
+                        <ImmediateInputText @bind-Value="_rolloutForm.RolloutPercentage" type="number" inputmode="numeric" min="0" max="100" step="1" autocomplete="off"
+                                            disabled="@IsBusy" data-testid="feature-flag-rollout-percentage"
+                                            @attributes='_fieldAria.For(() => _rolloutForm.RolloutPercentage, RolloutFieldName)'/>
+                    </label>
+                    <FieldValidation FieldName="@RolloutFieldName" For="() => _rolloutForm.RolloutPercentage"/>
+                    <span class="field-description">@BackOfficeStrings.RolloutPercentageDescription</span>
+                </p>
+                <FormErrorAlert Errors="_formErrors" Id="@RolloutErrorId"/>
+                <button type="submit" class="button-primary" disabled="@IsBusy" data-testid="feature-flag-rollout-save">
+                    @(_busyAction == FeatureFlagAction.SetRolloutPercentage ? CommonStrings.Saving : BackOfficeStrings.SaveRolloutPercentage)
+                </button>
+            </EditForm>
+
+            <UnsavedChangesGuard HasUnsavedChanges="HasUnsavedRolloutPercentage" OnLeave="ResetRolloutPercentage"/>
+        }
+    </div>
+
+    @if (FeatureFlagDetail.IsDeleted(Flag))
+    {
+        <div class="dashboard-card-empty" data-testid="feature-flag-deleted-note">
+            <p>@BackOfficeStrings.DeletedFlagNote</p>
+        </div>
+    }
+    else if (FeatureFlagDetail.IsOrphaned(Flag))
+    {
+        <div class="dashboard-card-empty" data-testid="feature-flag-orphaned-note">
+            <p>@BackOfficeStrings.OrphanedFlagNote</p>
+            @if (IsOffered(FeatureFlagAction.Delete))
+            {
+                <div class="account-admin-actions" role="group" aria-label="@BackOfficeStrings.FeatureFlagActions">
+                    <button type="button" class="button-destructive" disabled="@IsBusy" data-testid="feature-flag-delete" @onclick="() => _dialog = FeatureFlagAction.Delete">
+                        @BackOfficeStrings.DeleteFlagAndOverrides
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</section>
+
+@if (IsOffered(FeatureFlagAction.Activate))
+{
+    <ConfirmActionDialog Open="_dialog == FeatureFlagAction.Activate" Title="@BackOfficeStrings.ActivateFeatureFlagQuestion"
+                         Description="@FeatureFlagDetail.GetConfirmation(FeatureFlagAction.Activate, Flag)" ConfirmLabel="@BackOfficeStrings.ActivateFlag"
+                         BusyLabel="@BackOfficeStrings.ActivatingFlag" IsBusy="IsBusy" TestId="activate-feature-flag-dialog"
+                         OnConfirm="() => RunAsync(FeatureFlagAction.Activate)" OnCancel="CloseDialog"/>
+}
+
+@if (IsOffered(FeatureFlagAction.Deactivate))
+{
+    <ConfirmActionDialog Open="_dialog == FeatureFlagAction.Deactivate" Title="@BackOfficeStrings.DeactivateFeatureFlagQuestion"
+                         Description="@FeatureFlagDetail.GetConfirmation(FeatureFlagAction.Deactivate, Flag)" ConfirmLabel="@BackOfficeStrings.DeactivateFlag"
+                         BusyLabel="@BackOfficeStrings.DeactivatingFlag" IsDestructive IsBusy="IsBusy" TestId="deactivate-feature-flag-dialog"
+                         OnConfirm="() => RunAsync(FeatureFlagAction.Deactivate)" OnCancel="CloseDialog"/>
+}
+
+@if (IsOffered(FeatureFlagAction.Delete))
+{
+    <ConfirmActionDialog Open="_dialog == FeatureFlagAction.Delete" Title="@BackOfficeStrings.DeleteFeatureFlagQuestion"
+                         Description="@FeatureFlagDetail.GetConfirmation(FeatureFlagAction.Delete, Flag)" ConfirmLabel="@BackOfficeStrings.DeleteFlagAndOverrides"
+                         BusyLabel="@BackOfficeStrings.DeletingFlag" IsDestructive IsBusy="IsBusy" TestId="delete-feature-flag-dialog"
+                         OnConfirm="() => RunAsync(FeatureFlagAction.Delete)" OnCancel="CloseDialog"/>
+}
+
+@code {
+
+    private const string RolloutFieldName = "rollout-percentage";
+    private const string RolloutErrorId = "feature-flag-rollout-error";
+
+    private readonly FeatureFlagRolloutForm _rolloutForm = new();
+    private FeatureFlagAction? _busyAction;
+    private FeatureFlagAction? _dialog;
+    private EditContext _editContext = null!;
+    private FieldAria _fieldAria = null!;
+    private FormErrorMapper _formErrors = null!;
+
+    // The percentage the account API last reported, which the field starts from and returns to
+    private string? _serverRolloutPercentage;
+
+    [Parameter]
+    [EditorRequired]
+    public FeatureFlagInfo Flag { get; set; } = null!;
+
+    // Raised after every action, whatever its answer; the owner reads the flags again
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    // The back-office identity BackOfficeShell read from GET /api/back-office/me; null until it is loaded
+    [CascadingParameter]
+    public MeResponse? Me { get; set; }
+
+    private bool IsBusy => _busyAction is not null;
+
+    private bool HasUnsavedRolloutPercentage => _rolloutForm.RolloutPercentage != _serverRolloutPercentage;
+
+    private BackOfficeClient Client => Services.GetRequiredService<BackOfficeClient>();
+
+    public void Dispose()
+    {
+        _formErrors.Dispose();
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_rolloutForm);
+        _formErrors = new FormErrorMapper(_editContext);
+        _fieldAria = new FieldAria(_editContext, RolloutErrorId);
+    }
+
+    // The field follows the account API's percentage whenever that changes, and otherwise keeps what the administrator typed,
+    // so a refused value stays beside its message
+    protected override void OnParametersSet()
+    {
+        var serverRolloutPercentage = FeatureFlagDetail.FormatPercentage(Flag.RolloutPercentage);
+        if (serverRolloutPercentage == _serverRolloutPercentage) return;
+
+        _serverRolloutPercentage = serverRolloutPercentage;
+        _rolloutForm.RolloutPercentage = serverRolloutPercentage;
+    }
+
+    private bool IsOffered(FeatureFlagAction action)
+    {
+        return FeatureFlagDetail.IsOffered(Me, Flag, action);
+    }
+
+    private void CloseDialog()
+    {
+        _dialog = null;
+    }
+
+    private void ResetRolloutPercentage()
+    {
+        _rolloutForm.RolloutPercentage = _serverRolloutPercentage ?? "";
+        _formErrors.Clear();
+    }
+
+    private Task SaveRolloutPercentageAsync()
+    {
+        return RunAsync(FeatureFlagAction.SetRolloutPercentage);
+    }
+
+    private async Task RunAsync(FeatureFlagAction action)
+    {
+        if (IsBusy) return;
+
+        _busyAction = action;
+        if (action == FeatureFlagAction.SetRolloutPercentage) _formErrors.Clear();
+        var result = await SendAsync(action);
+        _busyAction = null;
+
+        var outcome = FeatureFlagDetail.FromResult(result);
+        if (outcome == FeatureFlagActionOutcome.Leaving) return;
+
+        CloseDialog();
+        if (outcome == FeatureFlagActionOutcome.Succeeded)
+        {
+            var message = FeatureFlagDetail.GetSucceededMessage(action, FeatureFlagsListSource.NameOf(Flag));
+            Services.GetRequiredService<ToastService>().Show(ToastKind.Success, message, FeatureFlagDetail.GetSucceededDetail(action), FeatureFlagDetail.ActionToastTestId);
+        }
+        else
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result, action == FeatureFlagAction.SetRolloutPercentage ? _formErrors : null);
+        }
+
+        await OnChanged.InvokeAsync();
+    }
+
+    private Task<ApiCallResult> SendAsync(FeatureFlagAction action)
+    {
+        return action switch
+        {
+            FeatureFlagAction.Activate => Client.ActivateFeatureFlagAsync(Flag.Key, CancellationToken.None),
+            FeatureFlagAction.Deactivate => Client.DeactivateFeatureFlagAsync(Flag.Key, CancellationToken.None),
+            FeatureFlagAction.SetRolloutPercentage => Client.SetFeatureFlagRolloutPercentageAsync(Flag.Key,
+                new SetFeatureFlagRolloutPercentageCommand { RolloutPercentage = _rolloutForm.ToPercentage() }, CancellationToken.None
+            ),
+            _ => Client.DeleteFeatureFlagAsync(Flag.Key, CancellationToken.None)
+        };
+    }
+
+}

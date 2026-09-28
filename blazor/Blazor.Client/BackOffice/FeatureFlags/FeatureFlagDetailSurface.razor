@@ -1,0 +1,92 @@
+@using Account.Client
+@using Account.Features.FeatureFlags.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Shell
+@* The back office's feature flag detail, the React back office's feature-flags/$flagKey page: the link back to the list, the
+   flag's name, status and description, and its information section with the admin actions on the flag itself
+   (FeatureFlagInfoSection). The flag is read from GET /api/back-office/feature-flags with IncludeDeleted, as React reads it,
+   and found by the URL's key (FeatureFlagDetail.Find); a key that names no flag shows the back office's not-found state
+   inside the shell. After an action the flags are read again in place, so the page shows the account API's state; a failed
+   read keeps what the page shows. The flag loads in the browser; the host prerenders the shell and the loading state. *@
+@inject IServiceProvider Services
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="account-detail" data-testid="back-office-feature-flag-detail" data-state="@_status.ToString().ToLowerInvariant()">
+        @switch (_status)
+        {
+            case AccountDetailStatus.Loaded:
+                var status = FeatureFlagsListSource.GetStatus(_flag!);
+                <p>
+                    <a href="@BackOfficeUrls.ToAbsolute("feature-flags")" class="button-secondary" data-testid="feature-flag-back">@BackOfficeStrings.BackToFeatureFlags</a>
+                </p>
+                <header class="account-detail-header" data-testid="feature-flag-header">
+                    <h1 class="account-detail-name" data-testid="feature-flag-name">@FeatureFlagsListSource.NameOf(_flag!)</h1>
+                    <p class="account-preview-badges">
+                        <span class="@FeatureFlagsListSource.GetStatusClass(status)" data-testid="feature-flag-status" data-status="@status.ToString().ToLowerInvariant()">@FeatureFlagsListSource.GetStatusLabel(status)</span>
+                    </p>
+                    @if (FeatureFlagsListSource.DescriptionOf(_flag!) is { } description)
+                    {
+                        <p class="account-detail-facts" data-testid="feature-flag-description">@description</p>
+                    }
+                </header>
+                <FeatureFlagInfoSection Flag="_flag!" OnChanged="ReloadAsync"/>
+                break;
+            case AccountDetailStatus.NotFound:
+                <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>
+                break;
+            case AccountDetailStatus.Loading:
+                <p class="account-detail-loading" role="status" data-testid="feature-flag-detail-loading">@CommonStrings.Loading</p>
+                break;
+        }
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private FeatureFlagInfo? _flag;
+    private AccountDetailStatus _status = AccountDetailStatus.Loading;
+
+    // The route value of the host page, the flag's registry key as the address bar carries it
+    [Parameter]
+    [EditorRequired]
+    public string FlagKey { get; set; } = "";
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        // Resolved lazily: the host does not register the back-office client, so prerendering never constructs it
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetFeatureFlagsAsync(true, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            _status = AccountDetailStatus.Failed;
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _flag = FeatureFlagDetail.Find(result.Value.Flags, FlagKey);
+        _status = _flag is null ? AccountDetailStatus.NotFound : AccountDetailStatus.Loaded;
+    }
+
+    private async Task ReloadAsync()
+    {
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetFeatureFlagsAsync(true, CancellationToken.None);
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        _flag = FeatureFlagDetail.Find(result.Value.Flags, FlagKey);
+        _status = _flag is null ? AccountDetailStatus.NotFound : AccountDetailStatus.Loaded;
+    }
+
+}

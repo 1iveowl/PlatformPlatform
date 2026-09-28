@@ -1,0 +1,158 @@
+@using Account.Client
+@using Account.Features.FeatureFlags.Queries
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Shell
+@* The back office's feature flag list, the React back office's feature-flags page: every flag from GET
+   /api/back-office/feature-flags grouped into account, plan, user and system flags (FeatureFlagsListSource), each group on
+   its own DataList with its own parameter prefix, and the show-deleted toggle, which reads the flags again with
+   IncludeDeleted. A row opens the flag's detail page, except a system flag's. Read-only for every back-office identity; the
+   actions are on the detail page. The flags load in the browser; the host prerenders the shell and the heading. *@
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+<BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
+    <div class="accounts" data-testid="back-office-feature-flags" data-state="@(_flags is null ? "loading" : "loaded")">
+        <h1>@BackOfficeStrings.FeatureFlags</h1>
+        <p class="accounts-subtitle">@BackOfficeStrings.FeatureFlagsSubtitle</p>
+
+        <div class="accounts-toolbar" data-testid="feature-flags-toolbar">
+            <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.FeatureFlags">
+                <button type="button" class="accounts-toggle" aria-pressed="@(_includeDeleted ? "true" : "false")" disabled="@_isLoading" data-testid="feature-flags-show-deleted"
+                        @onclick="ToggleDeletedAsync">
+                    @BackOfficeStrings.ShowDeleted
+                </button>
+            </div>
+        </div>
+
+        @if (_flags is null)
+        {
+            <p class="dashboard-card-loading" role="status" data-testid="feature-flags-loading">@CommonStrings.Loading</p>
+        }
+        else if (_flags.Count == 0)
+        {
+            <div class="accounts-empty" data-testid="feature-flags-empty">
+                <p class="accounts-empty-title">@BackOfficeStrings.NoFeatureFlags</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var group in FeatureFlagsListSource.GetGroups(_flags))
+            {
+                var flags = FeatureFlagsListSource.GetGroup(_flags, group);
+                var title = FeatureFlagsListSource.GetGroupLabel(group);
+                var testId = $"feature-flags-{FeatureFlagsListSource.ToValue(group)}";
+                <section class="account-detail-section" aria-labelledby="@($"{testId}-heading")" data-testid="@testId">
+                    <h2 id="@($"{testId}-heading")" class="account-detail-section-title">@title</h2>
+                    <p class="accounts-subtitle">@FeatureFlagsListSource.GetGroupDescription(group)</p>
+                    <DataList TItem="FeatureFlagInfo" data-testid="@($"{testId}-grid")" ListId="@FeatureFlagsListSource.ListId(group, _includeDeleted)" CacheScope="@AccountsListSource.CacheScope"
+                              Label="@title" Columns="Columns(group)" FetchPage="(request, _) => Task.FromResult(FeatureFlagsListSource.Page(flags, request))" KeySelector="KeyOf"
+                              DefaultOrderBy="@FeatureFlagsListSource.DefaultOrderBy" ParameterPrefix="@FeatureFlagsListSource.ParameterPrefix(group)" RowLabel="FeatureFlagsListSource.NameOf"
+                              OnActivated="@(FeatureFlagsListSource.HasDetail(group) ? OpenFlagAsync : null)">
+                    </DataList>
+                </section>
+            }
+        }
+    </div>
+</BackOfficeShell>
+
+@code {
+
+    private IReadOnlyList<FeatureFlagInfo>? _flags;
+    private bool _includeDeleted;
+    private bool _isLoading;
+
+    // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
+    [Parameter]
+    public bool IsSubscriptionEnabled { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        var result = await Services.GetRequiredService<BackOfficeClient>().GetFeatureFlagsAsync(_includeDeleted, CancellationToken.None);
+        _isLoading = false;
+        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+
+        if (!result.IsSuccess)
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+            return;
+        }
+
+        // The groups page this read in memory, so a page cached from an earlier read, before an action on a detail page, would
+        // show the flags as they were
+        var pageCache = Services.GetRequiredService<DataListPageCache>();
+        foreach (var group in FeatureFlagsListSource.GroupOrder) pageCache.Invalidate(FeatureFlagsListSource.ListId(group, _includeDeleted));
+
+        _flags = result.Value.Flags;
+    }
+
+    private async Task ToggleDeletedAsync()
+    {
+        _includeDeleted = !_includeDeleted;
+        _flags = null;
+        await LoadAsync();
+    }
+
+    // The name with its description, the required plan of a plan flag, the rollout of an A/B test in the account and user
+    // groups, and the status
+    private static IReadOnlyList<DataListColumn<FeatureFlagInfo>> Columns(FeatureFlagGroup group)
+    {
+        var columns = new List<DataListColumn<FeatureFlagInfo>> { new(BackOfficeStrings.Name, NameCell) };
+        if (group == FeatureFlagGroup.Plan)
+        {
+            columns.Add(new DataListColumn<FeatureFlagInfo>(BackOfficeStrings.RequiredPlan,
+                    flag => @<span class="account-plan">@AccountDetailFormat.GetRequiredPlanLabel(flag.RequiredPlan!)</span>, HideBelow: Breakpoint.Small
+                )
+            );
+        }
+
+        if (FeatureFlagsListSource.ShowsRollout(group))
+        {
+            columns.Add(new DataListColumn<FeatureFlagInfo>(BackOfficeStrings.Rollout, RolloutCell, HideBelow: Breakpoint.Small));
+        }
+
+        columns.Add(new DataListColumn<FeatureFlagInfo>(BackOfficeStrings.Status, StatusCell));
+        return columns;
+    }
+
+    private static RenderFragment NameCell(FeatureFlagInfo flag)
+    {
+        return @<span class="account-name-cell" data-testid="feature-flag-row" data-flag-key="@flag.Key">
+                   <span class="account-name">@FeatureFlagsListSource.NameOf(flag)</span>
+                   @if (FeatureFlagsListSource.DescriptionOf(flag) is { } description)
+                   {
+                       <span class="account-owner">@description</span>
+                   }
+               </span>;
+    }
+
+    private static RenderFragment RolloutCell(FeatureFlagInfo flag)
+    {
+        return @<span class="@(FeatureFlagsListSource.IsRolloutInEffect(flag) ? null : "account-owner")" data-testid="feature-flag-rollout">@FeatureFlagsListSource.GetRolloutLabel(flag)</span>;
+    }
+
+    private static RenderFragment StatusCell(FeatureFlagInfo flag)
+    {
+        var status = FeatureFlagsListSource.GetStatus(flag);
+        return @<span class="@FeatureFlagsListSource.GetStatusClass(status)" data-testid="feature-flag-status" data-status="@status.ToString().ToLowerInvariant()">@FeatureFlagsListSource.GetStatusLabel(status)</span>;
+    }
+
+    private static string KeyOf(FeatureFlagInfo flag)
+    {
+        return flag.Key;
+    }
+
+    private Task OpenFlagAsync(FeatureFlagInfo flag)
+    {
+        Navigation.NavigateTo(FeatureFlagsListSource.DetailUrl(flag.Key));
+        return Task.CompletedTask;
+    }
+
+}

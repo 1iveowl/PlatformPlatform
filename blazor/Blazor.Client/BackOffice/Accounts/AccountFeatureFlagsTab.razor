@@ -5,8 +5,8 @@
    flags from GET /api/back-office/tenants/{id}/feature-flags, split into the account flags and the plan flags, each on its own
    DataList with its own parameter prefix (AccountFeatureFlagsSource), and the empty state when the account has none. Where
    the React tab has an override switch this tab states whether the flag is on and whether a manual override decides it; the
-   React rows open the back office's flag page, which the Blazor back office does not have yet, so here the rows are not
-   activated. *@
+   React rows open the back office's flag page, while here the rows are not activated and the flag page is reached from the
+   feature flag list. *@
 @inject IServiceProvider Services
 
 @if (_flags is null)
