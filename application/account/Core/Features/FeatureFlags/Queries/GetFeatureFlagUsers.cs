@@ -33,56 +33,6 @@ public sealed record GetFeatureFlagUsersQuery(
     public UserRole[] Roles { get; } = Roles ?? [];
 }
 
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum SortableFeatureFlagUserProperties
-{
-    Name,
-    TenantName,
-    Role,
-    LastSeenAt,
-    IsEnabled,
-    OverrideUpdatedAt,
-    InclusionThresholdPercentage
-}
-
-[PublicAPI]
-public sealed record GetFeatureFlagUsersResponse(
-    int TotalCount,
-    int PageSize,
-    int TotalPages,
-    int CurrentPageOffset,
-    int EnabledCount,
-    int DisabledCount,
-    int OverrideCount,
-    FeatureFlagUserInfo[] Users
-);
-
-// Field names mirror the User aggregate so Mapster's convention-based mapping covers the user subset. Tenant-derived
-// fields (TenantName, TenantPlan) and override fields (RolloutBucket, IsEnabled, Source) are applied via `with`.
-[PublicAPI]
-public sealed record FeatureFlagUserInfo(
-    UserId Id,
-    TenantId TenantId,
-    string Email,
-    string? FirstName,
-    string? LastName,
-    string? AvatarUrl,
-    UserRole Role,
-    DateTimeOffset? LastSeenAt,
-    DateTimeOffset CreatedAt,
-    string TenantName,
-    SubscriptionPlan TenantPlan,
-    int RolloutBucket,
-    bool IsEnabled,
-    FeatureFlagSource Source,
-    int? InclusionThresholdPercentage,
-    bool DefaultEnabled,
-    DateTimeOffset? OverrideEnabledAt,
-    DateTimeOffset? OverrideDisabledAt,
-    AbInclusionPin? UserAbInclusionPin
-);
-
 public sealed class GetFeatureFlagUsersValidator : AbstractValidator<GetFeatureFlagUsersQuery>
 {
     public GetFeatureFlagUsersValidator()

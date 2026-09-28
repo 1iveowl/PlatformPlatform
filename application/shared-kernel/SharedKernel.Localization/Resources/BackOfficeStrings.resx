@@ -1349,4 +1349,79 @@
         <value>Save rollout</value>
         <comment>Blazor only: the button that saves a feature flag's rollout percentage</comment>
     </data>
+    <data name="AccountStatus" xml:space="preserve">
+        <value>Account status</value>
+    </data>
+    <data name="UserStatus" xml:space="preserve">
+        <value>User status</value>
+    </data>
+    <data name="AccountOverridesRolloutDescription" xml:space="preserve">
+        <value>Accounts are automatically included based on their rollout bucket. Use overrides to manually include or exclude specific accounts.</value>
+    </data>
+    <data name="AccountOverridesDescription" xml:space="preserve">
+        <value>Toggle the override switch to enable this feature for specific accounts.</value>
+    </data>
+    <data name="UserOverridesRolloutDescription" xml:space="preserve">
+        <value>Users are automatically included based on their rollout bucket. Use overrides to manually include or exclude specific users.</value>
+    </data>
+    <data name="UserOverridesDescription" xml:space="preserve">
+        <value>Toggle the override switch to enable this feature for specific users.</value>
+    </data>
+    <data name="PlanManagedAccountsDescription" xml:space="preserve">
+        <value>Accounts are automatically enabled or disabled based on their subscription plan. No manual overrides are available for plan-managed flags.</value>
+    </data>
+    <data name="SearchByAccountNameOrOwnerEmail" xml:space="preserve">
+        <value>Search by account name or owner email</value>
+    </data>
+    <data name="State" xml:space="preserve">
+        <value>State</value>
+    </data>
+    <data name="HasOverride" xml:space="preserve">
+        <value>Has override</value>
+    </data>
+    <data name="LastChanged" xml:space="preserve">
+        <value>Last changed</value>
+    </data>
+    <data name="OverrideFor" xml:space="preserve">
+        <value>Override for {0}</value>
+    </data>
+    <data name="OverrideRemovedFor" xml:space="preserve">
+        <value>Override removed for {0}</value>
+    </data>
+    <data name="FeatureFlagEnabledFor" xml:space="preserve">
+        <value>{0} enabled for {1}</value>
+    </data>
+    <data name="FeatureFlagDisabledFor" xml:space="preserve">
+        <value>{0} disabled for {1}</value>
+    </data>
+    <data name="ManualOverrideActive" xml:space="preserve">
+        <value>Manual override active. Click again to flip, three times to clear.</value>
+    </data>
+    <data name="ManualOverride" xml:space="preserve">
+        <value>Manual override</value>
+    </data>
+    <data name="RemoveOverride" xml:space="preserve">
+        <value>Remove override</value>
+    </data>
+    <data name="NoAccountsQualify" xml:space="preserve">
+        <value>No accounts qualify for this feature yet</value>
+    </data>
+    <data name="AccountsAppearWhenQualified" xml:space="preserve">
+        <value>Accounts will appear here as they qualify for this feature.</value>
+    </data>
+    <data name="NoUsersQualify" xml:space="preserve">
+        <value>No users qualify for this feature yet</value>
+    </data>
+    <data name="UsersAppearWhenQualified" xml:space="preserve">
+        <value>Users will appear here as they qualify for this feature.</value>
+    </data>
+    <data name="FlagAudienceUser" xml:space="preserve">
+        <value>User</value>
+    </data>
+    <data name="FlagAudienceActions" xml:space="preserve">
+        <value>Override actions</value>
+    </data>
+    <data name="OpenUser" xml:space="preserve">
+        <value>Open user</value>
+    </data>
 </root>

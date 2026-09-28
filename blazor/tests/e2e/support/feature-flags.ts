@@ -1,7 +1,6 @@
 import { type Browser, type BrowserContext, expect, type Locator, type Page } from "@playwright/test";
-import { getBackOfficeBaseUrl } from "@shared/e2e/utils/constants";
-import { logInAsAdmin } from "@shared/e2e/utils/test-data";
 import { type AccountApiResponse, sendAccountApiRequest } from "./account-api";
+import { blazorBackOfficeUrl, openBlazorBackOffice } from "./back-office";
 
 /**
  * The tenant-scoped flag the Features section of the account settings page shows: a kill-switch flag a tenant owner
@@ -92,20 +91,36 @@ export interface BackOfficeAdmin {
 }
 
 /**
- * Open a back-office context and sign in as an administrator through the shared login helper. The back office is the React
- * edition's administration surface and ships its own translations, so the context is pinned to en-US whichever culture
- * project the running test belongs to; the shared helper reads the English names of its login controls.
+ * Open a Blazor back-office context and sign in as an administrator on the feature flag list. The helpers below drive the
+ * page by test id, so the context is pinned to en-US whichever culture project the running test belongs to.
  * @param browser The browser the test runs in
  */
-export async function signInToBackOfficeAsAdmin(browser: Browser): Promise<BackOfficeAdmin> {
-  const context = await browser.newContext({ baseURL: getBackOfficeBaseUrl(), ignoreHTTPSErrors: true, locale: "en-US" });
-  const page = await context.newPage();
-  const featureFlagsUrl = `${getBackOfficeBaseUrl()}/feature-flags`;
+export function signInToBackOfficeAsAdmin(browser: Browser): Promise<BackOfficeAdmin> {
+  return openBlazorBackOffice(browser, "admin", "back-office/feature-flags");
+}
 
-  await page.goto(featureFlagsUrl);
-  await logInAsAdmin(page, featureFlagsUrl);
+/**
+ * Open a flag's detail in the Blazor back office and wait until its runtime has started and it has read the flag
+ * @param page Playwright page instance of a signed-in back-office administrator
+ * @param flagKey The registry key of the flag
+ */
+export async function openFeatureFlagDetailInBackOffice(page: Page, flagKey: string): Promise<void> {
+  await page.goto(blazorBackOfficeUrl(`back-office/feature-flags/${flagKey}`));
+  await expect(page.getByTestId("back-office-shell")).toHaveAttribute("data-interactive", "true");
+  await expect(page.getByTestId("back-office-feature-flag-detail")).toHaveAttribute("data-state", "loaded");
+}
 
-  return { context, page };
+/**
+ * Confirm one of the flag detail's actions through its dialog and wait until the dialog has closed, which it does once the
+ * account API has answered, whatever the answer
+ * @param page Playwright page instance on a flag's detail
+ * @param action The action whose button and dialog to use
+ */
+export async function confirmFeatureFlagActionInBackOffice(page: Page, action: "activate" | "deactivate"): Promise<void> {
+  await page.getByTestId(`feature-flag-${action}`).click();
+  const dialog = page.getByTestId(`${action}-feature-flag-dialog`);
+  await dialog.getByTestId(`${action}-feature-flag-dialog-confirm`).click();
+  await expect(dialog).toBeHidden();
 }
 
 /**
@@ -114,9 +129,9 @@ export async function signInToBackOfficeAsAdmin(browser: Browser): Promise<BackO
 const activationAttempts = 5;
 
 /**
- * Leave the given flags globally active, through the back-office API. Both configurable flags are kill-switch flags that
- * the reconciler creates globally inactive, and a section hides a flag whose base row is inactive, so a run activates them
- * first, exactly as the React specification does.
+ * Leave the given flags globally active, through the Blazor back office's flag detail. Both configurable flags are
+ * kill-switch flags that the reconciler creates globally inactive, and a section hides a flag whose base row is inactive,
+ * so a run activates them first, exactly as the React specification does.
  *
  * The state is read before every write and the flag is only ever turned on, never off, so the six browser and culture
  * projects converge on one end state rather than racing each other, and a stack whose flags are already active is not
@@ -127,14 +142,12 @@ const activationAttempts = 5;
  * @param flagKeys The registry keys of the flags to leave active
  */
 export async function ensureFeatureFlagsActivatedThroughBackOffice(page: Page, flagKeys: string[]): Promise<void> {
-  const antiforgeryToken = await readBackOfficeAntiforgeryToken(page);
-
   for (const flagKey of flagKeys) {
     for (let attempt = 0; attempt < activationAttempts; attempt++) {
       const activation = await readFeatureFlagActivationThroughBackOffice(page, [flagKey]);
       if (activation[flagKey]) break;
 
-      await activateFeatureFlagThroughBackOffice(page, flagKey, antiforgeryToken);
+      await activateFeatureFlagThroughBackOffice(page, flagKey);
     }
 
     const activation = await readFeatureFlagActivationThroughBackOffice(page, [flagKey]);
@@ -160,33 +173,15 @@ export async function readFeatureFlagActivationThroughBackOffice(page: Page, fla
 }
 
 /**
- * One activation PUT, sent from the document so that it carries the back-office session cookie and goes through the
- * browser's network stack. The status is not asserted: a collision with another project's activation is answered with a
- * 500 and is resolved by reading the state again.
+ * One activation through the flag detail of the Blazor back office, whose client carries the antiforgery token the write
+ * needs. The outcome is not asserted: a flag another project activated after the last read offers no Activate button, and a
+ * collision with another project's activation is answered with a 500; both are resolved by reading the state again.
  */
-async function activateFeatureFlagThroughBackOffice(page: Page, flagKey: string, antiforgeryToken: string): Promise<void> {
-  await page.evaluate(
-    async ({ flagKey, antiforgeryToken }) => {
-      await fetch(`/api/back-office/feature-flags/${flagKey}/activate`, {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "x-xsrf-token": antiforgeryToken }
-      });
-    },
-    { flagKey, antiforgeryToken }
-  );
-}
+async function activateFeatureFlagThroughBackOffice(page: Page, flagKey: string): Promise<void> {
+  await openFeatureFlagDetailInBackOffice(page, flagKey);
+  if ((await page.getByTestId("feature-flag-activate").count()) === 0) return;
 
-/**
- * The antiforgery token the back office puts in its document head once the administrator session has started
- * @param page Playwright page instance of a signed-in back-office administrator
- */
-export async function readBackOfficeAntiforgeryToken(page: Page): Promise<string> {
-  const token = page.locator('head meta[name="antiforgeryToken"]');
-
-  await expect.poll(async () => ((await token.getAttribute("content")) ?? "").length > 0).toBe(true);
-
-  return (await token.getAttribute("content"))!;
+  await confirmFeatureFlagActionInBackOffice(page, "activate");
 }
 
 async function readConfigurableFlags(page: Page, path: string): Promise<Record<string, boolean>> {

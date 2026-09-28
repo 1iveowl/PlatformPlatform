@@ -33,58 +33,6 @@ public sealed record GetFeatureFlagTenantsQuery(
     public SubscriptionPlan[] Plans { get; } = Plans ?? [];
 }
 
-[PublicAPI]
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum SortableFeatureFlagTenantProperties
-{
-    Name,
-    Plan,
-    MonthlyRecurringRevenue,
-    RenewalDate,
-    IsEnabled,
-    OverrideUpdatedAt,
-    InclusionThresholdPercentage
-}
-
-[PublicAPI]
-public sealed record GetFeatureFlagTenantsResponse(
-    int TotalCount,
-    int PageSize,
-    int TotalPages,
-    int CurrentPageOffset,
-    int EnabledCount,
-    int DisabledCount,
-    int OverrideCount,
-    FeatureFlagTenantInfo[] Tenants
-);
-
-// Field names mirror TenantSummary so Mapster's convention-based mapping covers the shared subset. Override fields
-// (RolloutBucket, IsEnabled, Source) come from the feature-flag evaluation and are applied via `with` on top of Adapt.
-[PublicAPI]
-public sealed record FeatureFlagTenantInfo(
-    TenantId Id,
-    string Name,
-    string? LogoUrl,
-    SubscriptionPlan Plan,
-    decimal? MonthlyRecurringRevenue,
-    decimal? ScheduledPriceAmount,
-    string? Currency,
-    DateTimeOffset? RenewalDate,
-    PlannedSubscriptionChange? PlannedChange,
-    bool HasEverSubscribed,
-    string? Country,
-    DateTimeOffset CreatedAt,
-    TenantOwnerSummary? Owner,
-    int RolloutBucket,
-    bool IsEnabled,
-    FeatureFlagSource Source,
-    int? InclusionThresholdPercentage,
-    bool DefaultEnabled,
-    DateTimeOffset? OverrideEnabledAt,
-    DateTimeOffset? OverrideDisabledAt,
-    AbInclusionPin? TenantAbInclusionPin
-);
-
 public sealed class GetFeatureFlagTenantsValidator : AbstractValidator<GetFeatureFlagTenantsQuery>
 {
     public GetFeatureFlagTenantsValidator()

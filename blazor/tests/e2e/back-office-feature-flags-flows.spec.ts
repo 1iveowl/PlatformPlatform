@@ -28,8 +28,8 @@ function flagList(page: Page, name: string) {
  * The flag's activation and rollout are global, and every browser and culture project runs this specification at the same
  * time, so the writes run under a hold on the flag (withFeatureFlagHold): each project finds the flag in the state it left,
  * sets it inactive at 0 % as the reconciler creates it, and puts back the state it found before it releases the hold. The
- * precondition and the teardown go through the React back office's administrator document; the steps under test go through
- * the Blazor back office only. The app user is created by the test, so the evaluation it reads belongs to no other run.
+ * precondition and the teardown go through a second administrator document; the steps under test go through the first one
+ * only. The app user is created by the test, so the evaluation it reads belongs to no other run.
  */
 test.describe("@smoke", () => {
   /**
@@ -54,7 +54,7 @@ test.describe("@smoke", () => {
     })();
 
     const admin = await openBlazorBackOffice(browser, "admin", "back-office/feature-flags", blazorLocale());
-    const reactAdmin = await signInToBackOfficeAsAdmin(browser);
+    const stateAdmin = await signInToBackOfficeAsAdmin(browser);
     try {
       await trackPolicyViolations(admin.page);
 
@@ -66,10 +66,10 @@ test.describe("@smoke", () => {
       })();
 
       await withFeatureFlagHold(administeredFeatureFlagKey, async () => {
-        const foundState = await readFeatureFlagStateThroughBackOffice(reactAdmin.page, administeredFeatureFlagKey);
+        const foundState = await readFeatureFlagStateThroughBackOffice(stateAdmin.page, administeredFeatureFlagKey);
         try {
           await step("Set the flag inactive at 0 % & open it from the list")(async () => {
-            await setFeatureFlagStateThroughBackOffice(reactAdmin.page, administeredFeatureFlagKey, { isActive: false, rolloutPercentage: 0 });
+            await setFeatureFlagStateThroughBackOffice(stateAdmin.page, administeredFeatureFlagKey, { isActive: false, rolloutPercentage: 0 });
             await admin.page.reload();
 
             await flagList(admin.page, texts.backOfficeUserFlags).getByRole("row").filter({ hasText: texts.experimentalUiFlagName }).getByRole("cell").first().click();
@@ -126,11 +126,11 @@ test.describe("@smoke", () => {
             await expectNoPolicyViolations(admin.page);
           })();
         } finally {
-          await setFeatureFlagStateThroughBackOffice(reactAdmin.page, administeredFeatureFlagKey, foundState);
+          await setFeatureFlagStateThroughBackOffice(stateAdmin.page, administeredFeatureFlagKey, foundState);
         }
       });
     } finally {
-      await reactAdmin.context.close();
+      await stateAdmin.context.close();
       await admin.context.close();
     }
 

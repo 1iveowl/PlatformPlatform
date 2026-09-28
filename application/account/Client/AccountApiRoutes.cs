@@ -3,6 +3,7 @@ using Account.Features.BackOffice.Dashboard.Queries;
 using Account.Features.BackOffice.Requests;
 using Account.Features.EmailAuthentication.Domain;
 using Account.Features.ExternalAuthentication.Domain;
+using Account.Features.FeatureFlags.Requests;
 using Account.Features.PushNotifications.Domain;
 using Account.Features.Tenants.BackOffice.Requests;
 using Account.Features.Users.BackOffice.Requests;
@@ -299,6 +300,60 @@ public static class AccountApiRoutes
     public static string SetFeatureFlagRolloutPercentage(string flagKey)
     {
         return $"{BackOfficeFeatureFlag(flagKey)}/rollout-percentage";
+    }
+
+    // One flag's tenants or users on the back office's flag detail. The endpoints bind the query with [AsParameters]: PascalCase
+    // names, one repeated Plans or Roles parameter per value, enum names, and State and HasOverride left out when not filtered.
+    public static string BackOfficeFeatureFlagTenants(string flagKey, GetFeatureFlagTenantsQuery query)
+    {
+        var parameters = new List<KeyValuePair<string, string>>();
+        if (!string.IsNullOrWhiteSpace(query.Search)) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.Search), query.Search));
+        parameters.AddRange((query.Plans ?? []).Select(plan => new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.Plans), plan.ToString())));
+        if (query.State is { } state) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.State), state.ToString()));
+        if (query.HasOverride) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.HasOverride), "true"));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.OrderBy), query.OrderBy.ToString()));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.SortOrder), query.SortOrder.ToString()));
+        if (query.PageOffset > 0) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.PageOffset), query.PageOffset.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagTenantsQuery.PageSize), query.PageSize.ToString(CultureInfo.InvariantCulture)));
+
+        return $"{BackOfficeFeatureFlag(flagKey)}/tenants?{ToQueryString(parameters)}";
+    }
+
+    public static string BackOfficeFeatureFlagUsers(string flagKey, GetFeatureFlagUsersQuery query)
+    {
+        var parameters = new List<KeyValuePair<string, string>>();
+        if (!string.IsNullOrWhiteSpace(query.Search)) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.Search), query.Search));
+        parameters.AddRange((query.Roles ?? []).Select(role => new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.Roles), role.ToString())));
+        if (query.State is { } state) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.State), state.ToString()));
+        if (query.HasOverride) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.HasOverride), "true"));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.OrderBy), query.OrderBy.ToString()));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.SortOrder), query.SortOrder.ToString()));
+        if (query.PageOffset > 0) parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.PageOffset), query.PageOffset.ToString(CultureInfo.InvariantCulture)));
+        parameters.Add(new KeyValuePair<string, string>(nameof(GetFeatureFlagUsersQuery.PageSize), query.PageSize.ToString(CultureInfo.InvariantCulture)));
+
+        return $"{BackOfficeFeatureFlag(flagKey)}/users?{ToQueryString(parameters)}";
+    }
+
+    // The back office's tenant override of one flag; its DELETE names the account in the query string
+    public static string BackOfficeTenantFeatureFlagOverride(string flagKey)
+    {
+        return $"{BackOfficeFeatureFlag(flagKey)}/tenant-override";
+    }
+
+    public static string RemoveBackOfficeTenantFeatureFlagOverride(string flagKey, TenantId tenantId)
+    {
+        return $"{BackOfficeTenantFeatureFlagOverride(flagKey)}?tenantId={tenantId.Value.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    // The back office's user override of one flag; its DELETE names the user and the user's account in the query string
+    public static string BackOfficeUserFeatureFlagOverride(string flagKey)
+    {
+        return $"{BackOfficeFeatureFlag(flagKey)}/user-override";
+    }
+
+    public static string RemoveBackOfficeUserFeatureFlagOverride(string flagKey, UserId userId, TenantId tenantId)
+    {
+        return $"{BackOfficeUserFeatureFlagOverride(flagKey)}?userId={Uri.EscapeDataString(userId.Value)}&tenantId={tenantId.Value.ToString(CultureInfo.InvariantCulture)}";
     }
 
     public static string SetTenantFeatureFlagOverride(string flagKey)

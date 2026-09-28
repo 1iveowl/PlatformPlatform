@@ -1,0 +1,257 @@
+@using Account.Client
+@using Account.Features.BackOffice.Queries
+@using Account.Features.FeatureFlags.Queries
+@using Account.Features.FeatureFlags.Requests
+@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Dashboard
+@using Blazor.Client.BackOffice.Users
+@using Blazor.Client.FeatureFlags
+@using Blazor.Client.Users
+@using Microsoft.FluentUI.AspNetCore.Components
+@* The flag detail's users list, the React back office's UserOverridesSection: the search by name or email, the role toggles,
+   the state and has-override toggles, and the users on DataList with the email, account, role, when the override last
+   changed, an A/B test's inclusion threshold and the override switch. The filters, sort and page are in the URL under the
+   users prefix (FeatureFlagUsersListSource), apart from the tenants list's. A switch press sets or removes the user's
+   override (FeatureFlagOverrides.GetSwitchChange) and the row menu removes a manual override; both are offered only to an
+   identity in the admins group, and after every answer the list is read again, so a row shows what the account API stored.
+   A row opens the user's feature flags. *@
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+
+<section class="account-detail-section" aria-labelledby="feature-flag-users-heading" data-testid="feature-flag-users">
+    <h2 id="feature-flag-users-heading" class="account-detail-section-title">@BackOfficeStrings.UserStatus</h2>
+    <p class="account-detail-facts" data-testid="feature-flag-users-description">@(Flag.IsAbTestEligible ? BackOfficeStrings.UserOverridesRolloutDescription : BackOfficeStrings.UserOverridesDescription)</p>
+
+    <div class="accounts-toolbar" data-testid="feature-flag-users-toolbar">
+        <div role="search" class="accounts-search">
+            <FluentTextInput Id="@SearchId" data-testid="feature-flag-users-search" AriaLabel="@BackOfficeStrings.SearchUsers" Placeholder="@BackOfficeStrings.SearchByNameOrEmail"
+                             Immediate="true" ImmediateDelay="500" Value="@_filters.GetValueOrDefault(FeatureFlagUsersListSource.SearchParameter)" ValueChanged="OnSearchChangedAsync"/>
+        </div>
+
+        <div class="accounts-toggle-group" role="group" aria-label="@UsersStrings.Role" data-testid="feature-flag-users-role-filter">
+            @foreach (var role in FeatureFlagUsersListSource.Roles)
+            {
+                <button type="button" class="accounts-toggle" aria-pressed="@(_roles.Contains(role) ? "true" : "false")" data-testid="@($"feature-flag-users-role-{role.ToString().ToLowerInvariant()}")"
+                        @onclick="() => SetFiltersAsync(FeatureFlagUsersListSource.ToggleRole(CurrentFilters, role))">
+                    @UserRoleText.Label(role)
+                </button>
+            }
+        </div>
+
+        <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.State" data-testid="feature-flag-users-state-filter">
+            @foreach (var state in FeatureFlagOverrides.StateFilters)
+            {
+                <button type="button" class="accounts-toggle" aria-pressed="@(_state == state ? "true" : "false")" data-testid="@($"feature-flag-users-state-{state.ToString().ToLowerInvariant()}")"
+                        @onclick="() => SetFiltersAsync(FeatureFlagUsersListSource.SetState(state))">
+                    @FeatureFlagOverrides.GetStateLabel(state)
+                </button>
+            }
+        </div>
+
+        @if (Flag.IsAbTestEligible)
+        {
+            <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.Override" data-testid="feature-flag-users-override-filter">
+                <button type="button" class="accounts-toggle" aria-pressed="@(_hasOverride ? "true" : "false")" data-testid="feature-flag-users-has-override"
+                        @onclick="() => SetFiltersAsync(FeatureFlagUsersListSource.ToggleHasOverride(CurrentFilters))">
+                    @BackOfficeStrings.HasOverride
+                </button>
+            </div>
+        }
+    </div>
+
+    <DataList @ref="_list" TItem="FeatureFlagUserInfo" data-testid="feature-flag-users-grid" ListId="@FeatureFlagUsersListSource.ListId(Flag.Key)"
+              CacheScope="@AccountsListSource.CacheScope" Label="@CommonStrings.Users" Columns="_columns" FetchPage="FetchPageAsync" KeySelector="KeyOf"
+              DefaultOrderBy="@FeatureFlagUsersListSource.DefaultOrderBy(Flag)" ParameterPrefix="@FeatureFlagUsersListSource.ParameterPrefix"
+              FilterParameters="FeatureFlagUsersListSource.FilterParameters" NormalizeFilters="FeatureFlagUsersListSource.NormalizeFilters" FocusFallbackId="@SearchId"
+              RowLabel="RowLabel" RowMenu="@(_canSetOverrides ? RowMenu : null)" OnActivated="OpenUserAsync" OnStateChanged="OnListStateChangedAsync">
+        <EmptyContent>
+            <div class="accounts-empty" data-testid="feature-flag-users-empty">
+                <p class="accounts-empty-title">@(_filters.Count > 0 ? BackOfficeStrings.NoUsersMatchSearch : BackOfficeStrings.NoUsersQualify)</p>
+                <p>@(_filters.Count > 0 ? BackOfficeStrings.TryClearingFilters : BackOfficeStrings.UsersAppearWhenQualified)</p>
+                @if (_filters.Count > 0)
+                {
+                    <button type="button" class="button-secondary" data-testid="feature-flag-users-clear-filters" @onclick="() => SetFiltersAsync(FeatureFlagUsersListSource.ClearFilters())">
+                        @BackOfficeStrings.ClearFilters
+                    </button>
+                }
+            </div>
+        </EmptyContent>
+    </DataList>
+</section>
+
+@code {
+
+    private const string SearchId = "feature-flag-users-search";
+
+    private string? _busyUserId;
+    private bool _canSetOverrides;
+    private IReadOnlyList<DataListColumn<FeatureFlagUserInfo>> _columns = [];
+    private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private bool _hasOverride;
+    private DataList<FeatureFlagUserInfo>? _list;
+    private IReadOnlyList<UserRole> _roles = [];
+    private FeatureFlagStateFilter _state = FeatureFlagOverrides.DefaultStateFilter;
+
+    [Parameter]
+    [EditorRequired]
+    public FeatureFlagInfo Flag { get; set; } = null!;
+
+    // The back-office identity BackOfficeShell read from GET /api/back-office/me; null until it is loaded
+    [CascadingParameter]
+    public MeResponse? Me { get; set; }
+
+    // The filters the list holds now: the list reports a filter change only after the page loaded, so a toggle pressed while
+    // that load is in flight must not start from the filters of the last report
+    private IReadOnlyDictionary<string, string> CurrentFilters => _list?.State.Filters ?? _filters;
+
+    protected override void OnParametersSet()
+    {
+        _canSetOverrides = FeatureFlagOverrides.CanSetOverrides(Me, Flag);
+        _columns = BuildColumns();
+    }
+
+    private IReadOnlyList<DataListColumn<FeatureFlagUserInfo>> BuildColumns()
+    {
+        var columns = new List<DataListColumn<FeatureFlagUserInfo>>
+        {
+            new(BackOfficeStrings.FlagAudienceUser, NameCell, nameof(SortableFeatureFlagUserProperties.Name)),
+            new(BackOfficeStrings.Account, user => @<text>@user.TenantName</text>, nameof(SortableFeatureFlagUserProperties.TenantName), HideBelow: Breakpoint.Medium
+            ),
+            new(UsersStrings.Role, user => @<span class="account-plan">@UserRoleText.Label(user.Role)</span>, nameof(SortableFeatureFlagUserProperties.Role), HideBelow: Breakpoint.Large
+            ),
+            new(BackOfficeStrings.LastChanged, user => @<text>@AccountFormat.FormatDate(FeatureFlagOverrides.GetLastChanged(user.OverrideEnabledAt, user.OverrideDisabledAt))</text>,
+                nameof(SortableFeatureFlagUserProperties.OverrideUpdatedAt), HideBelow: Breakpoint.Large
+            )
+        };
+
+        if (Flag.IsAbTestEligible)
+        {
+            columns.Add(new DataListColumn<FeatureFlagUserInfo>(BackOfficeStrings.IncludedAt,
+                    user => @<text>@FeatureFlagOverrides.FormatInclusionThreshold(user.InclusionThresholdPercentage)</text>,
+                    nameof(SortableFeatureFlagUserProperties.InclusionThresholdPercentage), HideBelow: Breakpoint.Large
+                )
+            );
+        }
+
+        columns.Add(new DataListColumn<FeatureFlagUserInfo>(BackOfficeStrings.Override, OverrideCell, nameof(SortableFeatureFlagUserProperties.IsEnabled)));
+        return columns;
+    }
+
+    private static RenderFragment NameCell(FeatureFlagUserInfo user)
+    {
+        return @<span class="account-name-cell" data-testid="feature-flag-user">
+                   <span class="account-name">@DashboardFormat.GetPersonName(user.FirstName, user.LastName, user.Email)</span>
+                   <span class="account-owner">@user.Email</span>
+               </span>;
+    }
+
+    private RenderFragment OverrideCell(FeatureFlagUserInfo user)
+    {
+        var isManual = FeatureFlagOverrides.IsManual(user.Source);
+        var testId = $"feature-flag-user-override-{KeyOf(user)}";
+        return @<span class="account-name-cell">
+                   <button type="button" role="@FeatureFlagSwitches.SwitchRole" class="switch" aria-checked="@(user.IsEnabled ? "true" : "false")"
+                           aria-label="@string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.OverrideFor, user.Email)"
+                           title="@(isManual && Flag.IsAbTestEligible ? BackOfficeStrings.ManualOverrideActive : null)"
+                           disabled="@(!_canSetOverrides || _busyUserId is not null)" data-testid="@testId" data-source="@user.Source.ToString().ToLowerInvariant()"
+                           @onclick="() => ToggleAsync(user)">
+                       <span class="switch-thumb" aria-hidden="true"></span>
+                   </button>
+                   @if (isManual)
+                   {
+                       <span class="account-plan" data-testid="@($"{testId}-manual")">@BackOfficeStrings.ManualOverride</span>
+                   }
+               </span>;
+    }
+
+    private RenderFragment<FeatureFlagUserInfo> RowMenu => user =>
+        @<DataListRowMenu Label="@BackOfficeStrings.FlagAudienceActions" Items="RowMenuItems(user)" TestId="feature-flag-user-actions"/>;
+
+    private IReadOnlyList<DataListRowMenuItem> RowMenuItems(FeatureFlagUserInfo user)
+    {
+        return
+        [
+            new DataListRowMenuItem(BackOfficeStrings.OpenUser, () => OpenUserAsync(user), TestId: "feature-flag-user-open"),
+            new DataListRowMenuItem(BackOfficeStrings.RemoveOverride, () => ChangeAsync(user, FeatureFlagOverrideChange.Remove),
+                !FeatureFlagOverrides.IsManual(user.Source) || _busyUserId is not null, "feature-flag-user-remove-override"
+            )
+        ];
+    }
+
+    // A user of two accounts is two rows, so the key carries both ids
+    private static string KeyOf(FeatureFlagUserInfo user)
+    {
+        return $"{user.Id.Value}-{user.TenantId.Value.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    private static string RowLabel(FeatureFlagUserInfo user)
+    {
+        return user.Email;
+    }
+
+    private Task<DataListFetchResult<FeatureFlagUserInfo>> FetchPageAsync(DataListRequest request, CancellationToken cancellationToken)
+    {
+        return FeatureFlagUsersListSource.FetchAsync(Services.GetRequiredService<BackOfficeClient>(), Flag.Key, request, cancellationToken);
+    }
+
+    private Task OnListStateChangedAsync(DataListState state)
+    {
+        _filters = state.Filters;
+        _roles = FeatureFlagUsersListSource.GetRoles(_filters);
+        _state = FeatureFlagUsersListSource.GetState(_filters);
+        _hasOverride = FeatureFlagUsersListSource.HasOverride(_filters);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OpenUserAsync(FeatureFlagUserInfo user)
+    {
+        Navigation.NavigateTo(UserDetailTabs.ToUrl(user.Id, UserDetailTab.FeatureFlags));
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleAsync(FeatureFlagUserInfo user)
+    {
+        return ChangeAsync(user, FeatureFlagOverrides.GetSwitchChange(Flag.IsAbTestEligible, user.Source, user.IsEnabled, user.DefaultEnabled));
+    }
+
+    private async Task ChangeAsync(FeatureFlagUserInfo user, FeatureFlagOverrideChange change)
+    {
+        if (!_canSetOverrides || _busyUserId is not null) return;
+
+        _busyUserId = KeyOf(user);
+        var client = Services.GetRequiredService<BackOfficeClient>();
+        var result = change == FeatureFlagOverrideChange.Remove
+            ? await client.RemoveUserFeatureFlagOverrideAsync(Flag.Key, user.Id, user.TenantId, CancellationToken.None)
+            : await client.SetUserFeatureFlagOverrideAsync(Flag.Key,
+                new SetUserFeatureFlagInternalCommand { UserId = user.Id, TenantId = user.TenantId, Enabled = change == FeatureFlagOverrideChange.Enable }, CancellationToken.None
+            );
+        _busyUserId = null;
+
+        var outcome = FeatureFlagDetail.FromResult(result);
+        if (outcome == FeatureFlagActionOutcome.Leaving) return;
+
+        if (outcome == FeatureFlagActionOutcome.Succeeded)
+        {
+            var message = FeatureFlagOverrides.GetSucceededMessage(change, FeatureFlagsListSource.NameOf(Flag), user.Email);
+            Services.GetRequiredService<ToastService>().Show(ToastKind.Success, message, BackOfficeStrings.ChangesReachUsersWithinFiveMinutes, FeatureFlagOverrides.ActionToastTestId);
+        }
+        else
+        {
+            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
+        }
+
+        if (_list is not null) await _list.InvalidateAsync();
+    }
+
+    private Task OnSearchChangedAsync(string? search)
+    {
+        return SetFiltersAsync(new Dictionary<string, string?> { [FeatureFlagUsersListSource.SearchParameter] = search });
+    }
+
+    private Task SetFiltersAsync(IReadOnlyDictionary<string, string?> changes)
+    {
+        return _list?.SetFiltersAsync(changes) ?? Task.CompletedTask;
+    }
+
+}

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
 import { getBackOfficeBaseUrl } from "@shared/e2e/utils/constants";
-import { readBackOfficeAntiforgeryToken } from "./feature-flags";
+import { confirmFeatureFlagActionInBackOffice, openFeatureFlagDetailInBackOffice } from "./feature-flags";
 
 /**
  * The flag the back-office feature flag specification activates, re-targets and deactivates: a kill-switch A/B test on the
@@ -100,34 +100,25 @@ export async function readUserFeatureFlagThroughBackOffice(page: Page, userId: s
 }
 
 /**
- * Put the flag's global state back through the back-office API, from the React back office's administrator document, whose
- * head carries the antiforgery token its writes need. Used for the precondition and the teardown of a hold, never for the
- * steps under test.
- * @param page Playwright page instance of a React back-office administrator
+ * Put the flag's global state back through the Blazor back office's flag detail, whose client carries the antiforgery token
+ * its writes need. Used for the precondition and the teardown of a hold, never for the steps under test.
+ * @param page Playwright page instance of a signed-in back-office administrator
  * @param flagKey The registry key of the flag
  * @param state The activation and rollout percentage to leave behind
  */
 export async function setFeatureFlagStateThroughBackOffice(page: Page, flagKey: string, state: FeatureFlagState): Promise<void> {
-  const antiforgeryToken = await readBackOfficeAntiforgeryToken(page);
-  const statuses = await page.evaluate(
-    async ({ flagKey, state, antiforgeryToken }) => {
-      const headers = { "content-type": "application/json", "x-xsrf-token": antiforgeryToken };
-      const rollout = await fetch(`/api/back-office/feature-flags/${flagKey}/rollout-percentage`, {
-        method: "PUT",
-        credentials: "same-origin",
-        headers,
-        body: JSON.stringify({ rolloutPercentage: state.rolloutPercentage })
-      });
-      const activation = await fetch(`/api/back-office/feature-flags/${flagKey}/${state.isActive ? "activate" : "deactivate"}`, {
-        method: "PUT",
-        credentials: "same-origin",
-        headers
-      });
-      return [rollout.status, activation.status];
-    },
-    { flagKey, state, antiforgeryToken }
-  );
+  await openFeatureFlagDetailInBackOffice(page, flagKey);
+  const found = await readFeatureFlagStateThroughBackOffice(page, flagKey);
 
-  expect(statuses.every((status) => status >= 200 && status < 300), `Setting '${flagKey}' answered ${statuses.join(", ")}`).toBe(true);
+  if (found.rolloutPercentage !== state.rolloutPercentage) {
+    await page.getByTestId("feature-flag-rollout-percentage").fill(String(state.rolloutPercentage));
+    await page.getByTestId("feature-flag-rollout-save").click();
+    await expect.poll(async () => (await readFeatureFlagStateThroughBackOffice(page, flagKey)).rolloutPercentage).toBe(state.rolloutPercentage);
+  }
+
+  if (found.isActive !== state.isActive) {
+    await confirmFeatureFlagActionInBackOffice(page, state.isActive ? "activate" : "deactivate");
+  }
+
   expect(await readFeatureFlagStateThroughBackOffice(page, flagKey)).toEqual(state);
 }

@@ -342,7 +342,16 @@ export const blazorCultures = [
     rolloutPercentageLabel: "Rollout %",
     saveRolloutPercentage: "Save rollout",
     backToFeatureFlags: "Back to feature flags",
-    experimentalUiFlagName: "Experimental UI"
+    experimentalUiFlagName: "Experimental UI",
+    backOfficeSearchAccountsOrOwners: "Search by account name or owner email",
+    backOfficeStateFilter: "State",
+    backOfficeStateAll: "All",
+    backOfficeOverrideFor: (name: string) => `Override for ${name}`,
+    backOfficeFeatureFlagEnabledFor: (flagName: string, name: string) => `${flagName} enabled for ${name}`,
+    backOfficeOverrideRemovedFor: (name: string) => `Override removed for ${name}`,
+    backOfficeManualOverride: "Manual override",
+    backOfficeOverrideActions: "Override actions",
+    backOfficeRemoveOverride: "Remove override"
   },
   {
     locale: "da-DK",
@@ -677,7 +686,16 @@ export const blazorCultures = [
     rolloutPercentageLabel: "Udrulning %",
     saveRolloutPercentage: "Gem udrulning",
     backToFeatureFlags: "Tilbage til feature flags",
-    experimentalUiFlagName: "Experimental UI"
+    experimentalUiFlagName: "Experimental UI",
+    backOfficeSearchAccountsOrOwners: "Søg efter kontonavn eller ejer-e-mail",
+    backOfficeStateFilter: "Tilstand",
+    backOfficeStateAll: "Alle",
+    backOfficeOverrideFor: (name: string) => `Tilsidesættelse for ${name}`,
+    backOfficeFeatureFlagEnabledFor: (flagName: string, name: string) => `${flagName} aktiveret for ${name}`,
+    backOfficeOverrideRemovedFor: (name: string) => `Tilsidesættelse fjernet for ${name}`,
+    backOfficeManualOverride: "Manuel tilsidesættelse",
+    backOfficeOverrideActions: "Handlinger for tilsidesættelse",
+    backOfficeRemoveOverride: "Fjern tilsidesættelse"
   }
 ] as const;
 

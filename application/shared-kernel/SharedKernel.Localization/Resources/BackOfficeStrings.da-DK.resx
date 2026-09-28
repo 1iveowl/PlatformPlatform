@@ -1092,4 +1092,79 @@
     <data name="SaveRolloutPercentage" xml:space="preserve">
         <value>Gem udrulning</value>
     </data>
+    <data name="AccountStatus" xml:space="preserve">
+        <value>Kontostatus</value>
+    </data>
+    <data name="UserStatus" xml:space="preserve">
+        <value>Brugerstatus</value>
+    </data>
+    <data name="AccountOverridesRolloutDescription" xml:space="preserve">
+        <value>Konti inkluderes automatisk baseret på deres udrulningsbucket. Brug tilsidesættelser for manuelt at inkludere eller udelukke specifikke konti.</value>
+    </data>
+    <data name="AccountOverridesDescription" xml:space="preserve">
+        <value>Skift tilsidesættelsesknappen for at aktivere denne funktion for specifikke konti.</value>
+    </data>
+    <data name="UserOverridesRolloutDescription" xml:space="preserve">
+        <value>Brugere inkluderes automatisk baseret på deres udrulningsbucket. Brug tilsidesættelser for manuelt at inkludere eller udelukke specifikke brugere.</value>
+    </data>
+    <data name="UserOverridesDescription" xml:space="preserve">
+        <value>Skift tilsidesættelsesknappen for at aktivere denne funktion for specifikke brugere.</value>
+    </data>
+    <data name="PlanManagedAccountsDescription" xml:space="preserve">
+        <value>Konti aktiveres eller deaktiveres automatisk baseret på deres abonnement. Manuelle tilsidesættelser er ikke tilgængelige for abonnementsstyrede flag.</value>
+    </data>
+    <data name="SearchByAccountNameOrOwnerEmail" xml:space="preserve">
+        <value>Søg efter kontonavn eller ejer-e-mail</value>
+    </data>
+    <data name="State" xml:space="preserve">
+        <value>Tilstand</value>
+    </data>
+    <data name="HasOverride" xml:space="preserve">
+        <value>Med tilsidesættelse</value>
+    </data>
+    <data name="LastChanged" xml:space="preserve">
+        <value>Senest ændret</value>
+    </data>
+    <data name="OverrideFor" xml:space="preserve">
+        <value>Tilsidesættelse for {0}</value>
+    </data>
+    <data name="OverrideRemovedFor" xml:space="preserve">
+        <value>Tilsidesættelse fjernet for {0}</value>
+    </data>
+    <data name="FeatureFlagEnabledFor" xml:space="preserve">
+        <value>{0} aktiveret for {1}</value>
+    </data>
+    <data name="FeatureFlagDisabledFor" xml:space="preserve">
+        <value>{0} deaktiveret for {1}</value>
+    </data>
+    <data name="ManualOverrideActive" xml:space="preserve">
+        <value>Manuel tilsidesættelse er aktiv. Klik igen for at skifte, tre gange for at fjerne.</value>
+    </data>
+    <data name="ManualOverride" xml:space="preserve">
+        <value>Manuel tilsidesættelse</value>
+    </data>
+    <data name="RemoveOverride" xml:space="preserve">
+        <value>Fjern tilsidesættelse</value>
+    </data>
+    <data name="NoAccountsQualify" xml:space="preserve">
+        <value>Ingen konti kvalificerer til denne funktion endnu</value>
+    </data>
+    <data name="AccountsAppearWhenQualified" xml:space="preserve">
+        <value>Konti vises her, efterhånden som de kvalificerer til denne funktion.</value>
+    </data>
+    <data name="NoUsersQualify" xml:space="preserve">
+        <value>Ingen brugere kvalificerer til denne funktion endnu</value>
+    </data>
+    <data name="UsersAppearWhenQualified" xml:space="preserve">
+        <value>Brugere vises her, efterhånden som de kvalificerer til denne funktion.</value>
+    </data>
+    <data name="FlagAudienceUser" xml:space="preserve">
+        <value>Bruger</value>
+    </data>
+    <data name="FlagAudienceActions" xml:space="preserve">
+        <value>Handlinger for tilsidesættelse</value>
+    </data>
+    <data name="OpenUser" xml:space="preserve">
+        <value>Åbn bruger</value>
+    </data>
 </root>

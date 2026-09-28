@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test";
 import { changeUserRoleThroughAccountApi, expectAccountApiProblem, expectAccountApiValidationProblem, findUserThroughAccountApi, inviteUsersThroughAccountApi } from "@blazor/e2e/account-api";
 import { logInInvitedUserThroughBlazor, signUpThroughBlazor, test } from "@blazor/e2e/authentication";
+import { blazorBackOfficeUrl, openBlazorBackOffice } from "@blazor/e2e/back-office";
+import { readBootstrapUser } from "@blazor/e2e/external-login";
 import {
   type BackOfficeAdmin,
   ensureFeatureFlagsActivatedThroughBackOffice,
@@ -164,15 +166,23 @@ test.describe("@comprehensive", () => {
    *   both with the API's message; the owner's flag keeps the value it had, so a refusal changes nothing
    * - The user override endpoint refuses a flag the registry does not let a user configure, and refuses a tenant-scoped
    *   flag as a validation problem; the user's own flag keeps the value it had
+   * - As back-office admin, the account overview flag's accounts list, searched and shown in every state, removes the
+   *   account's manual override from the row menu and sets it again with the switch, and the owner's tenant flag follows
+   * - The compact view flag's users list, searched by the owner's email, removes and sets the owner's user override the same
+   *   way, and the owner's user flag follows; searched by the account name it pages its 26 users, and a reload keeps each
+   *   list's own prefixed search, state and page
+   * - As back-office user, both lists offer no switch and no row menu, and each direct override call is refused with 403
    * - No securitypolicyviolation event and no style attribute on any document
    */
-  test("should refuse feature flag changes from an admin, a member and through the wrong scope and keep the state across a reload", async ({ page, browser }) => {
+  test("should refuse feature flag changes from an admin, a member and through the wrong scope, keep the state across a reload and set and remove overrides in the back office", async ({ page, browser }) => {
     const context = createTestContext(page);
     const texts = blazorTexts();
     await trackPolicyViolations(page);
     const ownerEmail = uniqueBlazorEmail();
     const adminEmail = `admin-${uniqueBlazorEmail()}`;
     const memberEmail = `member-${uniqueBlazorEmail()}`;
+    const accountName = `Flags ${Math.random().toString(36).slice(2, 10)}`;
+    const paddingEmails = Array.from({ length: 23 }, (_, index) => `padding-${index}-${uniqueBlazorEmail()}`);
     const tenantSwitch = featureFlagSwitch(page, texts.accountOverviewFlagName);
     const userSwitch = featureFlagSwitch(page, texts.compactViewFlagName);
 
@@ -186,8 +196,8 @@ test.describe("@comprehensive", () => {
 
     // === OWNER ===
     await step("Sign up an owner, invite an admin and a member, then turn the account overview feature on & verify the switch")(async () => {
-      await signUpThroughBlazor(page, ownerEmail);
-      await inviteUsersThroughAccountApi(page, [adminEmail, memberEmail]);
+      await signUpThroughBlazor(page, ownerEmail, accountName);
+      await inviteUsersThroughAccountApi(page, [adminEmail, memberEmail, ...paddingEmails]);
       expect((await changeUserRoleThroughAccountApi(page, (await findUserThroughAccountApi(page, adminEmail)).id, "Admin")).status).toBe(200);
 
       await gotoAccountSettingsPage(page);
@@ -271,6 +281,131 @@ test.describe("@comprehensive", () => {
       expect(await getTenantConfigurableFeatureFlags(page)).toEqual({ [tenantFeatureFlagKey]: true });
       await expect(tenantSwitch).toBeChecked();
     })();
+
+    // === BACK OFFICE OVERRIDES ===
+    const owner = (await readBootstrapUser(page))!;
+    const admin = await openBlazorBackOffice(browser, "admin", `back-office/feature-flags/${tenantFeatureFlagKey}`, blazorLocale());
+    await trackPolicyViolations(admin.page);
+    const tenantsGrid = admin.page.getByTestId("feature-flag-tenants-grid");
+    const usersGrid = admin.page.getByTestId("feature-flag-users-grid");
+    const accountOverride = admin.page.getByRole("switch", { name: texts.backOfficeOverrideFor(accountName) });
+    const ownerOverride = admin.page.getByRole("switch", { name: texts.backOfficeOverrideFor(ownerEmail) });
+
+    await step("Show the account overview flag's accounts in every state and search for the owner's account & see its manual override on")(async () => {
+      await admin.page.getByRole("group", { name: texts.backOfficeStateFilter }).getByRole("button", { name: texts.backOfficeStateAll, exact: true }).click();
+      await admin.page.getByRole("textbox", { name: texts.backOfficeSearchAccountsOrOwners }).fill(accountName);
+
+      await expect(admin.page).toHaveURL((url) => url.searchParams.get("tenantsState") === "All" && url.searchParams.get("tenantsSearch") === accountName);
+      await expect(tenantsGrid).toHaveAttribute("data-list-total-count", "1");
+      await expect(accountOverride).toHaveAttribute("aria-checked", "true");
+      await expect(tenantsGrid.getByText(texts.backOfficeManualOverride, { exact: true })).toBeVisible();
+    })();
+
+    await step("Remove the account's override from the row menu & see the owner's account overview flag back at its default, off")(async () => {
+      await tenantsGrid.getByRole("button", { name: texts.backOfficeOverrideActions }).click();
+      await expect(admin.page.getByRole("menu")).toBeVisible();
+      await admin.page.getByRole("menuitem", { name: texts.backOfficeRemoveOverride }).dispatchEvent("click");
+
+      await expectBlazorToast(admin.page, { title: texts.backOfficeOverrideRemovedFor(accountName), message: texts.featureFlagChangesReachUsers });
+      await expect(accountOverride).toHaveAttribute("aria-checked", "false");
+      await expect(tenantsGrid.getByText(texts.backOfficeManualOverride, { exact: true })).toHaveCount(0);
+      expect(await getTenantConfigurableFeatureFlags(page)).toEqual({ [tenantFeatureFlagKey]: false });
+    })();
+
+    await step("Turn the account's override on with its switch and reload the flag & see the override kept with the list's filters")(async () => {
+      await accountOverride.click();
+      await expectBlazorToast(admin.page, { title: texts.backOfficeFeatureFlagEnabledFor(texts.accountOverviewFlagName, accountName), message: texts.featureFlagChangesReachUsers });
+      expect(await getTenantConfigurableFeatureFlags(page)).toEqual({ [tenantFeatureFlagKey]: true });
+
+      await admin.page.reload();
+
+      await expect(admin.page.getByRole("textbox", { name: texts.backOfficeSearchAccountsOrOwners })).toHaveValue(accountName);
+      await expect(admin.page.getByRole("group", { name: texts.backOfficeStateFilter }).getByRole("button", { name: texts.backOfficeStateAll, exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(accountOverride).toHaveAttribute("aria-checked", "true");
+    })();
+
+    await step("Open the compact view flag, show its users in every state and search for the owner & see the owner's manual override on")(async () => {
+      await admin.page.goto(blazorBackOfficeUrl(`back-office/feature-flags/${userFeatureFlagKey}`));
+      await admin.page.getByRole("group", { name: texts.backOfficeStateFilter }).getByRole("button", { name: texts.backOfficeStateAll, exact: true }).click();
+      await admin.page.getByRole("textbox", { name: texts.backOfficeSearchUsers }).fill(ownerEmail);
+
+      await expect(admin.page).toHaveURL((url) => url.searchParams.get("usersState") === "All" && url.searchParams.get("usersSearch") === ownerEmail);
+      await expect(usersGrid).toHaveAttribute("data-list-total-count", "1");
+      await expect(ownerOverride).toHaveAttribute("aria-checked", "true");
+    })();
+
+    await step("Remove the owner's override and turn it on again with the switch & see the owner's compact view flag follow each change")(async () => {
+      await usersGrid.getByRole("button", { name: texts.backOfficeOverrideActions }).click();
+      await expect(admin.page.getByRole("menu")).toBeVisible();
+      await admin.page.getByRole("menuitem", { name: texts.backOfficeRemoveOverride }).dispatchEvent("click");
+      await expectBlazorToast(admin.page, { title: texts.backOfficeOverrideRemovedFor(ownerEmail), message: texts.featureFlagChangesReachUsers });
+      await expect(ownerOverride).toHaveAttribute("aria-checked", "false");
+      expect(await getUserConfigurableFeatureFlags(page)).toEqual({ [userFeatureFlagKey]: false });
+
+      await ownerOverride.click();
+
+      await expectBlazorToast(admin.page, { title: texts.backOfficeFeatureFlagEnabledFor(texts.compactViewFlagName, ownerEmail), message: texts.featureFlagChangesReachUsers });
+      await expect(ownerOverride).toHaveAttribute("aria-checked", "true");
+      expect(await getUserConfigurableFeatureFlags(page)).toEqual({ [userFeatureFlagKey]: true });
+    })();
+
+    await step("Search the users by the account name and open their second page, then reload & see the users list keep its own search and page")(async () => {
+      await admin.page.getByRole("textbox", { name: texts.backOfficeSearchUsers }).fill(accountName);
+      await expect(usersGrid).toHaveAttribute("data-list-total-count", "26");
+
+      await usersGrid.getByRole("button", { name: texts.nextPage, exact: true }).click();
+      await expect(admin.page).toHaveURL((url) => url.searchParams.get("usersSearch") === accountName && url.searchParams.get("usersPageOffset") === "1" && !url.searchParams.has("pageOffset"));
+      await expect(usersGrid.getByRole("switch")).toHaveCount(1);
+
+      await admin.page.reload();
+
+      await expect(admin.page).toHaveURL((url) => url.searchParams.get("usersState") === "All" && url.searchParams.get("usersPageOffset") === "1");
+      await expect(admin.page.getByRole("textbox", { name: texts.backOfficeSearchUsers })).toHaveValue(accountName);
+      await expect(usersGrid).toHaveAttribute("data-list-total-count", "26");
+      await expect(usersGrid.getByRole("switch")).toHaveCount(1);
+      await expectNoPolicyViolations(admin.page);
+    })();
+    await admin.context.close();
+
+    const backOfficeUser = await openBlazorBackOffice(browser, "user", `back-office/feature-flags/${tenantFeatureFlagKey}`, blazorLocale());
+
+    await step("Open the account overview flag as back-office user and search for the owner's account & see a disabled switch and no row menu")(async () => {
+      await backOfficeUser.page.getByRole("group", { name: texts.backOfficeStateFilter }).getByRole("button", { name: texts.backOfficeStateAll, exact: true }).click();
+      await backOfficeUser.page.getByRole("textbox", { name: texts.backOfficeSearchAccountsOrOwners }).fill(accountName);
+
+      await expect(backOfficeUser.page.getByRole("switch", { name: texts.backOfficeOverrideFor(accountName) })).toBeDisabled();
+      await expect(backOfficeUser.page.getByRole("button", { name: texts.backOfficeOverrideActions })).toHaveCount(0);
+    })();
+
+    await step("Open the compact view flag as back-office user and search for the owner & see a disabled switch and no row menu")(async () => {
+      await backOfficeUser.page.goto(blazorBackOfficeUrl(`back-office/feature-flags/${userFeatureFlagKey}`));
+      await backOfficeUser.page.getByRole("group", { name: texts.backOfficeStateFilter }).getByRole("button", { name: texts.backOfficeStateAll, exact: true }).click();
+      await backOfficeUser.page.getByRole("textbox", { name: texts.backOfficeSearchUsers }).fill(ownerEmail);
+
+      await expect(backOfficeUser.page.getByRole("switch", { name: texts.backOfficeOverrideFor(ownerEmail) })).toBeDisabled();
+      await expect(backOfficeUser.page.getByRole("button", { name: texts.backOfficeOverrideActions })).toHaveCount(0);
+    })();
+
+    await step("Call each override write directly as back-office user & get 403 from the account API while the owner's flags stay on")(async () => {
+      const statuses = await backOfficeUser.page.evaluate(
+        async ({ tenantFlagKey, userFlagKey, userId, tenantId }) => {
+          const send = async (method: string, path: string, body?: object) =>
+            (await fetch(`/api/back-office/feature-flags/${path}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined })).status;
+          return [
+            await send("PUT", `${tenantFlagKey}/tenant-override`, { tenantId: Number(tenantId), enabled: false }),
+            await send("DELETE", `${tenantFlagKey}/tenant-override?tenantId=${tenantId}`),
+            await send("PUT", `${userFlagKey}/user-override`, { userId, tenantId: Number(tenantId), enabled: false }),
+            await send("DELETE", `${userFlagKey}/user-override?userId=${userId}&tenantId=${tenantId}`)
+          ];
+        },
+        { tenantFlagKey: tenantFeatureFlagKey, userFlagKey: userFeatureFlagKey, userId: owner.id, tenantId: owner.tenantId }
+      );
+
+      expect(statuses).toEqual([403, 403, 403, 403]);
+      expect(await getTenantConfigurableFeatureFlags(page)).toEqual({ [tenantFeatureFlagKey]: true });
+      expect(await getUserConfigurableFeatureFlags(page)).toEqual({ [userFeatureFlagKey]: true });
+    })();
+    await backOfficeUser.context.close();
 
     await assertNoUnexpectedErrors(context);
     await assertNoUnexpectedErrors(adminTestContext);

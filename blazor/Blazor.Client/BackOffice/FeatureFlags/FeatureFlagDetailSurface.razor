@@ -2,9 +2,11 @@
 @using Account.Features.FeatureFlags.Queries
 @using Blazor.Client.BackOffice.Accounts
 @using Blazor.Client.BackOffice.Shell
+@using SharedKernel.FeatureFlags
 @* The back office's feature flag detail, the React back office's feature-flags/$flagKey page: the link back to the list, the
    flag's name, status and description, and its information section with the admin actions on the flag itself
-   (FeatureFlagInfoSection). The flag is read from GET /api/back-office/feature-flags with IncludeDeleted, as React reads it,
+   (FeatureFlagInfoSection), then the flag's tenants list for an account flag (a plan-managed flag's read-only) or its
+   users list for a user flag, each with its own prefixed URL state (FeatureFlagTenantOverrides, FeatureFlagUserOverrides). The flag is read from GET /api/back-office/feature-flags with IncludeDeleted, as React reads it,
    and found by the URL's key (FeatureFlagDetail.Find); a key that names no flag shows the back office's not-found state
    inside the shell. After an action the flags are read again in place, so the page shows the account API's state; a failed
    read keeps what the page shows. The flag loads in the browser; the host prerenders the shell and the loading state. *@
@@ -30,6 +32,17 @@
                     }
                 </header>
                 <FeatureFlagInfoSection Flag="_flag!" OnChanged="ReloadAsync"/>
+                @if (FeatureFlagOverrides.HasOverrideLists(_flag!))
+                {
+                    @if (_flag!.Scope == FeatureFlagScope.Tenant)
+                    {
+                        <FeatureFlagTenantOverrides Flag="_flag!"/>
+                    }
+                    else if (_flag!.Scope == FeatureFlagScope.User)
+                    {
+                        <FeatureFlagUserOverrides Flag="_flag!"/>
+                    }
+                }
                 break;
             case AccountDetailStatus.NotFound:
                 <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>

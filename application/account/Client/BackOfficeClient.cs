@@ -207,4 +207,34 @@ public sealed class BackOfficeClient(HttpClient httpClient)
     {
         return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.BackOfficeFeatureFlag(flagKey), cancellationToken);
     }
+
+    public Task<ApiCallResult<GetFeatureFlagTenantsResponse>> GetFeatureFlagTenantsAsync(string flagKey, GetFeatureFlagTenantsQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<GetFeatureFlagTenantsResponse>(AccountApiRoutes.BackOfficeFeatureFlagTenants(flagKey, query), cancellationToken);
+    }
+
+    public Task<ApiCallResult<GetFeatureFlagUsersResponse>> GetFeatureFlagUsersAsync(string flagKey, GetFeatureFlagUsersQuery query, CancellationToken cancellationToken)
+    {
+        return _transport.GetAsync<GetFeatureFlagUsersResponse>(AccountApiRoutes.BackOfficeFeatureFlagUsers(flagKey, query), cancellationToken);
+    }
+
+    public Task<ApiCallResult> SetTenantFeatureFlagOverrideAsync(string flagKey, SetTenantFeatureFlagInternalCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.BackOfficeTenantFeatureFlagOverride(flagKey), command, cancellationToken);
+    }
+
+    public Task<ApiCallResult> RemoveTenantFeatureFlagOverrideAsync(string flagKey, TenantId tenantId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.RemoveBackOfficeTenantFeatureFlagOverride(flagKey, tenantId), cancellationToken);
+    }
+
+    public Task<ApiCallResult> SetUserFeatureFlagOverrideAsync(string flagKey, SetUserFeatureFlagInternalCommand command, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Put, AccountApiRoutes.BackOfficeUserFeatureFlagOverride(flagKey), command, cancellationToken);
+    }
+
+    public Task<ApiCallResult> RemoveUserFeatureFlagOverrideAsync(string flagKey, UserId userId, TenantId tenantId, CancellationToken cancellationToken)
+    {
+        return _transport.SendAsync(HttpMethod.Delete, AccountApiRoutes.RemoveBackOfficeUserFeatureFlagOverride(flagKey, userId, tenantId), cancellationToken);
+    }
 }

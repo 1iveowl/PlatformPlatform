@@ -3,8 +3,8 @@
 // (--culture en-US|da-DK). A new owner is signed up for the run.
 //
 // Both flags are kill-switch flags, which the reconciler creates globally inactive, and both sections hide a flag whose
-// base row is inactive. The run therefore activates account-overview and compact-view through the back office first, the
-// way the React specification does; that is a prerequisite, not a case.
+// base row is inactive. The run therefore activates account-overview and compact-view through the Blazor back office first,
+// the way the React specification does through its own; that is a prerequisite, not a case.
 //
 // 1. The Features section renders for the owner with the localized heading, description and one switch per configurable
 //    tenant flag, each named by the flag's localized name and described by its localized description.
@@ -101,31 +101,38 @@ async function check(name, action) {
 }
 
 // Both flags are created globally inactive by the reconciler, and a section hides a flag whose base row is inactive, so the
-// back office activates them first. The PUT is idempotent and leaves the same end state for a concurrent run.
+// Blazor back office activates them first, through each flag's detail, whose client carries the antiforgery token the write
+// needs. The state is read before every write and a flag is only ever turned on, so a concurrent run converges on the same
+// end state; an activation that collides with another run's is answered with a 500 and resolved by reading the state again.
+const activationAttempts = 5;
+
+async function isFlagActive(page, flagKey) {
+  const answer = await page.evaluate(async () => {
+    const response = await fetch("/api/back-office/feature-flags", { credentials: "same-origin" });
+    return { status: response.status, body: await response.text() };
+  });
+  assert(answer.status === 200, `Reading the back-office feature flags returned ${answer.status}.`);
+  return JSON.parse(answer.body).flags.some((flag) => flag.key === flagKey && flag.isActive);
+}
+
 async function activateFlagsThroughBackOffice() {
   const context = await newContext(browser, options.browser);
   try {
     const page = await context.newPage();
     // The development mock of the platform's identity provider: the callback sets the back-office session cookie directly
-    await page.goto(`${backOfficeUrl}/.auth/login/aad/callback?identity=admin&post_login_redirect_uri=%2Ffeature-flags`, { waitUntil: "load" });
-    await page.waitForFunction(() => (document.head.querySelector('meta[name="antiforgeryToken"]')?.getAttribute("content") ?? "").length > 0, undefined, { timeout: interactiveTimeoutMs });
-    const antiforgeryToken = await page.evaluate(() => document.head.querySelector('meta[name="antiforgeryToken"]').getAttribute("content"));
-    assert(antiforgeryToken.length > 0, "The back office served no antiforgery token, so the admin session did not start.");
+    await page.goto(`${backOfficeUrl}/.auth/login/aad/callback?identity=admin&post_login_redirect_uri=${encodeURIComponent(`${pathBase}/back-office/feature-flags`)}`, { waitUntil: "load" });
     for (const flagKey of [tenantFlagKey, userFlagKey]) {
-      // Sent from the document, so it goes through the browser's network stack and the development certificate the
-      // context already trusts, and carries the back-office session cookie
-      const status = await page.evaluate(
-        async ({ flagKey, antiforgeryToken }) => {
-          const response = await fetch(`/api/back-office/feature-flags/${flagKey}/activate`, {
-            method: "PUT",
-            credentials: "same-origin",
-            headers: { "x-xsrf-token": antiforgeryToken }
-          });
-          return response.status;
-        },
-        { flagKey, antiforgeryToken }
-      );
-      assert(status >= 200 && status < 300, `Activating '${flagKey}' returned ${status}.`);
+      for (let attempt = 0; attempt < activationAttempts && !(await isFlagActive(page, flagKey)); attempt++) {
+        await page.goto(`${backOfficeUrl}${pathBase}/back-office/feature-flags/${flagKey}`, { waitUntil: "load" });
+        await page.locator(`${testId("back-office-shell")}[data-interactive="true"]`).waitFor({ timeout: interactiveTimeoutMs });
+        await page.locator(`${testId("back-office-feature-flag-detail")}[data-state="loaded"]`).waitFor({ timeout: interactiveTimeoutMs });
+        // A flag another run activated after the last read offers no Activate button
+        if ((await page.locator(testId("feature-flag-activate")).count()) === 0) continue;
+        await page.locator(testId("feature-flag-activate")).click();
+        await page.locator(testId("activate-feature-flag-dialog-confirm")).click();
+        await page.locator(testId("activate-feature-flag-dialog")).waitFor({ state: "hidden", timeout: interactiveTimeoutMs });
+      }
+      assert(await isFlagActive(page, flagKey), `Activating '${flagKey}' through the Blazor back office did not leave it active.`);
     }
   } finally {
     await context.close();

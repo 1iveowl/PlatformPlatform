@@ -168,7 +168,7 @@ public static class AccountsListSource
     }
 
     // Names only: Enum.TryParse would also accept numbers
-    private static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct, Enum
+    public static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct, Enum
     {
         return Enum.GetValues<TEnum>().Cast<TEnum?>().FirstOrDefault(candidate => string.Equals(candidate.ToString(), value, StringComparison.OrdinalIgnoreCase));
     }
