@@ -26,9 +26,16 @@ back-office identity travels with the request in a header protected by the share
   account API's own back-office handler before anything is forwarded. The route asks the `BackOfficeAdmin` policy for its
   verdict, protects the authenticated claims and that verdict with `ForwardedBackOfficeIdentity`
   (`application/shared-kernel/SharedKernel.Security/Authentication/BackOfficeIdentity/`), and forwards with YARP's
-  `IHttpForwarder` to `BACK_OFFICE_BLAZOR_HOST_URL`. It removes the `X-MS-CLIENT-PRINCIPAL*` headers, any inbound
-  `X-Back-Office-Identity` and every inbound `X-Forwarded-*` header, then sets `X-Back-Office-Identity`,
-  `X-Forwarded-Host` (the back-office host the route matched), `X-Forwarded-Proto` and `X-Forwarded-For`.
+  `IHttpForwarder` to `BACK_OFFICE_BLAZOR_HOST_URL`. It removes exactly eight inbound headers, the list
+  `BackOfficeBlazorProxy.RemovedRequestHeaders` (lines 25 to 35, verified at `ed3301b34`): the three principal headers
+  `X-MS-CLIENT-PRINCIPAL-NAME`, `X-MS-CLIENT-PRINCIPAL-ID` and `X-MS-CLIENT-PRINCIPAL`, any inbound
+  `X-Back-Office-Identity`, and the four forwarding headers `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`
+  and `X-Forwarded-Prefix`. It then sets `X-Back-Office-Identity`, `X-Forwarded-Host` (the back-office host the route
+  matched), `X-Forwarded-Proto` and `X-Forwarded-For`. Every other header passes through to the Blazor host, including
+  any other `X-MS-CLIENT-PRINCIPAL-*` or `X-MS-TOKEN-*` header the platform may add (assumption: the platform also sends
+  `X-MS-CLIENT-PRINCIPAL-IDP`; no token store is configured). That is harmless while the Blazor host reads only
+  `X-Back-Office-Identity`. (Wording corrected after the G6a review, EP-202 N-1; the earlier text said "the
+  `X-MS-CLIENT-PRINCIPAL*` headers" and "every inbound `X-Forwarded-*` header".)
 - The Blazor host authenticates back-office pages with its own scheme (`blazor/Blazor.Host/Account/BackOfficeAuthentication.cs`),
   which reads only `X-Back-Office-Identity`, only on the back-office host, and never the principal headers. A back-office
   page carries `[Authorize(Policy = "BackOffice")]` and `[BackOfficeSurface]`.
@@ -79,6 +86,16 @@ back-office identity travels with the request in a header protected by the share
 - Observed and left as it was, for the G0 review: the account API's `BackOfficeIdentityHandler` trusts the principal
   headers from any caller, and no file under `application/AppGateway/` removes them. The back-office endpoints require the
   back-office host, so the gateway's app-host traffic does not match them today.
+- Changed by EP-223 (T019, `ed3301b34`) on the owner's decision on the G0 review's N-2. Verified at `ed3301b34`:
+  `BackOfficeIdentityHandler.HandleAuthenticateAsync` returns NoResult before it reads any header unless
+  `BackOfficeListener.Received` accepts the request
+  (`application/shared-kernel/SharedKernel/Authentication/BackOfficeIdentity/BackOfficeListener.cs` lines 28 to 52).
+  In Azure (`AZURE_CLIENT_ID` set) it accepts a request only when `BackOffice:IsBackOfficeContainer` is true, which
+  `main-cluster.bicep` sets on the `back-office` container app only (line 489). Everywhere else it accepts a
+  request only on the port in `BACK_OFFICE_KESTREL_PORT`, and nothing when that is unset. Principal headers sent to the
+  `account-api` container app or the main listener therefore never become a back-office identity. What stays open is
+  Development only: without a mock session the back-office listener still passes forged principal headers through
+  (the G0 review's N-3, EP-223 N-1).
 
 ## Antiforgery
 
@@ -123,6 +140,19 @@ Assumptions until G6a verifies them in Azure:
 - The data protection key ring shared by the `back-office` and `blazor-host` container apps. The antiforgery relay already
   assumes this (the comment in `HostApplication`); the protected identity adds no new requirement, but a key ring that is
   not shared fails every back-office page with a redirect to the login.
+  Indirect staging evidence that the ring is already shared across container apps (cited after the G6a review,
+  EP-202 N-2 and EP-216 N-4; verified at `ed3301b34` by reading): the Blazor edition's static login form
+  (`blazor/Blazor.Host/Components/Pages/Public/Login.razor` line 25) posts to the Blazor host, whose
+  `HostAccountApiHandler` relays the host-issued antiforgery pair, the `x-xsrf-token` header and the
+  `__Host-xsrf-token` cookie (`blazor/Blazor.Host/Account/HostAccountApiHandler.cs` lines 56 to 65), to the account API
+  at `ACCOUNT_API_URL`. The account API's `AntiforgeryMiddleware` validates that pair with its own data protection
+  provider on `/api/account/authentication/email/*`, which does not disable antiforgery, and no file under
+  `cloud-infrastructure/`, `.github/` or `application/AppHost/` sets `BypassAntiforgeryValidation`.
+  `docs/BLAZOR.md` line 341 records email signup and login through the Blazor edition as proven on staging on
+  2026-09-26. The `blazor-host` and `account-api` container apps can pass that only if each unprotects the other's
+  payloads, so with a shared ring and matching application discriminators (assumption: the discriminator follows the
+  content root, and both images use `WORKDIR /app`). `back-office` runs the account API image in the same environment.
+  Staging check 2 stays the proof for `back-office`.
 - On the `blazor-host` container app: `BACK_OFFICE_SUBSCRIPTION_ENABLED`, the Stripe-derived expression the account API
   and the `back-office` container app get as `PUBLIC_SUBSCRIPTION_ENABLED`, so the Blazor back office shows the billing
   parts exactly when the React back office does (added to `main-cluster.bicep` by EP-204; locally the AppHost sets it to
@@ -160,36 +190,107 @@ G6b's checks confirm it.
 ## Deployment procedure for G6b
 
 Staging only. Production waits for its back-office app registration (EP-192). `<bo>` is the back-office host,
-`<app>` the app host, `<rg>` the cluster resource group (`<prefix>-stage-<acronym>`).
+`<app>` the app host, `<rg>` the cluster resource group (`<prefix>-stage-<acronym>`), `<env>` the Container Apps
+environment's default domain. Completed by T021 (EP-225) with the additions the G6a review (EP-220, findings N-1 to N-5
+on EP-216) and the G7a review (EP-224, its verdict's item 5 and N-4 on EP-223) asked for. Code references are verified at
+`ed3301b34`; every statement about Azure is an assumption until G6b observes it.
 
-1. Record the state before: the image of `account-api`, `back-office`, `account-workers` and `blazor-host`
-   (`az containerapp show -n <app> -g <rg> --query "properties.template.containers[0].image"`), and the host names
-   bound to `back-office` (`--query "properties.configuration.ingress.[fqdn, customDomains[].name]"`). If the running
-   account image predates the newest file under `application/account/Core/Database/Migrations/`, apply the migrations
-   first.
+1. Record the state before, in a file kept until the deploy is judged, and stop before step 2 if a precondition fails.
+   - For each of `account-api`, `back-office`, `account-workers` and `blazor-host`, the image and every environment
+     variable: `az containerapp show -n <app> -g <rg> --query "properties.template.containers[0].[image, env]"`. Secrets
+     appear as `secretRef` names, not values. Step 6 restores exactly this record.
+   - The host names bound to `back-office`: `--query "properties.configuration.ingress.[fqdn, customDomains[].name]"`.
+   - Precondition, the back-office container flag (G7a review): `az containerapp show -n back-office -g <rg> --query
+     "properties.template.containers[0].env[?name=='BackOffice__IsBackOfficeContainer'].value"` answers `["true"]`, and
+     the same query on `account-api` answers `[]`. From step 2 on, the account image trusts the principal headers only
+     where that flag is true (`BackOfficeListener.FromConfiguration`, lines 28 to 36), and the flag already selects the
+     React back office's fallback (`application/account/Api/Program.cs` line 99). The Bicep sets it on `back-office`
+     only (`main-cluster.bicep` line 489). Any other answer: stop; the fix is an owner decision.
+   - Precondition, the proxy variable (G6a review N-3): `az containerapp show -n account-api -g <rg> --query
+     "properties.template.containers[0].env[?name=='BACK_OFFICE_BLAZOR_HOST_URL']"` answers `[]`.
+   - Precondition, the database (G6a review N-5). In Azure nothing migrates at start: the workers apply migrations only
+     locally (`application/account/Workers/Program.cs` lines 32 to 37). Compare the newest migration applied on staging
+     with the newest file under `application/account/Core/Database/Migrations/` (`20260921215015_AddPushSubscriptionDeviceSlot.cs`
+     at `ed3301b34`), the way `.github/workflows/_migrate-database.yml` reaches the server: from
+     `cloud-infrastructure/cluster`, with `CLUSTER_RESOURCE_GROUP_NAME=<rg>`, `POSTGRES_SERVER_NAME=<rg>` and
+     `DATABASE_NAME=account`, run `bash ./firewall.sh open`; read the server's Entra administrator with
+     `az postgres flexible-server microsoft-entra-admin list --resource-group <rg> --server-name <rg> --query "[0].principalName" --output tsv`
+     and a token with `az account get-access-token --resource-type oss-rdbms --query accessToken --output tsv`; then, with
+     the token as `PGPASSWORD`, `psql "host=<rg>.postgres.database.azure.com dbname=account user='<administrator>' sslmode=verify-full sslrootcert=system" -c "SELECT * FROM __ef_migrations_history ORDER BY 1 DESC LIMIT 1"`
+     (the history table named in `SharedInfrastructureConfiguration.cs` lines 161 and 167); then `bash ./firewall.sh close`.
+     If the newest applied migration is older than the newest file, stop: applying it is an owner step of its own, by the
+     workflow's method (with the firewall open, `dotnet ef migrations script <last applied> <last pending> --idempotent`
+     for `account/Core/Account.csproj` with startup project `account/Api/Account.Api.csproj` and context
+     `AccountDbContext`, then `psql -v ON_ERROR_STOP=1 ... -f migration.sql` as the same administrator, then close the
+     firewall). The procedure resumes at step 1 once the history shows the newest file. A migration is never reverted:
+     every migration file has `Up` only.
 2. Account images, one tag for all three apps, as the usage text of `deploy-container.sh` says: `account-workers`,
-   `account-api`, then `back-office` (`--container-app back-office`).
+   `account-api`, then `back-office` (`--container-app back-office`). Afterwards, signed in, `https://<bo>/` still shows
+   the React back office and `GET https://<bo>/api/back-office/me` answers 200 with the session's identity; if not, see
+   the symptoms below the checks.
 3. Blazor image: `blazor-publish --version <tag>`, copy the publish to `blazor/Blazor.Host/publish`,
    `deploy-container.sh <prefix> stage blazor-host <tag> --context blazor --dockerfile ./Blazor.Host/Dockerfile
    --cluster-location-acronym <acronym>`, then delete `blazor/Blazor.Host/publish` (EP-194).
 4. The two settings: `deploy-cluster.sh` without `--apply` first, whose what-if must show the two new environment
    variables and no other change beyond the new revisions, then with `--apply`. Without the cluster parameters at hand,
-   `az containerapp update -n back-office -g <rg> --set-env-vars BACK_OFFICE_BLAZOR_HOST_URL=https://blazor-host.internal.<environment domain>`
+   `az containerapp update -n back-office -g <rg> --set-env-vars BACK_OFFICE_BLAZOR_HOST_URL=https://blazor-host.internal.<env>`
    and `az containerapp update -n blazor-host -g <rg> --set-env-vars BACK_OFFICE_PUBLIC_URL=https://<bo>` set the same
    values the Bicep holds, so the next cluster deploy changes nothing.
-5. The checks below, in order; stop at the first failure and keep the React back office as it is.
+5. The checks below, in order. At the first failure, or when step 2, 3 or 4 does not finish, go to step 6.
+6. Revert (G6a review N-1). It restores every container app to the image and settings recorded in step 1.
+   - Unmap the proxy: `az containerapp update -n back-office -g <rg> --remove-env-vars BACK_OFFICE_BLAZOR_HOST_URL`.
+     Unset, the route is not mapped (`application/account/Api/BackOfficeBlazorProxy.cs` line 40) and `/blazor/*` on
+     `<bo>` falls through to the React back office. Then `az containerapp update -n blazor-host -g <rg> --remove-env-vars BACK_OFFICE_PUBLIC_URL`;
+     without the protected identity that variable grants nothing, but the revert restores the record.
+   - Restore each image that differs from the record, in the reverse order of steps 2 and 3 (`blazor-host`,
+     `back-office`, `account-api`, `account-workers`): `az containerapp update -n <app> -g <rg> --image <recorded image>`.
+     Leave out `--revision-suffix`; the recorded version's suffix is already taken by an existing revision (assumption:
+     the platform then names the revision itself). The variable removals above can go in the same update, one revision
+     per app.
+   - Set back any other variable that differs from the record with `--set-env-vars`, or remove it with
+     `--remove-env-vars`. After a `deploy-cluster.sh --apply` in step 4, compare all four apps, not only the two above.
+   - A migration applied in step 1 stays. The recorded image then runs against the newer schema (assumption: it copes;
+     `AddPushSubscriptionDeviceSlot` adds `device_slot` with default 0 and a unique index on `user_id` and `device_slot`,
+     so an image older than it may fail to store a second push subscription for one user).
+   - Confirm the React back office is back as it was: for each of the four apps the query of step 1 answers exactly the
+     record, and its active revision is healthy (`az containerapp revision list -n <app> -g <rg> --query "[?properties.active].[name, properties.healthState]"`);
+     signed in, `https://<bo>/` shows the React back office and its account list loads; `GET https://<bo>/blazor/back-office`
+     answers the React back office's document, which carries no `data-back-office` attribute (no file under
+     `application/account/BackOffice/` sets it); `GET https://<bo>/api/back-office/me` answers 200 with the session's
+     identity; `GET https://<app>/blazor/` answers 200 with the app edition's landing page.
+   - Record the failure and the revert on EP-217. The Bicep still holds both variables (`main-cluster.bicep` lines 496
+     and 776), and `deploy-cluster.sh` deploys the versions it reads from the running apps (line 81), so the next
+     `deploy-cluster.sh --apply` puts both variables back. Before that deploy, the Bicep changes or the cause is fixed;
+     that is an owner task, not part of this procedure.
 
 | # | Check | Request | Expected answer |
 | --- | --- | --- | --- |
 | 1 | Host (G0 item 3) | Compare the host in step 1 with `BACK_OFFICE_PUBLIC_URL` on `blazor-host` and `BackOffice__Host` on `back-office`; then `GET https://<bo>/api/back-office/me` signed in | All three name the same host; 200 with the session's identity. A mismatch answers every back-office page with 404 |
-| 2 | Shared key ring (G0 item 1) | Signed in as an admin, open `https://<bo>/blazor/back-office/identity` | 200 with the signed-in name and the admin marker. A loop between `/blazor/back-office` and `/.auth/login/aad`, or "The forwarded back-office identity is not valid" in the `blazor-host` log, means the ring is not shared: stop, the fallback (an explicit shared key store with `SetApplicationName` on both apps) is an owner decision |
-| 3 | Principal header overwrite (G0 item 2) | With the admin session, send `X-MS-CLIENT-PRINCIPAL-NAME`, `X-MS-CLIENT-PRINCIPAL-ID` and `X-MS-CLIENT-PRINCIPAL` naming another identity to `GET /api/back-office/me` and `GET /blazor/back-office/identity`; repeat with a non-admin session and the headers claiming the admins group; repeat with no session | The session's own identity and admin verdict on both; the non-admin stays without the admin marker and its write (for example the rollout of a flag) answers 403; no session answers 302 to `/.auth/login/aad`, never 200 |
+| 2 | Shared key ring (G0 item 1) | Signed in as an admin, open `https://<bo>/blazor/back-office/identity` | 200 with the signed-in name and the admin marker. A loop between `/blazor/back-office` and `/.auth/login/aad`, or "The forwarded back-office identity is not valid" in the `blazor-host` log, means the ring is not shared: stop, the fallback (an explicit shared key store with `SetApplicationName` on both apps) is an owner decision. The staging proof of the Blazor edition's email login is indirect evidence that the ring is shared (see "What G6a must deploy"); this check is the proof for `back-office` |
+| 3 | Principal header overwrite (G0 item 2, G6a review N-2) | From the browser console on `https://<bo>/blazor/back-office`, signed in as an admin: `fetch("/api/back-office/me", { headers: h }).then(r => r.json())` and `fetch("/blazor/back-office/identity", { headers: h }).then(r => r.text())`, where `h` is `{ "X-MS-CLIENT-PRINCIPAL-NAME": "<other name>", "X-MS-CLIENT-PRINCIPAL-ID": "<other id>", "X-MS-CLIENT-PRINCIPAL": "<base64 payload naming the other identity with the admins group>" }`. The fetch carries the platform's session cookie and stays inside the page's `connect-src`, which names the back-office origin (`blazor/Blazor.Host/Shell/HostShell.cs` line 190); curl works too with the platform's session cookie copied from the browser. Repeat signed in as a non-admin with the payload claiming the admins group. Repeat with no session: curl without a cookie, once with `Accept: text/html` and once without | With a session: `/me` names the session's identity with its own `isAdmin`; in the page text, `data-testid="back-office-name"` holds the session's name and `data-testid="back-office-admin-marker"` reads `Admin` for the admin and `Not admin` for the non-admin in en-US (`BackOfficeIdentityPage.razor` lines 19 and 21, read as `blazor/Blazor.Tests/Account/HostSecurityTests.BackOffice.cs` lines 43 to 60 read them); the non-admin's write (for example the rollout of a flag) answers 403. No session: 302 to `/.auth/login/aad` or 401, never 200 (assumption: the platform may answer a request that does not look like a browser's with 401, as the account API's own challenge does, `BackOfficeIdentityHandler.HandleChallengeAsync`). The no-session case is the one that says something about the platform: locally the mock overwrites the headers only when a session exists (G0 review N-3) |
+| 3b | Forged headers on the internal account API (G7a review, optional) | From a shell inside the environment: `GET https://account-api.internal.<env>/api/back-office/me` with `Host: <bo>`, the forged headers of check 3 and `Accept: application/json` | 401 or 404, never 200. 401 is the account API refusing the headers outside the `back-office` container (T019); 404 means the environment did not route the forged `Host` to `account-api`. Record which |
+| 3c | Forged headers on the back-office app from inside (G7a review, optional) | From the same shell: `GET https://<bo>/api/back-office/me`, or the `back-office` app's own FQDN, with the forged headers of check 3 and no session | 302 or 401, never 200. The account API trusts every request the `back-office` container receives, so this rests on the platform authentication sitting in front of in-environment traffic too (assumption, stated nowhere in the repository) |
 | 4 | App path refuses | `GET https://<app>/blazor/back-office` with the forged principal headers, with `X-Forwarded-Host: <bo>` added, and with a made-up `X-Back-Office-Identity` | 404 each time |
-| 5 | Internal ingress stays internal | `az containerapp show -n blazor-host -g <rg> --query properties.configuration.ingress.external`; `GET https://blazor-host.<environment domain>/` from outside | `false`; no answer from the app |
+| 5 | Internal ingress stays internal | `az containerapp show -n blazor-host -g <rg> --query properties.configuration.ingress.external`; `GET https://blazor-host.<env>/` from outside | `false`; no answer from the app |
+| 5b | The proxy stays on `back-office` (G6a review N-3; G7a review) | After step 4, the precondition queries of step 1 again: `BACK_OFFICE_BLAZOR_HOST_URL` on `account-api`, and `BackOffice__IsBackOfficeContainer` on `back-office` and `account-api` | `[]`; `["true"]` and `[]`. Were the proxy variable set on `account-api`, the route would exist there; locally, where one process serves both listeners with it set, forged headers under a forged `Host` rendered a back-office page on the main listener before T019 (the G6a review's probe P25b) |
 | 6 | Content security policy | Response headers of `GET https://<bo>/blazor/back-office` | One `Content-Security-Policy`, nonce based, naming `https://<bo>` and not `<app>` |
 | 7 | Offline shell, push, version policy | `GET https://<bo>/blazor/service-worker.js` and `/blazor/manifest.webmanifest`; the page's `<html>` element; the browser's list of service workers for `<bo>` | 404 and 404; `data-back-office` present; no worker registered, so no push subscription; the only WebAssembly component is the back-office one, which does not start the app shell's stale-asset probe |
 | 8 | Antiforgery write | As an admin, one write from the Blazor back office, then the same write as a non-admin | 2xx, then 403 |
 | 9 | Subscription setting | `BACK_OFFICE_SUBSCRIPTION_ENABLED` on `blazor-host` against `PUBLIC_SUBSCRIPTION_ENABLED` on `back-office`; the account tabs in both back offices | Equal values; the billing tabs show in the Blazor back office exactly when they show in the React one |
 | 10 | Nothing else moved | `GET https://<bo>/` signed in, and `GET https://<app>/blazor/` | The React back office at the root; the app edition's landing page, 200 |
+
+Checks 3b and 3c need a shell inside the environment. None of the repository's images has one: all are chiseled .NET
+images (the `FROM` lines of all six Dockerfiles, under `application/account/`, `application/main/`,
+`application/AppGateway/` and `blazor/Blazor.Host/`; assumption: chiseled images carry no shell), so `az containerapp exec` into an existing app does not give one. Running a temporary
+container with a shell and curl in the environment for them, and deleting it afterwards, is the owner's call at G6b;
+without one, record 3b and 3c as not run on EP-217.
+
+Symptoms after step 2 and what to look at first:
+
+| Symptom | Likely cause | Action |
+| --- | --- | --- |
+| A login loop on every back-office page, React and Blazor, or 401 from `/api/back-office/me` with a session (G7a review) | `BackOffice__IsBackOfficeContainer` missing on `back-office`: the account image trusts the principal headers nowhere else | Check the variable before anything else. The remedy is the variable, `true` as the record and the Bicep hold it, not a rollback; if it cannot be set, step 6 |
+| A loop between `/blazor/back-office` and `/.auth/login/aad` on Blazor pages only | The key ring is not shared (check 2) | Stop; step 6; the fallback is an owner decision |
+| 404 on every Blazor back-office page | `BACK_OFFICE_PUBLIC_URL` does not name the host `back-office` receives (check 1) | Step 6, unless the owner corrects the value |
 
 The first request after idle can take 20 to 46 s while a container app scales from zero; retry before judging a timeout.
