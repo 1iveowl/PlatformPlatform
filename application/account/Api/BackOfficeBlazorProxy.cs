@@ -92,14 +92,19 @@ public static class BackOfficeBlazorProxy
         return handler;
     }
 
-    // Copies the request as the default transformer does, then replaces every identity and forwarding header with the values
-    // this listener established: the protected identity, the back-office host the route matched, the scheme and the client
-    // address the forwarded headers middleware accepted
-    private sealed class BackOfficeIdentityTransformer : HttpTransformer
+    // Copies the request's fields and headers as the base transformer does, then replaces every identity and forwarding header
+    // with the values this listener established: the protected identity, the back-office host the route matched, the scheme
+    // and the client address the forwarded headers middleware accepted
+    internal sealed class BackOfficeIdentityTransformer : HttpTransformer
     {
         public override async ValueTask TransformRequestAsync(HttpContext httpContext, HttpRequestMessage proxyRequest, string destinationPrefix, CancellationToken cancellationToken)
         {
             await base.TransformRequestAsync(httpContext, proxyRequest, destinationPrefix, cancellationToken);
+
+            // The base transformer copies the inbound Host header; clear it so the request names the Blazor host's own address.
+            // Azure Container Apps routes by Host, and a request to the internal Blazor host under the back-office host name
+            // matches no container app and is answered 404 by the environment. The back-office host travels in X-Forwarded-Host
+            proxyRequest.Headers.Host = null;
 
             foreach (var header in RemovedRequestHeaders)
             {

@@ -31,8 +31,15 @@ back-office identity travels with the request in a header protected by the share
   `X-MS-CLIENT-PRINCIPAL-NAME`, `X-MS-CLIENT-PRINCIPAL-ID` and `X-MS-CLIENT-PRINCIPAL`, any inbound
   `X-Back-Office-Identity`, and the four forwarding headers `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`
   and `X-Forwarded-Prefix`. It then sets `X-Back-Office-Identity`, `X-Forwarded-Host` (the back-office host the route
-  matched), `X-Forwarded-Proto` and `X-Forwarded-For`. Every other header passes through to the Blazor host, including
-  any other `X-MS-CLIENT-PRINCIPAL-*` or `X-MS-TOKEN-*` header the platform may add (assumption: the platform also sends
+  matched), `X-Forwarded-Proto` and `X-Forwarded-For`, and clears `Host`, so the request names the Blazor host's own
+  address and the Blazor host learns the back-office host only from `X-Forwarded-Host`. Azure Container Apps routes by
+  `Host`: observed on staging on 2026-09-29, a request to the internal Blazor host that still carried the back-office
+  host name (YARP's base `HttpTransformer` copies the inbound `Host`) was answered 404 by the environment ("This
+  Container App is stopped or does not exist") and never reached the Blazor host. The app gateway's route to the same
+  address already sent the destination's host, YARP's default. Every other header passes through to the Blazor host,
+  including the browser's cookies (the platform's session cookie among them), the `X-Original-For` and
+  `X-Original-Proto` headers the account API's forwarded headers middleware adds, and any other
+  `X-MS-CLIENT-PRINCIPAL-*` or `X-MS-TOKEN-*` header the platform may add (assumption: the platform also sends
   `X-MS-CLIENT-PRINCIPAL-IDP`; no token store is configured). That is harmless while the Blazor host reads only
   `X-Back-Office-Identity`. (Wording corrected after the G6a review, EP-202 N-1; the earlier text said "the
   `X-MS-CLIENT-PRINCIPAL*` headers" and "every inbound `X-Forwarded-*` header".)
@@ -64,7 +71,9 @@ back-office identity travels with the request in a header protected by the share
 
 - **Back-office page.** Browser, `https://<back-office host>/blazor/back-office`, then the platform authentication, then
   the account API's back-office listener (back-office policy, admin verdict, protected identity), then the Blazor host at
-  `BACK_OFFICE_BLAZOR_HOST_URL` (forwarded headers middleware accepts the back-office host, `BackOfficeSurface` admits only
+  `BACK_OFFICE_BLAZOR_HOST_URL` under its own host name (forwarded headers middleware takes the back-office host from
+  `X-Forwarded-Host`, the only place it travels; assumption until staging observes it: the environment's internal ingress
+  keeps that header as the listener set it), `BackOfficeSurface` admits only
   back-office pages there, the `BackOffice` scheme rebuilds the identity), which renders the page with the name and the
   admin marker and a WebAssembly island.
 - **Back-office API call.** The island's `BackOfficeClient` (`application/account/Client/BackOfficeClient.cs`) calls
