@@ -26,7 +26,14 @@ back-office identity travels with the request in a header protected by the share
   account API's own back-office handler before anything is forwarded. The route asks the `BackOfficeAdmin` policy for its
   verdict, protects the authenticated claims and that verdict with `ForwardedBackOfficeIdentity`
   (`application/shared-kernel/SharedKernel.Security/Authentication/BackOfficeIdentity/`), and forwards with YARP's
-  `IHttpForwarder` to `BACK_OFFICE_BLAZOR_HOST_URL`. It removes exactly eight inbound headers, the list
+  `IHttpForwarder` to `BACK_OFFICE_BLAZOR_HOST_URL`, with a client from YARP's `ForwarderHttpClientFactory`, the factory
+  the app gateway's configured routes use for the same address; locally it also accepts the Blazor host's development
+  certificate. Observed on staging on 2026-09-29: with a `SocketsHttpHandler` configured by hand instead, the HTTP/2
+  server reset 13 of 195 WebAssembly asset downloads the browser made in parallel through the proxy (65 files three
+  times; 502 with an empty body; the log does not show whether the ingress or the Blazor host reset them), while a
+  comparable load through the gateway (the 66 files three times, 60 in parallel, curl over HTTP/2) had no failure.
+  Assumption until G6b check 11 observes it: the factory's client carries that load; which of its settings matters is
+  not known (multiple HTTP/2 connections is the guess). It removes exactly eight inbound headers, the list
   `BackOfficeBlazorProxy.RemovedRequestHeaders` (lines 25 to 35, verified at `ed3301b34`): the three principal headers
   `X-MS-CLIENT-PRINCIPAL-NAME`, `X-MS-CLIENT-PRINCIPAL-ID` and `X-MS-CLIENT-PRINCIPAL`, any inbound
   `X-Back-Office-Identity`, and the four forwarding headers `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`
@@ -287,6 +294,7 @@ on EP-216) and the G7a review (EP-224, its verdict's item 5 and N-4 on EP-223) a
 | 8 | Antiforgery write | As an admin, one write from the Blazor back office, then the same write as a non-admin | 2xx, then 403 |
 | 9 | Subscription setting | `BACK_OFFICE_SUBSCRIPTION_ENABLED` on `blazor-host` against `PUBLIC_SUBSCRIPTION_ENABLED` on `back-office`; the account tabs in both back offices | Equal values; the billing tabs show in the Blazor back office exactly when they show in the React one |
 | 10 | Nothing else moved | `GET https://<bo>/` signed in, and `GET https://<app>/blazor/` | The React back office at the root; the app edition's landing page, 200 |
+| 11 | Assets under load (added by G6b, 2026-09-29) | Signed in on `https://<bo>/blazor/back-office`, from the browser console: fetch every `/blazor/_framework/*.wasm` file the page loaded three times in parallel with `cache: "no-store"`; then the `back-office` log for `Yarp.ReverseProxy.Forwarder.HttpForwarder[48]` | Every response 200 with a body; no forwarder error logged. A 502 with an empty body is the stream reset the hand-built client showed |
 
 Checks 3b and 3c need a shell inside the environment. None of the repository's images has one: all are chiseled .NET
 images (the `FROM` lines of all six Dockerfiles, under `application/account/`, `application/main/`,

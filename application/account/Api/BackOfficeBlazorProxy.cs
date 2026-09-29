@@ -1,10 +1,10 @@
-using System.Net;
 using System.Net.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Extensions;
 using SharedKernel.Authentication.BackOfficeIdentity;
 using SharedKernel.Configuration;
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 
 namespace Account.Api;
@@ -40,7 +40,7 @@ public static class BackOfficeBlazorProxy
         if (string.IsNullOrWhiteSpace(blazorHostUrl)) return app;
 
         var forwarder = app.Services.GetRequiredService<IHttpForwarder>();
-        var invoker = new HttpMessageInvoker(CreateHandler());
+        var invoker = new BlazorHostHttpClientFactory().CreateClient(new ForwarderHttpClientContext { NewConfig = HttpClientConfig.Empty });
         var transformer = new BackOfficeIdentityTransformer();
 
         app.Map($"{PathBase}/{{**catch-all}}", async (HttpContext context, IAuthorizationService authorizationService, IDataProtectionProvider dataProtectionProvider) =>
@@ -66,30 +66,6 @@ public static class BackOfficeBlazorProxy
             .ExcludeFromDescription();
 
         return app;
-    }
-
-    private static SocketsHttpHandler CreateHandler()
-    {
-        var handler = new SocketsHttpHandler
-        {
-            UseProxy = false,
-            AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.None,
-            UseCookies = false
-        };
-
-        if (!SharedInfrastructureConfiguration.IsRunningInAzure)
-        {
-            // The Blazor host listens with ASP.NET Core's localhost development certificate (CN=localhost), as the rsbuild
-            // dev server does for BackOfficeDevStaticProxy; accept that certificate even when only its chain is untrusted
-            handler.SslOptions = new SslClientAuthenticationOptions
-            {
-                RemoteCertificateValidationCallback = (_, certificate, _, errors)
-                    => errors == SslPolicyErrors.None || (errors == SslPolicyErrors.RemoteCertificateChainErrors && certificate?.Subject == "CN=localhost")
-            };
-        }
-
-        return handler;
     }
 
     // Copies the request's fields and headers as the base transformer does, then replaces every identity and forwarding header
@@ -118,6 +94,25 @@ public static class BackOfficeBlazorProxy
             {
                 proxyRequest.Headers.TryAddWithoutValidation("X-Forwarded-For", clientAddress.ToString());
             }
+        }
+    }
+
+    // Builds the client the app gateway's forwarder builds for its route to the same Blazor host, so both reach it the same
+    // way. Keep this factory rather than a SocketsHttpHandler configured by hand: observed on staging on 2026-09-29, with such
+    // a handler the HTTP/2 server reset about one in fifteen streams of the WebAssembly assets under a page's parallel load
+    // (502 with an empty body), while a comparable load through the gateway's client had no failure
+    internal sealed class BlazorHostHttpClientFactory : ForwarderHttpClientFactory
+    {
+        protected override void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)
+        {
+            base.ConfigureHandler(context, handler);
+
+            if (SharedInfrastructureConfiguration.IsRunningInAzure) return;
+
+            // The Blazor host listens with ASP.NET Core's localhost development certificate (CN=localhost), as the rsbuild
+            // dev server does for BackOfficeDevStaticProxy; accept that certificate even when only its chain is untrusted
+            handler.SslOptions.RemoteCertificateValidationCallback = (_, certificate, _, errors)
+                => errors == SslPolicyErrors.None || (errors == SslPolicyErrors.RemoteCertificateChainErrors && certificate?.Subject == "CN=localhost");
         }
     }
 }
