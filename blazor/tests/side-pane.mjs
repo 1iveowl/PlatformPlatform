@@ -9,6 +9,8 @@
 //    background and the browser's focus containment. Tab cycles inside it, <html> carries the scroll lock class, the
 //    backdrop button is named "Close side panel", and Escape closes the pane and gives focus back to the row it was
 //    opened from.
+//    Opened from a scrolled page at 390 by 844, the pane covers the viewport from its top edge at the viewport's height, a
+//    wheel over it leaves the page where it was, and closing it does not move the page.
 // 3. Focus return when the row is gone: with the row removed from the page while the pane is open, closing gives focus to
 //    the control the page names as the fallback, the search box, instead of losing it to the document body.
 // 4. Crossing the breakpoint with the pane open: the mode is reconciled on the same element, so the pane stays open, the
@@ -34,7 +36,8 @@ import { baseUrl, launchBrowser, newContext, observeErrors, parseArguments, path
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const usersUrl = `${baseUrl}${pathBase}/account/users`;
 const homeUrl = `${baseUrl}${pathBase}/app`;
-const invitedUsers = 3;
+// Enough rows for the users page to be taller than a 390 by 844 window, which the scrolled full-screen case needs
+const invitedUsers = 10;
 const interactiveTimeoutMs = 60_000;
 const settleMs = 400;
 const tapTargetPixels = 44;
@@ -234,6 +237,39 @@ for (const [label, contextOptions] of [
   );
 }
 
+// The pane is opened from a row at the end of a scrolled page, so a pane positioned against the document instead of the
+// viewport would start above the window by the distance scrolled
+await check("full-screen on a scrolled page at 390 by 844: the pane covers the viewport and the page stays where it was", () =>
+  withUsers(phoneViewport, async (page) => {
+    const [scrollHeight, innerHeight] = await page.evaluate(() => [document.scrollingElement.scrollHeight, window.innerHeight]);
+    assert(scrollHeight > innerHeight, `The users page is not taller than the window (${scrollHeight} of ${innerHeight}).`);
+    await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight));
+    const scrolledBeforeOpen = await page.evaluate(() => window.scrollY);
+    await openPane(page, (await rows(page).count()) - 1, "fullscreen");
+    const scrolled = await page.evaluate(() => window.scrollY);
+    assert(scrolled > 0, `The page was scrolled ${scrolledBeforeOpen} px before the pane opened and ${scrolled} px after (${scrollHeight} of ${innerHeight}).`);
+    assert((await paneState(page)).scrollLocked, "The full-screen pane did not lock the page scroll.");
+
+    const box = await page.locator(pane).evaluate((element) => ({ top: element.getBoundingClientRect().top, height: element.getBoundingClientRect().height, innerHeight: window.innerHeight }));
+    assert(Math.abs(box.top) < 1, `The pane starts ${box.top} px from the top of the viewport with the page scrolled ${scrolled} px.`);
+    assert(Math.abs(box.height - box.innerHeight) < 1, `The pane is ${box.height} px tall in a ${box.innerHeight} px viewport.`);
+
+    const viewport = page.viewportSize();
+    await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(settleMs);
+    const scrollYWhileOpen = await page.evaluate(() => window.scrollY);
+    assert(scrollYWhileOpen === scrolled, `The wheel over the pane scrolled the page from ${scrolled} to ${scrollYWhileOpen}.`);
+
+    await page.keyboard.press("Escape");
+    await page.waitForURL((url) => !url.searchParams.has("userId"));
+    await waitPaneClosed(page);
+    const scrollYAfterClose = await page.evaluate(() => window.scrollY);
+    assert(scrollYAfterClose === scrolled, `Closing the pane moved the page from ${scrolled} to ${scrollYAfterClose}.`);
+    return { scrolled, box };
+  })
+);
+
 await check("full-screen: closing with the row gone gives focus to the search box", () =>
   withUsers(phoneViewport, async (page) => {
     await openPane(page, 1, "fullscreen");
@@ -287,6 +323,7 @@ await check("a dialog opened over a full-screen pane is the topmost modal and Es
     await page.waitForTimeout(settleMs);
     const afterFirst = await paneState(page);
     assert(afterFirst.isModal && !afterFirst.isHidden, "Escape closed the pane instead of the dialog above it.");
+    assert(afterFirst.scrollLocked, "Closing the dialog over the pane released the pane's scroll lock.");
 
     await page.keyboard.press("Escape");
     await page.waitForURL((url) => !url.searchParams.has("userId"));

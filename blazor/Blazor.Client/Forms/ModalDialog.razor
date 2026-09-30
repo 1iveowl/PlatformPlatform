@@ -1,7 +1,8 @@
 @* A modal dialog on the native <dialog> element, shown with showModal through unsaved-changes.js for the top layer, the
-   backdrop, inert content behind it and focus containment. The component library's dialog is not used, so no style
-   attribute is written; styling comes from classes in the host's external stylesheet. Escape, and a backdrop click when
-   ClosesOnBackdrop is set, raise OnDismissRequested instead of closing, so the owner decides whether the dialog closes. *@
+   backdrop, inert content behind it and focus containment; the page behind it does not scroll while it is open. The
+   component library's dialog is not used, so no style attribute is written; styling comes from classes in the host's
+   external stylesheet. Escape, and a backdrop click when ClosesOnBackdrop is set, raise OnDismissRequested instead of
+   closing, so the owner decides whether the dialog closes. *@
 @implements IAsyncDisposable
 @inject IJSRuntime JavaScriptRuntime
 

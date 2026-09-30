@@ -11,6 +11,11 @@
 //    Show details and Try again.
 // 6. The in-house tooltip on its Development fixture is announced through aria-describedby, opens on focus, closes with
 //    Escape and toggles with a touch tap.
+// 7. A page taller than the window scrolls with the mouse wheel: an authenticated page at desktop and at mobile width and a
+//    legal document at mobile width. Playwright scrolls an element into view before it acts on it, so no other case notices
+//    a document the user cannot scroll.
+// 8. The mobile menu, a modal dialog, locks the page scroll while it is open: a wheel over it leaves the page where it was,
+//    and closing it removes the lock without moving the page.
 //
 // Prerequisites: the AppHost stack running through the aspire-restart skill, with the Blazor host resource started.
 // Run: dotnet run --project developer-cli -- blazor-harness shell-layout --browser all
@@ -225,6 +230,90 @@ await check("error page keeps the shell for a verification refusal and the publi
 
     assert((await styleAttributeCount(page)) === 0, "A style attribute was written.");
     return { shellCodes, publicCodes };
+  })
+);
+
+// Wheels over the middle of the window and returns how far the document scrolled
+async function wheelScroll(page, viewport) {
+  const [scrollHeight, innerHeight] = await page.evaluate(() => [document.scrollingElement.scrollHeight, window.innerHeight]);
+  assert(scrollHeight > innerHeight, `The page is not taller than the window at ${viewport.width} px (${scrollHeight} of ${innerHeight}).`);
+  await page.mouse.move(viewport.width / 2, viewport.height / 2);
+  await page.mouse.wheel(0, 300);
+  await page.waitForFunction(() => window.scrollY > 0, null, { timeout: 5_000 }).catch((error) => {
+    throw new Error(`The wheel did not scroll the document at ${viewport.width} px (${scrollHeight} of ${innerHeight}): ${error.message}`);
+  });
+  // WebKit animates a wheel scroll, so the position is read once it stops changing
+  let previous;
+  let scrollY = await page.evaluate(() => window.scrollY);
+  do {
+    previous = scrollY;
+    await page.waitForTimeout(200);
+    scrollY = await page.evaluate(() => window.scrollY);
+  } while (scrollY !== previous);
+  return scrollY;
+}
+
+// Below the small breakpoint the sidebar holding the user menu is not displayed, so each width waits for its own control
+await check("a page taller than the window scrolls with the mouse wheel at desktop and mobile width", async () => {
+  const scrolled = {};
+  for (const [viewport, marker] of [
+    [{ width: 1280, height: 360 }, "#user-menu-trigger"],
+    [{ width: 390, height: 360 }, "#mobile-menu-button"]
+  ]) {
+    scrolled[viewport.width] = await withPage(viewport, async (page) => {
+      await openInteractive(page, "user/preferences", marker);
+      return wheelScroll(page, viewport);
+    });
+  }
+  return scrolled;
+});
+
+await check("a long public page scrolls with the mouse wheel at mobile width", async () => {
+  const viewport = { width: 390, height: 844 };
+  const context = await newContext(browser, options.browser);
+  try {
+    const page = await context.newPage();
+    await page.setViewportSize(viewport);
+    const response = await page.goto(`${baseUrl}${pathBase}/legal/terms`, { waitUntil: "load" });
+    assert(response.status() === 200, `The terms page answered ${response.status()}.`);
+    const scrollY = await wheelScroll(page, viewport);
+    const violations = policyViolationsOf(context);
+    assert(violations.length === 0, `Policy violations: ${JSON.stringify(violations)}`);
+    return { scrollY };
+  } finally {
+    await context.close();
+  }
+});
+
+// The mobile menu is a ModalDialog, and every modal dialog locks the document's scroll while it is open
+await check("the mobile menu locks the page scroll while it is open and leaves the position where it was", () =>
+  withPage({ width: 390, height: 360 }, async (page) => {
+    const viewport = page.viewportSize();
+    await openInteractive(page, "user/preferences", "#mobile-menu-button");
+    const scrolled = await wheelScroll(page, viewport);
+    const isLocked = () => page.evaluate(() => document.documentElement.classList.contains("scroll-locked"));
+
+    await page.locator("#mobile-menu-button").click();
+    await page.locator("dialog .mobile-menu").waitFor();
+    // At the end of its own content the menu has nothing left to scroll, so a wheel over it reaches the page unless the page
+    // is locked
+    const [dialogScrollHeight, dialogClientHeight] = await page.locator("dialog:has(.mobile-menu)").evaluate((dialog) => {
+      dialog.scrollTop = dialog.scrollHeight;
+      return [dialog.scrollHeight, dialog.clientHeight];
+    });
+    await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(500);
+    const scrollYWhileOpen = await page.evaluate(() => window.scrollY);
+    assert(scrollYWhileOpen === scrolled, `The wheel over the open mobile menu (${dialogScrollHeight} of ${dialogClientHeight} px) scrolled the page from ${scrolled} to ${scrollYWhileOpen}.`);
+    assert(await isLocked(), "The open mobile menu did not lock the page scroll.");
+
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("dialog .mobile-menu") === null);
+    assert(!(await isLocked()), "The scroll lock outlived the mobile menu.");
+    const scrollYAfterClose = await page.evaluate(() => window.scrollY);
+    assert(scrollYAfterClose === scrolled, `Closing the mobile menu moved the page from ${scrolled} to ${scrollYAfterClose}.`);
+    return { scrolled, dialog: `${dialogScrollHeight} of ${dialogClientHeight}` };
   })
 );
 

@@ -66,13 +66,19 @@
     --breakpoint-2xl: 96rem;
 }
 
-/* While a full-screen side pane or dialog is open the page behind it does not scroll. A class, never a style property, so
-   the policy's missing style-src-attr stays missing. */
+/* While a modal dialog or a full-screen side pane is open the page behind it does not scroll; js/unsaved-changes.js sets the
+   class while any of them is open. A class, never a style property, so the policy's missing style-src-attr stays missing. */
 :root.scroll-locked {
     overflow: hidden;
 }
 
+/* The component library's default-fuib.css, linked before this sheet on every page (Components/App.razor), gives body
+   height: 100dvh and overflow: hidden. A body that hides its overflow hides the viewport's too, so without this rule a page
+   taller than the window cannot be scrolled. The document scrolls; a modal dialog or a full-screen pane locks it with
+   :root.scroll-locked above. */
 body {
+    height: auto;
+    overflow: visible;
     background: var(--surface);
     color: var(--text);
 }
@@ -497,8 +503,10 @@ h1:focus {
     padding-inline: 1rem;
 }
 
+/* Fixed, as the user agent's rule for a modal dialog is: an absolute pane is placed against the document, so on a scrolled
+   page it would start above the window, and showModal would scroll the page back to the top to focus it */
 .side-pane[open] {
-    position: absolute;
+    position: fixed;
     inline-size: 100vw;
     max-inline-size: 100vw;
     block-size: 100dvh;

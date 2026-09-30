@@ -137,8 +137,44 @@ function trapTab(dialog, event) {
   }
 }
 
-// A native modal dialog: showModal gives the top layer, the backdrop, inert content behind it and focus containment.
-// Escape raises cancel and a click on the backdrop targets the dialog element itself; both ask .NET instead of closing.
+// The document's scroll lock, a class on <html> rather than a style property, held by every modal dialog and full-screen side
+// pane while it is open. Each holder is its dialog element, so the lock stays until the last open one releases it and a
+// dialog closing over the pane does not unlock the page behind the pane. Enhanced navigation synchronizes the document
+// element's attributes with the new document, which carries no lock, so while any holder remains the class is re-applied from
+// a mutation callback, as js/theme.js does for the theme.
+const scrollLockClass = "scroll-locked";
+const scrollLockHolders = new Set();
+
+function applyScrollLock() {
+  const isLocked = scrollLockHolders.size > 0;
+  if (isLocked !== document.documentElement.classList.contains(scrollLockClass)) document.documentElement.classList.toggle(scrollLockClass, isLocked);
+}
+
+const scrollLockObserver = new MutationObserver(applyScrollLock);
+
+function holdScrollLock(holder, isHeld) {
+  const wasLocked = scrollLockHolders.size > 0;
+  if (isHeld) scrollLockHolders.add(holder);
+  else scrollLockHolders.delete(holder);
+  const isLocked = scrollLockHolders.size > 0;
+  if (isLocked && !wasLocked) scrollLockObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  if (!isLocked && wasLocked) scrollLockObserver.disconnect();
+  applyScrollLock();
+}
+
+// The close event is queued, so a dialog shown again in the meantime keeps its hold
+function releaseScrollLockOnClose(event) {
+  if (!event.currentTarget.open) holdScrollLock(event.currentTarget, false);
+}
+
+function leaveModal(dialog) {
+  if (dialog.open) dialog.close();
+  holdScrollLock(dialog, false);
+}
+
+// A native modal dialog: showModal gives the top layer, the backdrop, inert content behind it and focus containment, and the
+// dialog holds the scroll lock while it is open. Escape raises cancel and a click on the backdrop targets the dialog element
+// itself; both ask .NET instead of closing. The close event releases the lock however the dialog closed.
 export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
   const onCancel = (event) => {
     event.preventDefault();
@@ -151,19 +187,21 @@ export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
   dialog.addEventListener("cancel", onCancel);
   dialog.addEventListener("click", onClick);
   dialog.addEventListener("keydown", onKeyDown);
+  dialog.addEventListener("close", releaseScrollLockOnClose);
 
   return {
     show: () => {
-      if (!dialog.open) dialog.showModal();
+      if (dialog.open) return;
+      dialog.showModal();
+      holdScrollLock(dialog, true);
     },
-    close: () => {
-      if (dialog.open) dialog.close();
-    },
+    close: () => leaveModal(dialog),
     dispose: () => {
       dialog.removeEventListener("cancel", onCancel);
       dialog.removeEventListener("click", onClick);
       dialog.removeEventListener("keydown", onKeyDown);
-      if (dialog.open) dialog.close();
+      dialog.removeEventListener("close", releaseScrollLockOnClose);
+      leaveModal(dialog);
     }
   };
 }
@@ -171,11 +209,8 @@ export function attachModalDialog(dialog, dotNet, closesOnBackdrop) {
 // The side pane, one <dialog> element in two modes. Docked it is a labelled region beside the content, closed as far as the
 // element is concerned and shown by the stylesheet, so it neither traps focus nor takes it from the row that opened it.
 // Full-screen it is opened with showModal, which gives it the top layer, modal semantics, an inert background and the
-// browser's own focus containment, and the scroll lock is a class on <html> rather than a style property. The element that
-// had focus when the pane went full-screen is stored and focused again when it closes; a row that was removed meanwhile
-// leaves focus to the fallback the page names.
-const scrollLockClass = "scroll-locked";
-
+// browser's own focus containment, and it holds the scroll lock. The element that had focus when the pane went full-screen
+// is stored and focused again when it closes; a row that was removed meanwhile leaves focus to the fallback the page names.
 export function attachSidePane(dialog, dotNet, focusFallbackId) {
   let previouslyFocused = null;
 
@@ -193,20 +228,7 @@ export function attachSidePane(dialog, dotNet, focusFallbackId) {
   dialog.addEventListener("cancel", onCancel);
   dialog.addEventListener("click", onClick);
   dialog.addEventListener("keydown", onKeyDown);
-
-  // Enhanced navigation synchronizes the document element's attributes with the new document, which carries no scroll lock,
-  // so the class is re-applied from a mutation callback while the pane is full-screen, as js/theme.js does for the theme
-  let isLocked = false;
-  const applyScrollLock = () => document.documentElement.classList.toggle(scrollLockClass, isLocked);
-  const rootObserver = new MutationObserver(() => {
-    if (isLocked !== document.documentElement.classList.contains(scrollLockClass)) applyScrollLock();
-  });
-  rootObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-
-  const lockScroll = (locked) => {
-    isLocked = locked;
-    applyScrollLock();
-  };
+  dialog.addEventListener("close", releaseScrollLockOnClose);
 
   const restoreFocus = () => {
     const stored = previouslyFocused;
@@ -219,16 +241,10 @@ export function attachSidePane(dialog, dotNet, focusFallbackId) {
     fallback?.focus();
   };
 
-  const leaveModal = () => {
-    if (!dialog.open) return;
-    dialog.close();
-    lockScroll(false);
-  };
-
   return {
     // Open beside the content: no modality, no focus move, no scroll lock
     showDocked: () => {
-      leaveModal();
+      leaveModal(dialog);
       previouslyFocused = null;
     },
     showFullScreen: () => {
@@ -236,20 +252,19 @@ export function attachSidePane(dialog, dotNet, focusFallbackId) {
       const active = document.activeElement;
       previouslyFocused = active instanceof HTMLElement && active !== document.body ? active : null;
       dialog.showModal();
-      lockScroll(true);
+      holdScrollLock(dialog, true);
     },
     close: () => {
       const wasModal = dialog.open;
-      leaveModal();
+      leaveModal(dialog);
       if (wasModal) restoreFocus();
     },
     dispose: () => {
       dialog.removeEventListener("cancel", onCancel);
       dialog.removeEventListener("click", onClick);
       dialog.removeEventListener("keydown", onKeyDown);
-      leaveModal();
-      lockScroll(false);
-      rootObserver.disconnect();
+      dialog.removeEventListener("close", releaseScrollLockOnClose);
+      leaveModal(dialog);
     }
   };
 }

@@ -4,8 +4,8 @@ using FluentAssertions;
 namespace Blazor.Tests.Client.Components;
 
 // The parts of the accessibility bar that live in the host stylesheet and in the focus trap, which no renderer is needed
-// to read: reduced motion, the minimum font size a focused field may compute to, and the elements the trap counts as
-// focusable. The bar itself is .claude/rules/blazor/accessibility.md.
+// to read: reduced motion, the minimum font size a focused field may compute to, a document that scrolls, and the elements
+// the trap counts as focusable. The bar itself is .claude/rules/blazor/accessibility.md.
 public sealed class StylesheetAccessibilityTests
 {
     private static readonly string BlazorRoot = FindBlazorRoot();
@@ -49,6 +49,18 @@ public sealed class StylesheetAccessibilityTests
     {
         // Assert
         Section(Stylesheet, ".field-validation:empty {").Should().Contain("display: none;");
+    }
+
+    // The component library's stylesheet, linked before this one, gives body a fixed height and hidden overflow, which
+    // hides the viewport's overflow too; without this override no page taller than the window can be scrolled
+    [Fact]
+    public void Stylesheet_WhenTheComponentLibraryFixesTheBody_ShouldLetTheDocumentScroll()
+    {
+        // Act
+        var body = Section(Stylesheet, "\nbody {");
+
+        // Assert
+        body.Should().Contain("height: auto;").And.Contain("overflow: visible;");
     }
 
     // An element with tabindex="-1" is reachable by script and by pointer but never by Tab, so a trap that counted it
