@@ -75,12 +75,21 @@ public static class BackOfficeBlazorProxy
     {
         public override async ValueTask TransformRequestAsync(HttpContext httpContext, HttpRequestMessage proxyRequest, string destinationPrefix, CancellationToken cancellationToken)
         {
+            var forwarderContent = proxyRequest.Content;
             await base.TransformRequestAsync(httpContext, proxyRequest, destinationPrefix, cancellationToken);
 
             // The base transformer copies the inbound Host header; clear it so the request names the Blazor host's own address.
             // Azure Container Apps routes by Host, and a request to the internal Blazor host under the back-office host name
             // matches no container app and is answered 404 by the environment. The back-office host travels in X-Forwarded-Host
             proxyRequest.Headers.Host = null;
+
+            // Requests without a body reach this listener with Content-Length: 0 (observed on staging on 2026-09-30 for GETs,
+            // presumably added by the platform authentication), and the base transformer keeps that header, with the other content
+            // headers, by attaching an empty body. Forwarded with that empty body, a share of the response streams are reset
+            // (502 with an empty body, or a body cut off; reproduced through the app gateway on 2026-09-30, the reset assumed to
+            // happen in the internal ingress), so such a request is sent without a body and without content headers. A body the
+            // forwarder set up itself is kept, because the forwarder refuses a transformer that replaces it
+            if (forwarderContent is null && httpContext.Request.ContentLength == 0) proxyRequest.Content = null;
 
             foreach (var header in RemovedRequestHeaders)
             {
@@ -98,9 +107,7 @@ public static class BackOfficeBlazorProxy
     }
 
     // Builds the client the app gateway's forwarder builds for its route to the same Blazor host, so both reach it the same
-    // way. Keep this factory rather than a SocketsHttpHandler configured by hand: observed on staging on 2026-09-29, with such
-    // a handler the HTTP/2 server reset about one in fifteen streams of the WebAssembly assets under a page's parallel load
-    // (502 with an empty body), while a comparable load through the gateway's client had no failure
+    // way
     internal sealed class BlazorHostHttpClientFactory : ForwarderHttpClientFactory
     {
         protected override void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)

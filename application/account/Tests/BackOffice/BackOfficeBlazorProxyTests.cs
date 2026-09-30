@@ -60,6 +60,59 @@ public sealed class BackOfficeBlazorProxyTests
         proxyRequest.Headers.Contains("X-Forwarded-Prefix").Should().BeFalse();
     }
 
+    [Fact]
+    public async Task TransformRequestAsync_WhenInboundRequestDeclaresAnEmptyBody_ShouldSendTheRequestWithoutABody()
+    {
+        // Arrange
+        var httpContext = CreateBackOfficeRequest();
+        httpContext.Request.ContentLength = 0;
+        using var proxyRequest = new HttpRequestMessage();
+        var transformer = new BackOfficeBlazorProxy.BackOfficeIdentityTransformer();
+
+        // Act
+        await transformer.TransformRequestAsync(httpContext, proxyRequest, BlazorHostUrl, CancellationToken.None);
+
+        // Assert
+        proxyRequest.Content.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TransformRequestAsync_WhenInboundRequestHasABody_ShouldKeepTheBody()
+    {
+        // Arrange
+        var httpContext = CreateBackOfficeRequest();
+        httpContext.Request.Method = HttpMethods.Post;
+        httpContext.Request.ContentLength = 11;
+        httpContext.Request.ContentType = "application/x-www-form-urlencoded";
+        using var proxyRequest = new HttpRequestMessage();
+        var transformer = new BackOfficeBlazorProxy.BackOfficeIdentityTransformer();
+
+        // Act
+        await transformer.TransformRequestAsync(httpContext, proxyRequest, BlazorHostUrl, CancellationToken.None);
+
+        // Assert
+        proxyRequest.Content.Should().NotBeNull();
+        proxyRequest.Content!.Headers.ContentLength.Should().Be(11);
+    }
+
+    [Fact]
+    public async Task TransformRequestAsync_WhenForwarderSetUpABodyForAnEmptyContentLength_ShouldKeepTheForwarderBody()
+    {
+        // Arrange
+        var httpContext = CreateBackOfficeRequest();
+        httpContext.Request.ContentLength = 0;
+        using var forwarderContent = new ByteArrayContent([]);
+        using var proxyRequest = new HttpRequestMessage();
+        proxyRequest.Content = forwarderContent;
+        var transformer = new BackOfficeBlazorProxy.BackOfficeIdentityTransformer();
+
+        // Act
+        await transformer.TransformRequestAsync(httpContext, proxyRequest, BlazorHostUrl, CancellationToken.None);
+
+        // Assert
+        proxyRequest.Content.Should().BeSameAs(forwarderContent);
+    }
+
     private static DefaultHttpContext CreateBackOfficeRequest()
     {
         return new DefaultHttpContext
