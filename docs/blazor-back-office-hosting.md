@@ -28,12 +28,11 @@ back-office identity travels with the request in a header protected by the share
   (`application/shared-kernel/SharedKernel.Security/Authentication/BackOfficeIdentity/`), and forwards with YARP's
   `IHttpForwarder` to `BACK_OFFICE_BLAZOR_HOST_URL`, with a client from YARP's `ForwarderHttpClientFactory`, the factory
   the app gateway's configured routes use for the same address; locally it also accepts the Blazor host's development
-  certificate. Observed on staging on 2026-09-29: with a `SocketsHttpHandler` configured by hand instead, the HTTP/2
-  server reset 13 of 195 WebAssembly asset downloads the browser made in parallel through the proxy (65 files three
-  times; 502 with an empty body; the log does not show whether the ingress or the Blazor host reset them), while a
-  comparable load through the gateway (the 66 files three times, 60 in parallel, curl over HTTP/2) had no failure.
-  Assumption until G6b check 11 observes it: the factory's client carries that load; which of its settings matters is
-  not known (multiple HTTP/2 connections is the guess). It removes exactly eight inbound headers, the list
+  certificate. A request that arrives with `Content-Length: 0`, and for which the forwarder set up no body of its own, is
+  forwarded without a body and without content headers; with the empty body YARP would otherwise attach, the internal
+  ingress reset a share of the WebAssembly asset streams on staging (see "Asset stream resets" below). (Corrected by
+  EP-226 on 2026-09-30: the earlier text credited the factory with carrying that load; the factory did not change the
+  failure rate, the empty body was the trigger.) It removes exactly eight inbound headers, the list
   `BackOfficeBlazorProxy.RemovedRequestHeaders` (lines 25 to 35, verified at `ed3301b34`): the three principal headers
   `X-MS-CLIENT-PRINCIPAL-NAME`, `X-MS-CLIENT-PRINCIPAL-ID` and `X-MS-CLIENT-PRINCIPAL`, any inbound
   `X-Back-Office-Identity`, and the four forwarding headers `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`
@@ -46,8 +45,10 @@ back-office identity travels with the request in a header protected by the share
   address already sent the destination's host, YARP's default. Every other header passes through to the Blazor host,
   including the browser's cookies (the platform's session cookie among them), the `X-Original-For` and
   `X-Original-Proto` headers the account API's forwarded headers middleware adds, and any other
-  `X-MS-CLIENT-PRINCIPAL-*` or `X-MS-TOKEN-*` header the platform may add (assumption: the platform also sends
-  `X-MS-CLIENT-PRINCIPAL-IDP`; no token store is configured). That is harmless while the Blazor host reads only
+  `X-MS-CLIENT-PRINCIPAL-*` or `X-MS-TOKEN-*` header the platform may add. Observed on staging on 2026-09-30 with a
+  temporary echo target in place of the Blazor host: the forwarded request carried `X-MS-CLIENT-PRINCIPAL-IDP: aad`, no
+  `X-MS-TOKEN-*` header (no token store is configured), the platform's `AppServiceAuthSession` cookie, and the
+  `X-Original-For` and `X-Original-Proto` headers. That is harmless while the Blazor host reads only
   `X-Back-Office-Identity`. (Wording corrected after the G6a review, EP-202 N-1; the earlier text said "the
   `X-MS-CLIENT-PRINCIPAL*` headers" and "every inbound `X-Forwarded-*` header".)
 - The Blazor host authenticates back-office pages with its own scheme (`blazor/Blazor.Host/Account/BackOfficeAuthentication.cs`),
@@ -203,6 +204,43 @@ G6b's checks confirm it.
   answered its health endpoints, served back-office pages to the mocked admin and user only through the listener, and
   answered the same forged headers on the app host and on its own port with 404 or the login redirect.
 
+## Asset stream resets
+
+Found by G6b (EP-217) on 2026-09-29 and fixed by EP-226 in `e6ddb42d9`, deployed to staging as account images
+`2026.09.30.1039` on 2026-09-30.
+
+- Symptom, observed on staging on 2026-09-29: 2 to 15 of 195 parallel `/blazor/_framework/*` downloads through the
+  proxy answered 502 with an empty body or were cut off after a 200 (`ERR_HTTP2_PROTOCOL_ERROR` in Chrome), and the
+  `back-office` log had `Yarp.ReverseProxy.Forwarder.HttpForwarder[48]` with `HttpProtocolException: The HTTP/2 server
+  reset the stream. HTTP/2 error code 'INTERNAL_ERROR'`. One failed file stopped the WebAssembly runtime, so the charts
+  and lists never loaded.
+- Cause, verified on staging on 2026-09-30: the proxied GETs reach the account API with `Content-Length: 0` (seen in the
+  forwarded request through a temporary echo target; browser GETs carry no such header, so the platform authentication
+  presumably adds it, assumption). YARP's base `HttpTransformer` keeps that header by attaching an empty body
+  (`EmptyHttpContent`, shown by `BackOfficeBlazorProxyTests` before the fix). A plain GET with only
+  `content-length: 0` added, sent from outside through the app gateway (YARP, the same client factory and the same
+  internal address), reproduced the symptom: 10 of 198 asset requests reset, with the same `INTERNAL_ERROR` in the
+  gateway's log; without that header, 0 of 198. Where the reset happens is assumed to be the internal ingress: curl
+  straight at `blazor-host.internal` from inside the environment with the same header, or with a request stream that
+  ends late, never reproduced it (1,188 requests), and `blazor-host` completed every response.
+- Ruled out on 2026-09-29 and 2026-09-30, each by observation on staging: `blazor-host` scaling (resets with one replica
+  up for minutes); the size and set of the forwarded headers (4 KB and 16 KB identity headers, the session cookie and the
+  forwarding headers, 0 failures from inside the environment); a slow or stalled reader (a 3 s freeze and a 25 % duty
+  cycle, 0 failures); the proxy's CPU (at 1.0 vCPU the proxied assets took 295 ms at the median against 0.7 to 1.9 s at
+  0.25 vCPU, and 2 of 195 still failed, one in 291 ms); the client factory (`df9d94a91` left the rate unchanged).
+- Fix: `BackOfficeBlazorProxy.BackOfficeIdentityTransformer` clears the request content when the inbound
+  `Content-Length` is 0 and the forwarder set up no body, so the request goes out without a body and without content
+  headers. A body the forwarder set up is kept, because YARP refuses a transformer that replaces it. Covered by three
+  tests in `application/account/Tests/BackOffice/BackOfficeBlazorProxyTests.cs`.
+- Result, verified on staging on 2026-09-30: check 11 answered 195 of 195 twice (12:15:03 and 12:15:25 UTC), and the
+  `back-office` log from the deploy to 12:20 UTC holds 533 framework assets answered 200 and no `HttpForwarder[48]`.
+  The dashboard's chart cards render in a fresh Incognito window. In the window used before the fix, the charts only
+  rendered after one reload with the cache disabled; assumption: the browser had kept a broken copy of an immutable,
+  fingerprinted asset from a failed load.
+- Not settled: whether the app gateway is exposed the same way. Its clients' GETs are assumed to carry no `Content-Length`
+  (inferred from the app edition's assets loading in Chrome; not observed), so it was left unchanged; a client that sends `Content-Length: 0` through it would
+  meet the same resets (reproduced by curl on 2026-09-30).
+
 ## Deployment procedure for G6b
 
 Staging only. Production waits for its back-office app registration (EP-192). `<bo>` is the back-office host,
@@ -294,7 +332,7 @@ on EP-216) and the G7a review (EP-224, its verdict's item 5 and N-4 on EP-223) a
 | 8 | Antiforgery write | As an admin, one write from the Blazor back office, then the same write as a non-admin | 2xx, then 403 |
 | 9 | Subscription setting | `BACK_OFFICE_SUBSCRIPTION_ENABLED` on `blazor-host` against `PUBLIC_SUBSCRIPTION_ENABLED` on `back-office`; the account tabs in both back offices | Equal values; the billing tabs show in the Blazor back office exactly when they show in the React one |
 | 10 | Nothing else moved | `GET https://<bo>/` signed in, and `GET https://<app>/blazor/` | The React back office at the root; the app edition's landing page, 200 |
-| 11 | Assets under load (added by G6b, 2026-09-29) | Signed in on `https://<bo>/blazor/back-office`, from the browser console: fetch every `/blazor/_framework/*.wasm` file the page loaded three times in parallel with `cache: "no-store"`; then the `back-office` log for `Yarp.ReverseProxy.Forwarder.HttpForwarder[48]` | Every response 200 with a body; no forwarder error logged. A 502 with an empty body is the stream reset the hand-built client showed |
+| 11 | Assets under load (added by G6b, 2026-09-29) | Signed in on `https://<bo>/blazor/back-office`, from the browser console: fetch every `/blazor/_framework/*.wasm` file the page loaded three times in parallel with `cache: "no-store"`; then the `back-office` log for `Yarp.ReverseProxy.Forwarder.HttpForwarder[48]` | Every response 200 with a body; no forwarder error logged. A 502 with an empty body, or a body cut off, is the stream reset of "Asset stream resets" above |
 
 Checks 3b and 3c need a shell inside the environment. None of the repository's images has one: all are chiseled .NET
 images (the `FROM` lines of all six Dockerfiles, under `application/account/`, `application/main/`,
@@ -308,6 +346,7 @@ Symptoms after step 2 and what to look at first:
 | --- | --- | --- |
 | A login loop on every back-office page, React and Blazor, or 401 from `/api/back-office/me` with a session (G7a review) | `BackOffice__IsBackOfficeContainer` missing on `back-office`: the account image trusts the principal headers nowhere else | Check the variable before anything else. The remedy is the variable, `true` as the record and the Bicep hold it, not a rollback; if it cannot be set, step 6 |
 | A loop between `/blazor/back-office` and `/.auth/login/aad` on Blazor pages only | The key ring is not shared (check 2) | Stop; step 6; the fallback is an owner decision |
+| No chart cards and no `/api/back-office/*` call after a Blazor page load, while check 11 answers every asset 200 | A browser cache holding a broken copy of an asset from a failed load (assumption, observed once on 2026-09-30) | Reload once with the cache disabled, or use a fresh window; if that does not help, check 11 |
 | 404 on every Blazor back-office page | `BACK_OFFICE_PUBLIC_URL` does not name the host `back-office` receives (check 1) | Step 6, unless the owner corrects the value |
 
 The first request after idle can take 20 to 46 s while a container app scales from zero; retry before judging a timeout.
