@@ -3,7 +3,7 @@
 // served in its place by the developer CLI (blazor-publish, then blazor-serve).
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
@@ -17,7 +17,10 @@ export const requireFromApplication = createRequire(path.join(repositoryRoot, "a
 export const playwright = requireFromApplication("playwright");
 export const playwrightVersion = requireFromApplication("playwright/package.json").version;
 
-export const basePort = Number(readFileSync(path.join(repositoryRoot, ".workspace/port.txt"), "utf8").trim());
+// The local stack's base port. A run against a deployed host (staging-acceptance.mjs) uses none of the local values below,
+// so a working tree without the port file leaves it undefined instead of failing on import
+const portFile = path.join(repositoryRoot, ".workspace/port.txt");
+export const basePort = existsSync(portFile) ? Number(readFileSync(portFile, "utf8").trim()) : undefined;
 export const gatewayHostname = "app.dev.localhost";
 export const baseUrl = `https://${gatewayHostname}:${basePort}`;
 export const pathBase = "/blazor";
@@ -80,6 +83,12 @@ export async function newContext(browser, browserName, storageState, locale = "e
   // Violations are also reported to Node through a binding, so a strict verdict sees those of documents the page has left
   const violations = [];
   policyViolationsByContext.set(context, violations);
+  // Requests still in flight, so a caller can wait for them before it closes a page (settleAndClosePages in surfaces.mjs)
+  const inFlight = new Set();
+  inFlightByContext.set(context, inFlight);
+  context.on("request", (request) => inFlight.add(request));
+  context.on("requestfinished", (request) => inFlight.delete(request));
+  context.on("requestfailed", (request) => inFlight.delete(request));
   await context.exposeBinding("__reportPolicyViolation", ({ page }, violation) => violations.push({ page: page.url(), ...violation }));
   await context.addInitScript(() => {
     window.__policyViolations = [];
@@ -93,6 +102,12 @@ export async function newContext(browser, browserName, storageState, locale = "e
 }
 
 const policyViolationsByContext = new WeakMap();
+const inFlightByContext = new WeakMap();
+
+// How many requests of the context have not finished yet; 0 for a context this module did not create
+export function requestsInFlight(context) {
+  return inFlightByContext.get(context)?.size ?? 0;
+}
 
 // Every content security policy violation of every document the context has loaded so far
 export function policyViolationsOf(context) {
@@ -191,8 +206,12 @@ export function publishFolderFor(name) {
 
 // Routes of the published static web assets, to prove the gateway serves this publish and to size the Brotli files on disk
 export function readPublishedEndpoints(folder = publishFolder) {
-  const manifest = JSON.parse(readFileSync(path.join(folder, "Blazor.Host.staticwebassets.endpoints.json"), "utf8"));
-  return manifest.Endpoints;
+  return readEndpointManifest(path.join(folder, "Blazor.Host.staticwebassets.endpoints.json"));
+}
+
+// The endpoints of one static web assets manifest file, for a publish folder or a manifest copied out of a deployed image
+export function readEndpointManifest(manifestFile) {
+  return JSON.parse(readFileSync(manifestFile, "utf8")).Endpoints;
 }
 
 // Identifies the publish a measurement ran against: the content-fingerprinted Blazor.Client assembly route and a hash of the

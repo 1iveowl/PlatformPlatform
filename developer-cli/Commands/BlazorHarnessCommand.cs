@@ -49,7 +49,7 @@ public sealed class BlazorHarnessCommand : Command
             AnsiConsole.MarkupLine($"[blue]Running {Markup.Escape(script)} in {selectedBrowser}...[/]");
             try
             {
-                var extraArguments = scriptArguments.Length == 0 ? "" : " " + string.Join(" ", scriptArguments);
+                var extraArguments = scriptArguments.Length == 0 ? "" : " " + string.Join(" ", scriptArguments.Select(QuoteIfNeeded));
                 ProcessHelper.StartProcess($"node blazor/tests/{script}.mjs --browser {selectedBrowser}{extraArguments}", Configuration.SourceCodeFolder, throwOnError: true);
             }
             catch (ProcessExecutionException)
@@ -65,5 +65,11 @@ public sealed class BlazorHarnessCommand : Command
         }
 
         AnsiConsole.MarkupLine($"[green]{Markup.Escape(script)} passed in {string.Join(", ", selectedBrowsers)}[/]");
+    }
+
+    // A value with a space, such as the subscription name staging-acceptance takes, reaches the script as one argument
+    private static string QuoteIfNeeded(string argument)
+    {
+        return argument.Any(char.IsWhiteSpace) ? $"\"{argument.Replace("\"", "\\\"")}\"" : argument;
     }
 }

@@ -1,0 +1,47 @@
+# The probe job for checks 3b and 3c of the back-office deployment procedure (docs/blazor-back-office-hosting.md), which need
+# a shell inside the Container Apps environment that none of the repository's chiseled images has. staging-acceptance.mjs
+# fills the {{...}} placeholders, creates the job with `az containerapp job create --yaml`, starts one execution, reads its
+# console log and deletes the job again, and it does so only after the owner approves that run (EP-227).
+#
+# Manual trigger, one replica, no retry and no ingress, so the job serves nothing and runs only when started. It sends the
+# forged principal headers of check 3 and prints one line per request, "PROBE <check> <status> <url> <host> <accept>", for
+# the command to read back. It sends no session and holds no secret.
+#
+# The image is curl 8.22.0 from curlimages/curl, pinned by the digest of its multi-platform index as read on 2026-09-30.
+location: "{{LOCATION}}"
+properties:
+  environmentId: "{{ENVIRONMENT_ID}}"
+  configuration:
+    triggerType: Manual
+    replicaTimeout: 300
+    replicaRetryLimit: 0
+    manualTriggerConfig:
+      parallelism: 1
+      replicaCompletionCount: 1
+  template:
+    containers:
+      - name: probe
+        image: docker.io/curlimages/curl@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |
+            probe() {
+              status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 60 \
+                --header "Host: $3" --header "Accept: $4" \
+                --header "X-MS-CLIENT-PRINCIPAL-NAME: {{FORGED_NAME}}" \
+                --header "X-MS-CLIENT-PRINCIPAL-ID: {{FORGED_ID}}" \
+                --header "X-MS-CLIENT-PRINCIPAL: {{FORGED_PRINCIPAL}}" \
+                "$2")
+              echo "PROBE $1 $status $2 $3 $4"
+            }
+            probe 3b "https://account-api.internal.{{ENVIRONMENT_DOMAIN}}/api/back-office/me" "{{BACK_OFFICE_HOST}}" "application/json"
+            probe 3c "https://{{BACK_OFFICE_HOST}}/api/back-office/me" "{{BACK_OFFICE_HOST}}" "application/json"
+            probe 3c "https://{{BACK_OFFICE_HOST}}/api/back-office/me" "{{BACK_OFFICE_HOST}}" "text/html"
+            probe 3c "https://{{BACK_OFFICE_FQDN}}/api/back-office/me" "{{BACK_OFFICE_FQDN}}" "application/json"
+            probe 3c "https://{{BACK_OFFICE_FQDN}}/api/back-office/me" "{{BACK_OFFICE_FQDN}}" "text/html"
+            echo "PROBE done"

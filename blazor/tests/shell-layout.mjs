@@ -23,6 +23,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { baseUrl, launchBrowser, newContext, parseArguments, pathBase, policyViolationsOf, resultsFolder, signUpThroughBlazor } from "./support/stack.mjs";
+import { wheelScroll } from "./support/surfaces.mjs";
 
 const options = parseArguments(process.argv.slice(2), { browser: "chromium" });
 const interactiveTimeoutMs = 60_000;
@@ -232,26 +233,6 @@ await check("error page keeps the shell for a verification refusal and the publi
     return { shellCodes, publicCodes };
   })
 );
-
-// Wheels over the middle of the window and returns how far the document scrolled
-async function wheelScroll(page, viewport) {
-  const [scrollHeight, innerHeight] = await page.evaluate(() => [document.scrollingElement.scrollHeight, window.innerHeight]);
-  assert(scrollHeight > innerHeight, `The page is not taller than the window at ${viewport.width} px (${scrollHeight} of ${innerHeight}).`);
-  await page.mouse.move(viewport.width / 2, viewport.height / 2);
-  await page.mouse.wheel(0, 300);
-  await page.waitForFunction(() => window.scrollY > 0, null, { timeout: 5_000 }).catch((error) => {
-    throw new Error(`The wheel did not scroll the document at ${viewport.width} px (${scrollHeight} of ${innerHeight}): ${error.message}`);
-  });
-  // WebKit animates a wheel scroll, so the position is read once it stops changing
-  let previous;
-  let scrollY = await page.evaluate(() => window.scrollY);
-  do {
-    previous = scrollY;
-    await page.waitForTimeout(200);
-    scrollY = await page.evaluate(() => window.scrollY);
-  } while (scrollY !== previous);
-  return scrollY;
-}
 
 // Below the small breakpoint the sidebar holding the user menu is not displayed, so each width waits for its own control
 await check("a page taller than the window scrolls with the mouse wheel at desktop and mobile width", async () => {

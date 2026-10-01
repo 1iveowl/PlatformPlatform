@@ -322,12 +322,21 @@ jobs:
         working-directory: developer-cli
         run: dotnet run -- blazor-harness shell-policy --browser ${{ matrix.browser }} --environment production
 
+      # Every back-office surface and every authenticated app page at desktop and phone width: rendered content, wheel
+      # scrolling on a page taller than the window, no policy violation and no console error. The back office is signed in
+      # through the account API's local mock of the platform authentication, which blazor-serve's host answers under the
+      # back-office host name.
+      - name: Run Authenticated Surfaces
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
+        working-directory: developer-cli
+        run: dotnet run -- blazor-harness authenticated-surfaces --browser ${{ matrix.browser }}
+
       - name: Verify Security Matrix
         if: ${{ !cancelled() }}
         working-directory: developer-cli
         run: >-
           dotnet run -- blazor-harness verify-results --browser ${{ matrix.browser }} --label published
-          --require "trimmed-smoke-{browser}-en-US,trimmed-smoke-{browser}-da-DK,antiforgery-{browser},authentication-state-{browser},shell-policy-{browser}-production"
+          --require "trimmed-smoke-{browser}-en-US,trimmed-smoke-{browser}-da-DK,antiforgery-{browser},authentication-state-{browser},shell-policy-{browser}-production,authenticated-surfaces-{browser}"
 
       # The frozen public-page budget (200,000 transfer bytes and 300 ms first contentful paint, medians of seven cold loads
       # after one warm-up on the throttled profile) and zero WebAssembly runtime requests on the six public pages and the

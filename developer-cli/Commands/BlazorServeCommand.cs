@@ -9,6 +9,9 @@ namespace DeveloperCli.Commands;
 public sealed class BlazorServeCommand : Command
 {
     private const string AppHostname = "app.dev.localhost";
+
+    // The back-office host the account API's back-office listener answers, whose Blazor pages it forwards to this host
+    private const string BackOfficeHostname = "back-office.dev.localhost";
     private const string PathBase = "/blazor";
 
     public BlazorServeCommand() : base("blazor-serve", "Runs the published Blazor host in Production on the Blazor host port, behind the running gateway")
@@ -60,7 +63,9 @@ public sealed class BlazorServeCommand : Command
                 ("ASPNETCORE_URLS", $"https://localhost:{ports.BlazorHost}"),
                 ("ACCOUNT_API_URL", $"https://localhost:{ports.AccountApi}"),
                 ("PUBLIC_URL", gatewayUrl),
-                ("CDN_URL", gatewayUrl + PathBase)
+                ("CDN_URL", gatewayUrl + PathBase),
+                ("BACK_OFFICE_PUBLIC_URL", $"https://{BackOfficeHostname}:{ports.BackOfficeApi}"),
+                ("BACK_OFFICE_SUBSCRIPTION_ENABLED", "true")
             ]
         );
     }
