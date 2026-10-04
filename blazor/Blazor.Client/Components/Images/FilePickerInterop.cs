@@ -7,56 +7,59 @@ namespace Blazor.Client.Components.Images;
 public sealed record ChosenFile(long Size, string? ContentType, string PreviewUrl);
 
 // The typed access to wwwroot/js/file-picker.js for ImagePicker. The handle is disposed with the wrapper, which revokes the
-// preview URL, forgets the selection and removes the listeners. Every call tolerates a document that is already gone (a full
-// document navigation leaving the authenticated surface).
+// preview URL, forgets the selection and removes the listeners. The picker can be torn down while the import or the attach is
+// still in flight: DisposeAsync waits for the attach to settle and then releases the handle and the module once, so a late
+// handle never keeps its listeners and the picker can release its .NET reference after it. Every call made after teardown
+// does nothing. Every call tolerates a document that is already gone (a full document navigation leaving the authenticated
+// surface).
 public sealed class FilePickerInterop(IJSRuntime javaScriptRuntime) : IAsyncDisposable
 {
     private const string ModulePath = "./js/file-picker.js";
 
+    private Task? _attach;
     private IJSObjectReference? _handle;
+    private bool _isDisposed;
     private IJSObjectReference? _module;
+
+    private IJSObjectReference? Handle => _isDisposed ? null : _handle;
 
     public async ValueTask DisposeAsync()
     {
-        try
-        {
-            if (_handle is not null)
-            {
-                await _handle.InvokeVoidAsync("dispose");
-                await _handle.DisposeAsync();
-            }
+        if (_isDisposed) return;
 
-            if (_module is not null) await _module.DisposeAsync();
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is already gone, and its listeners and blob URLs with it
-        }
+        _isDisposed = true;
 
+        // The attach reports its own failure to the picker; here it only has to settle, so what it acquired is released below
+        if (_attach is not null) await _attach.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+
+        var handle = _handle;
+        var module = _module;
         _handle = null;
         _module = null;
+        try
+        {
+            if (handle is not null) await JavaScriptRelease.HandleAsync(handle);
+        }
+        finally
+        {
+            if (module is not null) await JavaScriptRelease.ReferenceAsync(module);
+        }
     }
 
     public async ValueTask AttachAsync<TComponent>(ElementReference dropZone, ElementReference input, DotNetObjectReference<TComponent> dotNet) where TComponent : class
     {
-        try
-        {
-            _module ??= await javaScriptRuntime.InvokeAsync<IJSObjectReference>("import", ModulePath);
-            _handle = await _module.InvokeAsync<IJSObjectReference>("attach", dropZone, input, dotNet);
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is being replaced; the picker stays inert
-        }
+        if (_isDisposed || _attach is not null) return;
+
+        await (_attach = AttachOnceAsync(dropZone, input, dotNet));
     }
 
     public async ValueTask OpenAsync()
     {
-        if (_handle is null) return;
+        if (Handle is not { } handle) return;
 
         try
         {
-            await _handle.InvokeVoidAsync("open");
+            await handle.InvokeVoidAsync("open");
         }
         catch (JSDisconnectedException)
         {
@@ -69,12 +72,12 @@ public sealed class FilePickerInterop(IJSRuntime javaScriptRuntime) : IAsyncDisp
     // is alive, because the reference is released here.
     public async ValueTask<Stream?> ReadSelectedAsync(long maximumSize, CancellationToken cancellationToken)
     {
-        if (_handle is null) return null;
+        if (Handle is not { } handle) return null;
 
         IJSStreamReference? streamReference;
         try
         {
-            streamReference = await _handle.InvokeAsync<IJSStreamReference?>("readSelected", cancellationToken);
+            streamReference = await handle.InvokeAsync<IJSStreamReference?>("readSelected", cancellationToken);
         }
         catch (JSDisconnectedException)
         {
@@ -95,15 +98,31 @@ public sealed class FilePickerInterop(IJSRuntime javaScriptRuntime) : IAsyncDisp
 
     public async ValueTask ResetAsync()
     {
-        if (_handle is null) return;
+        if (Handle is not { } handle) return;
 
         try
         {
-            await _handle.InvokeVoidAsync("reset");
+            await handle.InvokeVoidAsync("reset");
         }
         catch (JSDisconnectedException)
         {
             // The document is being replaced, and the preview with it
+        }
+    }
+
+    // A handle that arrives after teardown is still kept, so DisposeAsync, which waits for this attach, releases it
+    private async Task AttachOnceAsync<TComponent>(ElementReference dropZone, ElementReference input, DotNetObjectReference<TComponent> dotNet) where TComponent : class
+    {
+        try
+        {
+            _module = await javaScriptRuntime.InvokeAsync<IJSObjectReference>("import", ModulePath);
+            if (_isDisposed) return;
+
+            _handle = await _module.InvokeAsync<IJSObjectReference>("attach", dropZone, input, dotNet);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The document is being replaced; the picker stays inert
         }
     }
 }

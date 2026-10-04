@@ -34,36 +34,16 @@ public sealed record ViewportMatches(bool Small, bool Medium, bool Large, bool E
 public sealed class ViewportState(IJSRuntime javaScriptRuntime) : IAsyncDisposable
 {
     private const string ModulePath = "./js/viewport.js";
-    private IJSObjectReference? _handle;
+    private readonly ModuleAttachment<ViewportState> _attachment = new(javaScriptRuntime, ModulePath);
+    private Task? _attach;
     private bool _isDisposed;
-    private IJSObjectReference? _module;
-
-    private DotNetObjectReference<ViewportState>? _reference;
 
     public ViewportMatches Matches { get; private set; } = ViewportMatches.Widest;
 
     public async ValueTask DisposeAsync()
     {
         _isDisposed = true;
-        try
-        {
-            if (_handle is not null)
-            {
-                await _handle.InvokeVoidAsync("dispose");
-                await _handle.DisposeAsync();
-            }
-
-            if (_module is not null) await _module.DisposeAsync();
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is gone, and its listeners with it
-        }
-
-        _handle = null;
-        _module = null;
-        _reference?.Dispose();
-        _reference = null;
+        await _attachment.DisposeAsync();
     }
 
     public event Action? Changed;
@@ -73,28 +53,17 @@ public sealed class ViewportState(IJSRuntime javaScriptRuntime) : IAsyncDisposab
         return Matches.Reaches(breakpoint);
     }
 
-    // Idempotent: the first interactive component that needs the width attaches the module, every later call returns at once
-    public async Task AttachAsync()
+    // Idempotent: the first interactive component that needs the width attaches the module, and every caller awaits that one
+    // attach. A container disposed before the width is read keeps the widest viewport and notifies no one.
+    public Task AttachAsync()
     {
-        if (_isDisposed || _reference is not null) return;
-
-        _reference = DotNetObjectReference.Create(this);
-        try
-        {
-            _module = await javaScriptRuntime.InvokeAsync<IJSObjectReference>("import", ModulePath);
-            _handle = await _module.InvokeAsync<IJSObjectReference>("attachViewport", _reference);
-            Apply(await _handle.InvokeAsync<ViewportMatches>("read"));
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is already gone; the state stays at the widest viewport
-        }
+        return _attach ??= AttachOnceAsync();
     }
 
     [JSInvokable]
     public Task OnViewportChanged(ViewportMatches matches)
     {
-        Apply(matches);
+        if (!_isDisposed) Apply(matches);
         return Task.CompletedTask;
     }
 
@@ -106,5 +75,21 @@ public sealed class ViewportState(IJSRuntime javaScriptRuntime) : IAsyncDisposab
         Matches = matches;
         Changed?.Invoke();
         return true;
+    }
+
+    private async Task AttachOnceAsync()
+    {
+        var handle = await _attachment.AttachAsync(this, "attachViewport", reference => [reference]);
+        if (handle is null) return;
+
+        try
+        {
+            var matches = await handle.InvokeAsync<ViewportMatches>("read");
+            if (!_isDisposed) Apply(matches);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The document is already gone; the state stays at the widest viewport
+        }
     }
 }

@@ -17,11 +17,9 @@
 
 @code {
 
-    private IJSObjectReference? _dialog;
-    private DotNetObjectReference<ModalDialog>? _dotNet;
+    private ModuleAttachment<ModalDialog>? _attachment;
     private ElementReference _element;
     private bool _isDisposed;
-    private IJSObjectReference? _module;
     private bool _shownOpen;
 
     [Parameter]
@@ -55,44 +53,29 @@
     [JSInvokable]
     public Task RequestDismiss()
     {
-        return OnDismissRequested.InvokeAsync();
+        return _isDisposed ? Task.CompletedTask : OnDismissRequested.InvokeAsync();
     }
 
     public async ValueTask DisposeAsync()
     {
+        if (_isDisposed) return;
+
         _isDisposed = true;
-        try
-        {
-            if (_dialog is not null)
-            {
-                await _dialog.InvokeVoidAsync("dispose");
-                await _dialog.DisposeAsync();
-            }
-
-            if (_module is not null) await _module.DisposeAsync();
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is already gone, and the dialog with it
-        }
-
-        _dotNet?.Dispose();
+        if (_attachment is not null) await _attachment.DisposeAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _dotNet = DotNetObjectReference.Create(this);
-            _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/unsaved-changes.js");
-            if (_isDisposed) return;
-            _dialog = await _module.InvokeAsync<IJSObjectReference>("attachModalDialog", _element, _dotNet, ClosesOnBackdrop);
+            _attachment = new ModuleAttachment<ModalDialog>(JavaScriptRuntime, "./js/unsaved-changes.js");
+            await _attachment.AttachAsync(this, "attachModalDialog", reference => [_element, reference, ClosesOnBackdrop]);
         }
 
-        if (_dialog is null || _isDisposed || _shownOpen == Open) return;
+        if (_attachment?.Handle is not { } dialog || _shownOpen == Open) return;
 
         _shownOpen = Open;
-        await _dialog.InvokeVoidAsync(Open ? "show" : "close");
+        await dialog.InvokeVoidAsync(Open ? "show" : "close");
     }
 
 }

@@ -26,8 +26,7 @@
 @code {
 
     private readonly string _idPrefix = $"unsaved-changes-{Guid.NewGuid():N}";
-    private DotNetObjectReference<UnsavedChangesGuard>? _dotNet;
-    private IJSObjectReference? _guard;
+    private ModuleAttachment<UnsavedChangesGuard>? _attachment;
     private bool _isAlertOpen;
 
     private bool _isDisposed;
@@ -40,7 +39,6 @@
     // document unloads. Cleared once the owner reports no unsaved changes.
     private bool _isReleased;
     private IDisposable? _locationChangingRegistration;
-    private IJSObjectReference? _module;
     private Func<Task>? _pendingClose;
     private string? _pendingLocation;
     private bool _sentDirtyState;
@@ -58,6 +56,9 @@
 
     private string DescriptionId => $"{_idPrefix}-description";
 
+    // The browser half's handle; null until it is attached and again once this component is torn down
+    private IJSObjectReference? Guard => _attachment?.Handle;
+
     // Runs close at once when nothing is unsaved; otherwise asks first and runs it only on Leave
     public async Task ConfirmCloseAsync(Func<Task> close)
     {
@@ -74,31 +75,20 @@
     [JSInvokable]
     public void OnNavigationBlocked()
     {
+        if (_isDisposed) return;
+
         ShowAlert();
     }
 
     public async ValueTask DisposeAsync()
     {
+        if (_isDisposed) return;
+
         _isDisposed = true;
         AuthenticationNavigator.Leaving -= OnAuthenticationLeaving;
         Navigation.LocationChanged -= OnLocationChanged;
         _locationChangingRegistration?.Dispose();
-        try
-        {
-            if (_guard is not null)
-            {
-                await _guard.InvokeVoidAsync("dispose");
-                await _guard.DisposeAsync();
-            }
-
-            if (_module is not null) await _module.DisposeAsync();
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is already gone, and its listeners with it
-        }
-
-        _dotNet?.Dispose();
+        if (_attachment is not null) await _attachment.DisposeAsync();
     }
 
     protected override void OnInitialized()
@@ -126,10 +116,9 @@
         if (firstRender)
         {
             _locationChangingRegistration = Navigation.RegisterLocationChangingHandler(OnLocationChanging);
-            _dotNet = DotNetObjectReference.Create(this);
-            _module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/unsaved-changes.js");
-            if (_isDisposed) return;
-            _guard = await _module.InvokeAsync<IJSObjectReference>("attachNavigationGuard", _dotNet);
+            _attachment = new ModuleAttachment<UnsavedChangesGuard>(JavaScriptRuntime, "./js/unsaved-changes.js");
+            if (await _attachment.AttachAsync(this, "attachNavigationGuard", reference => [reference]) is null) return;
+
             _sentDirtyState = false;
         }
 
@@ -141,10 +130,10 @@
         if (_isLeaving) return;
 
         if (!HasUnsavedChanges) _isReleased = false;
-        if (_guard is null || _isDisposed || _isReleased || _sentDirtyState == HasUnsavedChanges) return;
+        if (Guard is not { } guard || _isReleased || _sentDirtyState == HasUnsavedChanges) return;
 
         _sentDirtyState = HasUnsavedChanges;
-        await _guard.InvokeVoidAsync("setDirty", HasUnsavedChanges);
+        await guard.InvokeVoidAsync("setDirty", HasUnsavedChanges);
     }
 
     private ValueTask OnLocationChanging(LocationChangingContext context)
@@ -168,7 +157,7 @@
         _isAlertOpen = false;
         _pendingClose = null;
         _pendingLocation = null;
-        if (_guard is not null) await _guard.InvokeVoidAsync("cancel");
+        if (Guard is { } guard) await guard.InvokeVoidAsync("cancel");
     }
 
     private async Task LeaveAsync()
@@ -195,7 +184,7 @@
                 // completes either kind correctly, and the released guard lets it through without another prompt
                 _isReleased = true;
                 await DiscardAsync();
-                if (_guard is not null) await _guard.InvokeVoidAsync("setDirty", false);
+                if (Guard is { } releasedGuard) await releasedGuard.InvokeVoidAsync("setDirty", false);
                 _sentDirtyState = false;
                 Navigation.NavigateTo(pendingLocation, true);
                 return;
@@ -203,7 +192,7 @@
 
             _isReleased = true;
             await DiscardAsync();
-            if (_guard is not null) await _guard.InvokeVoidAsync("proceed");
+            if (Guard is { } proceedingGuard) await proceedingGuard.InvokeVoidAsync("proceed");
 
             // proceed leaves the browser half clean, as the branch above does through setDirty, so what .NET believes
             // it sent has to match
@@ -227,7 +216,7 @@
         _isAlertOpen = false;
         _pendingClose = null;
         _pendingLocation = null;
-        if (_guard is IJSInProcessObjectReference inProcessGuard) inProcessGuard.InvokeVoid("dispose");
+        if (Guard is IJSInProcessObjectReference inProcessGuard) inProcessGuard.InvokeVoid("dispose");
     }
 
 }

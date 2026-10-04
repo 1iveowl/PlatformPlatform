@@ -106,6 +106,48 @@ public sealed class ViewportStateTests
         javaScript.Calls.Should().Equal("import", "attachViewport", "read", "dispose");
     }
 
+    [Fact]
+    public async Task DisposeAsync_WhenTheAttachIsPending_ShouldReleaseTheLateHandleOnceAndNeverReadTheWidth()
+    {
+        // Arrange
+        var javaScript = new ControlledJavaScript();
+        var pendingAttach = javaScript.Hold("attachViewport");
+        var state = new ViewportState(javaScript.Runtime);
+        var changes = 0;
+        state.Changed += () => changes++;
+        var attach = state.AttachAsync();
+
+        // Act
+        var dispose = state.DisposeAsync().AsTask();
+        pendingAttach.SetResult();
+        await attach;
+        await dispose;
+
+        // Assert
+        javaScript.Calls.Should().Equal(
+            "import", "import:attachViewport", "import:attachViewport:dispose", "import:attachViewport.DisposeAsync", "import.DisposeAsync"
+        );
+        changes.Should().Be(0);
+        state.Matches.Should().Be(ViewportMatches.Widest);
+    }
+
+    [Fact]
+    public async Task OnViewportChanged_WhenTheContainerIsDisposed_ShouldNotNotify()
+    {
+        // Arrange
+        var state = new ViewportState(new ControlledJavaScript().Runtime);
+        var changes = 0;
+        state.Changed += () => changes++;
+        await state.DisposeAsync();
+
+        // Act
+        await state.OnViewportChanged(new ViewportMatches(true, false, false, false, false));
+
+        // Assert
+        changes.Should().Be(0);
+        state.Matches.Should().Be(ViewportMatches.Widest);
+    }
+
     private sealed class RecordingJavaScript : IJSRuntime, IJSObjectReference
     {
         public List<string> Calls { get; } = [];
