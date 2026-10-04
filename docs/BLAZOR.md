@@ -1,6 +1,6 @@
 # The Blazor edition of PlatformPlatform
 
-This is the interim as-built description of the Blazor edition: what exists, how it is built, tested, released and recovered, and what is not there yet. It describes the code at commit `9d39b3c61`, which is the commit deployed to staging.
+This is the interim as-built description of the Blazor edition: what exists, how it is built, tested, released and recovered, and what is not there yet. It describes the code at commit `9d39b3c61`, deployed to staging on 2026-09-26. The [Back office](#back-office) section and the sentences that name it describe `2b2f9f8c0`, deployed to staging on 2026-09-30.
 
 **How to read the evidence.** Unless a sentence names another commit or a date, every statement about the code was verified at `9d39b3c61` on 2026-09-26. A measurement names the commit it was taken at. A statement about a running environment names the date it was observed. Work that has not been done is written in the future tense.
 
@@ -13,12 +13,13 @@ This is the interim as-built description of the Blazor edition: what exists, how
 5. [Localization](#localization)
 6. [Lists and forms](#lists-and-forms)
 7. [Offline shell, push notifications and the version policy](#offline-shell-push-notifications-and-the-version-policy)
-8. [Tests](#tests)
-9. [Developer CLI commands](#developer-cli-commands)
-10. [Deployment](#deployment)
-11. [Release and recovery](#release-and-recovery)
-12. [Known gaps and what comes next](#known-gaps-and-what-comes-next)
-13. [Why a Blazor edition](#why-a-blazor-edition)
+8. [Back office](#back-office)
+9. [Tests](#tests)
+10. [Developer CLI commands](#developer-cli-commands)
+11. [Deployment](#deployment)
+12. [Release and recovery](#release-and-recovery)
+13. [Known gaps and what comes next](#known-gaps-and-what-comes-next)
+14. [Why a Blazor edition](#why-a-blazor-edition)
 
 ## What the edition is and is not
 
@@ -45,7 +46,7 @@ Four further pieces serve both editions or the Blazor edition only:
 **What is not there:**
 
 * **Billing.** No subscription, checkout or invoice surface. The shell has no Billing or Overview link, deliberately. Billing is the next planned surface.
-* **The back office.** The React back office remains the operator tool until a Blazor back office is built.
+* **The back office in production.** A Blazor back office is built and runs on staging beside the React one since 2026-09-30 (see [Back office](#back-office)). Production waits for its app registration.
 * **Content-carrying notifications.** The only notification is the self-sent test. Nothing sends notifications from the system.
 * **A way to revoke the current session.** Neither edition has one.
 
@@ -236,6 +237,51 @@ The endpoints are under `/api/account/users/me/push-subscriptions` and all requi
 
 This is why a publish must carry the version it is deployed as (see [Release and recovery](#release-and-recovery)).
 
+## Back office
+
+**How to read this section.** It describes the Blazor back office as built at `2b2f9f8c0`, the commit deployed to staging on 2026-09-30. Statements about the code were read on 2026-10-04 at `d6a20e6f0`, whose differences from `2b2f9f8c0` touch only test scripts, documentation, a workflow and the developer CLI, never a file under `application/` or `blazor/Blazor.Host` and `blazor/Blazor.Client`. Statements about staging were observed on 2026-10-04 by `blazor-harness staging-acceptance` at tag `2026.09.30.1815` (45 checks, all passed, result `.workspace/blazor-tests/staging-acceptance-2026.09.30.1815-chromium-2026-10-04T1402.json`, which is session-local). The hosting design, the trust boundary and the deployment procedure are in [blazor-back-office-hosting.md](blazor-back-office-hosting.md); this section summarises what was built.
+
+**Surfaces.** Server-rendered pages in `blazor/Blazor.Host/Components/Pages/BackOffice/` host WebAssembly components from `blazor/Blazor.Client/BackOffice/`, under `/blazor`:
+
+| Surface | Routes |
+| --- | --- |
+| Dashboard | `/back-office` |
+| Accounts | `/back-office/accounts`, `/back-office/accounts/{TenantId}` with the overview, users and feature flags tabs, and invoices and billing events tabs when the subscription setting is on |
+| Users | `/back-office/users`, `/back-office/users/{UserId}` |
+| Feature flags | `/back-office/feature-flags`, `/back-office/feature-flags/{FlagKey}` with activation, rollout, and tenant and user overrides |
+| Billing | `/back-office/invoices`, `/back-office/billing-events` |
+| Identity and errors | `/back-office/identity`, `/back-office/access-denied`, and `/back-office/{*path}` as the not-found page |
+
+* **Charts.** The dashboard's charts are in-house SVG components, `DashboardTrendChart.razor` (bar and area) and `DashboardPlanChart.razor` (donut), each with a data table as its text alternative; no chart library is used. Observed on staging: the account growth and user logins charts with 30 points each, and the recent signups and recent logins cards.
+* **The subscription setting.** `BACK_OFFICE_SUBSCRIPTION_ENABLED` on `blazor-host` mirrors `PUBLIC_SUBSCRIPTION_ENABLED` on `back-office`. While it is off, the billing pages answer 404 on the back-office host (`BackOfficeSurface.RestrictToSurfaceHostAsync`). Observed on staging: both are `false`, and the account detail shows the same three tabs in both back offices (Blazor `overview`, `users`, `feature-flags`; React `Overview`, `Users`, `Feature flags`). The billing pages and tabs have not been observed on a deployed host.
+
+**Request path and identity.**
+
+* The back office is served only on the back-office host. The `back-office` container app runs the account API image; when `BACK_OFFICE_BLAZOR_HOST_URL` is set, its back-office listener forwards `/blazor/{**catch-all}` to the internal `blazor-host` (`application/account/Api/BackOfficeBlazorProxy.cs`, lines 37 to 63). The proxy clears the inbound `Host`, because Azure Container Apps routes by it. Unset, nothing is mapped. Observed on staging: the variable is set on `back-office` only, and `blazor-host` has internal ingress only (checks 5 and 5b).
+* The platform authentication in front of `back-office` (Easy Auth) signs the person in. The account API trusts its principal headers only where `BackOffice__IsBackOfficeContainer` is true (`BackOfficeListener.FromConfiguration`), and forwards the identity to the host as a data-protected header that `blazor/Blazor.Host/Account/BackOfficeAuthentication.cs` reads and nothing else does. Admin means a member of the staging admins group.
+* Observed on staging: forged principal headers sent with a session never change the identity, and without a session they get 302 or 401 (check 3). Forged headers from inside the environment get 404 from the internal account API and 401 from the back-office app (checks 3b and 3c, from a temporary probe job). The back office is refused on the app host with 404 in every variant (check 4). App pages, the app's service worker and its manifest answer 404 on the back-office host (check 7).
+
+**Writes.** Only an admin is offered a write. Observed on staging: the admin set a `compact-view` user override through the Blazor back office, and the app edition's preferences page showed it. The non-admin's same request answered 403, and the override was restored to its state before (check 8). On the non-admin's flag detail no activation, rollout or enabled override switch is rendered. The 403 is the authorization refusal, not antiforgery: the account API runs `UseAuthorization` before the antiforgery middleware, which refuses with 400 (`ApiDependencyConfiguration.cs` lines 182 to 184, `AntiforgeryMiddleware.cs`).
+
+**Policy and the app shell's features.** Back-office pages carry the same nonce-based policy as app pages, with the back-office origin in place of the app's (`HostShell.BuildContentSecurityPolicy`). Observed on staging: one policy with no `unsafe-inline` and no `style-src-attr`, naming the back-office origin only (check 6). No policy violation, console error or page error on the dashboard, the lists or the detail pages at 1280 and 390 px wide. No service worker, push subscription or stale-asset probe on the back-office origin (check 7).
+
+**The React back office** stays at the root of the same host. Observed on staging: `/` answers the React back office, and its account detail renders for the owner's session (checks 9 and 10).
+
+**Tests.**
+
+* xunit: `HostSecurityTests.BackOffice.cs` and its six partials for the dashboard, accounts, account detail, users, feature flags and billing in `blazor/Blazor.Tests/Account/`, and `application/account/Tests/BackOffice/BackOfficeBlazorProxyTests.cs`.
+* End-to-end: `back-office-flows.spec.ts`, `back-office-dashboard-flows.spec.ts`, `back-office-accounts-flows.spec.ts` and `back-office-feature-flags-flows.spec.ts` in `blazor/tests/e2e/`.
+* Harness: `authenticated-surfaces` checks content, page scrolling, the policy and errors on 15 surfaces of both editions at two widths on the local trimmed publish. `staging-acceptance` runs the deployment procedure's checks against a deployed tag.
+
+**Known gaps.**
+
+* **Production.** Not deployed. The production back-office app registration must be configured first.
+* **Billing on a deployed host.** Unobserved while the setting is off on staging.
+* **Scrolling the short lists.** On staging the accounts and users lists hold 3 rows and fit the window, so their scrolling was not exercised there. The dashboard and the feature flag list were scrolled at both widths.
+* **Check 3c** rests on the assumption that the platform authentication also sits in front of traffic from inside the environment.
+* **Workflows can revert a hand deployment.** A push of `main` runs the Cloud Infrastructure workflow, which redeploys every app at the versions it reads from the running apps and can undo a deployment made by hand in the same minutes (observed on 2026-09-30).
+* **Firefox at phone width.** Observed on 2026-09-30: `blazor-harness mobile-surfaces --browser firefox` fails at 390 and 375 px because Tab reaches no control on the preferences page, and fails its reduced-motion case, with or without the back-office changes.
+
 ## Tests
 
 **xunit.** `blazor/Blazor.Tests` holds 95 test files. They are organised by area:
@@ -332,7 +378,7 @@ Observed on 2026-09-26:
 | Environment | State |
 | --- | --- |
 | Local | The Aspire AppHost runs `blazor-host` beside the React edition, at `https://app.dev.localhost:9000/blazor/` with the default base port. |
-| Staging | Runs at `https://staging.ppdemo.etara.dk/blazor/`, revision `blazor-host--2026-09-26-1610-fw`, image tag `2026.09.26.1610`, built from `9d39b3c61`. See the staging proofs below. |
+| Staging | Runs at `https://staging.ppdemo.etara.dk/blazor/`, revision `blazor-host--2026-09-26-1610-fw`, image tag `2026.09.26.1610`, built from `9d39b3c61`; the staging proofs below were made on it. Observed on 2026-10-04: revision `blazor-host--0000003`, image tag `2026.09.30.1815`, built from `2b2f9f8c0`, with the Blazor back office at `https://back-office.staging.ppdemo.etara.dk/blazor/back-office` (see [Back office](#back-office)). |
 | Production | Not deployed. `PRODUCTION_CLUSTER1_ENABLED=false` and no production domain is set, deliberately. The production back office app registration will need the configuration staging needed before the first production deploy. |
 
 The staging proofs cover:
@@ -426,10 +472,10 @@ After the rollback, the newer client assembly answered 404. That is the runbook'
 * **Hosted CI.** The two failures of run 36256640025 described under [GitHub workflows](#github-workflows) are not yet fixed: the Razor directive order that the formatter expects, and the MitID configuration the development shell policy needs on a runner.
 * **Release review.** An independent review of this release is pending. It will rerun the security checks against the deployed host and give the release verdict.
 
-**Planned next**, in order. None has started:
+**Planned next**, in order. Items 1, 3 and 4 have not started:
 
 1. **Billing.** Billing with Stripe-hosted Checkout and Customer Portal, reusing the backend's webhook handling and reconciliation.
-2. **Back office.** The back office in Blazor.
+2. **Back office.** Built and on staging since 2026-09-30 (`2b2f9f8c0`, see [Back office](#back-office)); production will follow its app registration.
 3. **Retiring React.** Removing the React frontends, the npm workspace, the React Email sources and the Node plumbing.
 4. **Native authorization.** Native-capable authorization (PKCE, token endpoint, scopes, refresh and revocation), not yet scheduled.
 
