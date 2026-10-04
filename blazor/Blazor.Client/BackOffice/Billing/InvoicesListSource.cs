@@ -96,7 +96,7 @@ public static class InvoicesListSource
         return new GetBackOfficeInvoicesQuery(
             request.Filters.GetValueOrDefault(SearchParameter),
             [.. GetStatuses(GetView(request.Filters))],
-            ParseOrderBy<SortableBackOfficeInvoiceProperties>(request.OrderBy) ?? SortableBackOfficeInvoiceProperties.Date,
+            DataListQueryValues.ParseName<SortableBackOfficeInvoiceProperties>(request.OrderBy, StringComparison.Ordinal) ?? SortableBackOfficeInvoiceProperties.Date,
             request.SortOrder,
             request.PageOffset,
             request.PageSize
@@ -109,11 +109,5 @@ public static class InvoicesListSource
         if (result.IsSuccess) return DataListFetchResult<BackOfficeInvoiceSummary>.Success(result.Value.Invoices, result.Value.TotalCount);
         var failure = ApiFailureClassifier.Classify(result);
         return DataListFetchResult<BackOfficeInvoiceSummary>.Failure(result.Problem?.StatusCode, failure.Message ?? result.Outcome.ToString());
-    }
-
-    // Names only, as the React router's schema accepts them; Enum.TryParse would also accept numbers
-    public static TEnum? ParseOrderBy<TEnum>(string? value) where TEnum : struct, Enum
-    {
-        return Enum.GetValues<TEnum>().Cast<TEnum?>().FirstOrDefault(candidate => string.Equals(candidate.ToString(), value, StringComparison.Ordinal));
     }
 }

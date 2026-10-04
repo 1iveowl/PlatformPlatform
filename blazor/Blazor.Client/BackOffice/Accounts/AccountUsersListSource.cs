@@ -37,19 +37,19 @@ public static class AccountUsersListSource
     {
         var normalized = new Dictionary<string, string>(StringComparer.Ordinal);
         if (filters.TryGetValue(SearchParameter, out var search) && !string.IsNullOrWhiteSpace(search)) normalized[SearchParameter] = search.Trim();
-        if (AccountsListSource.FormatValues(GetRoles(filters)) is { } roles) normalized[RolesParameter] = roles;
+        if (DataListQueryValues.FormatValues(GetRoles(filters)) is { } roles) normalized[RolesParameter] = roles;
         return normalized;
     }
 
     public static IReadOnlyList<UserRole> GetRoles(IReadOnlyDictionary<string, string> filters)
     {
-        return AccountsListSource.ParseValues(filters.GetValueOrDefault(RolesParameter), Roles);
+        return DataListQueryValues.ParseValues(filters.GetValueOrDefault(RolesParameter), Roles);
     }
 
     // The filter change a role toggle makes: the role added or removed, and the parameter left out when none remains
     public static IReadOnlyDictionary<string, string?> ToggleRole(IReadOnlyDictionary<string, string> filters, UserRole role)
     {
-        return new Dictionary<string, string?> { [RolesParameter] = AccountsListSource.FormatValues(AccountsListSource.Toggle(GetRoles(filters), role, Roles)) };
+        return new Dictionary<string, string?> { [RolesParameter] = DataListQueryValues.FormatValues(DataListQueryValues.Toggle(GetRoles(filters), role, Roles)) };
     }
 
     public static GetTenantUsersQuery ToQuery(DataListRequest request)

@@ -46,8 +46,8 @@ public static class AccountsListSource
     {
         var normalized = new Dictionary<string, string>(StringComparer.Ordinal);
         if (filters.TryGetValue(SearchParameter, out var search) && !string.IsNullOrWhiteSpace(search)) normalized[SearchParameter] = search.Trim();
-        if (FormatValues(ParseValues(filters.GetValueOrDefault(PlansParameter), Plans)) is { } plans) normalized[PlansParameter] = plans;
-        if (FormatValues(ParseValues(filters.GetValueOrDefault(StatusesParameter), Statuses)) is { } statuses) normalized[StatusesParameter] = statuses;
+        if (DataListQueryValues.FormatValues(DataListQueryValues.ParseValues(filters.GetValueOrDefault(PlansParameter), Plans)) is { } plans) normalized[PlansParameter] = plans;
+        if (DataListQueryValues.FormatValues(DataListQueryValues.ParseValues(filters.GetValueOrDefault(StatusesParameter), Statuses)) is { } statuses) normalized[StatusesParameter] = statuses;
         if (IsTrue(filters.GetValueOrDefault(UnsyncedParameter))) normalized[UnsyncedParameter] = TrueValue;
         if (IsTrue(filters.GetValueOrDefault(DriftDetectedParameter))) normalized[DriftDetectedParameter] = TrueValue;
         return normalized;
@@ -55,12 +55,12 @@ public static class AccountsListSource
 
     public static IReadOnlyList<SubscriptionPlan> GetPlans(IReadOnlyDictionary<string, string> filters)
     {
-        return ParseValues(filters.GetValueOrDefault(PlansParameter), Plans);
+        return DataListQueryValues.ParseValues(filters.GetValueOrDefault(PlansParameter), Plans);
     }
 
     public static IReadOnlyList<TenantStatusFilter> GetStatuses(IReadOnlyDictionary<string, string> filters)
     {
-        return ParseValues(filters.GetValueOrDefault(StatusesParameter), Statuses);
+        return DataListQueryValues.ParseValues(filters.GetValueOrDefault(StatusesParameter), Statuses);
     }
 
     public static bool IsUnsynced(IReadOnlyDictionary<string, string> filters)
@@ -76,12 +76,12 @@ public static class AccountsListSource
     // The filter change a toolbar toggle makes: the plan added or removed, and the parameter left out when none remains
     public static IReadOnlyDictionary<string, string?> TogglePlan(IReadOnlyDictionary<string, string> filters, SubscriptionPlan plan)
     {
-        return new Dictionary<string, string?> { [PlansParameter] = FormatValues(Toggle(GetPlans(filters), plan, Plans)) };
+        return new Dictionary<string, string?> { [PlansParameter] = DataListQueryValues.FormatValues(DataListQueryValues.Toggle(GetPlans(filters), plan, Plans)) };
     }
 
     public static IReadOnlyDictionary<string, string?> ToggleStatus(IReadOnlyDictionary<string, string> filters, TenantStatusFilter status)
     {
-        return new Dictionary<string, string?> { [StatusesParameter] = FormatValues(Toggle(GetStatuses(filters), status, Statuses)) };
+        return new Dictionary<string, string?> { [StatusesParameter] = DataListQueryValues.FormatValues(DataListQueryValues.Toggle(GetStatuses(filters), status, Statuses)) };
     }
 
     public static IReadOnlyDictionary<string, string?> ClearFilter(string parameter)
@@ -101,16 +101,10 @@ public static class AccountsListSource
         return BackOfficeUrls.ToAbsolute(query.Length == 0 ? "accounts" : $"accounts?{query}");
     }
 
-    // The URL form of a multi-value filter, or null when no value is selected so the parameter is left out
     // The list filtered to the given statuses, as the dashboard's MRR tile links to it
     public static string ToUrl(IReadOnlyList<TenantStatusFilter> statuses)
     {
-        return FormatValues(statuses) is { } value ? ToUrl(new Dictionary<string, string> { [StatusesParameter] = value }) : ToUrl(new Dictionary<string, string>());
-    }
-
-    public static string? FormatValues<TEnum>(IReadOnlyList<TEnum> values) where TEnum : struct, Enum
-    {
-        return values.Count == 0 ? null : $"[{string.Join(',', values.Select(value => $"\"{value}\""))}]";
+        return DataListQueryValues.FormatValues(statuses) is { } value ? ToUrl(new Dictionary<string, string> { [StatusesParameter] = value }) : ToUrl(new Dictionary<string, string>());
     }
 
     public static GetTenantsQuery ToQuery(DataListRequest request)
@@ -121,7 +115,7 @@ public static class AccountsListSource
             [.. GetStatuses(request.Filters)],
             IsUnsynced(request.Filters),
             IsDriftDetected(request.Filters),
-            ParseEnum<SortableTenantProperties>(request.OrderBy) ?? SortableTenantProperties.ModifiedAt,
+            DataListQueryValues.ParseName<SortableTenantProperties>(request.OrderBy, StringComparison.OrdinalIgnoreCase) ?? SortableTenantProperties.ModifiedAt,
             request.SortOrder,
             request.PageOffset,
             request.PageSize
@@ -136,40 +130,8 @@ public static class AccountsListSource
         return DataListFetchResult<TenantSummary>.Failure(result.Problem?.StatusCode, failure.Message ?? result.Outcome.ToString());
     }
 
-    // A JSON array of enum names as the React router writes it, or a single bare name; unknown names are dropped, and the
-    // values come back distinct in the canonical order
-    public static IReadOnlyList<TEnum> ParseValues<TEnum>(string? value, IReadOnlyList<TEnum> canonicalOrder) where TEnum : struct, Enum
-    {
-        if (string.IsNullOrWhiteSpace(value)) return [];
-
-        var trimmed = value.Trim();
-        var names = trimmed.StartsWith('[') && trimmed.EndsWith(']')
-            ? trimmed[1..^1].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(Unquote)
-            : [trimmed];
-        var parsed = names.Select(name => name is null ? null : ParseEnum<TEnum>(name)).OfType<TEnum>().ToHashSet();
-        return canonicalOrder.Where(parsed.Contains).ToArray();
-    }
-
-    public static IReadOnlyList<TEnum> Toggle<TEnum>(IReadOnlyList<TEnum> values, TEnum value, IReadOnlyList<TEnum> canonicalOrder) where TEnum : struct, Enum
-    {
-        var selected = values.ToHashSet();
-        if (!selected.Remove(value)) selected.Add(value);
-        return canonicalOrder.Where(selected.Contains).ToArray();
-    }
-
-    private static string? Unquote(string token)
-    {
-        return token is ['"', .., '"'] ? token[1..^1] : null;
-    }
-
     private static bool IsTrue(string? value)
     {
         return string.Equals(value?.Trim(), TrueValue, StringComparison.OrdinalIgnoreCase);
-    }
-
-    // Names only: Enum.TryParse would also accept numbers
-    public static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct, Enum
-    {
-        return Enum.GetValues<TEnum>().Cast<TEnum?>().FirstOrDefault(candidate => string.Equals(candidate.ToString(), value, StringComparison.OrdinalIgnoreCase));
     }
 }

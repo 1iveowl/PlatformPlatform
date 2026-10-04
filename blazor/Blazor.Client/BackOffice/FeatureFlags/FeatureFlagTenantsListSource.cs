@@ -11,7 +11,6 @@ using Account.Client;
 using Account.Features.FeatureFlags.Queries;
 using Account.Features.FeatureFlags.Requests;
 using Account.Features.Subscriptions.Domain;
-using Blazor.Client.BackOffice.Accounts;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 
@@ -53,7 +52,7 @@ public static class FeatureFlagTenantsListSource
     {
         var normalized = new Dictionary<string, string>(StringComparer.Ordinal);
         if (filters.TryGetValue(SearchParameter, out var search) && !string.IsNullOrWhiteSpace(search)) normalized[SearchParameter] = search.Trim();
-        if (AccountsListSource.FormatValues(GetPlans(filters)) is { } plans) normalized[PlansParameter] = plans;
+        if (DataListQueryValues.FormatValues(GetPlans(filters)) is { } plans) normalized[PlansParameter] = plans;
         if (FeatureFlagOverrides.FormatState(GetState(filters)) is { } state) normalized[StateParameter] = state;
         if (HasOverride(filters)) normalized[HasOverrideParameter] = TrueValue;
         return normalized;
@@ -61,7 +60,7 @@ public static class FeatureFlagTenantsListSource
 
     public static IReadOnlyList<SubscriptionPlan> GetPlans(IReadOnlyDictionary<string, string> filters)
     {
-        return AccountsListSource.ParseValues(filters.GetValueOrDefault(PlansParameter), Plans);
+        return DataListQueryValues.ParseValues(filters.GetValueOrDefault(PlansParameter), Plans);
     }
 
     public static FeatureFlagStateFilter GetState(IReadOnlyDictionary<string, string> filters)
@@ -76,7 +75,7 @@ public static class FeatureFlagTenantsListSource
 
     public static IReadOnlyDictionary<string, string?> TogglePlan(IReadOnlyDictionary<string, string> filters, SubscriptionPlan plan)
     {
-        return new Dictionary<string, string?> { [PlansParameter] = AccountsListSource.FormatValues(AccountsListSource.Toggle(GetPlans(filters), plan, Plans)) };
+        return new Dictionary<string, string?> { [PlansParameter] = DataListQueryValues.FormatValues(DataListQueryValues.Toggle(GetPlans(filters), plan, Plans)) };
     }
 
     public static IReadOnlyDictionary<string, string?> SetState(FeatureFlagStateFilter state)
@@ -116,7 +115,7 @@ public static class FeatureFlagTenantsListSource
             [.. plans],
             FeatureFlagOverrides.ToApiState(GetState(request.Filters)),
             HasOverride(request.Filters),
-            AccountsListSource.ParseEnum<SortableFeatureFlagTenantProperties>(request.OrderBy) ?? SortableFeatureFlagTenantProperties.Name,
+            DataListQueryValues.ParseName<SortableFeatureFlagTenantProperties>(request.OrderBy, StringComparison.OrdinalIgnoreCase) ?? SortableFeatureFlagTenantProperties.Name,
             request.SortOrder,
             request.PageOffset,
             request.PageSize

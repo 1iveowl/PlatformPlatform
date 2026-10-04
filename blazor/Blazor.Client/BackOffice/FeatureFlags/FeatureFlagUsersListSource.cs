@@ -8,7 +8,6 @@
 using Account.Client;
 using Account.Features.FeatureFlags.Queries;
 using Account.Features.FeatureFlags.Requests;
-using Blazor.Client.BackOffice.Accounts;
 using Blazor.Client.Components.Lists;
 using Blazor.Client.Forms;
 
@@ -43,7 +42,7 @@ public static class FeatureFlagUsersListSource
     {
         var normalized = new Dictionary<string, string>(StringComparer.Ordinal);
         if (filters.TryGetValue(SearchParameter, out var search) && !string.IsNullOrWhiteSpace(search)) normalized[SearchParameter] = search.Trim();
-        if (AccountsListSource.FormatValues(GetRoles(filters)) is { } roles) normalized[RolesParameter] = roles;
+        if (DataListQueryValues.FormatValues(GetRoles(filters)) is { } roles) normalized[RolesParameter] = roles;
         if (FeatureFlagOverrides.FormatState(GetState(filters)) is { } state) normalized[StateParameter] = state;
         if (HasOverride(filters)) normalized[HasOverrideParameter] = TrueValue;
         return normalized;
@@ -51,7 +50,7 @@ public static class FeatureFlagUsersListSource
 
     public static IReadOnlyList<UserRole> GetRoles(IReadOnlyDictionary<string, string> filters)
     {
-        return AccountsListSource.ParseValues(filters.GetValueOrDefault(RolesParameter), Roles);
+        return DataListQueryValues.ParseValues(filters.GetValueOrDefault(RolesParameter), Roles);
     }
 
     public static FeatureFlagStateFilter GetState(IReadOnlyDictionary<string, string> filters)
@@ -66,7 +65,7 @@ public static class FeatureFlagUsersListSource
 
     public static IReadOnlyDictionary<string, string?> ToggleRole(IReadOnlyDictionary<string, string> filters, UserRole role)
     {
-        return new Dictionary<string, string?> { [RolesParameter] = AccountsListSource.FormatValues(AccountsListSource.Toggle(GetRoles(filters), role, Roles)) };
+        return new Dictionary<string, string?> { [RolesParameter] = DataListQueryValues.FormatValues(DataListQueryValues.Toggle(GetRoles(filters), role, Roles)) };
     }
 
     public static IReadOnlyDictionary<string, string?> SetState(FeatureFlagStateFilter state)
@@ -91,7 +90,7 @@ public static class FeatureFlagUsersListSource
             [.. GetRoles(request.Filters)],
             FeatureFlagOverrides.ToApiState(GetState(request.Filters)),
             HasOverride(request.Filters),
-            AccountsListSource.ParseEnum<SortableFeatureFlagUserProperties>(request.OrderBy) ?? SortableFeatureFlagUserProperties.Name,
+            DataListQueryValues.ParseName<SortableFeatureFlagUserProperties>(request.OrderBy, StringComparison.OrdinalIgnoreCase) ?? SortableFeatureFlagUserProperties.Name,
             request.SortOrder,
             request.PageOffset,
             request.PageSize

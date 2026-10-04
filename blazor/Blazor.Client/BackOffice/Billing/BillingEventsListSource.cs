@@ -116,7 +116,7 @@ public static class BillingEventsListSource
         return new GetBackOfficeBillingEventsQuery(
             request.Filters.GetValueOrDefault(SearchParameter),
             [.. GetEventTypes(GetView(request.Filters))],
-            OrderBy: InvoicesListSource.ParseOrderBy<SortableBillingEventProperties>(request.OrderBy) ?? SortableBillingEventProperties.OccurredAt,
+            OrderBy: DataListQueryValues.ParseName<SortableBillingEventProperties>(request.OrderBy, StringComparison.Ordinal) ?? SortableBillingEventProperties.OccurredAt,
             SortOrder: request.SortOrder,
             PageOffset: request.PageOffset,
             PageSize: request.PageSize

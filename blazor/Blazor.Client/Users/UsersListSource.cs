@@ -35,8 +35,8 @@ public static class UsersListSource
     {
         var normalized = new Dictionary<string, string>(StringComparer.Ordinal);
         if (filters.TryGetValue(SearchParameter, out var search) && !string.IsNullOrWhiteSpace(search)) normalized[SearchParameter] = search.Trim();
-        if (ParseEnum<UserRole>(filters.GetValueOrDefault(UserRoleParameter)) is { } role) normalized[UserRoleParameter] = role.ToString();
-        if (ParseEnum<UserStatus>(filters.GetValueOrDefault(UserStatusParameter)) is { } status) normalized[UserStatusParameter] = status.ToString();
+        if (DataListQueryValues.ParseName<UserRole>(filters.GetValueOrDefault(UserRoleParameter), StringComparison.OrdinalIgnoreCase) is { } role) normalized[UserRoleParameter] = role.ToString();
+        if (DataListQueryValues.ParseName<UserStatus>(filters.GetValueOrDefault(UserStatusParameter), StringComparison.OrdinalIgnoreCase) is { } status) normalized[UserStatusParameter] = status.ToString();
         if (ParseDate(filters.GetValueOrDefault(StartDateParameter)) is { } startDate) normalized[StartDateParameter] = startDate.ToString(DateFormat, CultureInfo.InvariantCulture);
         if (ParseDate(filters.GetValueOrDefault(EndDateParameter)) is { } endDate) normalized[EndDateParameter] = endDate.ToString(DateFormat, CultureInfo.InvariantCulture);
         return normalized;
@@ -48,11 +48,11 @@ public static class UsersListSource
     {
         return new GetUsersQuery(
             request.Filters.GetValueOrDefault(SearchParameter),
-            ParseEnum<UserRole>(request.Filters.GetValueOrDefault(UserRoleParameter)),
-            ParseEnum<UserStatus>(request.Filters.GetValueOrDefault(UserStatusParameter)),
+            DataListQueryValues.ParseName<UserRole>(request.Filters.GetValueOrDefault(UserRoleParameter), StringComparison.OrdinalIgnoreCase),
+            DataListQueryValues.ParseName<UserStatus>(request.Filters.GetValueOrDefault(UserStatusParameter), StringComparison.OrdinalIgnoreCase),
             ToDateTimeOffset(ParseDate(request.Filters.GetValueOrDefault(StartDateParameter))),
             ToDateTimeOffset(ParseDate(request.Filters.GetValueOrDefault(EndDateParameter))),
-            ParseEnum<SortableUserProperties>(request.OrderBy) ?? SortableUserProperties.Name,
+            DataListQueryValues.ParseName<SortableUserProperties>(request.OrderBy, StringComparison.OrdinalIgnoreCase) ?? SortableUserProperties.Name,
             request.SortOrder,
             request.PageOffset == 0 ? null : request.PageOffset,
             request.PageSize
@@ -65,12 +65,6 @@ public static class UsersListSource
         if (result.IsSuccess) return DataListFetchResult<UserDetails>.Success(result.Value.Users, result.Value.TotalCount);
         var failure = ApiFailureClassifier.Classify(result);
         return DataListFetchResult<UserDetails>.Failure(result.Problem?.StatusCode, failure.Message ?? result.Outcome.ToString());
-    }
-
-    // Names only: Enum.TryParse would also accept numbers
-    private static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct, Enum
-    {
-        return Enum.GetValues<TEnum>().Cast<TEnum?>().FirstOrDefault(candidate => string.Equals(candidate.ToString(), value, StringComparison.OrdinalIgnoreCase));
     }
 
     private static DateOnly? ParseDate(string? value)
