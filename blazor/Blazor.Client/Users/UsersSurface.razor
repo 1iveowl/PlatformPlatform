@@ -150,10 +150,10 @@
             ),
             new DataListColumn<UserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, nameof(SortableUserProperties.Email), HideBelow: HideBelowSmall
             ),
-            new DataListColumn<UserDetails>(UsersStrings.Created, user => @<text>@RelativeTime.Format(user.CreatedAt, TimeProvider.System.GetUtcNow())</text>,
+            new DataListColumn<UserDetails>(UsersStrings.Created, user => @<RelativeTimeLabel Value="user.CreatedAt"/>,
                 nameof(SortableUserProperties.CreatedAt), HideBelow: HideBelowSmall
             ),
-            new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<text>@RelativeTime.Format(user.LastSeenAt, TimeProvider.System.GetUtcNow())</text>,
+            new DataListColumn<UserDetails>(UsersStrings.LastSeen, user => @<RelativeTimeLabel Value="user.LastSeenAt"/>,
                 nameof(SortableUserProperties.LastSeenAt), HideBelow: HideBelowSmall
             ),
             new DataListColumn<UserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, nameof(SortableUserProperties.Role), HideBelow: HideBelowSmall

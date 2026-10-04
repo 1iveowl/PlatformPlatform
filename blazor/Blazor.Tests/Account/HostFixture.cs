@@ -104,9 +104,15 @@ public sealed partial class HostFixture : IAsyncLifetime
     // A second host built the way the first is, with extra command-line configuration that overrides the process-wide
     // variables, for a test of a deployment setting; the caller disposes it. Tests of this collection never run in parallel,
     // so the variables the first host was built with still hold.
-    public async Task<AdditionalHost> StartAdditionalHostAsync(params string[] configuration)
+    public Task<AdditionalHost> StartAdditionalHostAsync(params string[] configuration)
     {
-        var host = HostApplication.Build(["--environment", "Development", "--urls", "http://127.0.0.1:0", ..configuration], TokenSigningClient);
+        return StartAdditionalHostAsync(null, configuration);
+    }
+
+    // The same, with the clock the host and its prerendered components read the current time from
+    public async Task<AdditionalHost> StartAdditionalHostAsync(TimeProvider? timeProvider, params string[] configuration)
+    {
+        var host = HostApplication.Build(["--environment", "Development", "--urls", "http://127.0.0.1:0", ..configuration], TokenSigningClient, timeProvider);
         await host.StartAsync();
         return new AdditionalHost(host, CreateClient(new Uri(GetAddress(host))));
     }
@@ -233,6 +239,12 @@ public sealed partial class HostFixture : IAsyncLifetime
                 return Results.Json(new { emailLoginId = $"emlog_{Ulid.NewUlid()}", validForSeconds = 300 });
             }
         );
+
+        // A signup start and the two code resends, each granting a code valid for 300 seconds, so the verification state a
+        // handler writes into the redirect is observable
+        accountApi.MapPost(AccountApiRoutes.StartEmailSignup, () => Results.Json(new { emailLoginId = $"emlog_{Ulid.NewUlid()}", validForSeconds = 300 }));
+        accountApi.MapPost("/api/account/authentication/email/login/{emailLoginId}/resend-code", () => Results.Json(new { validForSeconds = 300 }));
+        accountApi.MapPost("/api/account/authentication/email/signup/{emailLoginId}/resend-code", () => Results.Json(new { validForSeconds = 300 }));
 
         // A login completion that is always refused, the way the account API refuses a wrong code (400) or a fourth attempt
         // (403), so the verification page's states are observable without a real code

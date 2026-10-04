@@ -23,7 +23,7 @@
             <tr data-testid="recent-signups-row">
                 <td class="dashboard-cell-primary">@row.Name</td>
                 <td class="dashboard-column-secondary">@(row.Owner is { } owner ? DashboardFormat.GetPersonName(owner.FirstName, owner.LastName, owner.Email) : DashboardFormat.Missing)</td>
-                <td class="dashboard-column-end dashboard-cell-muted">@RelativeTime.Format(row.CreatedAt, TimeProvider.System.GetUtcNow())</td>
+                <td class="dashboard-column-end dashboard-cell-muted"><RelativeTimeLabel Value="row.CreatedAt"/></td>
             </tr>
         }
         </tbody>

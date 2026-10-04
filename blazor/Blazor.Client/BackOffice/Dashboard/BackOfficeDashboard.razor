@@ -1,5 +1,6 @@
 @using Account.Features.BackOffice.Dashboard.Queries
 @using Blazor.Client.BackOffice.Shell
+@inject TimeProvider TimeProvider
 @* The back-office dashboard's WebAssembly surface, the React back office's DashboardSections: the header with today's date
    and the period toggle, the KPI tiles for the period, the chart cards, and the recent activity cards, in the React back
    office's order. The MRR trend, plan distribution, revenue, recent payments and recent billing events cards show only with
@@ -11,7 +12,7 @@
         <div class="dashboard-header">
             <div>
                 <h1>@BackOfficeStrings.Dashboard</h1>
-                <p class="dashboard-subtitle">@string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.DashboardOverview, DashboardFormat.FormatToday(DateTime.Now))</p>
+                <p class="dashboard-subtitle">@string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.DashboardOverview, DashboardFormat.FormatToday(TimeProvider.GetLocalNow().DateTime))</p>
             </div>
             <div class="dashboard-period" role="group" aria-label="@BackOfficeStrings.Period" data-testid="dashboard-period">
                 @foreach (var period in DashboardFormat.Periods)

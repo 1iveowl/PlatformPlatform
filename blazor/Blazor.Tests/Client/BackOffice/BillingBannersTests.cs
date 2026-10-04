@@ -206,16 +206,6 @@ public sealed class BillingBannersTests
         notifications.Should().Be(1);
     }
 
-    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
-    {
-        public DateTimeOffset Now { get; set; } = now;
-
-        public override DateTimeOffset GetUtcNow()
-        {
-            return Now;
-        }
-    }
-
     // Each wait completes only when the test says so, or is canceled with its token as Task.Delay is
     private sealed class ControlledDelays
     {

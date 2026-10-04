@@ -9,6 +9,7 @@
 @inject SessionState Session
 @inject IServiceProvider Services
 @inject ToastService Toasts
+@inject TimeProvider TimeProvider
 
 <AppShell SupportEmail="@SupportEmail">
     <h1>@AccountStrings.UserSessions</h1>
@@ -55,7 +56,7 @@
 
     private bool _hasRevokedSession;
     private SessionsModel? _model;
-    private DateTimeOffset _now = DateTimeOffset.UtcNow;
+    private DateTimeOffset _now;
     private UserSessionInfo? _revokingSession;
 
     protected override async Task OnInitializedAsync()
@@ -77,7 +78,7 @@
             return;
         }
 
-        _now = DateTimeOffset.UtcNow;
+        _now = TimeProvider.GetUtcNow();
         _model = SessionsModel.Create(result.Value.Sessions);
     }
 

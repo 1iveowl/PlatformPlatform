@@ -30,7 +30,7 @@
                 <td>
                     <span class="dashboard-badge @DashboardFormat.GetToneClass("dashboard-badge", DashboardFormat.GetPaymentStatusTone(row.Status))">@DashboardFormat.GetPaymentStatusLabel(row.Status)</span>
                 </td>
-                <td class="dashboard-column-secondary dashboard-column-end dashboard-cell-muted">@RelativeTime.Format(row.Date, TimeProvider.System.GetUtcNow())</td>
+                <td class="dashboard-column-secondary dashboard-column-end dashboard-cell-muted"><RelativeTimeLabel Value="row.Date"/></td>
             </tr>
         }
         </tbody>

@@ -4,6 +4,7 @@
 @using Account.Client
 @implements IDisposable
 @inject IServiceProvider Services
+@inject TimeProvider TimeProvider
 
 @if (_banners.Count > 0)
 {
@@ -43,7 +44,7 @@
         var backOfficeClient = Services.GetRequiredService<BackOfficeClient>();
         _state.Changed += OnSummaryChanged;
         _banners = BillingBannerModel.Create(IsSubscriptionEnabled, _state.Summary);
-        _poller = new BillingBannerPoller(_state, TimeProvider.System, Task.Delay, previous => BillingBannerSummary.ReadAsync(backOfficeClient, previous));
+        _poller = new BillingBannerPoller(_state, TimeProvider, Task.Delay, previous => BillingBannerSummary.ReadAsync(backOfficeClient, previous));
         _ = _poller.RunAsync();
     }
 

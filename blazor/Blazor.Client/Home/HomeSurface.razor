@@ -6,11 +6,12 @@
    browser's. *@
 @inject SessionState Session
 @inject IServiceProvider Services
+@inject TimeProvider TimeProvider
 
 <AppShell SupportEmail="@SupportEmail">
     <h1>@AccountStrings.YourWorkspace</h1>
 
-    <p class="home-greeting">@HomeGreeting.GetText(DateTime.Now.Hour, Session.Current?.User?.FirstName)</p>
+    <p class="home-greeting">@HomeGreeting.GetText(TimeProvider.GetLocalNow().Hour, Session.Current?.User?.FirstName)</p>
 
     <p class="home-overview">@CommonStrings.HereIsYourOverview</p>
 

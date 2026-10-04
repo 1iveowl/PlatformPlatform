@@ -16,6 +16,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.Services.AddLocalization();
 builder.Services.AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer());
 
+// The clock components read the current time from: relative times, the greeting, the install prompt and the back office poll. The
+// host registers its own for prerendering, so a test that replaces it there fixes what a prerendered component shows.
+builder.Services.AddSingleton(TimeProvider.System);
+
 builder.Services.AddAccountApiClients(new Uri(builder.HostEnvironment.BaseAddress), () => new HttpClientHandler());
 
 // The back-office client on its own chain, used only by the back-office pages the host serves on the back-office host

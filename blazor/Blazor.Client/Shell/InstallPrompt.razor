@@ -3,6 +3,7 @@
    swipe. Nothing renders during prerender or before the facts are read. *@
 @implements IAsyncDisposable
 @inject IJSRuntime JavaScriptRuntime
+@inject TimeProvider TimeProvider
 
 <div @ref="_element" class="install-prompt-slot">
     @if (_isShown)
@@ -50,7 +51,7 @@
         _interop = new ShellInterop(JavaScriptRuntime);
         _dotNet = DotNetObjectReference.Create(this);
         var environment = await _interop.ReadInstallPromptEnvironmentAsync();
-        if (!InstallPromptPolicy.ShouldShow(environment, TimeProvider.System.GetUtcNow())) return;
+        if (!InstallPromptPolicy.ShouldShow(environment, TimeProvider.GetUtcNow())) return;
 
         _isShown = true;
         await _interop.AttachInstallPromptSwipeAsync(_element, _dotNet);
@@ -60,7 +61,7 @@
     private async Task DismissAsync()
     {
         _isShown = false;
-        if (_interop is not null) await _interop.StoreInstallPromptDismissalAsync(InstallPromptPolicy.FormatDismissedUntil(TimeProvider.System.GetUtcNow()));
+        if (_interop is not null) await _interop.StoreInstallPromptDismissalAsync(InstallPromptPolicy.FormatDismissedUntil(TimeProvider.GetUtcNow()));
     }
 
 }

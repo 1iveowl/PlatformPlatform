@@ -1,5 +1,6 @@
 @using Blazor.Host.Shell
 @inject BrandTokens Brand
+@inject TimeProvider TimeProvider
 @* The footer of the public surface, the React edition's PublicFooter: the brand with its tagline, the copyright line and the
    legal links. The links are a plain group rather than a second navigation landmark, so the public navigation stays the one
    navigation on the page. The role is stated because the footer renders inside the layout's main landmark, where a footer
@@ -33,6 +34,6 @@
 
     private string Tagline => Brand.GetTagline(CultureInfo.CurrentUICulture.Name);
 
-    private string Copyright => string.Format(CultureInfo.CurrentCulture, CommonStrings.AllRightsReserved, DateTime.UtcNow.Year, Brand.ProductName);
+    private string Copyright => string.Format(CultureInfo.CurrentCulture, CommonStrings.AllRightsReserved, TimeProvider.GetUtcNow().Year, Brand.ProductName);
 
 }

@@ -5,6 +5,7 @@
    prerendered and interactive formatting, and to see whether an identity is still shown, so they stay on both pages until a
    later stage retires them. Nothing here is product content. *@
 @inject SessionState Session
+@inject TimeProvider TimeProvider
 
 <nav>
     <a href="@AppUrls.ToAbsolute("app/details")" data-testid="nav-details">@AccountStrings.Details</a> |
@@ -63,7 +64,7 @@
         _bootstrap = await Session.RefreshUnlessLeavingAsync();
         if (_bootstrap is null) return;
 
-        _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.BootstrapReloaded, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+        _status = string.Format(CultureInfo.CurrentCulture, AccountStrings.BootstrapReloaded, TimeProvider.GetUtcNow().UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
     }
 
 }

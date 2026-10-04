@@ -108,10 +108,14 @@
     private static RenderFragment DateCell(DateTimeOffset? date)
     {
         return @<span class="account-name-cell">
-                   <span>@(date is { } value ? RelativeTime.Format(value, TimeProvider.System.GetUtcNow()) : DashboardFormat.Missing)</span>
-                   @if (date is { } shown)
+                   @if (date is { } value)
                    {
-                       <span class="account-owner">@UserDetailFormat.FormatDateTime(shown)</span>
+                       <span><RelativeTimeLabel Value="value"/></span>
+                       <span class="account-owner">@UserDetailFormat.FormatDateTime(value)</span>
+                   }
+                   else
+                   {
+                       <span>@DashboardFormat.Missing</span>
                    }
                </span>;
     }

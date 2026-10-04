@@ -31,7 +31,8 @@ namespace Blazor.Host;
 
 public static class HostApplication
 {
-    public static WebApplication Build(string[] args, ITokenSigningClient tokenSigningClient)
+    // A test passes its own clock; every other caller gets the system clock
+    public static WebApplication Build(string[] args, ITokenSigningClient tokenSigningClient, TimeProvider? timeProvider = null)
     {
         // The application name is fixed so the static web assets manifest resolves when another entry assembly builds the host
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ApplicationName = typeof(HostApplication).Assembly.GetName().Name });
@@ -60,6 +61,9 @@ public static class HostApplication
         // Reads and renders the three legal documents once, so a document outside the renderer's policy stops the host here
         builder.Services.AddSingleton<LegalDocuments>();
         builder.Services.AddHttpContextAccessor();
+
+        // The clock of the verification pages and of prerendered client components, the system clock the client registers too
+        builder.Services.AddSingleton(timeProvider ?? TimeProvider.System);
 
         // Prerendering an interactive component reads the bootstrap contract through the host's adapter; the components'
         // navigation out of the authenticated surface and their toast presentation of failed calls resolve from the same container

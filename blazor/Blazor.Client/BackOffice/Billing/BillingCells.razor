@@ -17,7 +17,7 @@
     public static RenderFragment DateCell(DateTimeOffset date)
     {
         return @<span class="account-name-cell">
-                   <span>@RelativeTime.Format(date, TimeProvider.System.GetUtcNow())</span>
+                   <span><RelativeTimeLabel Value="date"/></span>
                    <span class="account-owner">@UserDetailFormat.FormatDateTime(date)</span>
                </span>;
     }

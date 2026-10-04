@@ -6,6 +6,7 @@
 @implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
+@inject TimeProvider TimeProvider
 
 <PageTitle>@CommonStrings.SignUp</PageTitle>
 
@@ -65,7 +66,7 @@
             return;
         }
 
-        var flow = VerificationFlow.Start(DateTimeOffset.UtcNow, result.Value.ValidForSeconds);
+        var flow = VerificationFlow.Start(TimeProvider.GetUtcNow(), result.Value.ValidForSeconds);
         Navigation.NavigateTo(flow.GetVerifyUrl("signup/verify", result.Value.EmailLoginId, Input.Email, null, false));
     }
 

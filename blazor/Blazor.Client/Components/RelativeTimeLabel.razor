@@ -1,0 +1,12 @@
+@* A point in time as RelativeTime words it, measured against the registered clock rather than the system clock, so a host
+   or a test that registers its own TimeProvider decides what "now" is. Renders the text only; a missing value renders nothing. *@
+@inject TimeProvider TimeProvider
+@RelativeTime.Format(Value, TimeProvider.GetUtcNow())
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public DateTimeOffset? Value { get; set; }
+
+}

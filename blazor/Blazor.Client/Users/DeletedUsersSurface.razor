@@ -114,7 +114,7 @@
             ),
             new DataListColumn<DeletedUserDetails>(CommonStrings.Email, user => @<text>@user.Email</text>, HideBelow: HideBelowSmall
             ),
-            new DataListColumn<DeletedUserDetails>(UsersStrings.Deleted, user => @<text>@RelativeTime.Format(user.DeletedAt, TimeProvider.System.GetUtcNow())</text>,
+            new DataListColumn<DeletedUserDetails>(UsersStrings.Deleted, user => @<RelativeTimeLabel Value="user.DeletedAt"/>,
                 HideBelow: HideBelowSmall
             ),
             new DataListColumn<DeletedUserDetails>(UsersStrings.Role, user => @<span data-testid="user-role">@UserRoleText.Label(user.Role)</span>, HideBelow: HideBelowSmall

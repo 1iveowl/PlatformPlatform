@@ -28,7 +28,7 @@
                 <td>
                     <span class="dashboard-badge">@SessionsModel.GetLoginMethodLabel(row.Method)</span>
                 </td>
-                <td class="dashboard-column-end dashboard-cell-muted">@RelativeTime.Format(row.OccurredAt, TimeProvider.System.GetUtcNow())</td>
+                <td class="dashboard-column-end dashboard-cell-muted"><RelativeTimeLabel Value="row.OccurredAt"/></td>
             </tr>
         }
         </tbody>

@@ -12,6 +12,7 @@
 @implements IDisposable
 @inject EmailAuthenticationClient EmailAuthentication
 @inject NavigationManager Navigation
+@inject TimeProvider TimeProvider
 
 <PageTitle>@CommonStrings.EnterYourVerificationCode</PageTitle>
 
@@ -83,7 +84,7 @@
 
     protected override void OnInitialized()
     {
-        _now = DateTimeOffset.UtcNow;
+        _now = TimeProvider.GetUtcNow();
         _flow = VerificationFlow.FromQuery(Sent, ValidFor, _now);
         _editContext = new EditContext(Input);
         _formErrors = new FormErrorMapper(_editContext);
@@ -136,7 +137,7 @@
             return;
         }
 
-        var flow = VerificationFlow.Start(DateTimeOffset.UtcNow, result.Value.ValidForSeconds);
+        var flow = VerificationFlow.Start(TimeProvider.GetUtcNow(), result.Value.ValidForSeconds);
         Navigation.NavigateTo(flow.GetVerifyUrl("login/verify", emailLoginId, Email, ReturnPath ?? "", true), true);
     }
 

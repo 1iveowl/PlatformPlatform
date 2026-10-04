@@ -29,7 +29,7 @@
                 </td>
                 <td class="dashboard-column-secondary">@(row.ToPlan is { } plan ? DashboardFormat.GetPlanLabel(plan) : DashboardFormat.Missing)</td>
                 <td class="dashboard-column-end dashboard-cell-number @(row.AmountDelta < 0 ? DashboardFormat.GetToneClass("dashboard-tone", DashboardTone.Negative) : null)">@(row.AmountDelta is { } delta ? DashboardFormat.FormatMoney(delta, row.Currency) : DashboardFormat.Missing)</td>
-                <td class="dashboard-column-secondary dashboard-column-end dashboard-cell-muted">@RelativeTime.Format(row.OccurredAt, TimeProvider.System.GetUtcNow())</td>
+                <td class="dashboard-column-secondary dashboard-column-end dashboard-cell-muted"><RelativeTimeLabel Value="row.OccurredAt"/></td>
             </tr>
         }
         </tbody>
