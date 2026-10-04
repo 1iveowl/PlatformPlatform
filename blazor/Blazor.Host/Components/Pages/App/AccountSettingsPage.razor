@@ -8,8 +8,8 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @attribute [InteractiveSurface]
-@inject HostShell Shell
+@inject BrandTokens Brand
 
 <PageTitle>@CommonStrings.AccountSettings</PageTitle>
 
-<AccountSettingsSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>
+<AccountSettingsSurface SupportEmail="@Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>

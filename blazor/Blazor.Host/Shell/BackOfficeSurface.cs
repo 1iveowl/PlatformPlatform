@@ -58,7 +58,7 @@ public static class BackOfficeSurface
         }
 
         var isComponentPage = endpoint?.Metadata.GetMetadata<ComponentTypeMetadata>() is not null;
-        var isAppOnlyFile = context.Request.Path.Equals(new PathString(OfflineShell.WorkerPath)) || context.Request.Path.Equals(new PathString(HostShell.ManifestPath));
+        var isAppOnlyFile = context.Request.Path.Equals(new PathString(OfflineShell.WorkerPath)) || context.Request.Path.Equals(new PathString(BrandAssets.ManifestPath));
         var isHiddenSubscriptionPage = !backOfficeSettings.IsSubscriptionEnabled && endpoint?.Metadata.GetMetadata<BackOfficeSubscriptionPageAttribute>() is not null;
         if (endpoint?.Metadata.GetMetadata<BackOfficeNotFoundAttribute>() is not null || isHiddenSubscriptionPage)
         {

@@ -1,5 +1,5 @@
 @using Blazor.Host.Shell
-@inject HostShell Shell
+@inject BrandTokens Brand
 @* The footer of the public surface, the React edition's PublicFooter: the brand with its tagline, the copyright line and the
    legal links. The links are a plain group rather than a second navigation landmark, so the public navigation stays the one
    navigation on the page. The role is stated because the footer renders inside the layout's main landmark, where a footer
@@ -7,7 +7,7 @@
    brand does not name renders nothing. The React edition's social icons are left out, recorded as a divergence. *@
 <footer class="public-footer" role="contentinfo">
     <div class="public-footer-brand">
-        <p class="public-footer-name">@Shell.Brand.ProductName</p>
+        <p class="public-footer-name">@Brand.ProductName</p>
         @if (Tagline.Length > 0)
         {
             <p class="public-footer-tagline">@Tagline</p>
@@ -21,9 +21,9 @@
             <a href="@AppUrls.ToAbsolute("legal/terms")">@CommonStrings.Terms</a>
             <a href="@AppUrls.ToAbsolute("legal/privacy")">@CommonStrings.Privacy</a>
             <a href="@AppUrls.ToAbsolute("legal/dpa")">@CommonStrings.Dpa</a>
-            @if (Shell.Brand.ContactEmail.Length > 0)
+            @if (Brand.ContactEmail.Length > 0)
             {
-                <a href="mailto:@Shell.Brand.ContactEmail">@CommonStrings.Email</a>
+                <a href="mailto:@Brand.ContactEmail">@CommonStrings.Email</a>
             }
         </div>
     </div>
@@ -31,8 +31,8 @@
 
 @code {
 
-    private string Tagline => Shell.Brand.GetTagline(CultureInfo.CurrentUICulture.Name);
+    private string Tagline => Brand.GetTagline(CultureInfo.CurrentUICulture.Name);
 
-    private string Copyright => string.Format(CultureInfo.CurrentCulture, CommonStrings.AllRightsReserved, DateTime.UtcNow.Year, Shell.Brand.ProductName);
+    private string Copyright => string.Format(CultureInfo.CurrentCulture, CommonStrings.AllRightsReserved, DateTime.UtcNow.Year, Brand.ProductName);
 
 }

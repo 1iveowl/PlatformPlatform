@@ -4,7 +4,9 @@
    between visitors; identity reaches the client through the bootstrap endpoint. The per-request nonce is only on the
    import map, the stylesheet links and the four scripts, none of which enhanced navigation re-inserts. Every URL is
    root-absolute through AppUrls, because base-uri 'none' makes the browser ignore <base href>. *@
-@inject HostShell Shell
+@inject BrandTokens Brand
+@inject BrandAssets BrandAssets
+@inject AssetLinks AssetLinks
 
 <!DOCTYPE html>
 @* no-fuib-style: FluentUI's initializer otherwise fetches "./_content/.../css/default-fuib.css" with the native fetch, which
@@ -18,14 +20,14 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     @* theme.js switches the content to the applied theme's color *@
-    <meta name="theme-color" content="@Shell.Brand.ThemeColorLight" data-light="@Shell.Brand.ThemeColorLight" data-dark="@Shell.Brand.ThemeColorDark"/>
+    <meta name="theme-color" content="@Brand.ThemeColorLight" data-light="@Brand.ThemeColorLight" data-dark="@Brand.ThemeColorDark"/>
     @* No title element here: every page renders its own <PageTitle>, which <HeadOutlet/> below turns into the document's
        title. A title here would be the first one in the document and the browser would use it for every page, so a route
        change would announce nothing new. *@
     @* The app's manifest; a back-office page is not an installable application and the back-office host does not serve it *@
     @if (!_isBackOffice)
     {
-        <link rel="manifest" href="@AppUrls.ToAbsolute(HostShell.ManifestPath)"/>
+        <link rel="manifest" href="@AppUrls.ToAbsolute(BrandAssets.ManifestPath)"/>
     }
     @* Replaces <ResourcePreloader/>, which renders relative hrefs; preload links are URL-checked and need no nonce.
        data-permanent keyed by the href: enhanced navigation otherwise treats any two <link> elements as the same node and
@@ -36,7 +38,7 @@
     {
         <link href="@link.Href" rel="@link.Rel" as="@link.As" fetchpriority="@link.FetchPriority" crossorigin="@link.CrossOrigin" integrity="@link.Integrity" data-permanent="@link.Href"/>
     }
-    <link rel="stylesheet" href="@Shell.BrandStylesheetUrl" nonce="@_nonce"/>
+    <link rel="stylesheet" href="@BrandAssets.StylesheetUrl" nonce="@_nonce"/>
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["_content/Microsoft.FluentUI.AspNetCore.Components/css/default-fuib.css"])" nonce="@_nonce"/>
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["app.css"])" nonce="@_nonce"/>
     <link rel="stylesheet" href="@AppUrls.ToAbsolute(Assets["Blazor.Host.styles.css"])" nonce="@_nonce"/>
@@ -81,13 +83,13 @@
         _locale = CultureInfo.CurrentUICulture.Name;
 
         var importMap = HttpContext.GetEndpoint()?.Metadata.GetMetadata<ImportMapDefinition>() ?? ImportMapDefinition.FromResourceCollection(Assets);
-        _importMap = Shell.GetAbsoluteImportMap(importMap);
+        _importMap = AssetLinks.GetAbsoluteImportMap(importMap);
         // The import map is on every page so enhanced navigation can still start the runtime, but only pages that host a
         // WebAssembly component preload it; a static server-rendered public page therefore downloads no runtime
         var metadata = HttpContext.GetEndpoint()?.Metadata;
         _isBackOffice = metadata?.GetMetadata<BackOfficeSurfaceAttribute>() is not null;
         _isInteractiveSurface = _isBackOffice || metadata?.GetMetadata<InteractiveSurfaceAttribute>() is not null;
-        _preloadLinks = _isInteractiveSurface ? HostShell.GetPreloadLinks(Assets, _importMap).OrderBy(link => link.Order).ToArray() : [];
+        _preloadLinks = _isInteractiveSurface ? AssetLinks.GetPreloadLinks(Assets, _importMap).OrderBy(link => link.Order).ToArray() : [];
     }
 
 }

@@ -11,13 +11,13 @@
 @using Blazor.Host.Shell
 @using Microsoft.AspNetCore.Diagnostics
 @inject IHostEnvironment Environment
-@inject HostShell Shell
+@inject BrandTokens Brand
 
 <PageTitle>@ErrorContent.Title(_view)</PageTitle>
 
 @if (_view.Layout == StatusPageLayout.Shell)
 {
-    <StatusPageSurface SupportEmail="@Shell.Brand.SupportEmail" Error="_view" @rendermode="InteractiveWebAssembly"/>
+    <StatusPageSurface SupportEmail="@Brand.SupportEmail" Error="_view" @rendermode="InteractiveWebAssembly"/>
 }
 else
 {

@@ -5,7 +5,7 @@
 @page "/"
 @using Blazor.Host.Shell
 @layout StaticPageLayout
-@inject HostShell Shell
+@inject BrandTokens Brand
 @inject NavigationManager Navigation
 
 <PageTitle>@Heading</PageTitle>
@@ -32,12 +32,12 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = null!;
 
-    private string Heading => string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.WelcomeToProduct, Shell.Brand.ProductName);
+    private string Heading => string.Format(CultureInfo.CurrentCulture, AuthenticationStrings.WelcomeToProduct, Brand.ProductName);
 
     private string Installation => string.Format(
         CultureInfo.CurrentCulture,
         AppUrls.IsLocalhost(HttpContext.Request.Host.Host) ? AuthenticationStrings.ProductInstalled : AuthenticationStrings.ProductDeployed,
-        Shell.Brand.ProductName
+        Brand.ProductName
     );
 
     protected override void OnInitialized()

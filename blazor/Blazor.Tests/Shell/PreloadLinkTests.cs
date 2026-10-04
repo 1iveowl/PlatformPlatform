@@ -77,7 +77,7 @@ public sealed partial class PreloadLinkTests(HostFixture fixture)
     public void ToRootAbsoluteLinkHeader_WhenTargetIsRelative_ShouldResolveAgainstTheResponseUrl(string responsePath, string header, string expected)
     {
         // Act
-        var rewritten = HostShell.ToRootAbsoluteLinkHeader(header, responsePath);
+        var rewritten = AssetLinks.ToRootAbsoluteLinkHeader(header, responsePath);
 
         // Assert
         rewritten.Should().Be(expected);

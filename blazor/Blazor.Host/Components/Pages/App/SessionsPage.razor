@@ -6,8 +6,8 @@
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @attribute [InteractiveSurface]
-@inject HostShell Shell
+@inject BrandTokens Brand
 
 <PageTitle>@AccountStrings.UserSessions</PageTitle>
 
-<SessionsSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>
+<SessionsSurface SupportEmail="@Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>

@@ -12,7 +12,7 @@ using SharedKernel.Domain;
 
 namespace Blazor.Host.Shell;
 
-public sealed class HostBootstrapSource(IHttpContextAccessor httpContextAccessor, HostShell hostShell, IAntiforgery antiforgery) : IBootstrapSource
+public sealed class HostBootstrapSource(IHttpContextAccessor httpContextAccessor, PlatformSettings platformSettings, IAntiforgery antiforgery) : IBootstrapSource
 {
     private const string FeatureFlagsClaimName = "feature_flags";
 
@@ -61,7 +61,7 @@ public sealed class HostBootstrapSource(IHttpContextAccessor httpContextAccessor
             FindOptionalClaim(principal, "tenant_name"),
             FindOptionalClaim(principal, "tenant_logo_url"),
             FindOptionalClaim(principal, "subscription_plan"),
-            email?.EndsWith(hostShell.InternalEmailDomain, StringComparison.OrdinalIgnoreCase) == true,
+            email?.EndsWith(platformSettings.InternalEmailDomain, StringComparison.OrdinalIgnoreCase) == true,
             (FindOptionalClaim(principal, FeatureFlagsClaimName)?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? []).Distinct().Order(StringComparer.Ordinal).ToArray()
         );
     }

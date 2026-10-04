@@ -5,13 +5,13 @@
 @using Blazor.Client.Shell
 @using Blazor.Host.Shell
 @layout MainLayout
-@inject HostShell Shell
+@inject BrandTokens Brand
 
 <PageTitle>@CommonStrings.PageNotFound</PageTitle>
 
 @if (StatusPageModel.GetLayout(HttpContext?.User.Identity?.IsAuthenticated == true) == StatusPageLayout.Shell)
 {
-    <StatusPageSurface SupportEmail="@Shell.Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>
+    <StatusPageSurface SupportEmail="@Brand.SupportEmail" @rendermode="InteractiveWebAssembly"/>
 }
 else
 {

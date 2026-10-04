@@ -56,7 +56,7 @@ public sealed partial class HostSecurityTests
         var client = fixture.Client;
 
         // Act
-        using var response = await client.GetAsync($"blazor{HostShell.ManifestPath}");
+        using var response = await client.GetAsync($"blazor{BrandAssets.ManifestPath}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -70,7 +70,7 @@ public sealed partial class HostSecurityTests
     {
         // Arrange
         var client = fixture.Client;
-        var brandStylesheetUrl = fixture.HostServices.GetRequiredService<HostShell>().BrandStylesheetUrl;
+        var brandStylesheetUrl = fixture.HostServices.GetRequiredService<BrandAssets>().StylesheetUrl;
 
         // Act
         using var response = await client.GetAsync(brandStylesheetUrl[1..]);

@@ -35,9 +35,9 @@ public static class HostApplication
     {
         // The application name is fixed so the static web assets manifest resolves when another entry assembly builds the host
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ApplicationName = typeof(HostApplication).Assembly.GetName().Name });
-        var publicUrl = Uri.TryCreate(Environment.GetEnvironmentVariable(HostShell.PublicUrlKey), UriKind.Absolute, out var parsedPublicUrl)
+        var publicUrl = Uri.TryCreate(Environment.GetEnvironmentVariable(TrustedHosts.PublicUrlKey), UriKind.Absolute, out var parsedPublicUrl)
             ? parsedPublicUrl
-            : throw new InvalidOperationException($"{HostShell.PublicUrlKey} is not set to an absolute URL. Start the stack through the AppHost.");
+            : throw new InvalidOperationException($"{TrustedHosts.PublicUrlKey} is not set to an absolute URL. Start the stack through the AppHost.");
 
         builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
@@ -47,7 +47,13 @@ public static class HostApplication
         builder.Services.AddLocalization();
         builder.Services.AddFluentUIComponents(configuration => configuration.Localizer = new FluentResourceLocalizer());
 
-        builder.Services.AddSingleton<HostShell>();
+        // The settings file is read once: the brand tokens name the data protection application below and fill the brand files
+        var platformSettings = PlatformSettings.Load();
+        builder.Services.AddSingleton(platformSettings);
+        builder.Services.AddSingleton(platformSettings.Brand);
+        builder.Services.AddSingleton<BrandAssets>();
+        builder.Services.AddSingleton<AssetLinks>();
+        builder.Services.AddSingleton(new HostShell(TrustedHosts.FromEnvironment(builder.Environment.IsDevelopment())));
         var backOfficeOrigin = new BackOfficeOrigin();
         builder.Services.AddSingleton(backOfficeOrigin);
         builder.Services.AddSingleton(BackOfficeSettings.From(builder.Configuration));
@@ -86,7 +92,7 @@ public static class HostApplication
 
         // The platform's data protection registration: the APIs' application name locally and the Container Apps key ring in
         // Azure, so an antiforgery token issued here validates at the account API and one issued by the React shell validates here
-        builder.Services.AddCrossServiceDataProtection(HostShell.LoadBrandTokens().ProductName);
+        builder.Services.AddCrossServiceDataProtection(platformSettings.Brand.ProductName);
         builder.Services.AddAntiforgery(options =>
             {
                 options.Cookie.Name = HostShell.AntiforgeryCookieName;
@@ -134,7 +140,7 @@ public static class HostApplication
                 return Task.CompletedTask;
             }
         );
-        app.Use(HostShell.RewriteLinkHeadersAsync);
+        app.Use(AssetLinks.RewriteLinkHeadersAsync);
         app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
         app.UseRouting();
 
@@ -151,17 +157,18 @@ public static class HostApplication
         app.UseAntiforgery();
 
         // Brand values from platform-settings.jsonc, versioned by content in the URL the host page renders
-        app.MapGet(HostShell.BrandStylesheetPath, (HttpContext context) =>
+        var brandAssets = app.Services.GetRequiredService<BrandAssets>();
+        app.MapGet(BrandAssets.StylesheetPath, (HttpContext context) =>
             {
                 context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
-                return Results.Text(hostShell.BrandStylesheet, "text/css");
+                return Results.Text(brandAssets.Stylesheet, "text/css");
             }
         );
 
-        app.MapGet(HostShell.ManifestPath, (HttpContext context) =>
+        app.MapGet(BrandAssets.ManifestPath, (HttpContext context) =>
             {
                 context.Response.Headers.CacheControl = "no-cache";
-                return Results.Text(hostShell.Manifest, "application/manifest+json");
+                return Results.Text(brandAssets.Manifest, "application/manifest+json");
             }
         );
 
@@ -169,11 +176,12 @@ public static class HostApplication
         // static asset route: no-cache so a deployment's worker is found on the next navigation, and Service-Worker-Allowed
         // so its scope is the whole path base whatever folder it is served from. The response carries no policy of its own,
         // so the worker's own fetches are not restricted by a page's nonce, which it could never carry.
+        var workerScript = OfflineShell.BuildWorkerScript();
         app.MapGet(OfflineShell.WorkerPath, (HttpContext context) =>
             {
                 context.Response.Headers.CacheControl = "no-cache";
                 context.Response.Headers["Service-Worker-Allowed"] = $"{AppUrls.PathBase}/";
-                return Results.Text(hostShell.WorkerScript, "text/javascript");
+                return Results.Text(workerScript, "text/javascript");
             }
         );
 
