@@ -171,9 +171,12 @@ export function runCommit() {
 // server is registered here, and anything shaped like a signed token is masked as well
 const sensitiveValues = new Set();
 const signedTokenPattern = /eyJ[\w-]+\.[\w-]+\.[\w-]*/g;
+// A value shorter than this is no credential (a cookie such as "0", "true" or "en-US"), and masking it would mask every
+// occurrence of those characters across the record. One-time passwords are registered regardless of length.
+const minimumSensitiveLength = 16;
 
-export function registerSensitiveValue(value) {
-  if (typeof value === "string" && value.length > 0) sensitiveValues.add(value);
+export function registerSensitiveValue(value, { anyLength = false } = {}) {
+  if (typeof value === "string" && value.length > 0 && (anyLength || value.length >= minimumSensitiveLength)) sensitiveValues.add(value);
 }
 
 export function redact(text) {
@@ -252,7 +255,7 @@ export async function readOneTimePassword(email, sentAfter) {
       const detail = await (await fetch(`${mailpitUrl}/api/v1/message/${message.ID}`)).json();
       const match = detail.Text.match(oneTimePasswordPattern);
       if (match === null) throw new Error(`No one-time password in the mail to ${email}.`);
-      registerSensitiveValue(match[1]);
+      registerSensitiveValue(match[1], { anyLength: true });
       return match[1];
     }
     await new Promise((resolve) => setTimeout(resolve, mailPollIntervalMs));

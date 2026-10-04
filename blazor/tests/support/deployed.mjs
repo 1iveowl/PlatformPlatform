@@ -86,12 +86,17 @@ export async function ask(question) {
   }
 }
 
+// A session read waits out a host and an account API scaling from zero (20 to 46 s for a first answer, "Deployment
+// procedure for G6b"). Observed on 2026-10-01: the default 30 s ended a run twice after half an hour idle, and a refresh the
+// server completes after the client gave up would leave the stored refresh token one rotation behind.
+const sessionReadTimeoutMs = 120_000;
+
 // The back-office identity a stored session carries, read from the account API through the platform authentication:
 // 200 names the identity; 401 or a redirect to the sign-in means the session has expired
 export async function readBackOfficeSession(storageState, backOfficeUrl) {
   const request = await playwright.request.newContext({ storageState });
   try {
-    const response = await request.get(`${backOfficeUrl}/api/back-office/me`, { maxRedirects: 0, headers: { Accept: "application/json" } });
+    const response = await request.get(`${backOfficeUrl}/api/back-office/me`, { maxRedirects: 0, headers: { Accept: "application/json" }, timeout: sessionReadTimeoutMs });
     const me = response.status() === 200 ? await response.json() : null;
     return { status: response.status(), me, storageState: await request.storageState() };
   } finally {
@@ -104,7 +109,7 @@ export async function readBackOfficeSession(storageState, backOfficeUrl) {
 export async function readAppSession(storageState, appUrl) {
   const request = await playwright.request.newContext({ storageState });
   try {
-    const response = await request.get(`${appUrl}/api/account/bootstrap`, { maxRedirects: 0, headers: { Accept: "application/json" } });
+    const response = await request.get(`${appUrl}/api/account/bootstrap`, { maxRedirects: 0, headers: { Accept: "application/json" }, timeout: sessionReadTimeoutMs });
     const bootstrap = response.status() === 200 ? await response.json() : null;
     if (bootstrap?.antiforgeryToken) registerSensitiveValue(bootstrap.antiforgeryToken);
     return { status: response.status(), bootstrap, storageState: await request.storageState() };
@@ -122,7 +127,7 @@ export async function reconcileAppSession(context, appUrl) {
   const cookies = await context.cookies(appUrl);
   if (!cookies.some((cookie) => cookie.name === "__Host-refresh-token")) return null;
   await context.clearCookies({ name: "__Host-access-token", domain: new URL(appUrl).hostname });
-  const response = await context.request.get(`${appUrl}/api/account/bootstrap`, { maxRedirects: 0, headers: { Accept: "application/json" } });
+  const response = await context.request.get(`${appUrl}/api/account/bootstrap`, { maxRedirects: 0, headers: { Accept: "application/json" }, timeout: sessionReadTimeoutMs });
   const bootstrap = response.status() === 200 ? await response.json() : null;
   if (bootstrap?.antiforgeryToken) registerSensitiveValue(bootstrap.antiforgeryToken);
   return bootstrap?.isAuthenticated === true ? bootstrap.user : null;
@@ -149,10 +154,15 @@ export async function verifyStoredSession(store, identity, { backOfficeUrl, appU
   return { valid: true, state, me: backOffice.me, appUser: app.bootstrap.user };
 }
 
+// A request that fails or times out while the person signs in (a host scaling from zero can take 20 to 46 s) counts as no
+// answer yet, not as a failed sign-in; observed on 2026-10-01, when one bootstrap poll timed out after 30 s and ended the capture
 async function pollUntil(read, describe) {
   const deadline = Date.now() + signInTimeoutMs;
   while (Date.now() < deadline) {
-    const value = await read();
+    const value = await read().catch((error) => {
+      console.log(`No answer yet (${redact(error.message.split("\n")[0])}); polling again.`);
+      return undefined;
+    });
     if (value !== undefined) return value;
     await new Promise((resolve) => setTimeout(resolve, signInPollMs));
   }

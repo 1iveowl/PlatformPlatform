@@ -290,7 +290,30 @@ on EP-216) and the G7a review (EP-224, its verdict's item 5 and N-4 on EP-223) a
    `az containerapp update -n back-office -g <rg> --set-env-vars BACK_OFFICE_BLAZOR_HOST_URL=https://blazor-host.internal.<env>`
    and `az containerapp update -n blazor-host -g <rg> --set-env-vars BACK_OFFICE_PUBLIC_URL=https://<bo>` set the same
    values the Bicep holds, so the next cluster deploy changes nothing.
-5. The checks below, in order. At the first failure, or when step 2, 3 or 4 does not finish, go to step 6.
+5. The checks below, run by one command from the repository (`blazor/tests/staging-acceptance.mjs`, EP-227). Nothing is
+   pasted into a browser console. A failed check, or step 2, 3 or 4 not finishing, sends the procedure to step 6.
+   - Sign in once per identity: `dotnet run --project developer-cli -- blazor-harness staging-acceptance --tag <tag>
+     --resource-group <rg> --subscription "<subscription>" --sign-in admin`, then the same with `--sign-in non-admin`. Each
+     opens a Chromium window on a virtual display inside the dev container, shown through noVNC: forward
+     `127.0.0.1:6080`, open `/vnc.html` on the forwarded address and enter the one-time password the command prints. The
+     admin signs in to the back office with the owner's Entra account and to the app edition as the admin write's target
+     user (`--app-user`, default `jasper@etara.dk`); the non-admin with an account outside the admins group. The sessions
+     are stored outside the repository (`~/.local/state/platformplatform/blazor-staging`, readable by the owner only) and
+     reused until they expire.
+   - Run the checks: the same command without `--sign-in`, in a terminal. An expired session stops it before any check
+     (exit code 3) and offers the sign-in again; it is never a failed check. It first asserts that each of `account-api`,
+     `back-office`, `account-workers` and `blazor-host` runs `<tag>` on every active revision and that the documents both
+     hosts serve reference only assets of that tag's image, then runs every check in the table, the authenticated
+     surfaces at desktop and phone width, check 8 on a user override of `--flag` (default `compact-view`, which must be
+     user-configurable and active for the preferences page to list it; the owner had it activated on staging on
+     2026-10-01) with the target's override state restored exactly afterwards (also on
+     an interrupt; a pending-restore file beside the sessions makes the next run restore it first), and the non-admin
+     checks.
+   - Checks 3b and 3c: the command describes the probe job it would create (from `blazor/tests/staging/probe-job.yaml`,
+     no ingress, no secret) and asks for its name to be typed. Typed, it creates the job, runs one execution, reads its
+     log and deletes the job; Enter records both checks as not run. Every run asks again.
+   - The record: every request and answer in `.workspace/blazor-tests/staging-acceptance-<tag>-<browser>-<time>.json`,
+     with cookie and token values masked. Exit code 0 when every check passed, 1 when one failed or did not run.
 6. Revert (G6a review N-1). It restores every container app to the image and settings recorded in step 1.
    - Unmap the proxy: `az containerapp update -n back-office -g <rg> --remove-env-vars BACK_OFFICE_BLAZOR_HOST_URL`.
      Unset, the route is not mapped (`application/account/Api/BackOfficeBlazorProxy.cs` line 40) and `/blazor/*` on
@@ -321,7 +344,7 @@ on EP-216) and the G7a review (EP-224, its verdict's item 5 and N-4 on EP-223) a
 | --- | --- | --- | --- |
 | 1 | Host (G0 item 3) | Compare the host in step 1 with `BACK_OFFICE_PUBLIC_URL` on `blazor-host` and `BackOffice__Host` on `back-office`; then `GET https://<bo>/api/back-office/me` signed in | All three name the same host; 200 with the session's identity. A mismatch answers every back-office page with 404 |
 | 2 | Shared key ring (G0 item 1) | Signed in as an admin, open `https://<bo>/blazor/back-office/identity` | 200 with the signed-in name and the admin marker. A loop between `/blazor/back-office` and `/.auth/login/aad`, or "The forwarded back-office identity is not valid" in the `blazor-host` log, means the ring is not shared: stop, the fallback (an explicit shared key store with `SetApplicationName` on both apps) is an owner decision. The staging proof of the Blazor edition's email login is indirect evidence that the ring is shared (see "What G6a must deploy"); this check is the proof for `back-office` |
-| 3 | Principal header overwrite (G0 item 2, G6a review N-2) | From the browser console on `https://<bo>/blazor/back-office`, signed in as an admin: `fetch("/api/back-office/me", { headers: h }).then(r => r.json())` and `fetch("/blazor/back-office/identity", { headers: h }).then(r => r.text())`, where `h` is `{ "X-MS-CLIENT-PRINCIPAL-NAME": "<other name>", "X-MS-CLIENT-PRINCIPAL-ID": "<other id>", "X-MS-CLIENT-PRINCIPAL": "<base64 payload naming the other identity with the admins group>" }`. The fetch carries the platform's session cookie and stays inside the page's `connect-src`, which names the back-office origin (`blazor/Blazor.Host/Shell/HostShell.cs` line 190); curl works too with the platform's session cookie copied from the browser. Repeat signed in as a non-admin with the payload claiming the admins group. Repeat with no session: curl without a cookie, once with `Accept: text/html` and once without | With a session: `/me` names the session's identity with its own `isAdmin`; in the page text, `data-testid="back-office-name"` holds the session's name and `data-testid="back-office-admin-marker"` reads `Admin` for the admin and `Not admin` for the non-admin in en-US (`BackOfficeIdentityPage.razor` lines 19 and 21, read as `blazor/Blazor.Tests/Account/HostSecurityTests.BackOffice.cs` lines 43 to 60 read them); the non-admin's write (for example the rollout of a flag) answers 403. No session: 302 to `/.auth/login/aad` or 401, never 200 (assumption: the platform may answer a request that does not look like a browser's with 401, as the account API's own challenge does, `BackOfficeIdentityHandler.HandleChallengeAsync`). The no-session case is the one that says something about the platform: locally the mock overwrites the headers only when a session exists (G0 review N-3) |
+| 3 | Principal header overwrite (G0 item 2, G6a review N-2) | The command, from a page of `https://<bo>/blazor/back-office` signed in as the admin: `fetch("/api/back-office/me", { headers: h }).then(r => r.json())` and `fetch("/blazor/back-office/identity", { headers: h }).then(r => r.text())`, where `h` is `{ "X-MS-CLIENT-PRINCIPAL-NAME": "<other name>", "X-MS-CLIENT-PRINCIPAL-ID": "<other id>", "X-MS-CLIENT-PRINCIPAL": "<base64 payload naming the other identity with the admins group>" }`. The fetch carries the platform's session cookie and stays inside the page's `connect-src`, which names the back-office origin (`blazor/Blazor.Host/Shell/HostShell.cs` line 190). Repeated as the non-admin with the payload claiming the admins group. Repeated with no session, as a plain request without a cookie, once with `Accept: text/html` and once with `Accept: application/json` | With a session: `/me` names the session's identity with its own `isAdmin`; in the page text, `data-testid="back-office-name"` holds the session's name and `data-testid="back-office-admin-marker"` reads `Admin` for the admin and `Not admin` for the non-admin in en-US (`BackOfficeIdentityPage.razor` lines 19 and 21, read as `blazor/Blazor.Tests/Account/HostSecurityTests.BackOffice.cs` lines 43 to 60 read them); the non-admin's write (for example the rollout of a flag) answers 403. No session: 302 to `/.auth/login/aad` or 401, never 200 (assumption: the platform may answer a request that does not look like a browser's with 401, as the account API's own challenge does, `BackOfficeIdentityHandler.HandleChallengeAsync`). The no-session case is the one that says something about the platform: locally the mock overwrites the headers only when a session exists (G0 review N-3) |
 | 3b | Forged headers on the internal account API (G7a review, optional) | From a shell inside the environment: `GET https://account-api.internal.<env>/api/back-office/me` with `Host: <bo>`, the forged headers of check 3 and `Accept: application/json` | 401 or 404, never 200. 401 is the account API refusing the headers outside the `back-office` container (T019); 404 means the environment did not route the forged `Host` to `account-api`. Record which |
 | 3c | Forged headers on the back-office app from inside (G7a review, optional) | From the same shell: `GET https://<bo>/api/back-office/me`, or the `back-office` app's own FQDN, with the forged headers of check 3 and no session | 302 or 401, never 200. The account API trusts every request the `back-office` container receives, so this rests on the platform authentication sitting in front of in-environment traffic too (assumption, stated nowhere in the repository) |
 | 4 | App path refuses | `GET https://<app>/blazor/back-office` with the forged principal headers, with `X-Forwarded-Host: <bo>` added, and with a made-up `X-Back-Office-Identity` | 404 each time |
@@ -332,13 +355,14 @@ on EP-216) and the G7a review (EP-224, its verdict's item 5 and N-4 on EP-223) a
 | 8 | Antiforgery write | As an admin, one write from the Blazor back office, then the same write as a non-admin | 2xx, then 403 |
 | 9 | Subscription setting | `BACK_OFFICE_SUBSCRIPTION_ENABLED` on `blazor-host` against `PUBLIC_SUBSCRIPTION_ENABLED` on `back-office`; the account tabs in both back offices | Equal values; the billing tabs show in the Blazor back office exactly when they show in the React one |
 | 10 | Nothing else moved | `GET https://<bo>/` signed in, and `GET https://<app>/blazor/` | The React back office at the root; the app edition's landing page, 200 |
-| 11 | Assets under load (added by G6b, 2026-09-29) | Signed in on `https://<bo>/blazor/back-office`, from the browser console: fetch every `/blazor/_framework/*.wasm` file the page loaded three times in parallel with `cache: "no-store"`; then the `back-office` log for `Yarp.ReverseProxy.Forwarder.HttpForwarder[48]` | Every response 200 with a body; no forwarder error logged. A 502 with an empty body, or a body cut off, is the stream reset of "Asset stream resets" above |
+| 11 | Assets under load (added by G6b, 2026-09-29) | The command, from a page of `https://<bo>/blazor/back-office` signed in as the admin: fetch every `/blazor/_framework/*.wasm` file the page loaded three times in parallel with `cache: "no-store"`; then the `back-office` log for `Yarp.ReverseProxy.Forwarder.HttpForwarder[48]` | Every response 200 with a body; no forwarder error logged. A 502 with an empty body, or a body cut off, is the stream reset of "Asset stream resets" above |
 
 Checks 3b and 3c need a shell inside the environment. None of the repository's images has one: all are chiseled .NET
 images (the `FROM` lines of all six Dockerfiles, under `application/account/`, `application/main/`,
-`application/AppGateway/` and `blazor/Blazor.Host/`; assumption: chiseled images carry no shell), so `az containerapp exec` into an existing app does not give one. Running a temporary
-container with a shell and curl in the environment for them, and deleting it afterwards, is the owner's call at G6b;
-without one, record 3b and 3c as not run on EP-217.
+`application/AppGateway/` and `blazor/Blazor.Host/`; assumption: chiseled images carry no shell), so `az containerapp exec` into an existing app does not give one. The command
+runs them from a temporary Container Apps job with curl, created from `blazor/tests/staging/probe-job.yaml` and deleted
+after one execution, only when the owner types the job's name for that run (step 5); without that approval it records
+3b and 3c as not run.
 
 Symptoms after step 2 and what to look at first:
 

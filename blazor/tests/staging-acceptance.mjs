@@ -24,7 +24,7 @@
 //   dotnet run --project developer-cli -- blazor-harness staging-acceptance --tag <tag> --resource-group <rg> \
 //     --subscription "<subscription>"
 // Options: --app-user <email> (the admin write's target, default jasper@etara.dk), --tenant-id <id> (when that user has more
-// than one account), --flag <key> (default experimental-ui), --session-folder <folder>, --desktop-port <port> (6080, the browser desktop for a sign-in),
+// than one account), --flag <key> (default compact-view, a user-configurable flag that is active on staging), --session-folder <folder>, --desktop-port <port> (6080, the browser desktop for a sign-in),
 // --without-write (check 8 is recorded as not run, for a first run that proves the read-only checks).
 // Exit codes: 0 every check passed, 1 a check failed or did not run, 3 a sign-in is needed first.
 
@@ -36,7 +36,14 @@ import { ask, captureSession, createAzure, identities, reconcileAppSession, reco
 import { newContext, parseArguments, pathBase, playwright, readEndpointManifest, redact, repositoryRoot, writeResult } from "./support/stack.mjs";
 import { appSurfaces, backOfficeSurfaces, checkSurfaces, readBackOfficeIds, settleAndClosePages, surfaceViewports } from "./support/surfaces.mjs";
 
-const options = parseArguments(process.argv.slice(2), { browser: "chromium", "app-user": "jasper@etara.dk", flag: "experimental-ui", "desktop-port": "6080" });
+// An error nobody caught is printed through redact: the automation library's call log lists the request's cookie header,
+// which Node would otherwise print as it is (observed on 2026-10-01 after a request timed out)
+process.on("uncaughtException", (error) => {
+  console.error(redact(error?.stack ?? String(error)));
+  process.exit(1);
+});
+
+const options = parseArguments(process.argv.slice(2), { browser: "chromium", "app-user": "jasper@etara.dk", flag: "compact-view", "desktop-port": "6080" });
 for (const required of ["tag", "resource-group", "subscription"]) {
   if (typeof options[required] !== "string") throw new Error(`Name the --${required}.`);
 }
@@ -110,14 +117,30 @@ const browserVersion = browser.version();
 
 // A context of the identity, or of nobody; closing it stores the cookies it ended with, since the account API rotates the
 // refresh token and revokes a session whose previous token comes back
+//
+// Only a context that visited the app host may reconcile or store app-edition cookies. Check 8 keeps one admin context open
+// on the back office while other contexts visit the app host and rotate the refresh token; reconciling the first one's copy,
+// two rotations old and past the 30 s grace, made the account API revoke the session (observed on staging, 2026-10-01 07:41
+// UTC). A context that never visited the app host stores its back-office cookies beside the stored app-edition ones.
+const appHost = new URL(appUrl).hostname;
+const isAppCookie = (cookie) => cookie.domain.replace(/^\./, "") === appHost;
+
 async function openContext(identity, contextOptions = {}) {
   const context = await newContext(browser, options.browser, identity ? stateOf(identity) : undefined, "en-US", { ignoreHTTPSErrors: false, ...contextOptions });
+  let visitedApp = false;
+  context.on("request", (request) => {
+    if (new URL(request.url()).hostname === appHost) visitedApp = true;
+  });
   return {
     context,
     close: async () => {
       await settleAndClosePages(context);
-      if (identity === "admin") await reconcileAppSession(context, appUrl);
-      if (identity) store.save(identity, await context.storageState());
+      if (identity === "admin" && visitedApp) await reconcileAppSession(context, appUrl);
+      if (identity) {
+        const state = await context.storageState();
+        const stored = stateOf(identity);
+        store.save(identity, visitedApp || stored === undefined ? state : { ...state, cookies: [...stored.cookies.filter(isAppCookie), ...state.cookies.filter((cookie) => !isAppCookie(cookie))] });
+      }
       await context.close();
     }
   };
@@ -213,12 +236,14 @@ async function readUserFlag(userId, tenantId) {
 
 const sameFlagState = (left, right) => left.isEnabled === right.isEnabled && left.source === right.source;
 
-// The flag detail's users list, searched for the target user, and the row keys (user id and account id) of that user
+// The flag detail's users list, searched for the target user in every state, and the row keys (user id and account id) of
+// that user. The list shows only users with the flag enabled unless told otherwise (FeatureFlagOverrides.DefaultStateFilter),
+// so a user with the flag disabled, the state a write changes and a restore returns to, has no row under the default. The
+// filters go in the URL the list reads them from (FeatureFlagUsersListSource.StateParameter and SearchParameter).
 async function openOverrideList(page) {
-  await page.goto(`${backOfficeUrl}${pathBase}/back-office/feature-flags/${encodeURIComponent(flagKey)}`, { waitUntil: "load" });
+  const filters = new URLSearchParams({ usersState: "All", usersSearch: appUserEmail });
+  await page.goto(`${backOfficeUrl}${pathBase}/back-office/feature-flags/${encodeURIComponent(flagKey)}?${filters}`, { waitUntil: "load" });
   await waitForBackOffice(page);
-  // The search box is a FluentTextInput, whose input sits in its shadow root; the role query reaches it, as in trimmed-smoke
-  await page.locator('[data-testid="feature-flag-users-toolbar"]').getByRole("textbox", { name: "Search users" }).fill(appUserEmail);
   await page.waitForFunction(
     (email) => {
       const list = document.querySelector('.data-list[data-testid="feature-flag-users-grid"]');
@@ -653,6 +678,14 @@ else await check("8", writeCheckName, async (requests) => {
   let outcome;
   let failure;
   try {
+    // The preferences page lists only user-configurable flags whose base row is active (GetUserConfigurableFeatureFlags),
+    // so a flag that is neither can never show the override there. Observed on staging on 2026-10-01: experimental-ui is not
+    // user-configurable, and compact-view was inactive until the owner had it activated that day.
+    const flags = await send("admin", "GET", `${backOfficeUrl}/api/back-office/feature-flags?IncludeDeleted=false`, { headers: { Accept: "application/json" } });
+    assert(flags.status === 200, `GET the flags answered ${flags.status}.`);
+    const flag = JSON.parse(flags.body).flags.find((candidate) => candidate.key === flagKey);
+    assert(flag?.configurableByUser === true && flag.isActive === true, `The ${flagKey} flag must be user-configurable and active for its override to show on the preferences page; it is ${JSON.stringify({ configurableByUser: flag?.configurableByUser, isActive: flag?.isActive })}. Nothing was written.`);
+
     const page = await context.newPage();
     const rows = await openOverrideList(page);
     const candidates = rows.filter((key) => options["tenant-id"] === undefined || key.endsWith(`-${options["tenant-id"]}`));
