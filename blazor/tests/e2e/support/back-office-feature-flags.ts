@@ -14,6 +14,13 @@ import { confirmFeatureFlagActionInBackOffice, openFeatureFlagDetailInBackOffice
 export const administeredFeatureFlagKey = "experimental-ui";
 
 /**
+ * The tenant flag whose accounts list the back-office feature flag specification follows through activation and rollout: a
+ * kill-switch A/B test on the tenant scope that no other Blazor specification changes. The React feature flag specification
+ * leaves it active at 100 % and relies on that, so a Blazor run puts back the state it found.
+ */
+export const audienceFeatureFlagKey = "beta-features";
+
+/**
  * A flag's global state as the back office reports it
  */
 export interface FeatureFlagState {

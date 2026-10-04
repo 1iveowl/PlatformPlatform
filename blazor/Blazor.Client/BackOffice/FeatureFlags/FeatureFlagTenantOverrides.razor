@@ -13,7 +13,8 @@
    the override switch. The filters, sort and page are in the URL under the tenants prefix (FeatureFlagTenantsListSource). A
    switch press sets or removes the account's override (FeatureFlagOverrides.GetSwitchChange) and the row menu removes a manual
    override; both are offered only to an identity in the admins group, and after every answer the list is read again, so a
-   row shows what the account API stored. A plan-managed flag's list is read-only. A row opens the account's feature flags. *@
+   row shows what the account API stored. An action on the flag itself reads it again too (FlagChanges). A plan-managed
+   flag's list is read-only. A row opens the account's feature flags. *@
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
@@ -90,6 +91,7 @@
     private bool _canSetOverrides;
     private IReadOnlyList<DataListColumn<FeatureFlagTenantInfo>> _columns = [];
     private IReadOnlyDictionary<string, string> _filters = new Dictionary<string, string>();
+    private int _flagChanges;
     private bool _hasOverride;
     private bool _isPlanManaged;
     private DataList<FeatureFlagTenantInfo>? _list;
@@ -99,6 +101,11 @@
     [Parameter]
     [EditorRequired]
     public FeatureFlagInfo Flag { get; set; } = null!;
+
+    // The number of actions on the flag itself the detail has counted. Activation, rollout and deletion change every row's
+    // effective state, so a new value drops the list's cached pages and reads the current page again with its URL state.
+    [Parameter]
+    public int FlagChanges { get; set; }
 
     // The back-office identity BackOfficeShell read from GET /api/back-office/me; null until it is loaded
     [CascadingParameter]
@@ -119,6 +126,15 @@
         _isPlanManaged = FeatureFlagDetail.IsPlanFlag(Flag);
         _canSetOverrides = FeatureFlagOverrides.CanSetOverrides(Me, Flag);
         _columns = BuildColumns();
+    }
+
+    // The first value is the one the list loads with; DataList's own load covers it
+    protected override async Task OnParametersSetAsync()
+    {
+        if (FlagChanges == _flagChanges) return;
+
+        _flagChanges = FlagChanges;
+        if (_list is not null) await _list.InvalidateAsync();
     }
 
     private IReadOnlyList<DataListColumn<FeatureFlagTenantInfo>> BuildColumns()

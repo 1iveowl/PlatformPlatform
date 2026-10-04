@@ -184,6 +184,74 @@ public sealed class DataListControllerTests
     }
 
     [Fact]
+    public async Task Invalidate_WhenAnEarlierInvalidationCompletesLast_ShouldKeepTheNewerPageInTheViewAndTheCache()
+    {
+        // Arrange
+        var (controller, _, server) = Create(Page);
+        await controller.LoadAsync();
+        server.Hold(2);
+        var overrideRefresh = controller.InvalidateAsync();
+        server.RowCount = 30;
+        await controller.InvalidateAsync();
+
+        // Act
+        server.Release(2);
+        await overrideRefresh;
+        await controller.LoadAsync();
+
+        // Assert
+        controller.TotalCount.Should().Be(30);
+        controller.Status.Should().Be(DataListStatus.Ready);
+        server.Requests.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task Invalidate_WithFiltersSortAndPage_ShouldKeepTheUrlStateAndLeaveOtherListsCached()
+    {
+        // Arrange
+        var cache = new DataListPageCache();
+        var uri = $"{Page}?search=x&sortOrder=Descending&pageOffset=1";
+        var (controller, browser, server) = Create(uri, cache: cache);
+        var (other, _, otherServer) = Create(uri, cache: cache, listId: "other-rows");
+        await controller.LoadAsync();
+        await other.LoadAsync();
+        var state = controller.State;
+
+        // Act
+        await controller.InvalidateAsync();
+        await other.LoadAsync();
+
+        // Assert
+        controller.State.Should().Be(state);
+        browser.Uri.Should().Be(uri);
+        browser.History.Should().BeEmpty();
+        server.Requests.Should().HaveCount(2);
+        server.Requests[1].Should().BeEquivalentTo(server.Requests[0]);
+        otherServer.Requests.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Invalidate_WhenTheCurrentPageNoLongerExists_ShouldShowTheLastPageAndKeepTheFiltersAndSort()
+    {
+        // Arrange
+        var (controller, browser, server) = Create($"{Page}?search=x&sortOrder=Descending&pageOffset=2");
+        await controller.LoadAsync();
+        server.RowCount = 30;
+
+        // Act
+        await controller.InvalidateAsync();
+
+        // Assert
+        controller.Status.Should().Be(DataListStatus.Ready);
+        controller.ErrorMessage.Should().BeNull();
+        controller.TotalCount.Should().Be(30);
+        controller.State.PageOffset.Should().Be(1);
+        controller.State.SortOrder.Should().Be(SortOrder.Descending);
+        controller.State.Filters.Should().Equal(new Dictionary<string, string> { ["search"] = "x" });
+        browser.History.Should().Equal(($"{Page}?search=x&sortOrder=Descending&pageOffset=1", true));
+    }
+
+    [Fact]
     public async Task Click_ShouldActivateWithTheSelectedKeyAndRaiseMultipleSelection()
     {
         // Arrange
@@ -489,14 +557,18 @@ public sealed class DataListControllerTests
         controller.Selection.Keys.Should().NotContain("row-100");
     }
 
-    private static (DataListController<string> Controller, FakeBrowser Browser, FakeListServer Server) Create(string uri, int rowCount = 60, DataListPageCache? cache = null)
+    private static (DataListController<string> Controller, FakeBrowser Browser, FakeListServer Server) Create(
+        string uri,
+        int rowCount = 60,
+        DataListPageCache? cache = null,
+        string listId = "rows")
     {
         var browser = new FakeBrowser { Uri = uri };
         var server = new FakeListServer(rowCount);
         var options = new DataListUrlOptions("Name", ["Name"], ["search"], "userId");
         var controller = new DataListController<string>(cache ?? new DataListPageCache(), options, DataListSelectionMode.Multiple, row => row, () => browser.Uri, browser.Navigate)
         {
-            ListId = "rows", CacheScope = "tnt_1/usr_1", Fetch = server.FetchAsync
+            ListId = listId, CacheScope = "tnt_1/usr_1", Fetch = server.FetchAsync
         };
         return (controller, browser, server);
     }
