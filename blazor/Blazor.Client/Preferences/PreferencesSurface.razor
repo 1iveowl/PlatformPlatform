@@ -23,7 +23,7 @@
     <section class="preferences-section" data-testid="preferences-theme">
         <h2 id="preferences-theme-label">@AccountStrings.Theme</h2>
         <p id="preferences-theme-description" class="preferences-description">@AccountStrings.ThemeDescription</p>
-        <ToggleGroup Name="theme" Items="ThemeItems" Value="@(Preferences.IsLoaded ? ThemePreference.Format(Preferences.Theme) : null)"
+        <ToggleGroup Name="theme" Items="_themeItems" Value="@(Preferences.IsLoaded ? ThemePreference.Format(Preferences.Theme) : null)"
                      Disabled="!Preferences.IsLoaded" LabelId="preferences-theme-label" DescriptionId="preferences-theme-description"
                      TestId="theme-group" OnChange="OnThemeChangedAsync"/>
     </section>
@@ -38,7 +38,7 @@
 
     <section class="preferences-section" data-testid="preferences-zoom">
         <h2 id="preferences-zoom-label">@AccountStrings.Zoom</h2>
-        <ToggleGroup Name="zoom-level" Items="ZoomItems" Value="@(Preferences.IsLoaded ? Preferences.ZoomLevel : null)" Disabled="!Preferences.IsLoaded"
+        <ToggleGroup Name="zoom-level" Items="_zoomItems" Value="@(Preferences.IsLoaded ? Preferences.ZoomLevel : null)" Disabled="!Preferences.IsLoaded"
                      LabelId="preferences-zoom-label" TestId="zoom-group" OnChange="OnZoomLevelChangedAsync"/>
     </section>
 
@@ -52,15 +52,19 @@
     public const string ThemeUpdatedToastTestId = "theme-updated-toast";
     public const string ZoomLevelUpdatedToastTestId = "zoom-level-updated-toast";
 
-    private static readonly ToggleGroupItem[] ThemeItems = ThemePreference.Modes
-        .Select(mode => new ToggleGroupItem(ThemePreference.Format(mode), ThemeMenu.Label(mode), $"theme-{ThemePreference.Format(mode)}"))
-        .ToArray();
-
+    // Each language is labelled in its own name, the same in every culture, so one set serves every request
     private static readonly ToggleGroupItem[] LanguageItems = LocalePreference.Locales
         .Select(locale => new ToggleGroupItem(locale, LocalePreference.Label(locale), $"language-{locale}"))
         .ToArray();
 
-    private static readonly ToggleGroupItem[] ZoomItems = ZoomPreference.Levels
+    // The theme and zoom labels are translated, so each instance resolves them in the culture it renders in: during
+    // prerender the host serves many requests in different cultures from one process, and a static set would keep the
+    // labels of whichever request created it
+    private readonly ToggleGroupItem[] _themeItems = ThemePreference.Modes
+        .Select(mode => new ToggleGroupItem(ThemePreference.Format(mode), ThemeMenu.Label(mode), $"theme-{ThemePreference.Format(mode)}"))
+        .ToArray();
+
+    private readonly ToggleGroupItem[] _zoomItems = ZoomPreference.Levels
         .Select(level => new ToggleGroupItem(level, ZoomPreference.Label(level), $"zoom-level-{level}"))
         .ToArray();
 
