@@ -1,9 +1,12 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.BackOffice.Dashboard.Queries
 @* The recent billing events card, shown only with the subscription setting on, from GET /api/back-office/dashboard/recent-stripe-events with the React back office's limit of six rows, and View all to billing-events. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-<DashboardCard TestId="recent-stripe-events" Title="@BackOfficeStrings.RecentBillingEvents" ViewAllHref='@BackOfficeUrls.ToAbsolute("billing-events")' IsLoading="_rows is null" IsEmpty="_rows?.Length == 0"
+<DashboardCard TestId="recent-stripe-events" Title="@BackOfficeStrings.RecentBillingEvents" ViewAllHref='@BackOfficeUrls.ToAbsolute("billing-events")' IsLoading="_read.IsLoading" IsEmpty="_read.Value?.Length == 0"
+               IsFailed="_read.IsFailed" FailureMessage="@_read.FailureMessage" OnRetry="LoadAsync"
                EmptyTitle="@BackOfficeStrings.NoRecentBillingEvents" EmptyDescription="@BackOfficeStrings.NoRecentBillingEventsDescription">
     <table class="dashboard-table">
         <caption class="visually-hidden">@BackOfficeStrings.RecentBillingEvents</caption>
@@ -17,7 +20,7 @@
         </tr>
         </thead>
         <tbody>
-        @foreach (var row in _rows!)
+        @foreach (var row in _read.Value!)
         {
             <tr data-testid="recent-stripe-events-row">
                 <td class="dashboard-cell-primary">@row.TenantName</td>
@@ -35,22 +38,26 @@
 
 @code {
 
-    private BackOfficeDashboardStripeEvent[]? _rows;
+    private readonly BackOfficeRead<BackOfficeDashboardStripeEvent[]> _read = new();
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetRecentStripeEventsAsync(DashboardFormat.RecentLimit, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _rows = result.Value.Events;
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetRecentStripeEventsAsync(DashboardFormat.RecentLimit, cancellationToken),
+            response => response.Events, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
 }

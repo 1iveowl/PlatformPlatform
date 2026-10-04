@@ -1,29 +1,42 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.Tenants.BackOffice.Queries
 @using Blazor.Client.BackOffice.Dashboard
 @* The account detail's health tiles, the React back office's AccountHealthTiles: the users tile with the active, inactive and
    pending counts from GET /api/back-office/tenants/{id}/user-counts, which opens the Users tab, and with the subscription
    setting on the lifetime value since the first subscription, which opens the Invoices tab, and the monthly recurring revenue
    with its renewal date, which opens the Billing events tab. The React users tile's coloured bar is left out: the counts beside it carry the same
-   figures as text. *@
+   figures as text. A failed read of the counts turns the users tile into the compact failed state, whose Try again reads the
+   counts again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
 <div class="account-detail-tiles" data-testid="account-detail-tiles">
-    <a class="account-detail-tile" href="@AccountDetailTabs.ToUrl(Tenant.Id, AccountDetailTab.Users)" data-testid="account-tile-users">
-        <span class="account-detail-tile-label">@CommonStrings.Users</span>
-        @if (_users is { } users)
-        {
-            <span class="account-detail-tile-value" data-testid="account-tile-users-total">@DashboardFormat.FormatCount(users.Total)</span>
-            <span class="account-detail-tile-subtitle" data-testid="account-tile-users-breakdown">
-                @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersActiveCount, users.Active) · @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersInactiveCount, users.Inactive) · @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersPendingCount, users.Pending)
-            </span>
-        }
-        else
-        {
+    @if (_read.IsFailed)
+    {
+        <div class="account-detail-tile" data-testid="account-tile-users" data-state="failed">
+            <span class="account-detail-tile-label">@CommonStrings.Users</span>
             <span class="account-detail-tile-value">@DashboardFormat.Missing</span>
-        }
-    </a>
-
+            <BackOfficeReadFailure TestId="account-tile-users-failed" Compact OnRetry="LoadAsync"/>
+        </div>
+    }
+    else
+    {
+        <a class="account-detail-tile" href="@AccountDetailTabs.ToUrl(Tenant.Id, AccountDetailTab.Users)" data-testid="account-tile-users" data-state="@_read.Status.ToString().ToLowerInvariant()">
+            <span class="account-detail-tile-label">@CommonStrings.Users</span>
+            @if (_read.Value is { } users)
+            {
+                <span class="account-detail-tile-value" data-testid="account-tile-users-total">@DashboardFormat.FormatCount(users.Total)</span>
+                <span class="account-detail-tile-subtitle" data-testid="account-tile-users-breakdown">
+                    @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersActiveCount, users.Active) · @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersInactiveCount, users.Inactive) · @AccountDetailFormat.FormatCount(BackOfficeStrings.UsersPendingCount, users.Pending)
+                </span>
+            }
+            else
+            {
+                <span class="account-detail-tile-value">@DashboardFormat.Missing</span>
+            }
+        </a>
+    }
     @if (IsSubscriptionEnabled)
     {
         <a class="account-detail-tile" href="@AccountDetailTabs.ToUrl(Tenant.Id, AccountDetailTab.Invoices)" data-testid="account-tile-lifetime-value">
@@ -58,7 +71,7 @@
 
 @code {
 
-    private AccountUserBreakdown? _users;
+    private readonly BackOfficeRead<AccountUserBreakdown> _read = new();
 
     [Parameter]
     [EditorRequired]
@@ -67,20 +80,24 @@
     [Parameter]
     public bool IsSubscriptionEnabled { get; set; }
 
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantUserCountsAsync(Tenant.Id, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _users = AccountDetailFormat.GetUserBreakdown(result.Value);
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetTenantUserCountsAsync(Tenant.Id, cancellationToken),
+            AccountDetailFormat.GetUserBreakdown, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
 }

@@ -4,25 +4,27 @@
    After an admin action the account is read again in place, and a failed read keeps what the page shows. The tab is the
    URL's tab parameter (AccountDetailTabs), and the tab links are plain links, so a reload, the back button and a copied link
    all land on the same tab. The account loads in the browser; the host prerenders the shell and the loading state. A tenant id
-   the account API does not know shows the back office's not-found state inside the shell. *@
+   the account API does not know shows the back office's not-found state inside the shell; any other failed read shows the
+   failed state, whose Try again reads the same account again. *@
 @using Account.Client
 @using Account.Features.Tenants.BackOffice.Queries
+@using Blazor.Client.BackOffice.Shared
 @using Blazor.Client.BackOffice.Shell
 @implements IDisposable
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
 <BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
-    <div class="account-detail" data-testid="back-office-account-detail" data-state="@_status.ToString().ToLowerInvariant()">
-        @switch (_status)
+    <div class="account-detail" data-testid="back-office-account-detail" data-state="@_read.Status.ToString().ToLowerInvariant()">
+        @switch (_read.Status)
         {
-            case AccountDetailStatus.Loaded:
-                <AccountDetailHeader Tenant="_tenant!"/>
-                <AccountAdminActions Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled" OnChanged="ReloadAsync"/>
-                <AccountHealthTiles Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
+            case BackOfficeReadStatus.Loaded:
+                <AccountDetailHeader Tenant="_read.Value!"/>
+                <AccountAdminActions Tenant="_read.Value!" IsSubscriptionEnabled="IsSubscriptionEnabled" OnChanged="ReloadAsync"/>
+                <AccountHealthTiles Tenant="_read.Value!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
 
                 <nav class="users-tabs account-detail-tabs" aria-label="@BackOfficeStrings.AccountSections" data-testid="account-tabs">
-                    @foreach (var link in AccountDetailTabs.Links(_tenant!.Id, _tab, IsSubscriptionEnabled))
+                    @foreach (var link in AccountDetailTabs.Links(_read.Value!.Id, _tab, IsSubscriptionEnabled))
                     {
                         <a href="@link.Href" class="users-tab" aria-current="@(link.IsCurrent ? "page" : null)" data-testid="@link.TestId">@link.Label</a>
                     }
@@ -32,27 +34,30 @@
                     @switch (_tab)
                     {
                         case AccountDetailTab.Users:
-                            <AccountUsersTab TenantId="_tenant!.Id"/>
+                            <AccountUsersTab TenantId="_read.Value!.Id"/>
                             break;
                         case AccountDetailTab.Invoices:
-                            <AccountInvoicesTab TenantId="_tenant!.Id"/>
+                            <AccountInvoicesTab TenantId="_read.Value!.Id"/>
                             break;
                         case AccountDetailTab.BillingEvents:
-                            <AccountBillingEventsTab TenantId="_tenant!.Id"/>
+                            <AccountBillingEventsTab TenantId="_read.Value!.Id"/>
                             break;
                         case AccountDetailTab.FeatureFlags:
-                            <AccountFeatureFlagsTab TenantId="_tenant!.Id"/>
+                            <AccountFeatureFlagsTab TenantId="_read.Value!.Id"/>
                             break;
                         default:
-                            <AccountOverviewTab Tenant="_tenant!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
+                            <AccountOverviewTab Tenant="_read.Value!" IsSubscriptionEnabled="IsSubscriptionEnabled"/>
                             break;
                     }
                 </section>
                 break;
-            case AccountDetailStatus.NotFound:
+            case BackOfficeReadStatus.NotFound:
                 <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>
                 break;
-            case AccountDetailStatus.Loading:
+            case BackOfficeReadStatus.Failed:
+                <BackOfficeReadFailure TestId="account-detail-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+                break;
+            case BackOfficeReadStatus.Loading:
                 <p class="account-detail-loading" role="status" data-testid="account-detail-loading">@CommonStrings.Loading</p>
                 break;
         }
@@ -61,9 +66,8 @@
 
 @code {
 
-    private AccountDetailStatus _status = AccountDetailStatus.Loading;
+    private readonly BackOfficeRead<TenantDetailResponse> _read = new(true);
     private AccountDetailTab _tab;
-    private TenantDetailResponse? _tenant;
 
     // The route value of the host page, which only matches a whole number
     [Parameter]
@@ -77,6 +81,7 @@
     public void Dispose()
     {
         Navigation.LocationChanged -= OnLocationChanged;
+        _read.Dispose();
     }
 
     protected override async Task OnInitializedAsync()
@@ -85,27 +90,23 @@
         Navigation.LocationChanged += OnLocationChanged;
         if (!RendererInfo.IsInteractive) return;
 
-        // Resolved lazily: the host does not register the back-office client, so prerendering never constructs it
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantAsync(new SharedKernel.Domain.TenantId(TenantId), CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        _status = AccountDetailState.FromResult(result);
-        if (_status == AccountDetailStatus.Failed) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-        _tenant = result.Value;
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(ReadAsync, tenant => tenant, Services.GetRequiredService<ApiFailurePresenter>());
     }
 
     private async Task ReloadAsync()
     {
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantAsync(new SharedKernel.Domain.TenantId(TenantId), CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await _read.RefreshAsync(ReadAsync, tenant => tenant, Services.GetRequiredService<ApiFailurePresenter>());
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _tenant = result.Value;
+    // Resolved lazily: the host does not register the back-office client, so prerendering never constructs it
+    private Task<ApiCallResult<TenantDetailResponse>> ReadAsync(CancellationToken cancellationToken)
+    {
+        return Services.GetRequiredService<BackOfficeClient>().GetTenantAsync(new SharedKernel.Domain.TenantId(TenantId), cancellationToken);
     }
 
     // A tab link is an enhanced navigation that keeps this component alive, so the tab follows the location

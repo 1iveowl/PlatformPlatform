@@ -1,34 +1,42 @@
 @using Account.Client
 @using Account.Features.FeatureFlags.Queries
 @using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Shared
 @using Blazor.Client.BackOffice.Shell
 @* The back office's feature flag list, the React back office's feature-flags page: every flag from GET
    /api/back-office/feature-flags grouped into account, plan, user and system flags (FeatureFlagsListSource), each group on
    its own DataList with its own parameter prefix, and the show-deleted toggle, which reads the flags again with
    IncludeDeleted. A row opens the flag's detail page, except a system flag's. Read-only for every back-office identity; the
-   actions are on the detail page. The flags load in the browser; the host prerenders the shell and the heading. *@
+   actions are on the detail page. The flags load in the browser; the host prerenders the shell and the heading. A failed read
+   shows the failed state, whose Try again reads the flags again with the same show-deleted choice; a newer read drops an
+   older one's answer. *@
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
-    <div class="accounts" data-testid="back-office-feature-flags" data-state="@(_flags is null ? "loading" : "loaded")">
+    <div class="accounts" data-testid="back-office-feature-flags" data-state="@_read.Status.ToString().ToLowerInvariant()">
         <h1>@BackOfficeStrings.FeatureFlags</h1>
         <p class="accounts-subtitle">@BackOfficeStrings.FeatureFlagsSubtitle</p>
 
         <div class="accounts-toolbar" data-testid="feature-flags-toolbar">
             <div class="accounts-toggle-group" role="group" aria-label="@BackOfficeStrings.FeatureFlags">
-                <button type="button" class="accounts-toggle" aria-pressed="@(_includeDeleted ? "true" : "false")" disabled="@_isLoading" data-testid="feature-flags-show-deleted"
+                <button type="button" class="accounts-toggle" aria-pressed="@(_includeDeleted ? "true" : "false")" disabled="@_read.IsLoading" data-testid="feature-flags-show-deleted"
                         @onclick="ToggleDeletedAsync">
                     @BackOfficeStrings.ShowDeleted
                 </button>
             </div>
         </div>
 
-        @if (_flags is null)
+        @if (_read.IsFailed)
+        {
+            <BackOfficeReadFailure TestId="feature-flags-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+        }
+        else if (_read.Value is not { } loadedFlags)
         {
             <p class="dashboard-card-loading" role="status" data-testid="feature-flags-loading">@CommonStrings.Loading</p>
         }
-        else if (_flags.Count == 0)
+        else if (loadedFlags.Count == 0)
         {
             <div class="accounts-empty" data-testid="feature-flags-empty">
                 <p class="accounts-empty-title">@BackOfficeStrings.NoFeatureFlags</p>
@@ -36,9 +44,9 @@
         }
         else
         {
-            @foreach (var group in FeatureFlagsListSource.GetGroups(_flags))
+            @foreach (var group in FeatureFlagsListSource.GetGroups(loadedFlags))
             {
-                var flags = FeatureFlagsListSource.GetGroup(_flags, group);
+                var flags = FeatureFlagsListSource.GetGroup(loadedFlags, group);
                 var title = FeatureFlagsListSource.GetGroupLabel(group);
                 var testId = $"feature-flags-{FeatureFlagsListSource.ToValue(group)}";
                 <section class="account-detail-section" aria-labelledby="@($"{testId}-heading")" data-testid="@testId">
@@ -57,13 +65,17 @@
 
 @code {
 
-    private IReadOnlyList<FeatureFlagInfo>? _flags;
+    private readonly BackOfficeRead<IReadOnlyList<FeatureFlagInfo>> _read = new();
     private bool _includeDeleted;
-    private bool _isLoading;
 
     // BACK_OFFICE_SUBSCRIPTION_ENABLED, passed in by the host page
     [Parameter]
     public bool IsSubscriptionEnabled { get; set; }
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -74,29 +86,22 @@
 
     private async Task LoadAsync()
     {
-        _isLoading = true;
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetFeatureFlagsAsync(_includeDeleted, CancellationToken.None);
-        _isLoading = false;
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
-
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
+        var includeDeleted = _includeDeleted;
+        var result = await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetFeatureFlagsAsync(includeDeleted, cancellationToken),
+            response => response.Flags, Services.GetRequiredService<ApiFailurePresenter>()
+        );
+        if (result?.IsSuccess != true) return;
 
         // The groups page this read in memory, so a page cached from an earlier read, before an action on a detail page, would
         // show the flags as they were
         var pageCache = Services.GetRequiredService<DataListPageCache>();
-        foreach (var group in FeatureFlagsListSource.GroupOrder) pageCache.Invalidate(FeatureFlagsListSource.ListId(group, _includeDeleted));
-
-        _flags = result.Value.Flags;
+        foreach (var group in FeatureFlagsListSource.GroupOrder) pageCache.Invalidate(FeatureFlagsListSource.ListId(group, includeDeleted));
     }
 
     private async Task ToggleDeletedAsync()
     {
         _includeDeleted = !_includeDeleted;
-        _flags = null;
         await LoadAsync();
     }
 

@@ -1,29 +1,38 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.BackOffice.Dashboard.Queries
 @* The dashboard's KPI tiles for the selected period, from GET /api/back-office/dashboard/kpis. The tiles and their texts
    come from DashboardFormat; a tile with a link opens the list it summarizes. A newer period's answer replaces an older
-   one that arrives late, so the tiles never show a period other than the selected one. *@
+   one that arrives late, so the tiles never show a period other than the selected one. A failed read replaces the tiles with the
+   failed state, whose Try again reads the selected period again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-<div class="dashboard-tiles" data-testid="dashboard-tiles" data-state="@(_kpis is null ? "loading" : "loaded")">
-    @foreach (var tile in DashboardFormat.CreateTiles(_kpis, Period, IsSubscriptionEnabled))
+<div class="dashboard-tiles" data-testid="dashboard-tiles" data-state="@_read.Status.ToString().ToLowerInvariant()">
+    @if (_read.IsFailed)
     {
-        if (tile.Href is not null)
+        <BackOfficeReadFailure TestId="dashboard-tiles-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+    }
+    else
+    {
+        @foreach (var tile in DashboardFormat.CreateTiles(_read.Value, Period, IsSubscriptionEnabled))
         {
-            <a class="dashboard-tile dashboard-tile-link" href="@tile.Href" data-testid="@tile.TestId">@TileContent(tile)</a>
-        }
-        else
-        {
-            <div class="dashboard-tile" data-testid="@tile.TestId">@TileContent(tile)</div>
+            if (tile.Href is not null)
+            {
+                <a class="dashboard-tile dashboard-tile-link" href="@tile.Href" data-testid="@tile.TestId">@TileContent(tile)</a>
+            }
+            else
+            {
+                <div class="dashboard-tile" data-testid="@tile.TestId">@TileContent(tile)</div>
+            }
         }
     }
 </div>
 
 @code {
 
-    private BackOfficeDashboardKpisResponse? _kpis;
+    private readonly BackOfficeRead<BackOfficeDashboardKpisResponse> _read = new();
     private DashboardTrendPeriod? _loadedPeriod;
-    private int _version;
 
     [Parameter]
     public DashboardTrendPeriod Period { get; set; }
@@ -31,23 +40,26 @@
     [Parameter]
     public bool IsSubscriptionEnabled { get; set; }
 
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (!RendererInfo.IsInteractive || _loadedPeriod == Period) return;
 
         _loadedPeriod = Period;
-        var version = ++_version;
-        _kpis = null;
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetDashboardKpisAsync(Period, CancellationToken.None);
-        if (version != _version || result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _kpis = result.Value;
+    private async Task LoadAsync()
+    {
+        var period = Period;
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetDashboardKpisAsync(period, cancellationToken),
+            response => response, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
     private static RenderFragment TileContent(DashboardTile tile)

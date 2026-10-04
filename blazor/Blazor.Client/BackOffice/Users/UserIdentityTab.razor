@@ -5,9 +5,9 @@
 @using Blazor.Client.BackOffice.Shared
 @* The user detail's Identity tab, the React back office's UserIdentityVerificationSection: the user's identity verification from
    GET /api/back-office/users/{id}/identity-verification, with the provider, the assurance level, the date it was bound and the
-   date the person authenticated, or the not-verified state, or the unavailable state when the read failed. Every back-office
-   identity sees it. Revoke verification is offered only to an identity in the admins group (UserIdentityVerification.CanRevoke
-   on the identity the shell cascades), and the account API refuses the DELETE for anyone else. The revoke asks first in a
+   date the person authenticated, or the not-verified state, or the unavailable state when the read failed, whose Try again
+   reads the same user's verification again. Every back-office identity sees it. Revoke verification is offered only to an
+   identity in the admins group (UserIdentityVerification.CanRevoke on the identity the shell cascades), and the account API refuses the DELETE for anyone else. The revoke asks first in a
    confirmation that names the user, reports its outcome, and then reads the verification again whatever the answer, so the
    tab shows the account API's state and never one the page assumed. UserIdentityVerification makes every decision. *@
 @inject IServiceProvider Services
@@ -20,9 +20,10 @@
             <p class="dashboard-card-loading" role="status">@CommonStrings.Loading</p>
             break;
         case UserIdentityVerificationView.Unavailable:
-            <div class="dashboard-card-empty" data-testid="user-identity-unavailable">
+            <div class="dashboard-card-empty back-office-read-failed" role="alert" data-testid="user-identity-unavailable">
                 <p class="dashboard-card-empty-title">@BackOfficeStrings.VerificationStatusUnavailable</p>
                 <p>@BackOfficeStrings.VerificationStatusCouldNotBeLoaded</p>
+                <button type="button" class="button-secondary" data-testid="user-identity-retry" @onclick="RetryAsync">@CommonStrings.TryAgain</button>
             </div>
             break;
         case UserIdentityVerificationView.Unverified:
@@ -100,6 +101,12 @@
 
         _view = UserIdentityVerification.GetView(result);
         _verification = _view == UserIdentityVerificationView.Verified ? result.Value : null;
+    }
+
+    private async Task RetryAsync()
+    {
+        _view = UserIdentityVerificationView.Loading;
+        await LoadAsync();
     }
 
     private void CloseDialog()

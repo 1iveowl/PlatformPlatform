@@ -1,33 +1,38 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @* The plan distribution card, a donut of the accounts on each plan with its table, from GET /api/back-
-   office/dashboard/plan-distribution. It does not follow the period. Shown only with the subscription setting on. *@
+   office/dashboard/plan-distribution. It does not follow the period. Shown only with the subscription setting on. A failed
+   read shows the failed state, whose Try again reads the distribution again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-<DashboardCard TestId="plan-distribution" Title="@BackOfficeStrings.PlanDistribution" IsLoading="_shares is null"
-               Subtitle="@(_shares is null ? null : string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.AccountsCount, DashboardFormat.FormatCount(_total)))">
-    <DashboardPlanChart TestId="plan-distribution-chart" Caption="@BackOfficeStrings.PlanDistribution" Shares="_shares!" Total="_total"/>
+<DashboardCard TestId="plan-distribution" Title="@BackOfficeStrings.PlanDistribution" IsLoading="_read.IsLoading" IsFailed="_read.IsFailed" FailureMessage="@_read.FailureMessage" OnRetry="LoadAsync"
+               Subtitle="@(_read.IsLoaded ? string.Format(CultureInfo.CurrentCulture, BackOfficeStrings.AccountsCount, DashboardFormat.FormatCount(_read.Value.Total)) : null)">
+    <DashboardPlanChart TestId="plan-distribution-chart" Caption="@BackOfficeStrings.PlanDistribution" Shares="_read.Value.Shares" Total="_read.Value.Total"/>
 </DashboardCard>
 
 @code {
 
-    private DashboardPlanShare[]? _shares;
-    private long _total;
+    private readonly BackOfficeRead<(DashboardPlanShare[] Shares, long Total)> _read = new();
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetDashboardPlanDistributionAsync(CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _total = result.Value.TotalTenants;
-        _shares = DashboardChartSeries.FromPlanDistribution(result.Value);
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetDashboardPlanDistributionAsync(cancellationToken),
+            response => (DashboardChartSeries.FromPlanDistribution(response), response.TotalTenants), Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
 }

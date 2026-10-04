@@ -1,0 +1,30 @@
+@* The failed state of a back-office read (BackOfficeRead): an alert that the read went wrong, the presented failure's message
+   when there is one, and Try again, which repeats the same read for the same selection. Compact leaves the message out and
+   fits a tile. *@
+
+<div class="@(Compact ? "back-office-read-failed back-office-read-failed-compact" : "back-office-read-failed dashboard-card-empty")" role="alert" data-testid="@TestId">
+    <p class="dashboard-card-empty-title">@CommonStrings.SomethingWentWrong</p>
+    @if (!Compact && Message is not null)
+    {
+        <p>@Message</p>
+    }
+    <button type="button" class="button-secondary" data-testid="@($"{TestId}-retry")" @onclick="OnRetry">@CommonStrings.TryAgain</button>
+</div>
+
+@code {
+
+    [Parameter]
+    [EditorRequired]
+    public string TestId { get; set; } = "";
+
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public bool Compact { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public EventCallback OnRetry { get; set; }
+
+}

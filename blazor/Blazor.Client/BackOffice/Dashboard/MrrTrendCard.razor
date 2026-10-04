@@ -1,49 +1,52 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.BackOffice.Dashboard.Queries
 @* The MRR trend card, an area chart of the blended monthly recurring revenue a day in the selected period against the
    prior period, from GET /api/back-office/dashboard/mrr-trend. Shown only with the subscription setting on. A newer
    period's answer replaces an older one that arrives late, so the card never shows a period other than the selected
-   one. *@
+   one. A failed read shows the failed state, whose Try again reads the selected period again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-<DashboardCard TestId="mrr-trend" Title="@BackOfficeStrings.MrrTrend" Subtitle="@(_rows is null ? null : DashboardChartSeries.GetMrrSubtitle(_rows, _currency))" IsLoading="_rows is null">
-    <DashboardTrendChart TestId="mrr-trend-chart" Caption="@BackOfficeStrings.MrrTrend" Rows="_rows!" FormatValue="FormatValue"/>
+<DashboardCard TestId="mrr-trend" Title="@BackOfficeStrings.MrrTrend" Subtitle="@(_read.IsLoaded ? DashboardChartSeries.GetMrrSubtitle(_read.Value.Rows, _read.Value.Currency) : null)" IsLoading="_read.IsLoading"
+               IsFailed="_read.IsFailed" FailureMessage="@_read.FailureMessage" OnRetry="LoadAsync">
+    <DashboardTrendChart TestId="mrr-trend-chart" Caption="@BackOfficeStrings.MrrTrend" Rows="_read.Value.Rows" FormatValue="FormatValue"/>
 </DashboardCard>
 
 @code {
 
-    private string? _currency;
+    private readonly BackOfficeRead<(DashboardTrendRow[] Rows, string? Currency)> _read = new();
     private DashboardTrendPeriod? _loadedPeriod;
-    private DashboardTrendRow[]? _rows;
-    private int _version;
 
     [Parameter]
     public DashboardTrendPeriod Period { get; set; }
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         if (!RendererInfo.IsInteractive || _loadedPeriod == Period) return;
 
         _loadedPeriod = Period;
-        var version = ++_version;
-        _rows = null;
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetDashboardMrrTrendAsync(Period, CancellationToken.None);
-        if (version != _version || result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _currency = result.Value.Currency;
-        _rows = DashboardChartSeries.FromMrrTrend(result.Value);
+    private async Task LoadAsync()
+    {
+        var period = Period;
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetDashboardMrrTrendAsync(period, cancellationToken),
+            response => (DashboardChartSeries.FromMrrTrend(response), response.Currency), Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
     // An amount in the platform currency, or the bare number when the API knows no currency
     private string FormatValue(decimal value)
     {
-        return string.IsNullOrWhiteSpace(_currency) ? DashboardChartSeries.FormatValue(value) : DashboardFormat.FormatMoney(value, _currency);
+        return string.IsNullOrWhiteSpace(_read.Value.Currency) ? DashboardChartSeries.FormatValue(value) : DashboardFormat.FormatMoney(value, _read.Value.Currency);
     }
 
 }

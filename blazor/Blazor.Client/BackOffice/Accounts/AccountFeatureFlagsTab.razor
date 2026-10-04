@@ -1,4 +1,5 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.FeatureFlags.Queries
 @using SharedKernel.Domain
 @* The account detail's Feature flags tab, the React back office's AccountFeatureFlagsTab, read-only: the account's tenant-scoped
@@ -6,14 +7,19 @@
    DataList with its own parameter prefix (AccountFeatureFlagsSource), and the empty state when the account has none. Where
    the React tab has an override switch this tab states whether the flag is on and whether a manual override decides it; the
    React rows open the back office's flag page, while here the rows are not activated and the flag page is reached from the
-   feature flag list. *@
+   feature flag list. A failed read shows the failed state, whose Try again reads the same account's flags again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-@if (_flags is null)
+@if (_read.IsFailed)
+{
+    <BackOfficeReadFailure TestId="account-flags-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+}
+else if (_read.Value is not { } loadedFlags)
 {
     <p class="dashboard-card-loading" role="status" data-testid="account-flags-loading">@CommonStrings.Loading</p>
 }
-else if (_flags.Count == 0)
+else if (loadedFlags.Count == 0)
 {
     <div class="accounts-empty" data-testid="account-flags-empty">
         <p class="accounts-empty-title">@BackOfficeStrings.NoFeatureFlags</p>
@@ -24,7 +30,7 @@ else
 {
     @foreach (var group in Groups)
     {
-        var flags = AccountFeatureFlagsSource.GetGroup(_flags, group);
+        var flags = AccountFeatureFlagsSource.GetGroup(loadedFlags, group);
         if (flags.Count == 0) continue;
 
         var isPlanGroup = group == AccountFeatureFlagGroup.Plan;
@@ -46,26 +52,30 @@ else
 
     private static readonly AccountFeatureFlagGroup[] Groups = [AccountFeatureFlagGroup.Account, AccountFeatureFlagGroup.Plan];
 
-    private IReadOnlyList<TenantFeatureFlagInfo>? _flags;
+    private readonly BackOfficeRead<IReadOnlyList<TenantFeatureFlagInfo>> _read = new();
 
     [Parameter]
     [EditorRequired]
     public TenantId TenantId { get; set; } = null!;
 
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantFeatureFlagsAsync(TenantId, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _flags = result.Value.Flags;
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetTenantFeatureFlagsAsync(TenantId, cancellationToken),
+            response => response.Flags, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
     // The name with its description, the required plan of a plan flag, the inclusion threshold of an account group with an A/B

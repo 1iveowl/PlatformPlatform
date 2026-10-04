@@ -5,6 +5,9 @@ using Account.Features.Subscriptions.Domain;
 using Account.Features.Tenants.BackOffice.Queries;
 using Account.Features.Tenants.Domain;
 using Blazor.Client.BackOffice.Accounts;
+using Blazor.Client.BackOffice.Shared;
+using Blazor.Client.Bootstrap;
+using Blazor.Client.Forms;
 using FluentAssertions;
 using SharedKernel.Domain;
 using SharedKernel.FeatureFlags;
@@ -14,7 +17,8 @@ namespace Blazor.Tests.Client.BackOffice;
 
 // The account detail's tab model and its not-found state. The tab is the React back office's tab parameter with its values,
 // Overview when absent or unknown, and for the billing tabs while the subscription setting is off. A tenant id the
-// account API answers 404 for is the not-found state; any other failure is a failure.
+// account API answers 404 for is the not-found state of the page's read (BackOfficeRead with not-found on 404); any other
+// failure is the failed state.
 public sealed class AccountDetailTests
 {
     private const string AccountUrl = "https://back-office.dev.localhost:9001/blazor/back-office/accounts/42";
@@ -92,39 +96,40 @@ public sealed class AccountDetailTests
     }
 
     [Fact]
-    public async Task FromResult_WhenTheAccountApiAnswers404_ShouldBeNotFound()
+    public async Task Load_WhenTheAccountApiAnswers404_ShouldBeNotFound()
     {
         // Arrange
         var network = new RecordingNetwork(HttpStatusCode.NotFound, """{"title":"Not Found","status":404,"detail":"Tenant with id '42' was not found."}""");
         var backOfficeClient = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
 
         // Act
-        var result = await backOfficeClient.GetTenantAsync(new TenantId(42), CancellationToken.None);
+        var (read, result) = await LoadAccountAsync(backOfficeClient);
 
         // Assert
         network.Requests.Should().ContainSingle().Which.AbsolutePath.Should().Be("/api/back-office/tenants/42");
-        AccountDetailState.FromResult(result).Should().Be(AccountDetailStatus.NotFound);
+        result.Should().NotBeNull();
+        read.Status.Should().Be(BackOfficeReadStatus.NotFound);
     }
 
     [Theory]
     [InlineData(HttpStatusCode.BadRequest)]
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(HttpStatusCode.Forbidden)]
-    public async Task FromResult_WhenTheAccountApiAnswersAnotherFailure_ShouldBeFailed(HttpStatusCode statusCode)
+    public async Task Load_WhenTheAccountApiAnswersAnotherFailure_ShouldBeFailed(HttpStatusCode statusCode)
     {
         // Arrange
         var network = new RecordingNetwork(statusCode, $$"""{"title":"Failed","status":{{(int)statusCode}}}""");
         var backOfficeClient = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
 
         // Act
-        var result = await backOfficeClient.GetTenantAsync(new TenantId(42), CancellationToken.None);
+        var (read, _) = await LoadAccountAsync(backOfficeClient);
 
         // Assert
-        AccountDetailState.FromResult(result).Should().Be(AccountDetailStatus.Failed);
+        read.Status.Should().Be(BackOfficeReadStatus.Failed);
     }
 
     [Fact]
-    public async Task FromResult_WhenTheAccountIsReturned_ShouldBeLoadedWithTheAccountApiShape()
+    public async Task Load_WhenTheAccountIsReturned_ShouldBeLoadedWithTheAccountApiShape()
     {
         // Arrange
         var network = new RecordingNetwork(HttpStatusCode.OK, """
@@ -142,11 +147,11 @@ public sealed class AccountDetailTests
         var backOfficeClient = new BackOfficeClient(new HttpClient(network) { BaseAddress = new Uri("https://back-office.dev.localhost:9001/blazor/") });
 
         // Act
-        var result = await backOfficeClient.GetTenantAsync(new TenantId(42), CancellationToken.None);
+        var (read, _) = await LoadAccountAsync(backOfficeClient);
 
         // Assert
-        AccountDetailState.FromResult(result).Should().Be(AccountDetailStatus.Loaded);
-        var tenant = result.Value!;
+        read.Status.Should().Be(BackOfficeReadStatus.Loaded);
+        var tenant = read.Value!;
         tenant.DriftDiscrepancies.Should().ContainSingle().Which.Severity.Should().Be(DriftSeverity.Critical);
         AccountFormat.GetStatus(tenant).Should().Be(TenantStatusFilter.Downgrading);
         AccountDetailFormat.GetAbInclusionPinLabel(tenant.AbInclusionPin).Should().Be(BackOfficeStrings.LastInRollouts);
@@ -154,6 +159,16 @@ public sealed class AccountDetailTests
         AccountDetailFormat.GetCountry(tenant).Should().Be("DK");
         AccountDetailFormat.GetPaymentMethod(tenant).Should().Be(new AccountPaymentMethod("Visa", "•••• 4242", "04/31"));
         AccountDetailFormat.IsFree(tenant).Should().BeFalse();
+    }
+
+    // The account detail's read as the page makes it: a 404 is the not-found state
+    private static async Task<(BackOfficeRead<TenantDetailResponse> Read, ApiCallResult<TenantDetailResponse>? Result)> LoadAccountAsync(BackOfficeClient backOfficeClient)
+    {
+        var navigation = new TestNavigationManager();
+        var presenter = new ApiFailurePresenter(new ToastService(), navigation, new AuthenticationNavigator(navigation));
+        var read = new BackOfficeRead<TenantDetailResponse>(true);
+        var result = await read.LoadAsync(cancellationToken => backOfficeClient.GetTenantAsync(new TenantId(42), cancellationToken), tenant => tenant, presenter);
+        return (read, result);
     }
 
     [Fact]

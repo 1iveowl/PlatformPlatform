@@ -1,40 +1,46 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.BackOffice.Dashboard.Queries
 @* The user logins card, an area chart of logins a day in the selected period against the prior period, from GET
    /api/back-office/dashboard/trends?Metric=LoginActivity. A newer period's answer replaces an older one that arrives
-   late, so the card never shows a period other than the selected one. *@
+   late, so the card never shows a period other than the selected one. A failed
+   read shows the failed state, whose Try again reads the selected period again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-<DashboardCard TestId="user-logins" Title="@BackOfficeStrings.UserLoginsPerDay" Subtitle="@(_rows is null ? null : DashboardChartSeries.GetUserLoginsSubtitle(_rows))" IsLoading="_rows is null">
-    <DashboardTrendChart TestId="user-logins-chart" Caption="@BackOfficeStrings.UserLoginsPerDay" Rows="_rows!" IsBarChart="false"/>
+<DashboardCard TestId="user-logins" Title="@BackOfficeStrings.UserLoginsPerDay" Subtitle="@(_read.IsLoaded ? DashboardChartSeries.GetUserLoginsSubtitle(_read.Value!) : null)" IsLoading="_read.IsLoading"
+               IsFailed="_read.IsFailed" FailureMessage="@_read.FailureMessage" OnRetry="LoadAsync">
+    <DashboardTrendChart TestId="user-logins-chart" Caption="@BackOfficeStrings.UserLoginsPerDay" Rows="_read.Value!" IsBarChart="false"/>
 </DashboardCard>
 
 @code {
 
+    private readonly BackOfficeRead<DashboardTrendRow[]> _read = new();
     private DashboardTrendPeriod? _loadedPeriod;
-    private DashboardTrendRow[]? _rows;
-    private int _version;
 
     [Parameter]
     public DashboardTrendPeriod Period { get; set; }
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         if (!RendererInfo.IsInteractive || _loadedPeriod == Period) return;
 
         _loadedPeriod = Period;
-        var version = ++_version;
-        _rows = null;
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetDashboardTrendsAsync(DashboardTrendMetric.LoginActivity, Period, CancellationToken.None);
-        if (version != _version || result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _rows = DashboardChartSeries.FromTrends(result.Value);
+    private async Task LoadAsync()
+    {
+        var period = Period;
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetDashboardTrendsAsync(DashboardTrendMetric.LoginActivity, period, cancellationToken),
+            DashboardChartSeries.FromTrends, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
 }

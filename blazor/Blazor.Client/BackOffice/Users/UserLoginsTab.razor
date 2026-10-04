@@ -1,22 +1,29 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Blazor.Client.BackOffice.Accounts
 @using Blazor.Client.Sessions
 @using SharedKernel.Domain
 @* The user detail's Logins tab, the React back office's UserLoginHistorySection: every sign-in attempt of the last 30 days
    from GET /api/back-office/users/{id}/login-history, email and external, on DataList with when it happened, the method and
-   the outcome. The history is read once and paged in memory under the logins prefix (UserLoginsListSource). *@
+   the outcome. The history is read once and paged in memory under the logins prefix (UserLoginsListSource). A failed read shows the failed state, whose Try again
+   reads the same user's history again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
 <p class="accounts-subtitle">@BackOfficeStrings.UserLoginsDescription</p>
 
-@if (_rows is null)
+@if (_read.IsFailed)
+{
+    <BackOfficeReadFailure TestId="user-logins-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+}
+else if (_read.Value is not { } rows)
 {
     <p class="dashboard-card-loading" role="status" data-testid="user-logins-loading">@CommonStrings.Loading</p>
 }
 else
 {
     <DataList TItem="UserLoginRow" data-testid="user-logins-grid" ListId="@UserLoginsListSource.ListId(UserId)" CacheScope="@AccountsListSource.CacheScope"
-              Label="@BackOfficeStrings.LoginHistory" Columns="_columns" FetchPage="(request, _) => Task.FromResult(UserLoginsListSource.Page(_rows, request))"
+              Label="@BackOfficeStrings.LoginHistory" Columns="_columns" FetchPage="(request, _) => Task.FromResult(UserLoginsListSource.Page(rows, request))"
               KeySelector="UserLoginsListSource.KeyOf" DefaultOrderBy="@UserLoginsListSource.DefaultOrderBy" ParameterPrefix="@UserLoginsListSource.ParameterPrefix">
         <EmptyContent>
             <div class="accounts-empty" data-testid="user-logins-empty">
@@ -29,12 +36,17 @@ else
 
 @code {
 
+    private readonly BackOfficeRead<IReadOnlyList<UserLoginRow>> _read = new();
     private IReadOnlyList<DataListColumn<UserLoginRow>> _columns = [];
-    private IReadOnlyList<UserLoginRow>? _rows;
 
     [Parameter]
     [EditorRequired]
     public UserId UserId { get; set; } = null!;
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -48,16 +60,15 @@ else
         ];
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserLoginHistoryAsync(UserId, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _rows = UserLoginsListSource.ToRows(result.Value.Entries);
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetUserLoginHistoryAsync(UserId, cancellationToken),
+            response => UserLoginsListSource.ToRows(response.Entries), Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
     private static RenderFragment OutcomeCell(UserLoginRow row)

@@ -4,26 +4,27 @@
    pin is saved the user is read again in place, and a failed read keeps what the page shows. The tab is the URL's tab
    parameter (UserDetailTabs), and the tab links are plain links, so a reload, the back button and a copied link all land on
    the same tab. The user loads in the browser; the host prerenders the shell and the loading state. A user id the account API
-   does not know, or a value that is not a user id, shows the back office's not-found state inside the shell. *@
+   does not know, or a value that is not a user id, shows the back office's not-found state inside the shell; any other failed
+   read shows the failed state, whose Try again reads the same user again. *@
 @using Account.Client
 @using Account.Features.Users.BackOffice.Queries
-@using Blazor.Client.BackOffice.Accounts
+@using Blazor.Client.BackOffice.Shared
 @using Blazor.Client.BackOffice.Shell
 @implements IDisposable
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 
 <BackOfficeShell IsSubscriptionEnabled="IsSubscriptionEnabled">
-    <div class="account-detail" data-testid="back-office-user-detail" data-state="@_status.ToString().ToLowerInvariant()">
-        @switch (_status)
+    <div class="account-detail" data-testid="back-office-user-detail" data-state="@Status.ToString().ToLowerInvariant()">
+        @switch (Status)
         {
-            case AccountDetailStatus.Loaded:
-                <UserDetailHeader User="_user!"/>
-                <UserAdminActions User="_user!" OnChanged="ReloadAsync"/>
-                <UserActivityTiles User="_user!"/>
+            case BackOfficeReadStatus.Loaded:
+                <UserDetailHeader User="_read.Value!"/>
+                <UserAdminActions User="_read.Value!" OnChanged="ReloadAsync"/>
+                <UserActivityTiles User="_read.Value!"/>
 
                 <nav class="users-tabs account-detail-tabs" aria-label="@BackOfficeStrings.UserSections" data-testid="user-tabs">
-                    @foreach (var link in UserDetailTabs.Links(_user!.Id, _tab))
+                    @foreach (var link in UserDetailTabs.Links(_read.Value!.Id, _tab))
                     {
                         <a href="@link.Href" class="users-tab" aria-current="@(link.IsCurrent ? "page" : null)" data-testid="@link.TestId">@link.Label</a>
                     }
@@ -33,27 +34,30 @@
                     @switch (_tab)
                     {
                         case UserDetailTab.Logins:
-                            <UserLoginsTab UserId="_user!.Id"/>
+                            <UserLoginsTab UserId="_read.Value!.Id"/>
                             break;
                         case UserDetailTab.Sessions:
-                            <UserSessionsTab UserId="_user!.Id"/>
+                            <UserSessionsTab UserId="_read.Value!.Id"/>
                             break;
                         case UserDetailTab.Identity:
-                            <UserIdentityTab User="_user!"/>
+                            <UserIdentityTab User="_read.Value!"/>
                             break;
                         case UserDetailTab.FeatureFlags:
-                            <UserFeatureFlagsTab UserId="_user!.Id"/>
+                            <UserFeatureFlagsTab UserId="_read.Value!.Id"/>
                             break;
                         default:
-                            <UserAccountsTab User="_user!"/>
+                            <UserAccountsTab User="_read.Value!"/>
                             break;
                     }
                 </section>
                 break;
-            case AccountDetailStatus.NotFound:
+            case BackOfficeReadStatus.NotFound:
                 <NotFoundContent HomeUrl="@BackOfficeUrls.Home"/>
                 break;
-            case AccountDetailStatus.Loading:
+            case BackOfficeReadStatus.Failed:
+                <BackOfficeReadFailure TestId="user-detail-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+                break;
+            case BackOfficeReadStatus.Loading:
                 <p class="account-detail-loading" role="status" data-testid="user-detail-loading">@CommonStrings.Loading</p>
                 break;
         }
@@ -62,9 +66,11 @@
 
 @code {
 
-    private AccountDetailStatus _status = AccountDetailStatus.Loading;
+    private readonly BackOfficeRead<BackOfficeUserDetailResponse> _read = new(true);
     private UserDetailTab _tab;
-    private BackOfficeUserDetailResponse? _user;
+
+    // The parsed route value once interactive; null while prerendering and for a value that is not a user id
+    private SharedKernel.Domain.UserId? _userId;
 
     // The route value of the host page, as the address bar carries it
     [Parameter]
@@ -75,9 +81,14 @@
     [Parameter]
     public bool IsSubscriptionEnabled { get; set; }
 
+    private bool IsUnknownUserId => RendererInfo.IsInteractive && _userId is null;
+
+    private BackOfficeReadStatus Status => IsUnknownUserId ? BackOfficeReadStatus.NotFound : _read.Status;
+
     public void Dispose()
     {
         Navigation.LocationChanged -= OnLocationChanged;
+        _read.Dispose();
     }
 
     protected override async Task OnInitializedAsync()
@@ -86,33 +97,26 @@
         Navigation.LocationChanged += OnLocationChanged;
         if (!RendererInfo.IsInteractive) return;
 
-        if (BackOfficeUsersListSource.ParseUserId(UserId) is not { } userId)
-        {
-            _status = AccountDetailStatus.NotFound;
-            return;
-        }
+        _userId = BackOfficeUsersListSource.ParseUserId(UserId);
+        if (_userId is null) return;
 
-        // Resolved lazily: the host does not register the back-office client, so prerendering never constructs it
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserAsync(userId, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        _status = AccountDetailState.FromResult(result);
-        if (_status == AccountDetailStatus.Failed) Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-        _user = result.Value;
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(ReadAsync, user => user, Services.GetRequiredService<ApiFailurePresenter>());
     }
 
     private async Task ReloadAsync()
     {
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserAsync(_user!.Id, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await _read.RefreshAsync(ReadAsync, user => user, Services.GetRequiredService<ApiFailurePresenter>());
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _user = result.Value;
+    // Resolved lazily: the host does not register the back-office client, so prerendering never constructs it
+    private Task<ApiCallResult<BackOfficeUserDetailResponse>> ReadAsync(CancellationToken cancellationToken)
+    {
+        return Services.GetRequiredService<BackOfficeClient>().GetUserAsync(_userId!, cancellationToken);
     }
 
     // A tab link is an enhanced navigation that keeps this component alive, so the tab follows the location

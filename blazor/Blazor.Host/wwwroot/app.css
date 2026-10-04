@@ -2382,6 +2382,29 @@ h1:focus {
     font-weight: 600;
 }
 
+/* The failed state of a back-office read (BackOffice/Shared/BackOfficeReadFailure.razor): the alert and Try again; the compact
+   form sits inside a tile, and the KPI tiles' failure spans the whole row */
+.back-office-read-failed {
+    align-items: center;
+}
+
+.back-office-read-failed .dashboard-card-empty-title {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.back-office-read-failed-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.dashboard-tiles > .back-office-read-failed {
+    grid-column: 1 / -1;
+}
+
 .dashboard-table {
     inline-size: 100%;
     border-collapse: collapse;

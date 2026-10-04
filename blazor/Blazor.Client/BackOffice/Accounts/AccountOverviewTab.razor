@@ -1,4 +1,5 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.Tenants.BackOffice.Queries
 @using Account.Features.Tenants.BackOffice.Requests
 @using Blazor.Client.BackOffice.Dashboard
@@ -6,16 +7,22 @@
    AccountCurrentPlanCard: the account's owners as cards (up to 100, as in the React back office) and the current plan with
    its price, dates, billing address, payment method and VAT number. The React owner cards link to the back office's user
    page; here the cards are not links, and the account's Users tab opens each user. The React card of recent invoices and
-   billing events beside the plan comes with the billing tabs. *@
+   billing events beside the plan comes with the billing tabs. A failed read of the owners shows the failed state, whose
+   Try again reads them again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
 <section class="account-detail-section" aria-labelledby="account-owners-heading" data-testid="account-owners">
     <h2 id="account-owners-heading" class="account-detail-section-title">@BackOfficeStrings.Owners</h2>
-    @if (_owners is null)
+    @if (_read.IsFailed)
+    {
+        <BackOfficeReadFailure TestId="account-owners-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+    }
+    else if (_read.Value is not { } owners)
     {
         <p class="dashboard-card-loading" role="status">@CommonStrings.Loading</p>
     }
-    else if (_owners.Length == 0)
+    else if (owners.Length == 0)
     {
         <div class="dashboard-card-empty" data-testid="account-owners-empty">
             <p class="dashboard-card-empty-title">@BackOfficeStrings.NoOwners</p>
@@ -25,7 +32,7 @@
     else
     {
         <ul class="account-owner-cards">
-            @foreach (var owner in _owners)
+            @foreach (var owner in owners)
             {
                 <li class="account-owner-card" data-testid="account-owner">
                     <span class="account-name">@DashboardFormat.GetPersonName(owner.FirstName, owner.LastName, owner.Email)</span>
@@ -54,7 +61,7 @@
     // The React back office's page size for the owners it shows
     private const int OwnersPageSize = 100;
 
-    private TenantUserSummary[]? _owners;
+    private readonly BackOfficeRead<TenantUserSummary[]> _read = new();
 
     [Parameter]
     [EditorRequired]
@@ -63,21 +70,25 @@
     [Parameter]
     public bool IsSubscriptionEnabled { get; set; }
 
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
         var query = new GetTenantUsersQuery(Roles: [UserRole.Owner], PageSize: OwnersPageSize);
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetTenantUsersAsync(Tenant.Id, query, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
-
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _owners = result.Value.Users;
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetTenantUsersAsync(Tenant.Id, query, cancellationToken),
+            response => response.Users, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
 }

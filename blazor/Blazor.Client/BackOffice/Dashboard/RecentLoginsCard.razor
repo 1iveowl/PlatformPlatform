@@ -1,10 +1,13 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.BackOffice.Dashboard.Queries
 @using Blazor.Client.Sessions
 @* The recent logins card, from GET /api/back-office/dashboard/recent-logins with the React back office's limit of six rows, and View all to users. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-<DashboardCard TestId="recent-logins" Title="@BackOfficeStrings.RecentLogins" ViewAllHref='@BackOfficeUrls.ToAbsolute("users")' IsLoading="_rows is null" IsEmpty="_rows?.Length == 0"
+<DashboardCard TestId="recent-logins" Title="@BackOfficeStrings.RecentLogins" ViewAllHref='@BackOfficeUrls.ToAbsolute("users")' IsLoading="_read.IsLoading" IsEmpty="_read.Value?.Length == 0"
+               IsFailed="_read.IsFailed" FailureMessage="@_read.FailureMessage" OnRetry="LoadAsync"
                EmptyTitle="@BackOfficeStrings.NoRecentLogins" EmptyDescription="@BackOfficeStrings.NoRecentLoginsDescription">
     <table class="dashboard-table">
         <caption class="visually-hidden">@BackOfficeStrings.RecentLogins</caption>
@@ -17,7 +20,7 @@
         </tr>
         </thead>
         <tbody>
-        @foreach (var row in _rows!)
+        @foreach (var row in _read.Value!)
         {
             <tr data-testid="recent-logins-row">
                 <td class="dashboard-cell-primary">@DashboardFormat.GetPersonName(row.FirstName, row.LastName, row.Email)</td>
@@ -34,22 +37,26 @@
 
 @code {
 
-    private BackOfficeDashboardLogin[]? _rows;
+    private readonly BackOfficeRead<BackOfficeDashboardLogin[]> _read = new();
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetRecentLoginsAsync(DashboardFormat.RecentLimit, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _rows = result.Value.Logins;
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetRecentLoginsAsync(DashboardFormat.RecentLimit, cancellationToken),
+            response => response.Logins, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
 }

@@ -1,10 +1,13 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.BackOffice.Dashboard.Queries
 @using Account.Features.Subscriptions.Domain
 @* The recent payments card, shown only with the subscription setting on, from GET /api/back-office/dashboard/recent-payments with the React back office's limit of six rows, and View all to invoices. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-<DashboardCard TestId="recent-payments" Title="@BackOfficeStrings.RecentPayments" ViewAllHref='@BackOfficeUrls.ToAbsolute("invoices")' IsLoading="_rows is null" IsEmpty="_rows?.Length == 0"
+<DashboardCard TestId="recent-payments" Title="@BackOfficeStrings.RecentPayments" ViewAllHref='@BackOfficeUrls.ToAbsolute("invoices")' IsLoading="_read.IsLoading" IsEmpty="_read.Value?.Length == 0"
+               IsFailed="_read.IsFailed" FailureMessage="@_read.FailureMessage" OnRetry="LoadAsync"
                EmptyTitle="@BackOfficeStrings.NoRecentPayments" EmptyDescription="@BackOfficeStrings.NoRecentPaymentsDescription">
     <table class="dashboard-table">
         <caption class="visually-hidden">@BackOfficeStrings.RecentPayments</caption>
@@ -18,7 +21,7 @@
         </tr>
         </thead>
         <tbody>
-        @foreach (var row in _rows!)
+        @foreach (var row in _read.Value!)
         {
             <tr data-testid="recent-payments-row">
                 <td class="dashboard-cell-primary">@row.TenantName</td>
@@ -36,22 +39,26 @@
 
 @code {
 
-    private BackOfficeDashboardPayment[]? _rows;
+    private readonly BackOfficeRead<BackOfficeDashboardPayment[]> _read = new();
+
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
 
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetRecentPaymentsAsync(DashboardFormat.RecentLimit, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _rows = result.Value.Payments;
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetRecentPaymentsAsync(DashboardFormat.RecentLimit, cancellationToken),
+            response => response.Payments, Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
 }

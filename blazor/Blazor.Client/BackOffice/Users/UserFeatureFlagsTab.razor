@@ -1,4 +1,5 @@
 @using Account.Client
+@using Blazor.Client.BackOffice.Shared
 @using Account.Features.FeatureFlags.Queries
 @using Blazor.Client.BackOffice.Accounts
 @using SharedKernel.Domain
@@ -6,14 +7,19 @@
    GET /api/back-office/users/{id}/feature-flags on DataList under the flags prefix (UserFeatureFlagsListSource), and the empty
    state when none is defined. Where the React tab has an override switch this tab states whether the flag is on for the user
    and whether a manual override decides it; the React rows open the back office's flag page, while here the rows are not
-   activated and the flag page is reached from the feature flag list. *@
+   activated and the flag page is reached from the feature flag list. A failed read shows the failed state, whose Try again reads the same user's flags again. *@
+@implements IDisposable
 @inject IServiceProvider Services
 
-@if (_flags is null)
+@if (_read.IsFailed)
+{
+    <BackOfficeReadFailure TestId="user-flags-failed" Message="@_read.FailureMessage" OnRetry="LoadAsync"/>
+}
+else if (_read.Value is not { } loaded)
 {
     <p class="dashboard-card-loading" role="status" data-testid="user-flags-loading">@CommonStrings.Loading</p>
 }
-else if (_flags.Count == 0)
+else if (loaded.Flags.Count == 0)
 {
     <div class="accounts-empty" data-testid="user-flags-empty">
         <p class="accounts-empty-title">@BackOfficeStrings.NoFeatureFlags</p>
@@ -24,7 +30,7 @@ else
 {
     <p class="accounts-subtitle">@BackOfficeStrings.UserFlagsDescription</p>
     <DataList TItem="UserFeatureFlagInfo" data-testid="user-flags-grid" ListId="@UserFeatureFlagsListSource.ListId(UserId)" CacheScope="@AccountsListSource.CacheScope"
-              Label="@BackOfficeStrings.FeatureFlags" Columns="_columns" FetchPage="(request, _) => Task.FromResult(UserFeatureFlagsListSource.Page(_flags, request))"
+              Label="@BackOfficeStrings.FeatureFlags" Columns="loaded.ListColumns" FetchPage="(request, _) => Task.FromResult(UserFeatureFlagsListSource.Page(loaded.Flags, request))"
               KeySelector="KeyOf" DefaultOrderBy="@UserFeatureFlagsListSource.DefaultOrderBy" ParameterPrefix="@UserFeatureFlagsListSource.ParameterPrefix"
               RowLabel="UserFeatureFlagsListSource.NameOf">
     </DataList>
@@ -32,28 +38,31 @@ else
 
 @code {
 
-    private IReadOnlyList<DataListColumn<UserFeatureFlagInfo>> _columns = [];
-    private IReadOnlyList<UserFeatureFlagInfo>? _flags;
+    // The flags with the columns they need, decided once per read
+    private readonly BackOfficeRead<UserFlags> _read = new();
 
     [Parameter]
     [EditorRequired]
     public UserId UserId { get; set; } = null!;
 
+    public void Dispose()
+    {
+        _read.Dispose();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         if (!RendererInfo.IsInteractive) return;
 
-        var result = await Services.GetRequiredService<BackOfficeClient>().GetUserFeatureFlagsAsync(UserId, CancellationToken.None);
-        if (result.Outcome == ApiCallOutcome.Unauthorized) return;
+        await LoadAsync();
+    }
 
-        if (!result.IsSuccess)
-        {
-            Services.GetRequiredService<ApiFailurePresenter>().Present(result);
-            return;
-        }
-
-        _flags = result.Value.Flags;
-        _columns = Columns(_flags);
+    private async Task LoadAsync()
+    {
+        await _read.LoadAsync(
+            cancellationToken => Services.GetRequiredService<BackOfficeClient>().GetUserFeatureFlagsAsync(UserId, cancellationToken),
+            response => new UserFlags(response.Flags, Columns(response.Flags)), Services.GetRequiredService<ApiFailurePresenter>()
+        );
     }
 
     // The name with its description, the inclusion threshold when one of the flags is an A/B test, and the state, with a
@@ -98,5 +107,7 @@ else
     {
         return flag.FlagKey;
     }
+
+    private sealed record UserFlags(IReadOnlyList<UserFeatureFlagInfo> Flags, IReadOnlyList<DataListColumn<UserFeatureFlagInfo>> ListColumns);
 
 }
