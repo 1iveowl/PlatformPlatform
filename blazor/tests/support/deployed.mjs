@@ -2,7 +2,7 @@
 // CLI, the owner's stored sessions kept outside the repository, the interactive sign-in on a browser desktop shown through noVNC (the
 // dev container has no display), the session checks that ask for a new sign-in instead of failing a check, and the record
 // of every request and answer. Nothing here changes Azure; the one Azure change of a run, the probe job, is in
-// staging-acceptance.mjs behind the owner's approval.
+// staging/probe-job.mjs behind the owner's approval.
 
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";

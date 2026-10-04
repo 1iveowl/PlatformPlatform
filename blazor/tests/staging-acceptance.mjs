@@ -18,6 +18,11 @@
 // - Checks 3b and 3c from a Container Apps job created from staging/probe-job.yaml and deleted again, only after the owner
 //   approves that run on the terminal; without the approval they are recorded as not run.
 //
+// This file orders the run and holds the checks. The parts it uses: staging/deployment.mjs (the deployment as Azure
+// describes it and the image and fingerprint gate), staging/browser-sessions.mjs (the sessions, the browser contexts and the
+// recorded requests), staging/record.mjs (the check record and the result file), support/override-recovery.mjs (check 8's
+// write and every restore) and staging/probe-job.mjs (checks 3b and 3c).
+//
 // Sign in once per identity (stored outside the repository, reused until it expires):
 //   dotnet run --project developer-cli -- blazor-harness staging-acceptance --tag <tag> --resource-group <rg> \
 //     --subscription "<subscription>" --sign-in admin
@@ -29,14 +34,14 @@
 // --without-write (check 8 is recorded as not run, for a first run that proves the read-only checks).
 // Exit codes: 0 every check passed, 1 a check failed or did not run, 3 a sign-in is needed first.
 
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { ask, captureSession, createAzure, identities, reconcileAppSession, recordResponse, sessionStore, verifyStoredSession } from "./support/deployed.mjs";
-import { newContext, parseArguments, pathBase, playwright, readEndpointManifest, redact, repositoryRoot, writeResult } from "./support/stack.mjs";
+import { ask, captureSession, createAzure, identities, reconcileAppSession, sessionStore } from "./support/deployed.mjs";
+import { parseArguments, pathBase, playwright, redact } from "./support/stack.mjs";
 import { createOverrideRecovery } from "./support/override-recovery.mjs";
-import { appSurfaces, backOfficeSurfaces, checkSurfaces, readBackOfficeIds, settleAndClosePages, surfaceViewports } from "./support/surfaces.mjs";
+import { appSurfaces, backOfficeSurfaces, checkSurfaces, readBackOfficeIds, surfaceViewports } from "./support/surfaces.mjs";
+import { createBrowserSessions, requireSessions } from "./staging/browser-sessions.mjs";
+import { checkImageGate, readDeployment } from "./staging/deployment.mjs";
+import { askProbeApproval, probeChecks, probeJobName, probeName, runProbeJob } from "./staging/probe-job.mjs";
+import { assert, createRecord } from "./staging/record.mjs";
 
 // An error nobody caught is printed through redact: the automation library's call log lists the request's cookie header,
 // which Node would otherwise print as it is (observed on 2026-10-01 after a request timed out)
@@ -55,26 +60,10 @@ const flagKey = options.flag;
 const azure = createAzure(options.subscription);
 const interactiveTimeoutMs = 90_000;
 
-// The apps the deployment procedure deploys, and the image repository each runs (back-office runs the account API image)
-const deployedApps = { "account-api": "account-api", "back-office": "account-api", "account-workers": "account-workers", "blazor-host": "blazor-host" };
-// Paths the Blazor host generates when it runs rather than publishes, so they are not in the image's endpoint manifest:
-// the brand stylesheet and the web manifest (HostApplication) and the framework's resource collection. Observed on
-// 2026-09-30 as the only references of the served documents outside the manifest of 2026.09.30.1815.
-const hostGeneratedPaths = [/^brand\.css$/, /^manifest\.webmanifest$/, /^_framework\/resource-collection(\.[a-z0-9]+)?\.js(\.gz)?$/];
-
 // ---------------------------------------------------------------------------------------------------------------------
 // The deployment as Azure describes it (read only)
 
-const readApp = (name) => azure.json(["containerapp", "show", "--name", name, "--resource-group", resourceGroup]);
-const apps = Object.fromEntries(Object.keys(deployedApps).map((name) => [name, readApp(name)]));
-const environmentOf = (app) => Object.fromEntries((app.properties.template.containers[0].env ?? []).map((variable) => [variable.name, variable.value ?? `secretRef:${variable.secretRef}`]));
-const variables = Object.fromEntries(Object.entries(apps).map(([name, app]) => [name, environmentOf(app)]));
-const backOfficeHost = apps["back-office"].properties.configuration.ingress.customDomains?.[0]?.name;
-if (!backOfficeHost) throw new Error("The back-office app has no custom domain.");
-const backOfficeUrl = `https://${backOfficeHost}`;
-const appUrl = variables["blazor-host"].PUBLIC_URL;
-const managedEnvironment = azure.json(["containerapp", "env", "show", "--ids", apps["back-office"].properties.managedEnvironmentId]);
-const environmentDomain = managedEnvironment.properties.defaultDomain;
+const { apps, variables, backOfficeHost, backOfficeUrl, appUrl, managedEnvironment, environmentDomain } = readDeployment(azure, resourceGroup);
 
 const store = sessionStore(options["session-folder"], backOfficeHost);
 const target = { backOfficeUrl, appUrl, appUserEmail };
@@ -91,139 +80,28 @@ if (typeof options["sign-in"] === "string") {
 // ---------------------------------------------------------------------------------------------------------------------
 // Sessions: every identity signs in before any check runs
 
-const sessions = {};
-for (const identity of identities) {
-  let verdict = await verifyStoredSession(store, identity, target);
-  if (!verdict.valid) {
-    console.log(`The ${identity} session cannot be used: ${verdict.reason}.`);
-    const answer = await ask(`Sign in as ${identity} now? [y/N] `);
-    if (answer?.toLowerCase() === "y") {
-      await captureSession(store, identity, { ...target, desktopPort });
-      verdict = await verifyStoredSession(store, identity, target);
-    }
-  }
-  if (!verdict.valid) {
-    console.log(`No check ran. Sign in as ${identity} first:\n  ${signInCommand(identity)}`);
-    process.exit(3);
-  }
-  sessions[identity] = verdict;
-  console.log(`Session ${identity}: ${verdict.me.email}${verdict.appUser ? `, app edition ${verdict.appUser.email}` : ""}.`);
+const { sessions, missing } = await requireSessions({ store, target, desktopPort });
+if (missing !== undefined) {
+  console.log(`No check ran. Sign in as ${missing} first:\n  ${signInCommand(missing)}`);
+  process.exit(3);
 }
-
-const stateOf = (identity) => store.load(identity);
-const keep = (identity) => async (state) => store.save(identity, state);
 
 // The browser stays open on an interrupt, so the handler below can still restore the admin write's target
 const browser = await playwright[options.browser].launch({ handleSIGINT: false, handleSIGTERM: false });
 const browserVersion = browser.version();
-
-// A context of the identity, or of nobody; closing it stores the cookies it ended with, since the account API rotates the
-// refresh token and revokes a session whose previous token comes back
-//
-// Only a context that visited the app host may reconcile or store app-edition cookies. Check 8 keeps one admin context open
-// on the back office while other contexts visit the app host and rotate the refresh token; reconciling the first one's copy,
-// two rotations old and past the 30 s grace, made the account API revoke the session (observed on staging, 2026-10-01 07:41
-// UTC). A context that never visited the app host stores its back-office cookies beside the stored app-edition ones.
-const appHost = new URL(appUrl).hostname;
-const isAppCookie = (cookie) => cookie.domain.replace(/^\./, "") === appHost;
-
-async function openContext(identity, contextOptions = {}) {
-  const context = await newContext(browser, options.browser, identity ? stateOf(identity) : undefined, "en-US", { ignoreHTTPSErrors: false, ...contextOptions });
-  let visitedApp = false;
-  context.on("request", (request) => {
-    if (new URL(request.url()).hostname === appHost) visitedApp = true;
-  });
-  return {
-    context,
-    close: async () => {
-      await settleAndClosePages(context);
-      if (identity === "admin" && visitedApp) await reconcileAppSession(context, appUrl);
-      if (identity) {
-        const state = await context.storageState();
-        const stored = stateOf(identity);
-        store.save(identity, visitedApp || stored === undefined ? state : { ...state, cookies: [...stored.cookies.filter(isAppCookie), ...state.cookies.filter((cookie) => !isAppCookie(cookie))] });
-      }
-      await context.close();
-    }
-  };
-}
-
-async function withPage(identity, url, action) {
-  const { context, close } = await openContext(identity);
-  try {
-    const page = await context.newPage();
-    const response = await page.goto(url, { waitUntil: "load" });
-    return await action(page, response, context);
-  } finally {
-    await close();
-  }
-}
+const { stateOf, keep, openContext, withPage, send } = createBrowserSessions({ browser, browserName: options.browser, store, appUrl });
 
 async function waitForBackOffice(page) {
   await page.locator('[data-testid="back-office-shell"][data-identity-state="loaded"]').waitFor({ timeout: interactiveTimeoutMs });
 }
 
-// A request as the identity, or with no session at all, recorded with its answer
-async function send(identity, method, url, { headers = {}, data } = {}) {
-  const request = await playwright.request.newContext({ storageState: identity ? stateOf(identity) : undefined });
-  try {
-    const response = await request.fetch(url, { method, headers, data, maxRedirects: 0, failOnStatusCode: false });
-    const recorded = await recordResponse(method, url, response, headers);
-    return { status: response.status(), headers: response.headers(), body: await response.text(), recorded };
-  } finally {
-    if (identity) store.save(identity, await request.storageState());
-    await request.dispose();
-  }
-}
-
 // ---------------------------------------------------------------------------------------------------------------------
 // The record
 
-const checks = [];
-async function check(id, name, action) {
-  const requests = [];
-  try {
-    const detail = await action(requests);
-    checks.push({ id, name, passed: true, detail, requests });
-    console.log(`PASS ${id} ${name}`);
-  } catch (error) {
-    checks.push({ id, name, passed: false, detail: redact(error.message), requests });
-    console.log(`FAIL ${id} ${name}: ${redact(error.message)}`);
-  }
-}
-
-function notRun(id, name, reason) {
-  checks.push({ id, name, passed: false, notRun: true, detail: reason, requests: [] });
-  console.log(`NOT RUN ${id} ${name}: ${reason}`);
-}
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-function finish(extra = {}) {
-  const hostConfiguration = { hostEnvironment: "Production", buildConfiguration: `staging images ${options.tag}` };
-  const verdict = writeResult(
-    `staging-acceptance-${options.tag}-${options.browser}-${new Date().toISOString().replaceAll(":", "").slice(0, 15)}.json`,
-    {
-      browser: options.browser,
-      browserVersion,
-      culture: "en-US",
-      ...hostConfiguration,
-      tag: options.tag,
-      resourceGroup,
-      subscription: options.subscription,
-      backOfficeUrl,
-      appUrl,
-      identities: Object.fromEntries(Object.entries(sessions).map(([identity, session]) => [identity, { backOffice: session.me.email, isAdmin: session.me.isAdmin, appEdition: session.appUser?.email ?? null }])),
-      ...extra,
-      checks
-    },
-    1
-  );
-  console.log(`Result file: ${verdict.resultFile}`);
-  return verdict;
-}
+const { check, notRun, add, finish } = createRecord({
+  run: { browser: options.browser, browserVersion, tag: options.tag, resourceGroup, subscription: options.subscription, backOfficeUrl, appUrl },
+  sessions
+});
 
 // ---------------------------------------------------------------------------------------------------------------------
 // The admin write's target and its restore (support/override-recovery.mjs), which also runs for a leftover from an
@@ -312,79 +190,11 @@ if (["declined", "failed"].includes(await recovery.resumeLeftover(ask))) {
 // ---------------------------------------------------------------------------------------------------------------------
 // The image and fingerprint gate
 
-const imageTag = (image) => image.slice(image.lastIndexOf(":") + 1);
-const imageRepository = (image) => image.slice(image.indexOf("/") + 1, image.lastIndexOf(":"));
-
-function readImageManifest(image) {
-  const registry = image.slice(0, image.indexOf("/"));
-  azure.raw(["acr", "login", "--name", registry.split(".")[0]]);
-  execFileSync("docker", ["pull", "--quiet", image], { stdio: "ignore" });
-  const container = execFileSync("docker", ["create", image], { encoding: "utf8" }).trim();
-  const folder = mkdtempSync(path.join(os.tmpdir(), "staging-acceptance-"));
-  try {
-    const file = path.join(folder, "endpoints.json");
-    execFileSync("docker", ["cp", `${container}:/app/Blazor.Host.staticwebassets.endpoints.json`, file], { stdio: "ignore" });
-    return new Set(readEndpointManifest(file).map((endpoint) => endpoint.Route));
-  } finally {
-    execFileSync("docker", ["rm", container], { stdio: "ignore" });
-    rmSync(folder, { recursive: true, force: true });
-  }
-}
-
-// Every asset path below the path base that a document references: attributes, the import map and the preload list
-function referencedAssets(html) {
-  const assets = new Set();
-  const pattern = /["'](?:\/blazor\/|\.\/)?((?:_framework|_content|js|css|fonts|images)\/[^"'?#\s]+|[A-Za-z0-9._-]+\.(?:css|js|webmanifest|ico|png|svg))(?:\?[^"'\s]*)?["']/g;
-  for (const match of html.matchAll(pattern)) assets.add(match[1]);
-  return [...assets];
-}
-
 let gatePassed = false;
 await check("gate", `Every app runs ${options.tag} and the documents reference that publish's assets`, async (requests) => {
-  const failures = [];
-  const revisions = {};
-  for (const [name, repository] of Object.entries(deployedApps)) {
-    const active = azure.json(["containerapp", "revision", "list", "--name", name, "--resource-group", resourceGroup]).filter((revision) => revision.properties.active);
-    revisions[name] = active.map((revision) => ({
-      name: revision.name,
-      image: revision.properties.template.containers[0].image,
-      trafficWeight: revision.properties.trafficWeight ?? null,
-      healthState: revision.properties.healthState,
-      runningState: revision.properties.runningState
-    }));
-    if (active.length === 0) failures.push(`${name} has no active revision`);
-    for (const revision of revisions[name]) {
-      if (imageTag(revision.image) !== options.tag || imageRepository(revision.image) !== repository) failures.push(`${name} revision ${revision.name} runs ${revision.image}, not ${repository}:${options.tag}`);
-      if (revision.healthState !== "Healthy") failures.push(`${name} revision ${revision.name} is ${revision.healthState}`);
-    }
-  }
-  assert(failures.length === 0, failures.join("; "));
-
-  const image = revisions["blazor-host"][0].image;
-  const routes = readImageManifest(image);
-  const appCss = [...routes].find((route) => /^app\.[a-z0-9]+\.css$/.test(route));
-  const blazorWeb = [...routes].find((route) => /^_framework\/blazor\.web\.[a-z0-9]+\.js$/.test(route));
-  const documents = {};
-  for (const [label, identity, url] of [
-    ["app host", null, `${appUrl}${pathBase}/`],
-    ["back-office host", "admin", `${backOfficeUrl}${pathBase}/back-office`]
-  ]) {
-    const answer = await send(identity, "GET", url, { headers: { Accept: "text/html" } });
-    requests.push(answer.recorded);
-    if (answer.status !== 200) {
-      failures.push(`${label}: ${url} answered ${answer.status}`);
-      continue;
-    }
-    const assets = referencedAssets(answer.body);
-    const foreign = assets.filter((asset) => !routes.has(asset) && !hostGeneratedPaths.some((pattern) => pattern.test(asset)));
-    documents[label] = { url, assets: assets.length, notInImage: foreign };
-    if (foreign.length > 0) failures.push(`${label}: ${url} references ${foreign.join(", ")}, which the image ${image} does not contain`);
-    if (!assets.includes(appCss)) failures.push(`${label}: ${url} does not reference ${appCss} of ${image}`);
-    if (!assets.includes(blazorWeb)) failures.push(`${label}: ${url} does not reference ${blazorWeb} of ${image}`);
-  }
-  assert(failures.length === 0, failures.join("; "));
+  const detail = await checkImageGate({ azure, resourceGroup, tag: options.tag, appUrl, backOfficeUrl, send, requests });
   gatePassed = true;
-  return { revisions, image, imageRoutes: routes.size, appCss, blazorWeb, documents };
+  return detail;
 });
 
 if (!gatePassed) {
@@ -620,7 +430,7 @@ const surfaceResults = [
     appSurfaces()
   ))
 ];
-for (const result of surfaceResults) checks.push({ id: "surfaces", name: result.name, passed: result.passed, detail: result.detail, requests: [] });
+for (const result of surfaceResults) add({ id: "surfaces", name: result.name, passed: result.passed, detail: result.detail, requests: [] });
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Check 8 and the non-admin checks
@@ -713,70 +523,28 @@ await check("8-non-admin", `No write offered to the non-admin on the ${flagKey} 
 // ---------------------------------------------------------------------------------------------------------------------
 // Checks 3b and 3c from the probe job, only with the owner's approval of this run
 
-const jobName = `bo-probe-${new Date().toISOString().replace(/[^0-9]/g, "").slice(2, 12)}`;
-const probeName = "Forged headers inside the environment (3b and 3c)";
-console.log(`
-Checks 3b and 3c need a probe job inside the Container Apps environment. It is an Azure change:
-  create  Container Apps job ${jobName} in ${resourceGroup}, environment ${managedEnvironment.name}
-  image   the curl image pinned in blazor/tests/staging/probe-job.yaml, manual trigger, no ingress, no secret
-  then    start one execution, read its log, delete the job`);
-const approval = await ask(`Type the job name (${jobName}) to approve this run, or press Enter to skip: `);
-if (approval !== jobName) {
-  notRun("3b", "Forged Host on the internal account API", approval === null ? "no terminal to ask for the probe job's approval" : "the owner did not approve the probe job for this run");
-  notRun("3c", "Forged headers on the back-office app from inside", approval === null ? "no terminal to ask for the probe job's approval" : "the owner did not approve the probe job for this run");
+const jobName = probeJobName();
+const approval = await askProbeApproval({ jobName, resourceGroup, environmentName: managedEnvironment.name, ask });
+if (!approval.approved) {
+  for (const probe of probeChecks) notRun(probe.id, probe.name, approval.reason);
 } else {
-  await check("3b-3c", probeName, async () => {
-    const template = readFileSync(path.join(repositoryRoot, "blazor/tests/staging/probe-job.yaml"), "utf8");
-    const filled = template
-      .replaceAll("{{LOCATION}}", managedEnvironment.location)
-      .replaceAll("{{ENVIRONMENT_ID}}", managedEnvironment.id)
-      .replaceAll("{{ENVIRONMENT_DOMAIN}}", environmentDomain)
-      .replaceAll("{{BACK_OFFICE_HOST}}", backOfficeHost)
-      .replaceAll("{{BACK_OFFICE_FQDN}}", apps["back-office"].properties.configuration.ingress.fqdn)
-      .replaceAll("{{FORGED_NAME}}", forged.name)
-      .replaceAll("{{FORGED_ID}}", forged.id)
-      .replaceAll("{{FORGED_PRINCIPAL}}", forged.principal);
-    const folder = mkdtempSync(path.join(os.tmpdir(), "probe-job-"));
-    const file = path.join(folder, "probe-job.yaml");
-    writeFileSync(file, filled);
-    let created = false;
-    try {
-      azure.raw(["containerapp", "job", "create", "--name", jobName, "--resource-group", resourceGroup, "--yaml", file]);
-      created = true;
-      const execution = azure.json(["containerapp", "job", "start", "--name", jobName, "--resource-group", resourceGroup]);
-      const executionName = execution.name ?? execution.id?.split("/").pop();
-      const deadline = Date.now() + 10 * 60_000;
-      let status;
-      do {
-        await new Promise((resolve) => setTimeout(resolve, 10_000));
-        status = azure.json(["containerapp", "job", "execution", "show", "--name", jobName, "--resource-group", resourceGroup, "--job-execution-name", executionName]).properties.status;
-      } while (!["Succeeded", "Failed", "Stopped", "Degraded"].includes(status) && Date.now() < deadline);
-      assert(status === "Succeeded", `The probe execution ${executionName} ended ${status}.`);
-      const lines = azure
-        .raw(["containerapp", "job", "logs", "show", "--name", jobName, "--resource-group", resourceGroup, "--execution", executionName, "--container", "probe", "--format", "text"])
-        .split("\n")
-        .filter((line) => line.includes("PROBE "))
-        .map((line) => line.slice(line.indexOf("PROBE ") + 6).trim());
-      assert(lines.includes("done"), `The probe log has no end marker: ${lines.join(" | ")}.`);
-      const answers = lines.filter((line) => line !== "done").map((line) => {
-        const [probe, status, url, host, accept] = line.split(" ");
-        return { check: probe, status: Number(status), url, host, accept };
-      });
-      const wrong = answers.filter((answer) => (answer.check === "3b" ? ![401, 404].includes(answer.status) : ![302, 401].includes(answer.status)));
-      assert(answers.length === 5 && wrong.length === 0, `Answers: ${JSON.stringify(answers)}.`);
-      return { job: jobName, execution: executionName, answers };
-    } finally {
-      rmSync(folder, { recursive: true, force: true });
-      if (created) {
-        try {
-          azure.raw(["containerapp", "job", "delete", "--name", jobName, "--resource-group", resourceGroup, "--yes"]);
-          console.log(`Deleted the probe job ${jobName}.`);
-        } catch (error) {
-          throw new Error(`The probe job ${jobName} could not be deleted; delete it by hand: ${error.message}`);
-        }
+  await check("3b-3c", probeName, () =>
+    runProbeJob({
+      azure,
+      resourceGroup,
+      jobName,
+      placeholders: {
+        LOCATION: managedEnvironment.location,
+        ENVIRONMENT_ID: managedEnvironment.id,
+        ENVIRONMENT_DOMAIN: environmentDomain,
+        BACK_OFFICE_HOST: backOfficeHost,
+        BACK_OFFICE_FQDN: apps["back-office"].properties.configuration.ingress.fqdn,
+        FORGED_NAME: forged.name,
+        FORGED_ID: forged.id,
+        FORGED_PRINCIPAL: forged.principal
       }
-    }
-  });
+    })
+  );
 }
 
 await browser.close();

@@ -1,5 +1,5 @@
 # The probe job for checks 3b and 3c of the back-office deployment procedure (docs/blazor-back-office-hosting.md), which need
-# a shell inside the Container Apps environment that none of the repository's chiseled images has. staging-acceptance.mjs
+# a shell inside the Container Apps environment that none of the repository's chiseled images has. probe-job.mjs beside it
 # fills the {{...}} placeholders, creates the job with `az containerapp job create --yaml`, starts one execution, reads its
 # console log and deletes the job again, and it does so only after the owner approves that run (EP-227).
 #
