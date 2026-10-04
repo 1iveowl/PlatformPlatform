@@ -3,6 +3,10 @@
 // validation failures. So a 400 for a page after the first is checked against the first page's metadata (offset omitted):
 // when the offset really is out of range, the last page is loaded instead (the first page when the result is empty);
 // otherwise the original failure stands. At most three fetches per load, and never a loop.
+// Only the requested page is read from the cache. The first page and the last page of a recovery are fetched from the
+// server, because a cached page may predate another actor's change: a stale total would misjudge the offset, and a stale
+// last page would not belong to the result it recovers to. They are stored under the token the load began with, so they
+// replace the stale entries, and a load that was cancelled or invalidated meanwhile stores nothing.
 
 namespace Blazor.Client.Components.Lists;
 
@@ -43,7 +47,13 @@ public static class DataListLoader
 
         async Task<DataListFetchResult<TItem>> GetAsync(int pageOffset)
         {
-            if (cache.TryGet<TItem>(scope, listId, queryKey, pageSize, pageOffset, out var cached)) return new DataListFetchResult<TItem>(cached, null, null);
+            return cache.TryGet<TItem>(scope, listId, queryKey, pageSize, pageOffset, out var cached)
+                ? new DataListFetchResult<TItem>(cached, null, null)
+                : await FetchAsync(pageOffset);
+        }
+
+        async Task<DataListFetchResult<TItem>> FetchAsync(int pageOffset)
+        {
             var request = new DataListRequest(state.Filters, state.OrderBy, state.SortOrder, pageOffset, pageSize);
             var result = await fetch(request, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
@@ -60,7 +70,7 @@ public static class DataListLoader
         var isOutOfRangeCandidate = state.PageOffset > 0 && (requested.Page is not null || requested.StatusCode == BadRequestStatusCode);
         if (!isOutOfRangeCandidate) return new DataListLoadResult<TItem>(null, state.PageOffset, requested.ErrorMessage);
 
-        var first = await GetAsync(0);
+        var first = await FetchAsync(0);
         if (first.Page is null) return new DataListLoadResult<TItem>(null, state.PageOffset, first.ErrorMessage);
 
         var totalPages = (first.Page.TotalCount + pageSize - 1) / pageSize;
@@ -74,7 +84,7 @@ public static class DataListLoader
 
         if (totalPages <= 1) return new DataListLoadResult<TItem>(first.Page, 0, null);
 
-        var last = await GetAsync(totalPages - 1);
+        var last = await FetchAsync(totalPages - 1);
         return last.Page is null
             ? new DataListLoadResult<TItem>(null, state.PageOffset, last.ErrorMessage)
             : new DataListLoadResult<TItem>(last.Page, totalPages - 1, null);
