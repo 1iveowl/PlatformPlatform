@@ -115,10 +115,8 @@
     private DataList<UserDetails>? _list;
     private UserDetails? _roleUser;
     private IReadOnlyList<UserDetails> _selectedUsers = [];
-    private DotNetObjectReference<UsersSurface>? _reference;
     private ElementReference _toolbar;
-    private IJSObjectReference? _toolbarObserver;
-    private bool _disposed;
+    private ToolbarWidthObserver? _toolbarWidth;
 
     private IReadOnlyList<UserDetails> PageItems => _list is { Status: DataListStatus.Ready or DataListStatus.Empty } list ? list.Items : [];
 
@@ -178,44 +176,20 @@
     {
         if (!firstRender || !RendererInfo.IsInteractive) return;
 
-        try
-        {
-            await using var module = await JavaScriptRuntime.InvokeAsync<IJSObjectReference>("import", "./js/toolbar-width.js");
-            _reference = DotNetObjectReference.Create(this);
-            var observer = await module.InvokeAsync<IJSObjectReference>("observeToolbarWidth", _toolbar, _reference, UsersFilterModel.InlineThresholdRem);
-            if (_disposed) await observer.DisposeAsync();
-            else _toolbarObserver = observer;
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is gone; the filters stay behind the button
-        }
+        _toolbarWidth = new ToolbarWidthObserver(JavaScriptRuntime, OnToolbarWidthChanged);
+        await _toolbarWidth.ObserveAsync(_toolbar, UsersFilterModel.InlineThresholdRem);
     }
 
+    // The observer releases the module, its ResizeObserver and the reference once, also when the page is torn down while the
+    // import or the attach is still pending, and reports no width after this
     public async ValueTask DisposeAsync()
     {
-        _disposed = true;
-        try
-        {
-            if (_toolbarObserver is not null)
-            {
-                await _toolbarObserver.InvokeVoidAsync("dispose");
-                await _toolbarObserver.DisposeAsync();
-            }
-        }
-        catch (JSDisconnectedException)
-        {
-            // The document is gone, and the observer with it
-        }
-
-        _reference?.Dispose();
+        if (_toolbarWidth is not null) await _toolbarWidth.DisposeAsync();
     }
 
-    [JSInvokable]
-    public Task OnToolbarWidthChanged(bool isWide)
+    private void OnToolbarWidthChanged(bool isWide)
     {
         if (_filterModel.WidthChanged(isWide, _filters)) StateHasChanged();
-        return Task.CompletedTask;
     }
 
     private static string KeyOf(UserDetails user)
