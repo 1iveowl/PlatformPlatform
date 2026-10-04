@@ -169,12 +169,15 @@ const recovery = createOverrideRecovery({
 });
 
 // An interrupt while the override is changed restores it before the process ends, after whatever write or restore is
-// running; the pending-restore file covers a run that is killed outright or interrupted twice, and the next run restores it
-// first
+// running; the pending-restore file covers a run that is killed outright or interrupted twice (the second interrupt prints
+// its path), and the next run restores it first
 let interrupted = false;
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, async () => {
-    if (interrupted) process.exit(130);
+    if (interrupted) {
+      recovery.interruptedAgain();
+      process.exit(130);
+    }
     interrupted = true;
     await recovery.interrupt();
     await browser.close().catch(() => undefined);

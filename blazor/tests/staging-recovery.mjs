@@ -9,18 +9,20 @@
 // The harness passes --browser, which these tests ignore. Exit code 1 when a test fails.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { sessionStore } from "./support/deployed.mjs";
 import { createOverrideRecovery } from "./support/override-recovery.mjs";
+import { registerSensitiveValue } from "./support/stack.mjs";
 
 const host = "back-office.staging.test";
 const recordedFlag = "compact-view";
 const otherFlag = "beta-dashboard";
 const owner = { userId: "usr_owner", tenantId: "1553434734103793664", email: "jasper@etara.dk" };
 const colleague = { userId: "usr_colleague", tenantId: "1553434734103793664", email: "colleague@etara.dk" };
+const ownerInOtherAccount = { ...owner, tenantId: "1553434734103793665" };
 const disabled = { isEnabled: false, source: "default" };
 const enabledByOverride = { isEnabled: true, source: "manual_override" };
 const disabledByOverride = { isEnabled: false, source: "manual_override" };
@@ -30,7 +32,7 @@ const keyOf = (flagKey, { userId, tenantId }) => `${flagKey}|${userId}|${tenantI
 // The account API and the flag detail's users list as check 8 and its restore see them: one state per flag, user and account
 function createWorld(states) {
   const users = { [owner.userId]: owner.email, [colleague.userId]: colleague.email };
-  const world = { states: { ...states }, mutations: [], active: 0, maxActive: 0, toggleFailures: [], closeFailures: [], held: undefined, onMutationStart: undefined, inert: false, shownRow: undefined };
+  const world = { states: { ...states }, mutations: [], active: 0, maxActive: 0, toggleFailures: [], readFailures: [], closeFailures: [], held: undefined, onMutationStart: undefined, inert: false, shownRow: undefined, shownText: undefined };
 
   async function mutate(key, action) {
     world.active++;
@@ -48,13 +50,17 @@ function createWorld(states) {
     }
   }
 
-  world.fetchUserFlags = async (userId) =>
-    Object.entries(world.states)
+  world.fetchUserFlags = async (userId) => {
+    const failure = world.readFailures.shift();
+    if (failure !== undefined) throw new Error(failure);
+    return Object.entries(world.states)
       .map(([key, state]) => [key.split("|"), state])
       .filter(([[, user]]) => user === String(userId))
       .map(([[flagKey, , tenantId], state]) => ({ flagKey, tenantId, ...state }));
+  };
 
-  // Like openOverrideRow: the list of the named flag searched for the named email, then the row of the user and account
+  // Like openOverrideRow: the list of the named flag searched for the named email, then the row of the user and account.
+  // shownRow and shownText make it open another row than the one asked for; pressing acts on the row it opened.
   world.openRow = async (page, { flagKey, email, userId, tenantId }) => {
     const visible = Object.keys(world.states)
       .map((key) => key.split("|"))
@@ -62,11 +68,11 @@ function createWorld(states) {
     if (!visible.some(([, user, tenant]) => user === String(userId) && tenant === String(tenantId))) {
       throw new Error(`Timeout: no row ${userId}-${tenantId} on the ${flagKey} list searched for ${email}.`);
     }
-    const key = `${flagKey}|${userId}|${tenantId}`;
     const shown = world.shownRow ?? { userId, tenantId };
+    const key = `${flagKey}|${shown.userId}|${shown.tenantId}`;
     return {
       testId: `feature-flag-user-override-${shown.userId}-${shown.tenantId}`,
-      text: `${users[shown.userId]} ${shown.tenantId}`,
+      text: world.shownText ?? `${users[shown.userId]} ${shown.tenantId}`,
       toggle: () => mutate(key, "toggle"),
       removeOverride: () => mutate(key, "remove")
     };
@@ -440,5 +446,161 @@ test("a state the switch does not change stops after a bounded wait, keeps the j
 
   assert.equal(recordedTargetMutations(world).length, 1);
   assert.match([result, ...log].join("\n"), /did not change/);
+  assert.notEqual(store.readPendingRestore(), undefined);
+});
+
+// A failed request of the automation library carries the admin session's cookie header in its message (observed on
+// 2026-10-04: a restore read to a host that never answered)
+function failingReadWith(world) {
+  const cookie = `AppServiceAuthSession=${"c0ffee".repeat(8)}`;
+  registerSensitiveValue(cookie.slice(cookie.indexOf("=") + 1));
+  world.readFailures.push(`apiRequestContext.fetch: Timeout 30000ms exceeded. Call log: - cookie: ${cookie}`);
+  return cookie.slice(cookie.indexOf("=") + 1);
+}
+
+test("a failed leftover restore never prints the session cookie its error holds, and still reports the failure", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: enabledByOverride });
+  const { recovery, store, log } = createRecovery(t, world);
+  store.writePendingRestore(journalOf(disabled));
+  const secret = failingReadWith(world);
+
+  const result = await resume(recovery);
+
+  assert.equal(result, "failed");
+  assert.deepEqual(
+    log.filter((line) => line.includes(secret)),
+    []
+  );
+  assert.ok(log.some((line) => line.includes("AppServiceAuthSession=[redacted]") && line.includes(store.pendingRestoreFile)), log.join("\n"));
+  assert.notEqual(store.readPendingRestore(), undefined);
+});
+
+test("a failed restore after an interrupt never prints the session cookie its error holds, and still reports the failure", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: enabledByOverride });
+  const { recovery, store, log } = createRecovery(t, world);
+  store.writePendingRestore(journalOf(disabled));
+  const secret = failingReadWith(world);
+
+  await recovery.interrupt();
+
+  assert.deepEqual(
+    log.filter((line) => line.includes(secret)),
+    []
+  );
+  assert.ok(log.some((line) => line.includes("AppServiceAuthSession=[redacted]") && line.includes(store.pendingRestoreFile)), log.join("\n"));
+  assert.notEqual(store.readPendingRestore(), undefined);
+});
+
+test("a failed restore inside check 8 never puts the session cookie its error holds in the reported failure", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: disabled });
+  const { recovery, store } = createRecovery(t, world);
+  let secret;
+  const write = writeOnce(world);
+
+  await assert.rejects(
+    recovery.runWrite({
+      write: async (session, tools) => {
+        try {
+          return await write(session, tools);
+        } finally {
+          secret = failingReadWith(world);
+        }
+      }
+    }),
+    (error) => {
+      assert.ok(!error.message.includes(secret), error.message);
+      assert.match(error.message, /AppServiceAuthSession=\[redacted\]/);
+      return true;
+    }
+  );
+  assert.notEqual(store.readPendingRestore(), undefined);
+});
+
+test("a recorded user in two accounts is restored in the recorded account only, whatever the other account's state", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, ownerInOtherAccount)]: disabled, [keyOf(recordedFlag, owner)]: enabledByOverride });
+  const { recovery, store, clears } = createRecovery(t, world);
+  store.writePendingRestore(journalOf(disabled));
+
+  const result = await resume(recovery);
+
+  assert.equal(result, "restored");
+  assert.deepEqual(world.states[keyOf(recordedFlag, owner)], disabled);
+  assert.deepEqual(world.states[keyOf(recordedFlag, ownerInOtherAccount)], disabled);
+  assert.deepEqual(
+    world.mutations.map((mutation) => mutation.key),
+    [keyOf(recordedFlag, owner)]
+  );
+  for (const stateAtClear of clears) assert.deepEqual(stateAtClear, disabled, "the journal was cleared while the recorded account was still changed");
+});
+
+test("a row with the recorded test id that names another email is never pressed, and the journal stays", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: enabledByOverride });
+  const { recovery, store, log } = createRecovery(t, world);
+  store.writePendingRestore(journalOf(disabled));
+  world.shownText = `${colleague.email} ${owner.tenantId}`;
+
+  const result = await resume(recovery);
+
+  assert.equal(result, "failed");
+  assert.deepEqual(world.mutations, []);
+  assert.ok(log.some((line) => line.includes(`does not name ${owner.email}`)), log.join("\n"));
+  assert.notEqual(store.readPendingRestore(), undefined);
+});
+
+test("a row naming the recorded email with another test id (the user's other account) is never pressed, and the journal stays", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: enabledByOverride, [keyOf(recordedFlag, ownerInOtherAccount)]: enabledByOverride });
+  const { recovery, store, log } = createRecovery(t, world);
+  store.writePendingRestore(journalOf(disabled));
+  world.shownRow = ownerInOtherAccount;
+
+  const result = await resume(recovery);
+
+  assert.equal(result, "failed");
+  assert.deepEqual(world.mutations, []);
+  assert.deepEqual(world.states[keyOf(recordedFlag, ownerInOtherAccount)], enabledByOverride);
+  assert.ok(log.some((line) => line.includes(`not feature-flag-user-override-${owner.userId}-${owner.tenantId}`)), log.join("\n"));
+  assert.notEqual(store.readPendingRestore(), undefined);
+});
+
+const notJson = '{"flagKey": "compact-view", "email": "jasper@et';
+
+test("a pending-restore file that is not JSON is reported with its path at start, nothing is pressed, and the file stays", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: enabledByOverride });
+  const { recovery, store, log } = createRecovery(t, world);
+  writeFileSync(store.pendingRestoreFile, notJson);
+
+  const result = await resume(recovery);
+
+  assert.equal(result, "failed");
+  assert.deepEqual(world.mutations, []);
+  assert.ok(log.some((line) => line.includes(store.pendingRestoreFile) && line.includes("No check ran")), log.join("\n"));
+  assert.equal(readFileSync(store.pendingRestoreFile, "utf8"), notJson);
+});
+
+test("a pending-restore file that is not JSON is reported with its path on an interrupt, which still resolves for exit code 130", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: enabledByOverride });
+  const { recovery, store, log } = createRecovery(t, world);
+  writeFileSync(store.pendingRestoreFile, notJson);
+
+  await assert.doesNotReject(recovery.interrupt());
+
+  assert.deepEqual(world.mutations, []);
+  assert.ok(log.some((line) => line.includes(store.pendingRestoreFile) && line.startsWith("Interrupted")), log.join("\n"));
+  assert.equal(readFileSync(store.pendingRestoreFile, "utf8"), notJson);
+});
+
+test("a second interrupt prints the journal's path when a journal is there, and nothing when there is none", async (t) => {
+  const world = createWorld({ [keyOf(recordedFlag, owner)]: enabledByOverride });
+  const { recovery, store, log } = createRecovery(t, world);
+
+  recovery.interruptedAgain();
+  assert.deepEqual(log, []);
+
+  store.writePendingRestore(journalOf(disabled));
+  recovery.interruptedAgain();
+
+  assert.equal(log.length, 1);
+  assert.ok(log[0].includes(store.pendingRestoreFile), log[0]);
+  assert.deepEqual(world.mutations, []);
   assert.notEqual(store.readPendingRestore(), undefined);
 });

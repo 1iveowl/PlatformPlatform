@@ -22,8 +22,27 @@
 // - openRow(page, { flagKey, email, userId, tenantId }): the users list of the flag detail opened on that row,
 //   { testId, text, toggle(), removeOverride() }
 // - log(message), and now() and sleep(ms) for the polls
+// - redact(text), redact of support/stack.mjs unless a test passes another
+//
+// Every line this module logs, and the message of every error runWrite throws, passes through redact first: a failed request
+// of the automation library carries the admin session's cookie header in its message (observed on 2026-10-04 by the G7-03
+// review, on a restore read to a host that never answered).
 
-export function createOverrideRecovery({ store, backOfficeHost, current, fetchUserFlags, openSession, openRow, log = console.log, now = Date.now, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
+import { redact as redactSensitive } from "./stack.mjs";
+
+export function createOverrideRecovery({
+  store,
+  backOfficeHost,
+  current,
+  fetchUserFlags,
+  openSession,
+  openRow,
+  log: print = console.log,
+  redact = redactSensitive,
+  now = Date.now,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+}) {
+  const log = (message) => print(redact(message));
   let interrupted = false;
   let queue = Promise.resolve();
 
@@ -183,16 +202,27 @@ export function createOverrideRecovery({ store, backOfficeHost, current, fetchUs
         }
       }
     }
-    if (failures.length > 0) throw new Error(failures.join(" "));
+    if (failures.length > 0) throw new Error(redact(failures.join(" ")));
     return outcome;
   }
 
-  // An interrupt: no further write from check 8, and once whatever runs has finished, the journal's target is restored
+  // The journal, or "unusable" (reported with its path) when the file is there but cannot be read as JSON; the file stays
+  function readJournal(context, outcome = "") {
+    try {
+      return store.readPendingRestore();
+    } catch (error) {
+      log(`${context}: the pending-restore file ${store.pendingRestoreFile} cannot be read (${error.message}). Nothing was changed; the file stays.${outcome}`);
+      return "unusable";
+    }
+  }
+
+  // An interrupt: no further write from check 8, and once whatever runs has finished, the journal's target is restored.
+  // It never rejects, so the runner still ends with code 130.
   function interrupt() {
     interrupted = true;
     return serialize(async () => {
-      const journal = store.readPendingRestore();
-      if (journal === undefined) return;
+      const journal = readJournal("Interrupted");
+      if (journal === undefined || journal === "unusable") return;
       let target;
       try {
         target = targetOf(journal);
@@ -209,11 +239,21 @@ export function createOverrideRecovery({ store, backOfficeHost, current, fetchUs
     });
   }
 
+  // A second interrupt ends the run at once, before the first one's restore has finished: the journal's path is printed when
+  // a journal is there, and the next run finds it and offers its restore first
+  function interruptedAgain() {
+    const journal = readJournal("Interrupted again");
+    if (journal !== undefined && journal !== "unusable") {
+      log(`Interrupted again: the restore did not finish. The state before is in ${store.pendingRestoreFile}; the next run restores it first.`);
+    }
+  }
+
   // A journal an earlier run left, restored before any check once the person running the command agrees:
   // "none", "declined", "restored" or "failed" (reported, and the run ends)
   async function resumeLeftover(ask) {
-    const journal = store.readPendingRestore();
+    const journal = readJournal("An earlier run left a pending restore that cannot be used", " No check ran.");
     if (journal === undefined) return "none";
+    if (journal === "unusable") return "failed";
     let target;
     try {
       target = targetOf(journal);
@@ -239,7 +279,7 @@ export function createOverrideRecovery({ store, backOfficeHost, current, fetchUs
     }
   }
 
-  return { readFlag, waitForFlagChange, runWrite, interrupt, resumeLeftover };
+  return { readFlag, waitForFlagChange, runWrite, interrupt, interruptedAgain, resumeLeftover };
 }
 
 export const sameFlagState = (left, right) => left.isEnabled === right.isEnabled && left.source === right.source;
