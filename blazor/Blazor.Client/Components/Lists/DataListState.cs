@@ -22,7 +22,8 @@ public sealed class DataListUrlOptions
         string? selectedKeyName = null,
         string parameterPrefix = "",
         Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? normalizeFilters = null,
-        SortOrder defaultSortOrder = SortOrder.Ascending)
+        SortOrder defaultSortOrder = SortOrder.Ascending
+    )
     {
         // A list without sortable columns (the recycle bin, which the server orders) passes no sort keys; its default order
         // is then never written and an orderBy in the URL is ignored

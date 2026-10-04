@@ -561,7 +561,8 @@ public sealed class DataListControllerTests
         string uri,
         int rowCount = 60,
         DataListPageCache? cache = null,
-        string listId = "rows")
+        string listId = "rows"
+    )
     {
         var browser = new FakeBrowser { Uri = uri };
         var server = new FakeListServer(rowCount);

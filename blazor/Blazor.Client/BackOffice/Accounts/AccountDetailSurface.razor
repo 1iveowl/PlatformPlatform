@@ -1,11 +1,10 @@
-@* The account detail, the React back office's accounts/$tenantId page: the header, the admin actions
-   for an identity in the admins group (AccountAdminActions), the health tiles and the Overview, Users, Invoices, Billing events and Feature flags tabs, the two billing tabs only with the
-   subscription setting on.
-   After an admin action the account is read again in place, and a failed read keeps what the page shows. The tab is the
-   URL's tab parameter (AccountDetailTabs), and the tab links are plain links, so a reload, the back button and a copied link
-   all land on the same tab. The account loads in the browser; the host prerenders the shell and the loading state. A tenant id
-   the account API does not know shows the back office's not-found state inside the shell; any other failed read shows the
-   failed state, whose Try again reads the same account again. *@
+@* The account detail, the React back office's accounts/$tenantId page. The admin actions are offered only to an identity in
+   the admins group (AccountAdminActions), and the Invoices and Billing events tabs exist only with the subscription
+   setting on. After an admin action the account is read again in place, and a failed read keeps what the page shows. The
+   tab is the URL's tab parameter (AccountDetailTabs), and the tab links are plain links, so a reload, the back button and
+   a copied link all land on the same tab. The account loads in the browser; the host prerenders the shell and the loading
+   state. A tenant id the account API does not know shows the back office's not-found state inside the shell; any other
+   failed read shows the failed state, whose Try again reads the same account again. *@
 @using Account.Client
 @using Account.Features.Tenants.BackOffice.Queries
 @using Blazor.Client.BackOffice.Shared

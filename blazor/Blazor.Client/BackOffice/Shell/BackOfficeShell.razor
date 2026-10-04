@@ -1,11 +1,10 @@
-@* The shell every Blazor back-office page renders inside, the React back office's layout with its side menu: the banner
-   region on top, the collapsible sidebar with the back office's navigation and the user menu, the mobile menu below the
-   small breakpoint, and the main content with the toasts. It reuses the app shell's layout classes and shell.js for the
-   collapsed state and Ctrl+B or Cmd+B, but none of the app's session machinery: the identity is the back-office identity
-   the account API reports through BackOfficeClient, read once in the browser, and a 401 leaves through the platform login
-   (BackOfficeUnauthorizedHandler). The Billing group and the billing banners follow the back office's subscription setting,
-   which the host page passes in from BACK_OFFICE_SUBSCRIPTION_ENABLED. The identity cascades to the page, null until it is
-   loaded, so a page offers admin actions from the same read. *@
+@* The shell every Blazor back-office page renders inside, the React back office's layout with its side menu. It reuses the
+   app shell's layout classes and shell.js for the collapsed state and Ctrl+B or Cmd+B, but none of the app's session
+   machinery: the identity is the back-office identity the account API reports through BackOfficeClient, read once in the
+   browser, and a 401 leaves through the platform login (BackOfficeUnauthorizedHandler). The Billing group and the billing
+   banners follow the back office's subscription setting, which the host page passes in from
+   BACK_OFFICE_SUBSCRIPTION_ENABLED. The identity cascades to the page, null until it is loaded, so a page offers admin
+   actions from the same read. *@
 @using Account.Client
 @using Account.Features.BackOffice.Queries
 @implements IAsyncDisposable

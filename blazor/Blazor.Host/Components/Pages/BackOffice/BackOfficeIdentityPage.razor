@@ -4,9 +4,10 @@
 @using Blazor.Host.Shell
 @using Microsoft.AspNetCore.Authorization
 @using SharedKernel.Authentication.BackOfficeIdentity
-@* The back-office identity check, the stage G spike's placeholder page moved below the dashboard: served only on the back-office host and only for the back-office identity the account
-   API's back-office listener forwards (BackOfficeAuthentication). The name and the admin marker come from that identity;
-   the admin marker is the account API's BackOfficeAdmin policy verdict, which the API still enforces on every admin call. *@
+@* The back-office identity check below the dashboard: served only on the back-office host and only for the back-office
+   identity the account API's back-office listener forwards (BackOfficeAuthentication). The name and the admin marker come
+   from that identity; the admin marker is the account API's BackOfficeAdmin policy verdict, which the API still enforces on
+   every admin call. *@
 @attribute [Authorize(Policy = BackOfficeAuthentication.PolicyName)]
 @attribute [BackOfficeSurface]
 @inject IWebHostEnvironment Environment

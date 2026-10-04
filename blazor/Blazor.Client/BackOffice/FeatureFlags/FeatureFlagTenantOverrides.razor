@@ -8,13 +8,11 @@
 @using Blazor.Client.FeatureFlags
 @using Microsoft.FluentUI.AspNetCore.Components
 @* The flag detail's tenants list, the React back office's TenantOverridesSection, or its PlanFeatureFlagTenantsSection for a
-   plan-managed flag: the search by account name or owner email, the plan toggles, the state and has-override toggles, and the
-   accounts on DataList with the owner, plan, status, when the override last changed, an A/B test's inclusion threshold and
-   the override switch. The filters, sort and page are in the URL under the tenants prefix (FeatureFlagTenantsListSource). A
-   switch press sets or removes the account's override (FeatureFlagOverrides.GetSwitchChange) and the row menu removes a manual
-   override; both are offered only to an identity in the admins group, and after every answer the list is read again, so a
-   row shows what the account API stored. An action on the flag itself reads it again too (FlagChanges). A plan-managed
-   flag's list is read-only. A row opens the account's feature flags. *@
+   plan-managed flag. The filters, sort and page are in the URL under the tenants prefix (FeatureFlagTenantsListSource). A
+   switch press sets or removes the account's override (FeatureFlagOverrides.GetSwitchChange) and the row menu removes a
+   manual override; both are offered only to an identity in the admins group, and after every answer the list is read
+   again, so a row shows what the account API stored. An action on the flag itself reads it again too (FlagChanges). A
+   plan-managed flag's list is read-only. A row opens the account's feature flags. *@
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
 

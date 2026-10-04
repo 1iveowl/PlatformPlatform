@@ -1,11 +1,10 @@
-@* The user detail, the React back office's users/$userId page: the header, the feature flag rollouts action for an identity in
-   the admins group (UserAdminActions), the activity tiles and the Accounts, Logins, Sessions, Identity and Feature flags tabs;
-   the Identity tab reads the user's identity verification and offers an administrator its revoke (UserIdentityTab). After the
-   pin is saved the user is read again in place, and a failed read keeps what the page shows. The tab is the URL's tab
-   parameter (UserDetailTabs), and the tab links are plain links, so a reload, the back button and a copied link all land on
-   the same tab. The user loads in the browser; the host prerenders the shell and the loading state. A user id the account API
-   does not know, or a value that is not a user id, shows the back office's not-found state inside the shell; any other failed
-   read shows the failed state, whose Try again reads the same user again. *@
+@* The user detail, the React back office's users/$userId page. The feature flag rollouts action is offered only to an
+   identity in the admins group (UserAdminActions). After the pin is saved the user is read again in place, and a failed
+   read keeps what the page shows. The tab is the URL's tab parameter (UserDetailTabs), and the tab links are plain links,
+   so a reload, the back button and a copied link all land on the same tab. The user loads in the browser; the host
+   prerenders the shell and the loading state. A user id the account API does not know, or a value that is not a user id,
+   shows the back office's not-found state inside the shell; any other failed read shows the failed state, whose Try again
+   reads the same user again. *@
 @using Account.Client
 @using Account.Features.Users.BackOffice.Queries
 @using Blazor.Client.BackOffice.Shared

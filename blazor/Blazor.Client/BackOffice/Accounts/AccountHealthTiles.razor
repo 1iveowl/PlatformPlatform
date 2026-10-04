@@ -2,12 +2,12 @@
 @using Blazor.Client.BackOffice.Shared
 @using Account.Features.Tenants.BackOffice.Queries
 @using Blazor.Client.BackOffice.Dashboard
-@* The account detail's health tiles, the React back office's AccountHealthTiles: the users tile with the active, inactive and
-   pending counts from GET /api/back-office/tenants/{id}/user-counts, which opens the Users tab, and with the subscription
-   setting on the lifetime value since the first subscription, which opens the Invoices tab, and the monthly recurring revenue
-   with its renewal date, which opens the Billing events tab. The React users tile's coloured bar is left out: the counts beside it carry the same
-   figures as text. A failed read of the counts turns the users tile into the compact failed state, whose Try again reads the
-   counts again. *@
+@* The account detail's health tiles, the React back office's AccountHealthTiles: the users tile with the active,
+   inactive and pending counts from GET /api/back-office/tenants/{id}/user-counts, which opens the Users tab, and with
+   the subscription setting on the lifetime value since the first subscription, which opens the Invoices tab, and the
+   monthly recurring revenue with its renewal date, which opens the Billing events tab. The React users tile's coloured
+   bar is left out: the counts beside it carry the same figures as text. A failed read of the counts turns the users
+   tile into the compact failed state, whose Try again reads the counts again. *@
 @implements IDisposable
 @inject IServiceProvider Services
 

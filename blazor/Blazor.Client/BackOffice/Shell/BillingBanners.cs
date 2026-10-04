@@ -40,7 +40,8 @@ public sealed record BillingBannerSummary(int? DriftCount, int? UnsyncedCount, D
     public BillingBannerSummary With(
         ApiCallResult<BillingDriftSummaryResponse> drift,
         ApiCallResult<UnsyncedSubscriptionsSummaryResponse> unsynced,
-        ApiCallResult<DashboardMrrConsistencySummaryResponse> mrrConsistency)
+        ApiCallResult<DashboardMrrConsistencySummaryResponse> mrrConsistency
+    )
     {
         return new BillingBannerSummary(
             drift.IsSuccess ? drift.Value.SubscriptionsWithDriftCount : DriftCount,

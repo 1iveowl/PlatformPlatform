@@ -1,9 +1,10 @@
-@* The error page's content, the React edition's ErrorPage, for an ErrorPageView decided by StatusPageModel. A session error
-   keeps its title, text and login link. A refused external login, signup or identity verification shows the React edition's
-   title and message for its code, its actions (log in, sign up or back to profile) and the reference id of the refused attempt. The code is recorded on the message
-   only when it is a known one, and every value renders as encoded text. A failure offers Try again, which returns to the page that failed, Go to home and
-   Show details, a native disclosure so it works without a runtime: the exception message and stack in Development, the
-   reference id elsewhere. The same markup renders in the public layout and inside the shell. *@
+@* The error page's content, the React edition's ErrorPage, for an ErrorPageView decided by StatusPageModel. A session
+   error keeps its title, text and login link. A refused external login, signup or identity verification shows the React
+   edition's title and message for its code, its actions (log in, sign up or back to profile) and the reference id of
+   the refused attempt. The code is recorded on the message only when it is a known one, and every value renders as
+   encoded text. A failure offers Try again, which returns to the page that failed, Go to home and Show details, a
+   native disclosure so it works without a runtime: the exception message and stack in Development, the reference id
+   elsewhere. The same markup renders in the public layout and inside the shell. *@
 
 <section class="status-page" data-testid="error-page">
     @if (View.Session is { } session)

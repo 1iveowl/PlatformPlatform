@@ -5,13 +5,13 @@
 @using Blazor.Client.BackOffice.Shared
 @implements IDisposable
 @* The feature flag detail's information section, the React back office's FeatureFlagInfoSection, PlanFeatureFlagInfoSection
-   and the orphaned and deleted notices of the detail page: the flag's key, scope, required plan, enabled dates, deleted date
-   and rollout, and the admin actions on the flag itself. An identity in the admins group is offered Activate or Deactivate on
-   a kill-switch flag, the rollout percentage on such a flag that is an A/B test, and Delete on an orphaned flag
-   (FeatureFlagDetail.IsOffered); the account API refuses each for anyone else. Activate, Deactivate and Delete ask first in a
-   confirmation that names the flag and its scope. The percentage is a whole number from 0 to 100, checked before the call,
-   and a refusal the account API still sends lands on the field. Every action reports its outcome and then has the owner read
-   the flags again, whatever the answer, so the section shows the account API's state and never one the page assumed. *@
+   and the orphaned and deleted notices of the detail page, with the admin actions on the flag itself. An identity in the
+   admins group is offered Activate or Deactivate on a kill-switch flag, the rollout percentage on such a flag that is an
+   A/B test, and Delete on an orphaned flag (FeatureFlagDetail.IsOffered); the account API refuses each for anyone else.
+   Activate, Deactivate and Delete ask first in a confirmation that names the flag and its scope. The percentage is a whole
+   number from 0 to 100, checked before the call, and a refusal the account API still sends lands on the field. Every
+   action reports its outcome and then has the owner read the flags again, whatever the answer, so the section shows the
+   account API's state and never one the page assumed. *@
 @inject IServiceProvider Services
 
 <section class="account-detail-section" aria-labelledby="feature-flag-info-heading" data-testid="feature-flag-info" data-active="@(Flag.IsActive ? "true" : "false")">

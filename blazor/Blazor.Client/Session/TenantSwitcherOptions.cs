@@ -1,5 +1,6 @@
-// What the header's tenant switcher shows, matching the React edition's TenantSwitcher: it is hidden for a user with one
-// tenant, lists every tenant by name with the current one and a pending invitation marked, and names a tenant without a name with a placeholder.
+// What the header's tenant switcher shows, matching the React edition's TenantSwitcher: it is hidden for a user with
+// one tenant, lists every tenant by name with the current one and a pending invitation marked, and names a tenant
+// without a name with a placeholder.
 
 using Account.Features.Tenants.Queries;
 using SharedKernel.Domain;

@@ -24,9 +24,10 @@ public sealed record UserMenuItem(
 );
 
 // The items of the shell's user menu, matching the React edition's UserMenuDropdownContent: Profile, Preferences, the
-// change theme group (System, Light and Dark, the current mode checked), the switch account group for a user with more than one tenant (the current tenant marked and not selectable), Account
-// settings for an Owner or an Admin, and Log out. While a session transition runs, the tenants and Log out are disabled
-// so a second transition cannot start; SessionTransition stays the authority that serializes them.
+// change theme group (System, Light and Dark, the current mode checked), the switch account group for a user with more
+// than one tenant (the current tenant marked and not selectable), Account settings for an Owner or an Admin, and Log
+// out. While a session transition runs, the tenants and Log out are disabled so a second transition cannot start;
+// SessionTransition stays the authority that serializes them.
 public static class UserMenuModel
 {
     public static IReadOnlyList<UserMenuItem> Create(string? role, IReadOnlyCollection<TenantSwitcherOption> tenants, bool isTransitionBusy, ThemeMode currentTheme = ThemeMode.System)

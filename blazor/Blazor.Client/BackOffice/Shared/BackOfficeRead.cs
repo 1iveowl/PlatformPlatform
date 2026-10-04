@@ -55,7 +55,8 @@ public sealed class BackOfficeRead<TValue>(bool isNotFoundOn404 = false) : IDisp
     public Task<ApiCallResult<TResponse>?> LoadAsync<TResponse>(
         Func<CancellationToken, Task<ApiCallResult<TResponse>>> read,
         Func<TResponse, TValue?> select,
-        ApiFailurePresenter presenter)
+        ApiFailurePresenter presenter
+    )
     {
         Status = BackOfficeReadStatus.Loading;
         Value = default;
@@ -67,7 +68,8 @@ public sealed class BackOfficeRead<TValue>(bool isNotFoundOn404 = false) : IDisp
     public Task<ApiCallResult<TResponse>?> RefreshAsync<TResponse>(
         Func<CancellationToken, Task<ApiCallResult<TResponse>>> read,
         Func<TResponse, TValue?> select,
-        ApiFailurePresenter presenter)
+        ApiFailurePresenter presenter
+    )
     {
         return ReadAsync(read, select, presenter, false);
     }
@@ -76,7 +78,8 @@ public sealed class BackOfficeRead<TValue>(bool isNotFoundOn404 = false) : IDisp
         Func<CancellationToken, Task<ApiCallResult<TResponse>>> read,
         Func<TResponse, TValue?> select,
         ApiFailurePresenter presenter,
-        bool isLoad)
+        bool isLoad
+    )
     {
         if (_disposed) return null;
 

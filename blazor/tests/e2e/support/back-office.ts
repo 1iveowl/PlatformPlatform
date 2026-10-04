@@ -26,7 +26,7 @@ export function blazorBackOfficeUrl(route: string): string {
 }
 
 /**
- * The back-office identity check below the dashboard, the stage G spike's placeholder page
+ * The back-office identity check below the dashboard
  */
 export const backOfficeIdentityRoute = "back-office/identity";
 

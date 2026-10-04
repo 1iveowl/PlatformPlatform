@@ -40,7 +40,8 @@ public static class DataListLoader
         DataListState state,
         int pageSize,
         DataListFetch<TItem> fetch,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var token = cache.BeginFetch(scope, listId);
         var queryKey = state.QueryKey;

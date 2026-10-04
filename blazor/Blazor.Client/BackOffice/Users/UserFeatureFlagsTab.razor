@@ -3,11 +3,12 @@
 @using Account.Features.FeatureFlags.Queries
 @using Blazor.Client.BackOffice.Accounts
 @using SharedKernel.Domain
-@* The user detail's Feature flags tab, the React back office's UserFeatureFlagsSection, read-only: the user-scoped flags from
-   GET /api/back-office/users/{id}/feature-flags on DataList under the flags prefix (UserFeatureFlagsListSource), and the empty
-   state when none is defined. Where the React tab has an override switch this tab states whether the flag is on for the user
-   and whether a manual override decides it; the React rows open the back office's flag page, while here the rows are not
-   activated and the flag page is reached from the feature flag list. A failed read shows the failed state, whose Try again reads the same user's flags again. *@
+@* The user detail's Feature flags tab, the React back office's UserFeatureFlagsSection, read-only: the user-scoped
+   flags from GET /api/back-office/users/{id}/feature-flags on DataList under the flags prefix
+   (UserFeatureFlagsListSource), and the empty state when none is defined. Where the React tab has an override switch
+   this tab states whether the flag is on for the user and whether a manual override decides it; the React rows open the
+   back office's flag page, while here the rows are not activated and the flag page is reached from the feature flag
+   list. A failed read shows the failed state, whose Try again reads the same user's flags again. *@
 @implements IDisposable
 @inject IServiceProvider Services
 

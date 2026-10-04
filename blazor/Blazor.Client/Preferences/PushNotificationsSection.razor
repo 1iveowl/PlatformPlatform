@@ -1,15 +1,15 @@
 @* The notifications section of the preferences page: the permission this browser reports, a switch that subscribes or
-   unsubscribes this device, and a button that asks the account API for a test notification. The section renders only when
-   this deployment offers notifications, which is the push-notifications-enabled system flag and the VAPID public key the
-   bootstrap carries; with either missing the section is absent and the endpoints answer as if the feature were not there.
-   The switch state comes from what the browser and the account API report after a change, never from the click, so a
-   refused permission or a refused save leaves the state they report. A permission the user denied shows the sentence that
-   says where to change it, because only the browser can undo that. A subscription the user revoked in the browser settings
-   is removed from the account on the next visit: the browser no longer has it, or still holds it while the permission is
-   denied, as Safari does, and is then unsubscribed; the identifier this device stored is what says which row it was. The
-   switch itself is read from the account and not from the browser: a subscription this
-   browser holds for an account that left the device is not this account's, so the switch reads off for whoever signs in
-   next and that subscription is unsubscribed rather than shown as theirs. During prerender the section renders nothing,
+   unsubscribes this device, and a button that asks the account API for a test notification. The section renders only
+   when this deployment offers notifications, which is the push-notifications-enabled system flag and the VAPID public
+   key the bootstrap carries; with either missing the section is absent and the endpoints answer as if the feature were
+   not there. The switch state comes from what the browser and the account API report after a change, never from the
+   click, so a refused permission or a refused save leaves the state they report. A permission the user denied shows the
+   sentence that says where to change it, because only the browser can undo that. A subscription the user revoked in the
+   browser settings is removed from the account on the next visit: the browser no longer has it, or still holds it while
+   the permission is denied, as Safari does, and is then unsubscribed; the identifier this device stored is what says
+   which row it was. The switch itself is read from the account and not from the browser: a subscription this browser
+   holds for an account that left the device is not this account's, so the switch reads off for whoever signs in next
+   and that subscription is unsubscribed rather than shown as theirs. During prerender the section renders nothing,
    because only the browser knows any of this. *@
 @using Account.Client
 @using Account.Features.Authentication.Queries

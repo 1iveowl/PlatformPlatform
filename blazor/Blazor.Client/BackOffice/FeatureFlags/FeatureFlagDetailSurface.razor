@@ -3,17 +3,16 @@
 @using Blazor.Client.BackOffice.Shared
 @using Blazor.Client.BackOffice.Shell
 @using SharedKernel.FeatureFlags
-@* The back office's feature flag detail, the React back office's feature-flags/$flagKey page: the link back to the list, the
-   flag's name, status and description, and its information section with the admin actions on the flag itself
-   (FeatureFlagInfoSection), then the flag's tenants list for an account flag (a plan-managed flag's read-only) or its
-   users list for a user flag, each with its own prefixed URL state (FeatureFlagTenantOverrides, FeatureFlagUserOverrides). The flag is read from GET /api/back-office/feature-flags with IncludeDeleted, as React reads it,
-   and found by the URL's key (FeatureFlagDetail.Find); a key that names no flag shows the back office's not-found state
-   inside the shell. After an action the flags are read again in place, so the page shows the account API's state; a failed
-   read keeps what the page shows. Activation, rollout and deletion change every account's and user's effective state, so
-   after each action, whatever its answer or the read's, the mounted audience list drops its cached pages and reads its
-   current page again (FlagChanges); the list keeps its URL filters, sort and page. The flag loads in the browser; the host
-   prerenders the shell and the loading state. A failed first read shows the failed state, whose Try again reads the flags
-   again for the same key. *@
+@* The back office's feature flag detail, the React back office's feature-flags/$flagKey page. The flag is read from
+   GET /api/back-office/feature-flags with IncludeDeleted, as React reads it, and found by the URL's key
+   (FeatureFlagDetail.Find); a key that names no flag shows the back office's not-found state inside the shell. The tenants
+   list of an account flag (read-only for a plan-managed flag) and the users list of a user flag each keep their own
+   prefixed URL state. After an action the flags are read again in place, so the page shows the account API's state; a
+   failed read keeps what the page shows. Activation, rollout and deletion change every account's and user's effective
+   state, so after each action, whatever its answer or the read's, the mounted audience list drops its cached pages and
+   reads its current page again (FlagChanges); the list keeps its URL filters, sort and page. The flag loads in the
+   browser; the host prerenders the shell and the loading state. A failed first read shows the failed state, whose Try
+   again reads the flags again for the same key. *@
 @implements IDisposable
 @inject IServiceProvider Services
 

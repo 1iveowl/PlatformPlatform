@@ -7,7 +7,7 @@ namespace Blazor.Client.Components;
 public sealed record ViewportMatches(bool Small, bool Medium, bool Large, bool ExtraLarge, bool ExtraExtraLarge)
 {
     // What the server assumes while it renders or prerenders, and what the browser falls back to when the module cannot be
-    // imported: the widest viewport, where every surface keeps the docked, side-by-side layout it had before this pass
+    // imported: the widest viewport, where every surface keeps its docked, side-by-side layout
     public static ViewportMatches Widest { get; } = new(true, true, true, true, true);
 
     public bool Reaches(Breakpoint breakpoint)

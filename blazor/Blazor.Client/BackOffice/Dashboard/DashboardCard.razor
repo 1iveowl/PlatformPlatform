@@ -1,7 +1,8 @@
 @using Blazor.Client.BackOffice.Shared
-@* One card of the dashboard, the React back office's DashboardCardShell: the title, the subtitle a chart card states, the
-   view-all link a recent activity card has, and the loading text, the failed state with Try again, the empty state or the
-   content the card supplies. The link names the card it belongs to through aria-describedby, so four "View all" links stay distinguishable. *@
+@* One card of the dashboard, the React back office's DashboardCardShell: the title, the subtitle a chart card states,
+   the view-all link a recent activity card has, and the loading text, the failed state with Try again, the empty state
+   or the content the card supplies. The link names the card it belongs to through aria-describedby, so four "View all"
+   links stay distinguishable. *@
 
 <section class="dashboard-card" aria-labelledby="@TitleId" data-testid="@TestId" data-state="@State">
     <div class="dashboard-card-header">

@@ -1,12 +1,10 @@
-@* The shell every authenticated surface renders inside, the React edition's AppLayout with its side menu: the banner region
-   on top, the collapsible sidebar with the main navigation, the tenant and the user menu, the mobile menu below the small
-   breakpoint, and the main content with the transition alerts and the toasts. Tenants come from the tenants client after
-   the bootstrap read. Logout and the tenant switch run through SessionTransition, which serializes them, reconciles
-   uncertain outcomes and leaves the runtime with one full document navigation; the shell only renders its state. The
-   collapsed state and Ctrl+B or Cmd+B come from shell.js; the state is a data attribute, never a style. A theme chosen in
-   the user menu goes through DevicePreferences, which the preferences page shares, so both show the same mode. Once another
-   tab of this browser has ended the identity this runtime showed (AuthSyncCoordinator), the main content and the tenants
-   are dropped and only the non-dismissable reload dialog remains. *@
+@* The shell every authenticated surface renders inside, the React edition's AppLayout with its side menu. Tenants come from
+   the tenants client after the bootstrap read. Logout and the tenant switch run through SessionTransition, which
+   serializes them, reconciles uncertain outcomes and leaves the runtime with one full document navigation; the shell only
+   renders its state. The collapsed state and Ctrl+B or Cmd+B come from shell.js; the state is a data attribute, never a
+   style. A theme chosen in the user menu goes through DevicePreferences, which the preferences page shares, so both show
+   the same mode. Once another tab of this browser has ended the identity this runtime showed (AuthSyncCoordinator), the
+   main content and the tenants are dropped and only the non-dismissable reload dialog remains. *@
 @using Account.Client
 @using Blazor.Client.Bootstrap
 @using Blazor.Client.Session

@@ -3,10 +3,10 @@
 @using Blazor.Client.BackOffice.Accounts
 @using Blazor.Client.Sessions
 @using SharedKernel.Domain
-@* The user detail's Logins tab, the React back office's UserLoginHistorySection: every sign-in attempt of the last 30 days
-   from GET /api/back-office/users/{id}/login-history, email and external, on DataList with when it happened, the method and
-   the outcome. The history is read once and paged in memory under the logins prefix (UserLoginsListSource). A failed read shows the failed state, whose Try again
-   reads the same user's history again. *@
+@* The user detail's Logins tab, the React back office's UserLoginHistorySection: every sign-in attempt of the last 30
+   days from GET /api/back-office/users/{id}/login-history, email and external, on DataList with when it happened, the
+   method and the outcome. The history is read once and paged in memory under the logins prefix (UserLoginsListSource).
+   A failed read shows the failed state, whose Try again reads the same user's history again. *@
 @implements IDisposable
 @inject IServiceProvider Services
 
