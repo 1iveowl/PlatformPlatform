@@ -7,24 +7,13 @@
 // checks that the Development-only probe page is not reachable. Each run writes a JSON result file under
 // .workspace/blazor-tests/ and exits non-zero when a case fails.
 
-import { mkdirSync, readFileSync } from "node:fs";
-import { launchBrowser, redact, writeResult } from "./support/stack.mjs";
-import { createRequire } from "node:module";
-import path from "node:path";
+import { basePort, baseUrl, launchBrowser, newContext as newStackContext, observeErrors, parseArguments, pathBase, playwrightVersion, redact, runtimeRequestPattern, writeResult } from "./support/stack.mjs";
 
-const repositoryRoot = path.resolve(import.meta.dirname, "../..");
-const requireFromApplication = createRequire(path.join(repositoryRoot, "application/"));
-const playwright = requireFromApplication("playwright");
-const basePort = readFileSync(path.join(repositoryRoot, ".workspace/port.txt"), "utf8").trim();
-const baseUrl = `https://app.dev.localhost:${basePort}`;
 // The account API's back-office listener, which forwards the path base to the Blazor host (PortAllocation: base port + 1)
-const backOfficeUrl = `https://back-office.dev.localhost:${Number(basePort) + 1}`;
-const pathBase = "/blazor";
+const backOfficeUrl = `https://back-office.dev.localhost:${basePort + 1}`;
 const verificationCode = "UNLOCK";
 const interactiveTimeoutMs = 60_000;
 const mockProviderCookie = "__Test_Use_Mock_Provider";
-// The same pattern blazor/tests/support/stack.mjs uses to spot a WebAssembly runtime request
-const runtimeRequestPattern = /\/_framework\/(dotnet[^/]*\.js|[^/]*\.wasm|[^/]*\.dat|blazor\.boot\.json)(\?|$)/;
 // MitID is not a signup provider, so it has a login start and a verification start only
 const externalStarts = [
   { provider: "Google", flow: "login" },
@@ -34,9 +23,7 @@ const externalStarts = [
   { provider: "MitId", flow: "login" }
 ];
 
-const options = parseArguments(process.argv.slice(2));
-const resultsFolder = path.join(repositoryRoot, ".workspace/blazor-tests");
-mkdirSync(resultsFolder, { recursive: true });
+const options = parseArguments(process.argv.slice(2), { browser: "chromium", environment: "development" });
 
 // Through the shared launcher, which accepts the development certificate's public key by fingerprint in Chromium. Without
 // it Chromium refuses the service worker script over the development certificate and logs a console error the strict
@@ -47,7 +34,7 @@ const result = {
   browserVersion: browser.version(),
   environment: options.environment,
   culture: "en-US",
-  playwrightVersion: requireFromApplication("playwright/package.json").version,
+  playwrightVersion,
   baseUrl,
   startedAt: new Date().toISOString(),
   cases: {}
@@ -88,43 +75,18 @@ console.table(Object.entries(result.cases).map(([name, value]) => ({ case: name,
 console.log(`${options.browser} ${result.browserVersion} (${options.environment}): ${verdict.passed ? "passed" : `failed: ${verdict.failures.join(" ; ") || "a case failed"}`}\nResult file: ${verdict.resultFile}`);
 process.exitCode = verdict.passed ? 0 : 1;
 
-function parseArguments(argumentList) {
-  const parsed = { browser: "chromium", environment: "development" };
-  for (let index = 0; index < argumentList.length; index += 2) {
-    parsed[argumentList[index].replace(/^--/, "")] = argumentList[index + 1];
-  }
-  return parsed;
-}
-
 function outcome(details, failures) {
   return { passed: failures.length === 0, failures, ...details };
 }
 
-// An explicit locale: headless Chromium in the container otherwise reports "en-US@posix", which the .NET runtime rejects
-// as a culture name and aborts the WebAssembly start
-async function newContext(storageState) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true, locale: "en-US", storageState });
-  await context.addInitScript(() => {
-    window.__policyViolations = [];
-    document.addEventListener("securitypolicyviolation", (event) => {
-      window.__policyViolations.push({ effectiveDirective: event.effectiveDirective, blockedURI: event.blockedURI, sample: event.sample });
-    });
-  });
-  return context;
+// The shared en-US context, which collects every policy violation of a document in window.__policyViolations. Certificate
+// errors stay ignored in every browser, as in authenticated-surfaces.mjs: the launcher pins only the gateway's fingerprint
+// in Chromium, and this script also loads the back-office listener and follows the mock provider to other local origins.
+function newContext(storageState) {
+  return newStackContext(browser, options.browser, storageState, "en-US", { ignoreHTTPSErrors: true });
 }
 
-function observe(page) {
-  const observations = { consoleErrors: [], pageErrors: [], errorResponses: [] };
-  page.on("response", (response) => {
-    if (response.status() >= 400) observations.errorResponses.push(`${response.status()} ${response.url()}`);
-  });
-  page.on("console", (message) => {
-    if (message.type() === "error") observations.consoleErrors.push(message.text().slice(0, 400));
-  });
-  page.on("pageerror", (error) => observations.pageErrors.push(String(error.message).slice(0, 400)));
-  return observations;
-}
-
+// The violations of the page's current document, so a negative case judges only what it loaded itself
 function readViolations(page) {
   return page.evaluate(() => window.__policyViolations);
 }
@@ -146,6 +108,8 @@ function settle(page) {
   return page.waitForTimeout(1_000);
 }
 
+// This script's page verdict, kept apart from strictFailures in support/stack.mjs: violations, page errors and console
+// errors fail a page, while error responses are recorded in the details and left to the case that loads them
 function cleanPageFailures(label, violations, observations) {
   const failures = [];
   if (violations.length > 0) failures.push(`${label}: ${violations.length} violations`);
@@ -195,7 +159,7 @@ async function signUpThroughReact() {
 
 async function loadAndCheck(context, url, { interactive }) {
   const page = await context.newPage();
-  const observations = observe(page);
+  const observations = observeErrors(page);
   const response = await page.goto(url, { waitUntil: "load" });
   const becameInteractive = interactive ? await waitForInteractive(page) : null;
   await settle(page);
@@ -265,7 +229,7 @@ async function runDeeperRoute(account) {
 async function runEnhancedNavigation() {
   const context = await newContext();
   const page = await context.newPage();
-  const observations = observe(page);
+  const observations = observeErrors(page);
   await page.goto(`${baseUrl}${pathBase}/`, { waitUntil: "load" });
   await page.waitForFunction(() => window.Blazor !== undefined);
   // A full document load would drop this marker, so its survival proves the navigation was enhanced
@@ -453,7 +417,7 @@ async function runTheme(account) {
   const anonymous = await newContext();
   await anonymous.addInitScript(recordThemeAtBody);
   const publicPage = await anonymous.newPage();
-  const publicObservations = observe(publicPage);
+  const publicObservations = observeErrors(publicPage);
   await publicPage.goto(`${baseUrl}${pathBase}/`, { waitUntil: "load" });
   expectTheme("public default", await readTheme(publicPage), "light");
   await publicPage.getByRole("button", { name: "Change theme" }).click();
@@ -472,7 +436,7 @@ async function runTheme(account) {
   expectTheme("public enhanced navigation", await readTheme(publicPage), "dark", { atBody: false });
   await checkClean("public after reload and navigation", publicPage, publicObservations);
   const newTab = await anonymous.newPage();
-  const newTabObservations = observe(newTab);
+  const newTabObservations = observeErrors(newTab);
   await newTab.goto(`${baseUrl}${pathBase}/signup`, { waitUntil: "load" });
   expectTheme("public new tab", await readTheme(newTab), "dark");
   await checkClean("public new tab", newTab, newTabObservations);
@@ -481,7 +445,7 @@ async function runTheme(account) {
   const signedIn = await newContext(account.storageState);
   await signedIn.addInitScript(recordThemeAtBody);
   const appPage = await signedIn.newPage();
-  const appObservations = observe(appPage);
+  const appObservations = observeErrors(appPage);
   await appPage.goto(`${baseUrl}${pathBase}/app`, { waitUntil: "load" });
   if (!(await waitForInteractive(appPage))) failures.push("authenticated: did not turn interactive");
   expectTheme("authenticated default", await readTheme(appPage), "light");
@@ -522,7 +486,7 @@ async function runExternalLogin() {
     await context.addInitScript((mode) => localStorage.setItem("theme", mode), theme);
     await context.addCookies([{ name: mockProviderCookie, value: "true", url: baseUrl }]);
     const page = await context.newPage();
-    const observations = observe(page);
+    const observations = observeErrors(page);
     const assetResponses = [];
     page.on("response", (response) => {
       if (/\/(fonts|images)\//.test(new URL(response.url()).pathname)) assetResponses.push({ url: response.url(), status: response.status() });
@@ -644,7 +608,7 @@ async function runIdentityVerification() {
     await context.addInitScript((mode) => localStorage.setItem("theme", mode), theme);
     await context.addCookies([{ name: mockProviderCookie, value: identity, url: baseUrl }]);
     const page = await context.newPage();
-    const observations = observe(page);
+    const observations = observeErrors(page);
     await page.goto(profileUrl, { waitUntil: "load" });
     const ready = await page
       .locator(step === "verified" ? '[data-testid="identity-verification-verified"]' : '[data-testid="identity-verification-start"]')
@@ -714,7 +678,7 @@ async function runLegalPages() {
     await context.addCookies([{ name: "preferred-locale", value: locale, url: baseUrl, secure: true, sameSite: "Lax" }]);
     for (const route of ["legal", "legal/terms", "legal/privacy", "legal/dpa"]) {
       const page = await context.newPage();
-      const observations = observe(page);
+      const observations = observeErrors(page);
       const runtimeRequests = [];
       page.on("request", (request) => {
         if (runtimeRequestPattern.test(request.url())) runtimeRequests.push(request.url());
