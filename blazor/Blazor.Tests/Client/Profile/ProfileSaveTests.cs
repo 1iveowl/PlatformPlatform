@@ -26,7 +26,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Saved);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Saved);
         server.Steps.Should().Equal("upload", "put");
     }
 
@@ -40,7 +40,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Remove, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Saved);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Saved);
         server.Steps.Should().Equal("remove", "put");
     }
 
@@ -54,7 +54,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Keep, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Saved);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Saved);
         server.Steps.Should().Equal("put");
     }
 
@@ -71,7 +71,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.Failure.Should().BeSameAs(putFailure);
         outcome.AvatarSaved.Should().BeTrue();
         outcome.ProfileSaved.Should().BeFalse();
@@ -90,7 +90,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.AvatarSaved.Should().BeTrue();
         outcome.ProfileSaved.Should().BeFalse();
         server.Steps.Should().Equal("upload", "read");
@@ -107,7 +107,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.Failure.Should().BeSameAs(rejected);
         outcome.AvatarSaved.Should().BeFalse();
         outcome.ProfileSaved.Should().BeFalse();
@@ -125,7 +125,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Remove, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.AvatarSaved.Should().BeTrue();
         outcome.ProfileSaved.Should().BeTrue();
         server.Steps.Should().Equal("remove", "put", "read");
@@ -141,7 +141,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.AvatarSaved.Should().BeTrue();
         outcome.ProfileSaved.Should().BeFalse();
         outcome.ConfirmedUser.Should().BeNull();
@@ -157,7 +157,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Abandoned);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Abandoned);
         server.Steps.Should().Equal("upload");
     }
 
@@ -172,7 +172,7 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, abandoned.Token);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Abandoned);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Abandoned);
         server.Steps.Should().Equal("upload");
         server.UploadWasCancelled.Should().BeTrue();
     }
@@ -187,21 +187,30 @@ public sealed class ProfileSaveTests
         var outcome = await ProfileSave.RunAsync(ImageIntent.Upload, SavedAvatarUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(ProfileSaveStatus.Abandoned);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Abandoned);
         server.Steps.Should().Equal("upload");
     }
 
     [Theory]
-    [InlineData(ImageIntent.Upload, SavedAvatarUrl, NewAvatarUrl, true)]
-    [InlineData(ImageIntent.Upload, SavedAvatarUrl, SavedAvatarUrl, false)]
-    [InlineData(ImageIntent.Upload, null, null, false)]
-    [InlineData(ImageIntent.Upload, null, NewAvatarUrl, true)]
-    [InlineData(ImageIntent.Remove, SavedAvatarUrl, null, true)]
-    [InlineData(ImageIntent.Remove, SavedAvatarUrl, SavedAvatarUrl, false)]
-    public void IsAvatarConfirmed_ShouldCompareTheServerAvatarWithTheIntent(ImageIntent intent, string? savedAvatarUrl, string? serverAvatarUrl, bool expected)
+    [InlineData("Ada", "Lovelace", "Engineer", true)]
+    [InlineData("Grace", "Lovelace", "Engineer", false)]
+    [InlineData("Ada", "Hopper", "Engineer", false)]
+    [InlineData("Ada", "Lovelace", "", false)]
+    public void IsProfileConfirmed_ShouldCompareEveryStoredProfileFieldWithTheIntendedProfile(string firstName, string lastName, string title, bool expected)
     {
         // Act and Assert
-        ProfileSave.IsAvatarConfirmed(intent, savedAvatarUrl, serverAvatarUrl).Should().Be(expected);
+        ProfileSave.IsProfileConfirmed(Intended, User(firstName, lastName, title, null)).Should().Be(expected);
+    }
+
+    [Fact]
+    public void IsProfileConfirmed_WhenTheStoredFieldsAreNullAndTheIntendedFieldsEmpty_ShouldConfirm()
+    {
+        // Arrange
+        var intended = new ProfileForm { FirstName = "", LastName = "", Title = null };
+        var stored = new CurrentUserResponse(new UserId("usr_01JZ8Q4N6V3K2M7P9R5T0W1XYZ"), DateTimeOffset.UnixEpoch, null, "ada@example.com", UserRole.Owner, null, null, null, null);
+
+        // Act and Assert
+        ProfileSave.IsProfileConfirmed(intended, stored).Should().BeTrue();
     }
 
     private static ApiCallResult Failure(int statusCode)

@@ -158,10 +158,10 @@
         var intent = _avatar.Intent;
         var intended = _form.Trimmed();
         var outcome = await ProfileSave.RunAsync(intent, _user.AvatarUrl, intended, CreateSaveCalls(intended), _disposed.Token);
-        if (outcome.Status == ProfileSaveStatus.Abandoned) return;
+        if (outcome.Status == ImageThenDetailsSaveStatus.Abandoned) return;
 
         _isSaving = false;
-        if (outcome.Status == ProfileSaveStatus.Saved)
+        if (outcome.Status == ImageThenDetailsSaveStatus.Saved)
         {
             await CompleteSaveAsync(intent, intended);
             return;

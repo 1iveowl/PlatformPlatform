@@ -178,10 +178,10 @@
         var intent = _logo.Intent;
         var intended = _form.Copy();
         var outcome = await AccountSettingsSave.RunAsync(intent, _tenant.LogoUrl, intended, CreateSaveCalls(intended), _disposed.Token);
-        if (outcome.Status == AccountSettingsSaveStatus.Abandoned) return;
+        if (outcome.Status == ImageThenDetailsSaveStatus.Abandoned) return;
 
         _isSaving = false;
-        if (outcome.Status == AccountSettingsSaveStatus.Saved)
+        if (outcome.Status == ImageThenDetailsSaveStatus.Saved)
         {
             await CompleteSaveAsync(intent, intended);
             return;

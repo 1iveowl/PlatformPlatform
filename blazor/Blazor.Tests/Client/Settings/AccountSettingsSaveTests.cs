@@ -28,7 +28,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Saved);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Saved);
         server.Steps.Should().Equal("upload", "put");
     }
 
@@ -42,7 +42,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Remove, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Saved);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Saved);
         server.Steps.Should().Equal("remove", "put");
     }
 
@@ -56,7 +56,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Keep, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Saved);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Saved);
         server.Steps.Should().Equal("put");
     }
 
@@ -73,7 +73,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.Failure.Should().BeSameAs(putFailure);
         outcome.LogoSaved.Should().BeTrue();
         outcome.NameSaved.Should().BeFalse();
@@ -92,7 +92,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.LogoSaved.Should().BeTrue();
         outcome.NameSaved.Should().BeFalse();
         server.Steps.Should().Equal("upload", "read");
@@ -109,7 +109,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.Failure.Should().BeSameAs(rejected);
         outcome.LogoSaved.Should().BeFalse();
         outcome.NameSaved.Should().BeFalse();
@@ -127,7 +127,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Remove, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.LogoSaved.Should().BeTrue();
         outcome.NameSaved.Should().BeTrue();
         server.Steps.Should().Equal("remove", "put", "read");
@@ -143,7 +143,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.LogoSaved.Should().BeTrue();
         outcome.NameSaved.Should().BeFalse();
         outcome.ConfirmedTenant.Should().BeNull();
@@ -159,7 +159,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Abandoned);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Abandoned);
         outcome.LogoSaved.Should().BeFalse();
         outcome.NameSaved.Should().BeFalse();
         server.Steps.Should().Equal("upload");
@@ -176,7 +176,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, abandoned.Token);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Abandoned);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Abandoned);
         server.Steps.Should().Equal("upload");
         server.UploadWasCancelled.Should().BeTrue();
     }
@@ -191,7 +191,7 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Upload, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Abandoned);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Abandoned);
         server.Steps.Should().Equal("upload");
     }
 
@@ -206,23 +206,9 @@ public sealed class AccountSettingsSaveTests
         var outcome = await AccountSettingsSave.RunAsync(ImageIntent.Keep, SavedLogoUrl, Intended, server.Calls, CancellationToken.None);
 
         // Assert
-        outcome.Status.Should().Be(AccountSettingsSaveStatus.Failed);
+        outcome.Status.Should().Be(ImageThenDetailsSaveStatus.Failed);
         outcome.NameSaved.Should().BeFalse();
         outcome.Failure!.Problem!.Detail.Should().Be("Only owners are allowed to update tenant information.");
-    }
-
-    [Theory]
-    [InlineData(ImageIntent.Upload, SavedLogoUrl, NewLogoUrl, true)]
-    [InlineData(ImageIntent.Upload, SavedLogoUrl, SavedLogoUrl, false)]
-    [InlineData(ImageIntent.Upload, null, null, false)]
-    [InlineData(ImageIntent.Upload, null, NewLogoUrl, true)]
-    [InlineData(ImageIntent.Remove, SavedLogoUrl, null, true)]
-    [InlineData(ImageIntent.Remove, SavedLogoUrl, SavedLogoUrl, false)]
-    [InlineData(ImageIntent.Keep, SavedLogoUrl, SavedLogoUrl, true)]
-    public void IsLogoConfirmed_ShouldCompareTheServerLogoWithTheIntent(ImageIntent intent, string? savedLogoUrl, string? serverLogoUrl, bool expected)
-    {
-        // Act and Assert
-        AccountSettingsSave.IsLogoConfirmed(intent, savedLogoUrl, serverLogoUrl).Should().Be(expected);
     }
 
     [Theory]
