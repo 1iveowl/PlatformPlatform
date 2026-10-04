@@ -12,7 +12,8 @@
 // - Checks 1 to 7, 5b, 9, 10 and 11, and every back-office surface and app page at desktop and phone width.
 // - Check 8, the admin write through the Blazor back office: a user override of the flag on the target user, seen on the
 //   app edition's preferences page, the same write refused with 403 for the non-admin, then the state before restored
-//   exactly, also when a step fails or the run is interrupted (a pending-restore file outside the repository).
+//   exactly, also when a step fails, a context fails to close or the run is interrupted (a pending-restore file outside
+//   the repository, which names the target it restores; see support/override-recovery.mjs).
 // - The non-admin checks: no write offered on the flag detail, and check 3 under that identity.
 // - Checks 3b and 3c from a Container Apps job created from staging/probe-job.yaml and deleted again, only after the owner
 //   approves that run on the terminal; without the approval they are recorded as not run.
@@ -34,6 +35,7 @@ import os from "node:os";
 import path from "node:path";
 import { ask, captureSession, createAzure, identities, reconcileAppSession, recordResponse, sessionStore, verifyStoredSession } from "./support/deployed.mjs";
 import { newContext, parseArguments, pathBase, playwright, readEndpointManifest, redact, repositoryRoot, writeResult } from "./support/stack.mjs";
+import { createOverrideRecovery } from "./support/override-recovery.mjs";
 import { appSurfaces, backOfficeSurfaces, checkSurfaces, readBackOfficeIds, settleAndClosePages, surfaceViewports } from "./support/surfaces.mjs";
 
 // An error nobody caught is printed through redact: the automation library's call log lists the request's cookie header,
@@ -224,125 +226,87 @@ function finish(extra = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// The admin write's restore, which also runs for a leftover from an interrupted run
+// The admin write's target and its restore (support/override-recovery.mjs), which also runs for a leftover from an
+// interrupted run
 
-async function readUserFlag(userId, tenantId) {
+async function fetchUserFlags(userId) {
   const answer = await send("admin", "GET", `${backOfficeUrl}/api/back-office/users/${encodeURIComponent(userId)}/feature-flags`, { headers: { Accept: "application/json" } });
   assert(answer.status === 200, `GET the user's flags answered ${answer.status}.`);
-  const entry = JSON.parse(answer.body).flags.find((flag) => flag.flagKey === flagKey && String(flag.tenantId) === String(tenantId));
-  assert(entry !== undefined, `The user ${userId} has no ${flagKey} row for account ${tenantId}.`);
-  return { isEnabled: entry.isEnabled, source: entry.source };
+  return JSON.parse(answer.body).flags;
 }
 
-const sameFlagState = (left, right) => left.isEnabled === right.isEnabled && left.source === right.source;
-
-// The flag detail's users list, searched for the target user in every state, and the row keys (user id and account id) of
-// that user. The list shows only users with the flag enabled unless told otherwise (FeatureFlagOverrides.DefaultStateFilter),
+// The flag detail's users list, searched for the user in every state, and the row keys (user id and account id) of that
+// user. The list shows only users with the flag enabled unless told otherwise (FeatureFlagOverrides.DefaultStateFilter),
 // so a user with the flag disabled, the state a write changes and a restore returns to, has no row under the default. The
 // filters go in the URL the list reads them from (FeatureFlagUsersListSource.StateParameter and SearchParameter).
-async function openOverrideList(page) {
-  const filters = new URLSearchParams({ usersState: "All", usersSearch: appUserEmail });
-  await page.goto(`${backOfficeUrl}${pathBase}/back-office/feature-flags/${encodeURIComponent(flagKey)}?${filters}`, { waitUntil: "load" });
+async function openOverrideList(page, { flagKey: listFlagKey, email }) {
+  const filters = new URLSearchParams({ usersState: "All", usersSearch: email });
+  await page.goto(`${backOfficeUrl}${pathBase}/back-office/feature-flags/${encodeURIComponent(listFlagKey)}?${filters}`, { waitUntil: "load" });
   await waitForBackOffice(page);
   await page.waitForFunction(
-    (email) => {
+    (searched) => {
       const list = document.querySelector('.data-list[data-testid="feature-flag-users-grid"]');
-      const rows = [...document.querySelectorAll('[data-testid^="feature-flag-user-override-"]')].filter((element) => element.closest("tr")?.textContent?.includes(email));
+      const rows = [...document.querySelectorAll('[data-testid^="feature-flag-user-override-"]')].filter((element) => element.closest("tr")?.textContent?.includes(searched));
       return list?.getAttribute("data-list-state") !== "loading" && rows.length > 0;
     },
-    appUserEmail,
+    email,
     { timeout: interactiveTimeoutMs }
   );
   return page.locator('[data-testid^="feature-flag-user-override-"]').evaluateAll(
-    (switches, email) =>
+    (switches, searched) =>
       switches
-        .filter((element) => element.closest("tr")?.textContent?.includes(email) && !element.getAttribute("data-testid").endsWith("-manual"))
+        .filter((element) => element.closest("tr")?.textContent?.includes(searched) && !element.getAttribute("data-testid").endsWith("-manual"))
         .map((element) => element.getAttribute("data-testid").replace("feature-flag-user-override-", "")),
-    appUserEmail
+    email
   );
 }
 
-// The switch of the one row of the target's account on the flag detail's users list
-async function openOverrideRow(page, userId, tenantId) {
-  await openOverrideList(page);
-  const toggle = page.locator(`[data-testid="feature-flag-user-override-${userId}-${tenantId}"]`);
+// The one row of the target's account on the flag detail's users list, with its switch and its remove-override action
+async function openOverrideRow(page, target) {
+  await openOverrideList(page, target);
+  const toggle = page.locator(`[data-testid="feature-flag-user-override-${target.userId}-${target.tenantId}"]`);
   await toggle.waitFor({ timeout: interactiveTimeoutMs });
-  return toggle;
-}
-
-async function waitForFlagChange(userId, tenantId, from) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const current = await readUserFlag(userId, tenantId);
-    if (!sameFlagState(current, from)) return current;
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
-  }
-  throw new Error(`The ${flagKey} override of ${userId} did not change from ${JSON.stringify(from)} within 30 s.`);
-}
-
-// Puts the target's override back to the recorded state through the same UI: a removed override when there was none, the
-// switch otherwise, whose press follows FeatureFlagOverrides.GetSwitchChange. Bounded, and verified against the API.
-async function restoreOverride(pending) {
-  const { userId, tenantId, before } = pending;
-  const { context, close } = await openContext("admin");
-  try {
-    const page = await context.newPage();
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const current = await readUserFlag(userId, tenantId);
-      if (sameFlagState(current, before)) {
-        store.clearPendingRestore();
-        return current;
-      }
-      const toggle = await openOverrideRow(page, userId, tenantId);
-      if (before.source !== "manual_override" && current.source === "manual_override") {
-        const row = page.locator("tr", { has: toggle });
-        await row.locator('[data-testid="feature-flag-user-actions"]').click();
-        await page.locator('[data-testid="feature-flag-user-remove-override"]').click();
-      } else {
-        await toggle.click();
-      }
-      await waitForFlagChange(userId, tenantId, current);
+  const row = page.locator("tr", { has: toggle });
+  return {
+    testId: await toggle.getAttribute("data-testid"),
+    text: await row.textContent(),
+    toggle: () => toggle.click(),
+    removeOverride: async () => {
+      await row.locator('[data-testid="feature-flag-user-actions"]').click();
+      await page.locator('[data-testid="feature-flag-user-remove-override"]').click();
     }
-    const current = await readUserFlag(userId, tenantId);
-    assert(sameFlagState(current, before), `The ${flagKey} override of ${userId} in account ${tenantId} is ${JSON.stringify(current)}, not the recorded ${JSON.stringify(before)}.`);
-    store.clearPendingRestore();
-    return current;
-  } finally {
-    await close();
-  }
+  };
 }
 
-// An interrupt while the override is changed restores it before the process ends; the pending-restore file covers a run
-// that is killed outright, and the next run restores it first
+const recovery = createOverrideRecovery({
+  store,
+  backOfficeHost,
+  current: { flagKey, email: appUserEmail },
+  fetchUserFlags,
+  openSession: async () => {
+    const { context, close } = await openContext("admin");
+    return { newPage: () => context.newPage(), close };
+  },
+  openRow: openOverrideRow
+});
+
+// An interrupt while the override is changed restores it before the process ends, after whatever write or restore is
+// running; the pending-restore file covers a run that is killed outright or interrupted twice, and the next run restores it
+// first
 let interrupted = false;
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, async () => {
     if (interrupted) process.exit(130);
     interrupted = true;
-    const pending = store.readPendingRestore();
-    if (pending !== undefined) {
-      console.log(`Interrupted: restoring the ${pending.flagKey} override of ${pending.email} to ${JSON.stringify(pending.before)}...`);
-      try {
-        console.log(`Restored: ${JSON.stringify(await restoreOverride(pending))}.`);
-      } catch (error) {
-        console.log(`The restore failed: ${error.message}. The state to restore is in ${store.pendingRestoreFile}; the next run restores it first.`);
-      }
-    }
+    await recovery.interrupt();
     await browser.close().catch(() => undefined);
     process.exit(130);
   });
 }
 
-const leftover = store.readPendingRestore();
-if (leftover !== undefined) {
-  console.log(`An earlier run left the ${leftover.flagKey} override of ${leftover.email} changed; the state before it was ${JSON.stringify(leftover.before)}.`);
-  const answer = await ask("Restore it now, before the checks? [y/N] ");
-  if (answer?.toLowerCase() !== "y") {
-    console.log(`No check ran. The state to restore is in ${store.pendingRestoreFile}.`);
-    await browser.close();
-    process.exit(1);
-  }
-  console.log(`Restored: ${JSON.stringify(await restoreOverride(leftover))}.`);
+if (["declined", "failed"].includes(await recovery.resumeLeftover(ask))) {
+  await browser.close();
+  process.exit(1);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -672,77 +636,64 @@ async function readPreferencesSwitch() {
 
 const writeCheckName = `Antiforgery write: the admin sets a ${flagKey} override on ${appUserEmail}, the app edition shows it, the non-admin is refused, and the state before is restored`;
 if (options["without-write"] === true) notRun("8", writeCheckName, "left out of this run with --without-write");
-else await check("8", writeCheckName, async (requests) => {
-  const { context, close } = await openContext("admin");
-  let pending;
-  let outcome;
-  let failure;
-  try {
-    // The preferences page lists only user-configurable flags whose base row is active (GetUserConfigurableFeatureFlags),
-    // so a flag that is neither can never show the override there. Observed on staging on 2026-10-01: experimental-ui is not
-    // user-configurable, and compact-view was inactive until the owner had it activated that day.
-    const flags = await send("admin", "GET", `${backOfficeUrl}/api/back-office/feature-flags?IncludeDeleted=false`, { headers: { Accept: "application/json" } });
-    assert(flags.status === 200, `GET the flags answered ${flags.status}.`);
-    const flag = JSON.parse(flags.body).flags.find((candidate) => candidate.key === flagKey);
-    assert(flag?.configurableByUser === true && flag.isActive === true, `The ${flagKey} flag must be user-configurable and active for its override to show on the preferences page; it is ${JSON.stringify({ configurableByUser: flag?.configurableByUser, isActive: flag?.isActive })}. Nothing was written.`);
+else await check("8", writeCheckName, (requests) =>
+  recovery.runWrite({
+    write: async (session, { readFlag, waitForFlagChange, record, mutate }) => {
+      // The preferences page lists only user-configurable flags whose base row is active (GetUserConfigurableFeatureFlags),
+      // so a flag that is neither can never show the override there. Observed on staging on 2026-10-01: experimental-ui is not
+      // user-configurable, and compact-view was inactive until the owner had it activated that day.
+      const flags = await send("admin", "GET", `${backOfficeUrl}/api/back-office/feature-flags?IncludeDeleted=false`, { headers: { Accept: "application/json" } });
+      assert(flags.status === 200, `GET the flags answered ${flags.status}.`);
+      const flag = JSON.parse(flags.body).flags.find((candidate) => candidate.key === flagKey);
+      assert(flag?.configurableByUser === true && flag.isActive === true, `The ${flagKey} flag must be user-configurable and active for its override to show on the preferences page; it is ${JSON.stringify({ configurableByUser: flag?.configurableByUser, isActive: flag?.isActive })}. Nothing was written.`);
 
-    const page = await context.newPage();
-    const rows = await openOverrideList(page);
-    const candidates = rows.filter((key) => options["tenant-id"] === undefined || key.endsWith(`-${options["tenant-id"]}`));
-    assert(candidates.length === 1, `${appUserEmail} has ${candidates.length} rows on the ${flagKey} flag (${rows.join(", ")}); name the account with --tenant-id.`);
-    const key = candidates[0];
-    const userId = key.slice(0, key.lastIndexOf("-"));
-    const tenantId = key.slice(key.lastIndexOf("-") + 1);
+      const page = await session.newPage();
+      const rows = await openOverrideList(page, { flagKey, email: appUserEmail });
+      const candidates = rows.filter((key) => options["tenant-id"] === undefined || key.endsWith(`-${options["tenant-id"]}`));
+      assert(candidates.length === 1, `${appUserEmail} has ${candidates.length} rows on the ${flagKey} flag (${rows.join(", ")}); name the account with --tenant-id.`);
+      const key = candidates[0];
+      const userId = key.slice(0, key.lastIndexOf("-"));
+      const tenantId = key.slice(key.lastIndexOf("-") + 1);
+      const target = { flagKey, email: appUserEmail, userId, tenantId };
 
-    const before = await readUserFlag(userId, tenantId);
-    const preferencesBefore = await readPreferencesSwitch();
-    pending = { flagKey, email: appUserEmail, userId, tenantId, before, recordedAt: new Date().toISOString() };
-    store.writePendingRestore(pending);
+      const before = await readFlag(target);
+      const preferencesBefore = await readPreferencesSwitch();
+      record(target, before);
 
-    const toggle = await openOverrideRow(page, userId, tenantId);
-    const written = page.waitForResponse((response) => response.url().includes(`/feature-flags/${flagKey}/user-override`) && response.request().method() !== "GET");
-    await toggle.click();
-    const writeResponse = await written;
-    requests.push({ method: writeResponse.request().method(), url: writeResponse.url(), status: writeResponse.status(), source: "the Blazor back office's override switch" });
-    assert(writeResponse.status() >= 200 && writeResponse.status() < 300, `The admin's write answered ${writeResponse.status()}.`);
-    const after = await waitForFlagChange(userId, tenantId, before);
+      const row = await openOverrideRow(page, target);
+      const writeResponse = await mutate(async () => {
+        const written = page.waitForResponse((response) => response.url().includes(`/feature-flags/${flagKey}/user-override`) && response.request().method() !== "GET");
+        await row.toggle();
+        return written;
+      });
+      requests.push({ method: writeResponse.request().method(), url: writeResponse.url(), status: writeResponse.status(), source: "the Blazor back office's override switch" });
+      assert(writeResponse.status() >= 200 && writeResponse.status() < 300, `The admin's write answered ${writeResponse.status()}.`);
+      const after = await waitForFlagChange(target, before);
 
-    const preferencesAfter = await readPreferencesSwitch();
-    assert(preferencesAfter === String(after.isEnabled), `The app edition's preferences show ${flagKey} as ${preferencesAfter}; the override is ${after.isEnabled}.`);
+      const preferencesAfter = await readPreferencesSwitch();
+      assert(preferencesAfter === String(after.isEnabled), `The app edition's preferences show ${flagKey} as ${preferencesAfter}; the override is ${after.isEnabled}.`);
 
-    // The same write as the non-admin, with the value now set, so an accepted write would change nothing
-    const refused = await withPage("non-admin", `${backOfficeUrl}${pathBase}/back-office`, (nonAdminPage) =>
-      nonAdminPage.evaluate(
-        async ({ key: flag, body }) => {
-          const response = await fetch(`/api/back-office/feature-flags/${flag}/user-override`, { method: "PUT", body, headers: { "content-type": "application/json" } });
-          return response.status;
-        },
-        { key: flagKey, body: JSON.stringify({ userId, tenantId: Number(tenantId), enabled: after.isEnabled }) }
-      )
-    );
-    requests.push({ method: "PUT", url: `${backOfficeUrl}/api/back-office/feature-flags/${flagKey}/user-override`, status: refused, identity: "non-admin" });
-    assert(refused === 403, `The non-admin's same write answered ${refused}.`);
-    outcome = { userId, tenantId, before, after, preferencesBefore, preferencesAfter, nonAdminWrite: refused };
-  } catch (error) {
-    failure = error;
-  }
-  await close();
-
-  // The restore runs whatever happened above, and a failure of either is reported with the other
-  if (pending !== undefined) {
-    try {
-      const restored = await restoreOverride(pending);
+      // The same write as the non-admin, with the value now set, so an accepted write would change nothing
+      const refused = await withPage("non-admin", `${backOfficeUrl}${pathBase}/back-office`, (nonAdminPage) =>
+        nonAdminPage.evaluate(
+          async ({ key: flag, body }) => {
+            const response = await fetch(`/api/back-office/feature-flags/${flag}/user-override`, { method: "PUT", body, headers: { "content-type": "application/json" } });
+            return response.status;
+          },
+          { key: flagKey, body: JSON.stringify({ userId, tenantId: Number(tenantId), enabled: after.isEnabled }) }
+        )
+      );
+      requests.push({ method: "PUT", url: `${backOfficeUrl}/api/back-office/feature-flags/${flagKey}/user-override`, status: refused, identity: "non-admin" });
+      assert(refused === 403, `The non-admin's same write answered ${refused}.`);
+      return { userId, tenantId, before, after, preferencesBefore, preferencesAfter, nonAdminWrite: refused };
+    },
+    afterRestore: async (restored) => {
       const preferencesRestored = await readPreferencesSwitch();
-      if (outcome !== undefined) Object.assign(outcome, { restored, preferencesRestored });
       assert(preferencesRestored === String(restored.isEnabled), `After the restore the preferences show ${preferencesRestored}; the flag is ${restored.isEnabled}.`);
-    } catch (error) {
-      const restoreFailure = `The restore failed: ${error.message} The state before is in ${store.pendingRestoreFile}; the next run restores it first.`;
-      throw new Error(failure === undefined ? restoreFailure : `${failure.message} ${restoreFailure}`);
+      return { preferencesRestored };
     }
-  }
-  if (failure !== undefined) throw failure;
-  return outcome;
-});
+  })
+);
 
 await check("8-non-admin", `No write offered to the non-admin on the ${flagKey} flag detail`, () =>
   withPage("non-admin", `${backOfficeUrl}${pathBase}/back-office/feature-flags/${encodeURIComponent(flagKey)}`, async (page) => {
